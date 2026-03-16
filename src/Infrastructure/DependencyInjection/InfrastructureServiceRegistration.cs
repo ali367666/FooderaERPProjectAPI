@@ -8,7 +8,6 @@ public static class InfrastructureServiceRegistration
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
         services.AddScoped<ICompanyRepository, CompanyRepository>();
-
         return services;
     }
 }
