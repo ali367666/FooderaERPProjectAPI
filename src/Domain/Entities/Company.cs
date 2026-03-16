@@ -1,4 +1,5 @@
 ﻿using Domain.Common;
+using Domain.Enums;
 
 namespace Domain.Entities;
 
@@ -13,8 +14,9 @@ public class Company : BaseEntity<int>
     public string? TaxOfficeCode { get; set; }
     public string? TaxNumber { get; set; }
 
-    public string? CountryCode { get; set; }
-    public string? CountryName { get; set; }
+    public Country Country { get; set; }
+
+    public string CountryCode { get; set; } = null!;
 
     public string? PrimaryPhoneNumber { get; set; }
     public string? SecondaryPhoneNumber { get; set; }

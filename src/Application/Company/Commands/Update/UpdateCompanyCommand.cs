@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Application.Company.Dtos.Request;
+using Application.Company.Dtos.Responce;
+using MediatR;
 
-namespace Application.Company.Commands.Update
-{
-    internal class UpdateCompanyCommand
-    {
-    }
-}
+namespace Application.Company.Commands.Update;
+
+public record UpdateCompanyCommand(int Id, UpdateCompanyRequest dto) : IRequest<UpdateCompanyResponse>;

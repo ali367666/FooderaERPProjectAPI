@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Application.Company.Dtos.Responce;
+using MediatR;
 
-namespace Application.Company.Commands.Delete
-{
-    internal class DeleteCompanyCommand
-    {
-    }
-}
+namespace Application.Company.Commands.Delete;
+
+public record DeleteCompanyCommand(int Id) : IRequest<DeleteCompanyResponce>;

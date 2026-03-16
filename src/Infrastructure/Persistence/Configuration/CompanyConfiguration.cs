@@ -38,7 +38,7 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(x => x.CountryCode)
             .HasMaxLength(20);
 
-        builder.Property(x => x.CountryName)
+        builder.Property(x => x.Country)
             .HasMaxLength(100);
 
         builder.Property(x => x.PrimaryPhoneNumber)
