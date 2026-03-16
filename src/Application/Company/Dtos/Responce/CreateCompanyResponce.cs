@@ -3,5 +3,5 @@
 public class CreateCompanyResponse
 {
     public int Id { get; set; }
-    public string Name { get; set; } = default!;
+    public string Message { get; set; }
 }

@@ -1,4 +1,6 @@
-﻿namespace Application.Company.Dtos.Request;
+﻿using Domain.Enums;
+
+namespace Application.Company.Dtos.Request;
 
 public class CreateCompanyRequest
 {
@@ -13,4 +15,5 @@ public class CreateCompanyRequest
     public string? PrimaryPhoneNumber { get; set; }
     public string? SecondaryPhoneNumber { get; set; }
     public string? Email { get; set; }
+    public Country Country { get; set; }
 }
