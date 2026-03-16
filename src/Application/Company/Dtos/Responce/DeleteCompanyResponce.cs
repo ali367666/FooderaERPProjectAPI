@@ -1,7 +1,6 @@
 ﻿namespace Application.Company.Dtos.Responce;
 
-public class UpdateCompanyResponse
+public class DeleteCompanyResponce
 {
-    public int Id { get; set; }
     public string Message { get; set; } = null!;
 }

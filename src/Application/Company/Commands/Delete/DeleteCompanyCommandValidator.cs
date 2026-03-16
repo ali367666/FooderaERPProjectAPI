@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Application.Company.Commands.Delete;
+using FluentValidation;
 
-namespace Application.Company.Commands.Delete
+public class DeleteCompanyCommandValidator : AbstractValidator<DeleteCompanyCommand>
 {
-    internal class DeleteCompanyCommandValidator
+    public DeleteCompanyCommandValidator()
     {
+        RuleFor(x => x.Id)
+            .GreaterThan(0)
+            .WithMessage("Company Id 0-dan böyük olmalıdır.");
     }
 }
