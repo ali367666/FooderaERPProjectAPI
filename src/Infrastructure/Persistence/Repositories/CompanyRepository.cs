@@ -52,4 +52,11 @@ public class CompanyRepository : ICompanyRepository
     {
         return _context.SaveChangesAsync(cancellationToken);
     }
+
+    
+    public async Task<bool> ExistsAsync(int id, CancellationToken cancellationToken)
+    {
+        return await _context.Companies
+        .AnyAsync(x => x.Id == id, cancellationToken);
+    }
 }

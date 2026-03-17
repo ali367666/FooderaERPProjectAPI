@@ -10,4 +10,5 @@ public interface ICompanyRepository
     void Update(Company company);
     void Delete(Company company);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
+    Task<bool> ExistsAsync(int id, CancellationToken cancellationToken);
 }
