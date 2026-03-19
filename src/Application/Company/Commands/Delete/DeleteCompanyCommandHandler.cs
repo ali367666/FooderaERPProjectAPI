@@ -1,9 +1,12 @@
-﻿using Application.Company.Dtos.Responce;
+﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Responce;
+using Application.Company.Dtos.Responce;
 using MediatR;
 
 namespace Application.Company.Commands.Delete;
 
-public class DeleteCompanyCommandHandler : IRequestHandler<DeleteCompanyCommand, DeleteCompanyResponce>
+public sealed class DeleteCompanyCommandHandler
+    : IRequestHandler<DeleteCompanyCommand, BaseResponse<DeleteCompanyResponce>>
 {
     private readonly ICompanyRepository _repository;
 
@@ -12,19 +15,23 @@ public class DeleteCompanyCommandHandler : IRequestHandler<DeleteCompanyCommand,
         _repository = repository;
     }
 
-    public async Task<DeleteCompanyResponce> Handle(DeleteCompanyCommand request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<DeleteCompanyResponce>> Handle(
+        DeleteCompanyCommand request,
+        CancellationToken cancellationToken)
     {
         var company = await _repository.GetByIdAsync(request.Id, cancellationToken);
 
         if (company is null)
-            throw new Exception("Şirkət tapılmadı.");
+            return BaseResponse<DeleteCompanyResponce>.Fail("Şirkət tapılmadı.");
 
         _repository.Delete(company);
         await _repository.SaveChangesAsync(cancellationToken);
 
-        return new DeleteCompanyResponce
+        var response = new DeleteCompanyResponce
         {
             Message = "Şirkət uğurla silindi"
         };
+
+        return BaseResponse<DeleteCompanyResponce>.Ok(response, "Şirkət uğurla silindi");
     }
 }
