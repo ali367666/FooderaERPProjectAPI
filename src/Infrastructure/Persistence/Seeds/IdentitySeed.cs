@@ -1,72 +1,43 @@
-﻿using Domain.Entities;
-using Domain.Enums;
-using Infrastructure.Persistence.Context;
+﻿using System.Security.Claims;
+using Domain.Constants;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Persistence.Seeds;
+namespace Infrastructure.Identity;
 
-public static class IdentitySeed
+public static class IdentitySeeder
 {
-    public static async Task SeedAsync(IServiceProvider serviceProvider)
+    public static async Task SeedRolesAndPermissionsAsync(
+        RoleManager<IdentityRole<int>> roleManager)
     {
-        var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
-        var userManager = serviceProvider.GetRequiredService<UserManager<User>>();
-        var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
+        var roles = new[] { AppRoles.Admin, AppRoles.User };
 
-        await SeedRolesAsync(roleManager);
-        await SeedAdminAsync(userManager, dbContext);
-    }
-
-    private static async Task SeedRolesAsync(RoleManager<IdentityRole<int>> roleManager)
-    {
-        string[] roles = ["Admin", "User"];
-
-        foreach (var role in roles)
+        foreach (var roleName in roles)
         {
-            if (!await roleManager.RoleExistsAsync(role))
+            var role = await roleManager.FindByNameAsync(roleName);
+
+            if (role is null)
             {
-                await roleManager.CreateAsync(new IdentityRole<int>
-                {
-                    Name = role,
-                    NormalizedName = role.ToUpper()
-                });
+                role = new IdentityRole<int>(roleName);
+                await roleManager.CreateAsync(role);
             }
-        }
-    }
 
-    private static async Task SeedAdminAsync(
-        UserManager<User> userManager,
-        AppDbContext dbContext)
-    {
-        const string adminEmail = "admin@foodera.com";
-        const string adminPassword = "Admin123!";
+            var existingClaims = await roleManager.GetClaimsAsync(role);
 
-        var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
-        if (existingAdmin is not null)
-            return;
+            if (RolePermissionSeeder.Permissions.TryGetValue(roleName, out var permissions))
+            {
+                foreach (var permission in permissions)
+                {
+                    var exists = existingClaims.Any(c =>
+                        c.Type == "Permission" && c.Value == permission);
 
-        var company = await dbContext.Companies.FirstOrDefaultAsync();
-        if (company is null)
-            return;
-
-        var adminUser = new User
-        {
-            UserName = adminEmail,
-            Email = adminEmail,
-            FullName = "System Admin",
-            WorkplaceType = EmployeeWorkplaceType.HeadOffice,
-            CompanyId = company.Id,
-            RestaurantId = null,
-            EmailConfirmed = true
-        };
-
-        var result = await userManager.CreateAsync(adminUser, adminPassword);
-
-        if (result.Succeeded)
-        {
-            await userManager.AddToRoleAsync(adminUser, "Admin");
+                    if (!exists)
+                    {
+                        await roleManager.AddClaimAsync(
+                            role,
+                            new Claim("Permission", permission));
+                    }
+                }
+            }
         }
     }
 }

@@ -1,28 +1,29 @@
 ﻿using Application.Common.Extensions;
+using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Responce;
 using Application.Company.Dtos.Responce;
-using AutoMapper;
-using Domain.Enums;
 using MediatR;
 
 namespace Application.Company.Commands.Update;
 
-public class UpdateCompanyCommandHandler : IRequestHandler<UpdateCompanyCommand, UpdateCompanyResponse>
+public sealed class UpdateCompanyCommandHandler
+    : IRequestHandler<UpdateCompanyCommand, BaseResponse<UpdateCompanyResponse>>
 {
     private readonly ICompanyRepository _repository;
-    private readonly IMapper _mapper;
 
-    public UpdateCompanyCommandHandler(ICompanyRepository repository, IMapper mapper)
+    public UpdateCompanyCommandHandler(ICompanyRepository repository)
     {
         _repository = repository;
-        _mapper = mapper;
     }
 
-    public async Task<UpdateCompanyResponse> Handle(UpdateCompanyCommand request, CancellationToken cancellationToken)
+    public async Task<BaseResponse<UpdateCompanyResponse>> Handle(
+        UpdateCompanyCommand request,
+        CancellationToken cancellationToken)
     {
         var company = await _repository.GetByIdAsync(request.Id, cancellationToken);
 
         if (company is null)
-            throw new Exception("Şirkət tapılmadı.");
+            return BaseResponse<UpdateCompanyResponse>.Fail("Şirkət tapılmadı.");
 
         var dto = request.dto;
 
@@ -52,11 +53,12 @@ public class UpdateCompanyCommandHandler : IRequestHandler<UpdateCompanyCommand,
 
         await _repository.SaveChangesAsync(cancellationToken);
 
-        return new UpdateCompanyResponse
+        var response = new UpdateCompanyResponse
         {
             Id = company.Id,
             Message = "Şirkət uğurla yeniləndi"
         };
-    
-}
+
+        return BaseResponse<UpdateCompanyResponse>.Ok(response, "Şirkət uğurla yeniləndi");
+    }
 }
