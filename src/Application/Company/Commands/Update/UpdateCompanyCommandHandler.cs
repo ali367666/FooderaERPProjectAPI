@@ -3,6 +3,7 @@ using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.Company.Dtos.Responce;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Company.Commands.Update;
 
@@ -10,20 +11,34 @@ public sealed class UpdateCompanyCommandHandler
     : IRequestHandler<UpdateCompanyCommand, BaseResponse<UpdateCompanyResponse>>
 {
     private readonly ICompanyRepository _repository;
+    private readonly ILogger<UpdateCompanyCommandHandler> _logger;
 
-    public UpdateCompanyCommandHandler(ICompanyRepository repository)
+    public UpdateCompanyCommandHandler(
+        ICompanyRepository repository,
+        ILogger<UpdateCompanyCommandHandler> logger)
     {
         _repository = repository;
+        _logger = logger;
     }
 
     public async Task<BaseResponse<UpdateCompanyResponse>> Handle(
         UpdateCompanyCommand request,
         CancellationToken cancellationToken)
     {
+        _logger.LogInformation(
+            "UpdateCompanyCommand başladı. CompanyId: {CompanyId}",
+            request.Id);
+
         var company = await _repository.GetByIdAsync(request.Id, cancellationToken);
 
         if (company is null)
+        {
+            _logger.LogWarning(
+                "Şirkət tapılmadı. Update əməliyyatı icra olunmadı. CompanyId: {CompanyId}",
+                request.Id);
+
             return BaseResponse<UpdateCompanyResponse>.Fail("Şirkət tapılmadı.");
+        }
 
         var dto = request.dto;
 
@@ -52,6 +67,12 @@ public sealed class UpdateCompanyCommandHandler
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Şirkət uğurla yeniləndi. CompanyId: {CompanyId}, CompanyCode: {CompanyCode}, Name: {Name}",
+            company.Id,
+            company.CompanyCode,
+            company.Name);
 
         var response = new UpdateCompanyResponse
         {
