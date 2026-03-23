@@ -32,6 +32,14 @@ public static class AuthorizationExtensions
 
             options.AddPolicy("UserDelete",
                 policy => policy.RequireClaim("Permission", AppPermissions.UserDelete));
+            options.AddPolicy("RestaurantView",
+                policy => policy.RequireClaim("Permission", AppPermissions.RestaurantView));
+            options.AddPolicy("RestaurantCreate",
+                policy => policy.RequireClaim("Permission", AppPermissions.RestaurantCreate));
+            options.AddPolicy("RestaurantUpdate",
+                policy => policy.RequireClaim("Permission", AppPermissions.RestaurantUpdate));
+            options.AddPolicy("RestaurantDelete",
+                policy => policy.RequireClaim("Permission", AppPermissions.RestaurantDelete));
         });
 
         return services;

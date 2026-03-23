@@ -24,6 +24,12 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.16.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+    <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.4" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Serilog.Sinks.Seq" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,11 +37,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Restaurant\Commands\Create\" />
-    <Folder Include="Restaurant\Commands\Delete\" />
-    <Folder Include="Restaurant\Commands\Update\" />
-    <Folder Include="Restaurant\Dtos\Responce\" />
-    <Folder Include="Restaurant\Dtos\Request\" />
     <Folder Include="Restaurant\Queries\" />
     <Folder Include="User\Commands\Delete\" />
     <Folder Include="User\Queries\" />

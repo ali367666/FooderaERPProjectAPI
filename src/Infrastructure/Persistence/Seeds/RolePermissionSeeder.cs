@@ -18,7 +18,12 @@ public static class RolePermissionSeeder
                 AppPermissions.UserView,
                 AppPermissions.UserCreate,
                 AppPermissions.UserUpdate,
-                AppPermissions.UserDelete
+                AppPermissions.UserDelete,
+
+                AppPermissions.RestaurantView,
+                AppPermissions.RestaurantCreate,
+                AppPermissions.RestaurantUpdate,
+                AppPermissions.RestaurantDelete
             }
         },
         {
@@ -26,7 +31,8 @@ public static class RolePermissionSeeder
             new List<string>
             {
                 AppPermissions.CompanyView,
-                AppPermissions.UserView
+                AppPermissions.UserView,
+                AppPermissions.RestaurantView
             }
         }
     };
