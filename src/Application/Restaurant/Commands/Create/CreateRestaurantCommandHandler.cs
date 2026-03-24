@@ -48,7 +48,7 @@ public sealed class CreateRestaurantCommandHandler
             return BaseResponse<CreateRestaurantResponse>.Fail("Şirkət tapılmadı.");
         }
 
-        var restaurantNameExists = await _restaurantRepository.AnyAsync(
+        var restaurantNameExists = await _restaurantRepository.ExistsAsync(
             x => x.CompanyId == dto.CompanyId && x.Name == dto.Name,
             cancellationToken);
 

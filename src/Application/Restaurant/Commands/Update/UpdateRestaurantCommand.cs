@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Application.Common.Responce;
+using Application.Restaurant.Dtos.Request;
+using MediatR;
 
-namespace Application.Restaurant.Commands.Update
-{
-    internal class UpdateRestaurantCommand
-    {
-    }
-}
+public record UpdateRestaurantCommand(int Id, UpdateRestaurantRequest Request)
+    : IRequest<BaseResponse>;

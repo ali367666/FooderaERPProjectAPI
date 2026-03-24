@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Application.Common.Responce;
+using MediatR;
 
-namespace Application.Restaurant.Commands.Delete
-{
-    internal class DeleteRestaurantCommand
-    {
-    }
-}
+public record DeleteRestaurantCommand(int Id) : IRequest<BaseResponse>;

@@ -37,7 +37,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Restaurant\Queries\" />
     <Folder Include="User\Commands\Delete\" />
     <Folder Include="User\Queries\" />
   </ItemGroup>
