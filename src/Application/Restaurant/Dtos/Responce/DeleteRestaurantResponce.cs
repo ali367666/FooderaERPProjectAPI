@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace Application.Restaurant.Dtos.Responce;
 
-namespace Application.Restaurant.Dtos.Responce
+public class DeleteRestaurantResponce
 {
-    internal class DeleteRestaurantResponce
-    {
-    }
+    public string Message { get; set; } = null!;
 }
