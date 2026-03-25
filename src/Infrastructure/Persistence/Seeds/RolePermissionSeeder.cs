@@ -23,7 +23,12 @@ public static class RolePermissionSeeder
                 AppPermissions.RestaurantView,
                 AppPermissions.RestaurantCreate,
                 AppPermissions.RestaurantUpdate,
-                AppPermissions.RestaurantDelete
+                AppPermissions.RestaurantDelete,
+
+                AppPermissions.StockCategoryCreate,
+                AppPermissions.StockCategoryUpdate,
+                AppPermissions.StockCategoryDelete,
+                AppPermissions.StockCategoryView
             }
         },
         {
@@ -32,7 +37,8 @@ public static class RolePermissionSeeder
             {
                 AppPermissions.CompanyView,
                 AppPermissions.UserView,
-                AppPermissions.RestaurantView
+                AppPermissions.RestaurantView,
+                AppPermissions.StockCategoryView
             }
         }
     };
