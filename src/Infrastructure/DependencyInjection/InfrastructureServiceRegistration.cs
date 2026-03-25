@@ -45,6 +45,7 @@ public static class InfrastructureServiceRegistration
 
         // 🔹 Repository-lər
         services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<IStockCategoryRepository, StockCategoryRepository>();
 
         return services;
     }

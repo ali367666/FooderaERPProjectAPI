@@ -17,4 +17,9 @@ public static class AppPermissions
     public const string RestaurantUpdate = "Permissions.Restaurant.Update";
     public const string RestaurantDelete = "Permissions.Restaurant.Delete";
 
+    public const string StockCategoryView = "Permissions.StockCategory.View";
+    public const string StockCategoryCreate = "Permissions.StockCategory.Create";
+    public const string StockCategoryUpdate = "Permissions.StockCategory.Update";
+    public const string StockCategoryDelete = "Permissions.StockCategory.Delete";
+
 }

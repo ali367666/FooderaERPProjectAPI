@@ -21,6 +21,8 @@ public static class AuthorizationExtensions
             options.AddPolicy("CompanyDelete",
                 policy => policy.RequireClaim("Permission", AppPermissions.CompanyDelete));
 
+
+
             options.AddPolicy("UserView",
                 policy => policy.RequireClaim("Permission", AppPermissions.UserView));
 
@@ -32,6 +34,8 @@ public static class AuthorizationExtensions
 
             options.AddPolicy("UserDelete",
                 policy => policy.RequireClaim("Permission", AppPermissions.UserDelete));
+
+
             options.AddPolicy("RestaurantView",
                 policy => policy.RequireClaim("Permission", AppPermissions.RestaurantView));
             options.AddPolicy("RestaurantCreate",
@@ -40,6 +44,15 @@ public static class AuthorizationExtensions
                 policy => policy.RequireClaim("Permission", AppPermissions.RestaurantUpdate));
             options.AddPolicy("RestaurantDelete",
                 policy => policy.RequireClaim("Permission", AppPermissions.RestaurantDelete));
+
+            options.AddPolicy("StockCategoryView",
+                policy => policy.RequireClaim("Permission", AppPermissions.StockCategoryView));
+            options.AddPolicy("StockCategoryCreate",
+                policy => policy.RequireClaim("Permission", AppPermissions.StockCategoryCreate));
+            options.AddPolicy("StockCategoryUpdate",
+                policy => policy.RequireClaim("Permission", AppPermissions.StockCategoryUpdate));
+            options.AddPolicy("StockCategoryDelete",
+                policy => policy.RequireClaim("Permission", AppPermissions.StockCategoryDelete));
         });
 
         return services;
