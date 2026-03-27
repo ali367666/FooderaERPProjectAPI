@@ -128,6 +128,13 @@ public class StockCategoryRepository : IStockCategoryRepository
     {
         _context.Categories.Remove(stockCategory);
     }
+    public async Task<List<StockCategory>> GetByCompanyIdAsync(int companyId, CancellationToken cancellationToken)
+    {
+        return await _context.Categories
+            .Where(x => x.CompanyId == companyId)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {

@@ -4,6 +4,7 @@ using Domain.Entities;
 using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
 using Infrastructure.Persistence.Repositories;
+using Infrastructure.Repositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -46,6 +47,8 @@ public static class InfrastructureServiceRegistration
         // 🔹 Repository-lər
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<IStockCategoryRepository, StockCategoryRepository>();
+        services.AddScoped<IWarehouseRepository, WarehouseRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
 
         return services;
     }

@@ -22,4 +22,9 @@ public static class AppPermissions
     public const string StockCategoryUpdate = "Permissions.StockCategory.Update";
     public const string StockCategoryDelete = "Permissions.StockCategory.Delete";
 
+    public const string WarehouseView = "Permissions.Warehouse.View";
+    public const string WarehouseCreate = "Permissions.Warehouse.Create";
+    public const string WarehouseUpdate = "Permissions.Warehouse.Update";
+    public const string WarehouseDelete = "Permissions.Warehouse.Delete";
+
 }
