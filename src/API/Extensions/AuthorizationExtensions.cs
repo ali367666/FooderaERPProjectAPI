@@ -53,6 +53,15 @@ public static class AuthorizationExtensions
                 policy => policy.RequireClaim("Permission", AppPermissions.StockCategoryUpdate));
             options.AddPolicy("StockCategoryDelete",
                 policy => policy.RequireClaim("Permission", AppPermissions.StockCategoryDelete));
+
+            options.AddPolicy("WarehouseView",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseView));
+            options.AddPolicy("WarehouseCreate",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseCreate));
+            options.AddPolicy("WarehouseUpdate",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseUpdate));
+            options.AddPolicy("WarehouseDelete",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseDelete));
         });
 
         return services;

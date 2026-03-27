@@ -71,19 +71,15 @@ public class StockCategoryController : ControllerBase
 
     [Authorize(Policy = "StockCategoryView")]
     [HttpGet("company/{companyId:int}")]
-    public async Task<IActionResult> GetByCompanyId(
-        [FromRoute] int companyId,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> GetByCompanyId(int companyId, CancellationToken cancellationToken)
     {
-        var query = new GetStockCategoriesByCompanyIdQuery(companyId);
-        var result = await _mediator.Send(query, cancellationToken);
+        var result = await _mediator.Send(new GetStockCategoriesByCompanyIdQuery(companyId), cancellationToken);
 
         if (!result.Success)
             return NotFound(result);
 
         return Ok(result);
     }
-
     [Authorize(Policy = "StockCategoryView")]
     [HttpGet("children/{parentId:int}")]
     public async Task<IActionResult> GetChildren(

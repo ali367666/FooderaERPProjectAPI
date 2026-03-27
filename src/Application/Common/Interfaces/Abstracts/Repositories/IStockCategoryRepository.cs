@@ -23,4 +23,5 @@ public interface IStockCategoryRepository
     void Delete(Domain.Entities.StockCategory stockCategory);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
+    Task<List<Domain.Entities.StockCategory>> GetByCompanyIdAsync(int companyId, CancellationToken cancellationToken);
 }
