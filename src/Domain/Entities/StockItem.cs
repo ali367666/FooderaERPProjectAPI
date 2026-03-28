@@ -13,15 +13,8 @@ public class StockItem : BaseEntity<int>
     public int CategoryId { get; set; }
     public StockCategory Category { get; set; } = default!;
 
-    // haranın stoku? səndə user restaurant/company var deyə bu vacibdir:
     public int CompanyId { get; set; }
     public Company Company { get; set; } = default!;
 
-    public int? RestaurantId { get; set; }     // baş ofis stok ola bilər
-    public Restaurant? Restaurant { get; set; }
-
-    // Sən “stok dataları” dedin — amma real stok rəqəmi adətən movement-lərdən hesablanır.
-    // Minimum üçün saxlamaq olar:
-    public decimal QuantityOnHand { get; set; }  // indi əlində neçə var
-    public decimal? MinLevel { get; set; }       // alert üçün
+    public ICollection<WarehouseStock> WarehouseStocks { get; set; } = new List<WarehouseStock>();
 }

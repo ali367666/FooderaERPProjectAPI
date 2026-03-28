@@ -33,7 +33,12 @@ public static class RolePermissionSeeder
                 AppPermissions.WarehouseView,
                 AppPermissions.WarehouseCreate,
                 AppPermissions.WarehouseUpdate,
-                AppPermissions.WarehouseDelete
+                AppPermissions.WarehouseDelete,
+
+                AppPermissions.StockItemView,
+                AppPermissions.StockItemCreate,
+                AppPermissions.StockItemUpdate,
+                AppPermissions.StockItemDelete
             }
         },
         {
