@@ -45,10 +45,11 @@ public static class InfrastructureServiceRegistration
         .AddDefaultTokenProviders();
 
         // 🔹 Repository-lər
-        services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<ICompanyRepository,       CompanyRepository>();
         services.AddScoped<IStockCategoryRepository, StockCategoryRepository>();
-        services.AddScoped<IWarehouseRepository, WarehouseRepository>();
-        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IWarehouseRepository,     WarehouseRepository>();
+        services.AddScoped<IUserRepository,          UserRepository>();
+        services.AddScoped<IStockItemRepository,     StockItemRepository>();
 
         return services;
     }

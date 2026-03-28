@@ -27,4 +27,9 @@ public static class AppPermissions
     public const string WarehouseUpdate = "Permissions.Warehouse.Update";
     public const string WarehouseDelete = "Permissions.Warehouse.Delete";
 
+    public const string StockItemView = "Permissions.StockItem.View";
+    public const string StockItemCreate = "Permissions.StockItem.Create";
+    public const string StockItemUpdate = "Permissions.StockItem.Update";
+    public const string StockItemDelete = "Permissions.StockItem.Delete";
+
 }

@@ -23,12 +23,6 @@ public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
         builder.Property(x => x.Unit)
                .IsRequired();
 
-        builder.Property(x => x.QuantityOnHand)
-               .HasColumnType("decimal(18,2)");
-
-        builder.Property(x => x.MinLevel)
-               .HasColumnType("decimal(18,2)");
-
         // Category relation
         builder.HasOne(x => x.Category)
                .WithMany()
@@ -42,10 +36,7 @@ public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
                .OnDelete(DeleteBehavior.Restrict);
 
         // Restaurant relation (optional)
-        builder.HasOne(x => x.Restaurant)
-               .WithMany()
-               .HasForeignKey(x => x.RestaurantId)
-               .OnDelete(DeleteBehavior.Restrict);
+        
 
         // Eyni şirkətdə eyni adlı stock item təkrar olmasın
         builder.HasIndex(x => new { x.CompanyId, x.Name })

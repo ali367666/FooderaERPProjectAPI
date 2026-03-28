@@ -4,6 +4,7 @@ using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328165125_AddedStockItems")]
+    partial class AddedStockItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -577,6 +580,9 @@ namespace Infrastructure.Migrations
                     b.Property<int>("StockItemId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("StockItemId1")
+                        .HasColumnType("int");
+
                     b.Property<int>("WarehouseId")
                         .HasColumnType("int");
 
@@ -584,9 +590,13 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("CompanyId");
 
+                    b.HasIndex("StockItemId");
+
+                    b.HasIndex("StockItemId1");
+
                     b.HasIndex("WarehouseId");
 
-                    b.HasIndex("StockItemId", "WarehouseId")
+                    b.HasIndex("WarehouseId", "StockItemId")
                         .IsUnique();
 
                     b.ToTable("WarehouseStocks");
@@ -1017,14 +1027,18 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.Company", "Company")
                         .WithMany()
                         .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.StockItem", "StockItem")
-                        .WithMany("WarehouseStocks")
+                        .WithMany()
                         .HasForeignKey("StockItemId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Domain.Entities.StockItem", null)
+                        .WithMany("WarehouseStocks")
+                        .HasForeignKey("StockItemId1");
 
                     b.HasOne("Domain.Entities.Warehouse", "Warehouse")
                         .WithMany()
