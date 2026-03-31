@@ -1,5 +1,6 @@
 ﻿using Application.Warehouse.Commands.Create;
 using Application.Warehouse.Commands.Delete;
+using Application.Warehouse.Commands.Patch;
 using Application.Warehouse.Commands.Update;
 using Application.Warehouse.Dtos.Request;
 using Application.Warehouse.Queries.GetAll;
@@ -7,6 +8,7 @@ using Application.Warehouse.Queries.GetByCompanyId;
 using Application.Warehouse.Queries.GetByDriverUserId;
 using Application.Warehouse.Queries.GetById;
 using Application.Warehouse.Queries.GetByRestaurantId;
+using Application.Warehouse.Queries.Search;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -95,5 +97,28 @@ public class WarehousesController : ControllerBase
         var result = await _mediator.Send(new GetWarehousesByDriverUserIdQuery(driverUserId));
 
         return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpPatch("{id:int}")]
+    [Authorize(Policy = "WarehouseUpdate")]
+    public async Task<IActionResult> Patch(int id, [FromBody] PatchWarehouseRequest request)
+    {
+        var result = await _mediator.Send(new PatchWarehouseCommand(id, request));
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+    [HttpGet("search")]
+    [Authorize(Policy = "WarehouseView")]
+    public async Task<IActionResult> Search([FromQuery] int companyId, [FromQuery] string? search)
+    {
+        var result = await _mediator.Send(new SearchWarehousesQuery(companyId, search));
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
     }
 }

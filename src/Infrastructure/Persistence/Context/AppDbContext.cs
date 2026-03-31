@@ -34,6 +34,9 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     public DbSet<WarehouseTransfer> WarehouseTransfers { get; set; } = null!;
     public DbSet<WarehouseTransferLine> WarehouseTransferLines { get; set; } = null!;
 
+    //Loggin system
+    public DbSet<AuditLog> AuditLogs { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

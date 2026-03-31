@@ -113,4 +113,32 @@ public class WarehouseRepository : IWarehouseRepository
     {
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public Task UpdateAsync(Warehouse warehouse, CancellationToken cancellationToken)
+    {
+        _context.Warehouses.Update(warehouse);
+        return Task.CompletedTask;
+    }
+    public async Task<List<Warehouse>> SearchAsync(
+    int companyId,
+    string? search,
+    CancellationToken cancellationToken)
+    {
+        var query = _context.Warehouses
+            .Where(x => x.CompanyId == companyId)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            search = search.Trim().ToLower();
+
+            query = query.Where(x =>
+                x.Name.ToLower().Contains(search) ||
+                x.Id.ToString().Contains(search));
+        }
+
+        return await query
+            .OrderBy(x => x.Name)
+            .ToListAsync(cancellationToken);
+    }
 }

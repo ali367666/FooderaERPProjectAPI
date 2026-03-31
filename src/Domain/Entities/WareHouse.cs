@@ -13,4 +13,5 @@ public class Warehouse : CompanyEntity<int>
 
     public int? DriverUserId { get; set; }      // Vehicle anbarı sürücüyə bağlıdır
     public User? DriverUser { get; set; }       // istəməsən domain-a user bağlamaya bilərsən, sadəcə int saxla
+    public ICollection<WarehouseStock> WarehouseStocks { get; set; } = new List<WarehouseStock>();
 }

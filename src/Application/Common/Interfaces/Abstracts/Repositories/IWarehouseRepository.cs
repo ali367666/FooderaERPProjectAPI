@@ -29,4 +29,6 @@ public interface IWarehouseRepository
     void Delete(Domain.Entities.Warehouse warehouse);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
+    Task UpdateAsync(Domain.Entities.Warehouse warehouse, CancellationToken cancellationToken);
+    Task<List<Domain.Entities.Warehouse>> SearchAsync(int companyId, string? search, CancellationToken cancellationToken);
 }

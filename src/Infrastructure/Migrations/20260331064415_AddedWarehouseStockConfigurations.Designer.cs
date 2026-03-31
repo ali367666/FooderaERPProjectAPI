@@ -4,6 +4,7 @@ using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260331064415_AddedWarehouseStockConfigurations")]
+    partial class AddedWarehouseStockConfigurations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,82 +24,6 @@ namespace Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("AuditLog", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("ActionType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int?>("CompanyId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("CorrelationId")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("EntityId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("EntityName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsSuccess")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastModifiedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("LastModifiedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("NewValues")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("OldValues")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActionType");
-
-                    b.HasIndex("CompanyId");
-
-                    b.HasIndex("CreatedAtUtc");
-
-                    b.HasIndex("EntityId");
-
-                    b.HasIndex("EntityName");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("AuditLogs", (string)null);
-                });
 
             modelBuilder.Entity("Domain.Entities.Company", b =>
                 {
@@ -650,19 +577,34 @@ namespace Infrastructure.Migrations
                     b.Property<int>("StockItemId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("StockItemId1")
+                        .HasColumnType("int");
+
                     b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("WarehouseId1")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("StockItemId");
 
+                    b.HasIndex("StockItemId1");
+
                     b.HasIndex("WarehouseId");
+
+                    b.HasIndex("WarehouseId1");
 
                     b.HasIndex("CompanyId", "WarehouseId", "StockItemId")
                         .IsUnique();
 
-                    b.ToTable("WarehouseStocks", (string)null);
+                    b.ToTable("WarehouseStocks", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WarehouseStocks_MinLevel", "[MinLevel] IS NULL OR [MinLevel] >= 0");
+
+                            t.HasCheckConstraint("CK_WarehouseStocks_QuantityOnHand", "[QuantityOnHand] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Entities.WarehouseTransfer", b =>
@@ -1087,16 +1029,24 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.StockItem", "StockItem")
-                        .WithMany("WarehouseStocks")
+                        .WithMany()
                         .HasForeignKey("StockItemId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                    b.HasOne("Domain.Entities.StockItem", null)
                         .WithMany("WarehouseStocks")
+                        .HasForeignKey("StockItemId1");
+
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
                         .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Domain.Entities.Warehouse", null)
+                        .WithMany("WarehouseStocks")
+                        .HasForeignKey("WarehouseId1");
 
                     b.Navigation("Company");
 

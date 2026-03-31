@@ -39,6 +39,7 @@
   <ItemGroup>
     <Folder Include="User\Commands\Delete\" />
     <Folder Include="User\Queries\" />
+    <Folder Include="WarehouseStock\Commands\Patch\" />
   </ItemGroup>
 
 </Project>
