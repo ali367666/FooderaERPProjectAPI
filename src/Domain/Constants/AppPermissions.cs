@@ -32,4 +32,11 @@ public static class AppPermissions
     public const string StockItemUpdate = "Permissions.StockItem.Update";
     public const string StockItemDelete = "Permissions.StockItem.Delete";
 
+    public const string WarehouseStockView = "Permissions.WarehouseStock.View";
+    public const string WarehouseStockCreate = "Permissions.WarehouseStock.Create";
+    public const string WarehouseStockUpdate = "Permissions.WarehouseStock.Update";
+    public const string WarehouseStockDelete = "Permissions.WarehouseStock.Delete";
+
+    public const string AuditLogView = "Permissions.AuditLog.View";
+
 }

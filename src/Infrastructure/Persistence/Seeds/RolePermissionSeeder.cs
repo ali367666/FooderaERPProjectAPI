@@ -38,7 +38,14 @@ public static class RolePermissionSeeder
                 AppPermissions.StockItemView,
                 AppPermissions.StockItemCreate,
                 AppPermissions.StockItemUpdate,
-                AppPermissions.StockItemDelete
+                AppPermissions.StockItemDelete,
+
+                AppPermissions.WarehouseStockView,
+                AppPermissions.WarehouseStockCreate,
+                AppPermissions.WarehouseStockUpdate,
+                AppPermissions.WarehouseStockDelete,
+
+                AppPermissions.AuditLogView,
             }
         },
         {
@@ -49,7 +56,8 @@ public static class RolePermissionSeeder
                 AppPermissions.UserView,
                 AppPermissions.RestaurantView,
                 AppPermissions.StockCategoryView,
-                AppPermissions.WarehouseView
+                AppPermissions.WarehouseView,
+                AppPermissions.WarehouseStockView
             }
         }
     };
