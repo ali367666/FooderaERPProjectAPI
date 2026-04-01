@@ -37,6 +37,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="StockRequestLine\Commands\Delete\" />
+    <Folder Include="StockRequestLine\Commands\Update\" />
+    <Folder Include="StockRequestLine\Dtos\Responce\" />
+    <Folder Include="StockRequestLine\Queries\" />
     <Folder Include="User\Commands\Delete\" />
     <Folder Include="User\Queries\" />
     <Folder Include="WarehouseStock\Commands\Patch\" />

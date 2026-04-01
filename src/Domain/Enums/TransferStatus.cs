@@ -2,9 +2,10 @@
 
 public enum TransferStatus
 {
-    Created = 1,
-    PickedUp = 2,       // A anbardan çıxış + Vehicle-ə giriş oldu
+    Pending = 1,
+    Approved = 2,
     InTransit = 3,
-    Delivered = 4,      // B anbarda qəbul edildi
-    Cancelled = 5
+    Completed = 4,
+    Rejected = 5,
+    Cancelled = 6
 }

@@ -1,4 +1,5 @@
 ﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Domain.Entities;
@@ -12,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Persistence.Repositories;
+using Persistence.UnitOfWork;
 
 namespace Infrastructure.DependencyInjection;
 
@@ -56,6 +58,10 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IWarehouseStockRepository, WarehouseStockRepository>();
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IStockRequestRepository, StockRequestRepository>();
+        services.AddScoped<IWarehouseTransferRepository, WarehouseTransferRepository>();
+        services.AddScoped<IStockMovementRepository, StockMovementRepository>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;
     }
