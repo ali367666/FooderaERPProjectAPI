@@ -14,19 +14,16 @@ public class StockRequestLineConfiguration : IEntityTypeConfiguration<StockReque
                .IsRequired()
                .HasColumnType("decimal(18,2)");
 
-        // Company relation
         builder.HasOne(x => x.Company)
                .WithMany()
                .HasForeignKey(x => x.CompanyId)
                .OnDelete(DeleteBehavior.Restrict);
 
-        // StockRequest relation
         builder.HasOne(x => x.StockRequest)
                .WithMany(x => x.Lines)
                .HasForeignKey(x => x.StockRequestId)
                .OnDelete(DeleteBehavior.Cascade);
 
-        // StockItem relation
         builder.HasOne(x => x.StockItem)
                .WithMany()
                .HasForeignKey(x => x.StockItemId)
@@ -35,5 +32,8 @@ public class StockRequestLineConfiguration : IEntityTypeConfiguration<StockReque
         builder.HasIndex(x => x.StockRequestId);
         builder.HasIndex(x => x.StockItemId);
         builder.HasIndex(x => x.CompanyId);
+
+        builder.HasIndex(x => new { x.StockRequestId, x.StockItemId })
+               .IsUnique();
     }
 }

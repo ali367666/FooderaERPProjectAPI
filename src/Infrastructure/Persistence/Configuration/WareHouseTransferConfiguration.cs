@@ -13,37 +13,37 @@ public class WarehouseTransferConfiguration : IEntityTypeConfiguration<Warehouse
         builder.Property(x => x.Status)
                .IsRequired();
 
-        // Company relation
+        builder.Property(x => x.TransferDate)
+               .IsRequired();
+
+        builder.Property(x => x.Note)
+               .HasMaxLength(500);
+
         builder.HasOne(x => x.Company)
                .WithMany()
                .HasForeignKey(x => x.CompanyId)
                .OnDelete(DeleteBehavior.Restrict);
 
-        // StockRequest relation (optional)
         builder.HasOne(x => x.StockRequest)
                .WithMany()
                .HasForeignKey(x => x.StockRequestId)
-               .OnDelete(DeleteBehavior.Restrict);
+               .OnDelete(DeleteBehavior.SetNull);
 
-        // From warehouse
         builder.HasOne(x => x.FromWarehouse)
                .WithMany()
                .HasForeignKey(x => x.FromWarehouseId)
                .OnDelete(DeleteBehavior.Restrict);
 
-        // To warehouse
         builder.HasOne(x => x.ToWarehouse)
                .WithMany()
                .HasForeignKey(x => x.ToWarehouseId)
                .OnDelete(DeleteBehavior.Restrict);
 
-        // Vehicle warehouse
         builder.HasOne(x => x.VehicleWarehouse)
                .WithMany()
                .HasForeignKey(x => x.VehicleWarehouseId)
                .OnDelete(DeleteBehavior.Restrict);
 
-        // Transfer -> Lines
         builder.HasMany(x => x.Lines)
                .WithOne(x => x.WarehouseTransfer)
                .HasForeignKey(x => x.WarehouseTransferId)

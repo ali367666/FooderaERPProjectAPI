@@ -15,11 +15,14 @@ public class WarehouseTransfer : CompanyEntity<int>
     public int ToWarehouseId { get; set; }
     public Warehouse ToWarehouse { get; set; } = default!;
 
-    // sürücünün maşını da anbar kimidir
-    public int VehicleWarehouseId { get; set; }
-    public Warehouse VehicleWarehouse { get; set; } = default!;
+    public int? VehicleWarehouseId { get; set; }
+    public Warehouse? VehicleWarehouse { get; set; }
 
-    public TransferStatus Status { get; set; }
+    public TransferStatus Status { get; set; } = TransferStatus.Pending;
+
+    public string? Note { get; set; }
+
+    public DateTime TransferDate { get; set; } = DateTime.UtcNow;
 
     public ICollection<WarehouseTransferLine> Lines { get; set; } = new List<WarehouseTransferLine>();
 }
