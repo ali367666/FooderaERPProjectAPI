@@ -5,10 +5,10 @@ namespace Application.Common.Interfaces.Abstracts.Repositories;
 
 public interface IStockRequestRepository
 {
-    Task AddAsync(StockRequest stockRequest, CancellationToken cancellationToken);
-    Task<StockRequest?> GetByIdAsync(int id, CancellationToken cancellationToken);
-    Task<StockRequest?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken);
-    Task<List<StockRequest>> GetAllByCompanyIdAsync(int companyId, CancellationToken cancellationToken);
-    Task<List<StockRequest>> GetByStatusAsync(int companyId, StockRequestStatus status, CancellationToken cancellationToken);
-    void Update(StockRequest stockRequest);
+    Task AddAsync(Domain.Entities.StockRequest stockRequest, CancellationToken cancellationToken);
+    Task<Domain.Entities.StockRequest?> GetByIdAsync(int id, CancellationToken cancellationToken);
+    Task<Domain.Entities.StockRequest?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken);
+    Task<List<Domain.Entities.StockRequest>> GetAllByCompanyIdAsync(int companyId, CancellationToken cancellationToken);
+    Task<List<Domain.Entities.StockRequest>> GetByStatusAsync(int companyId, StockRequestStatus status, CancellationToken cancellationToken);
+    void Update(Domain.Entities.StockRequest stockRequest);
 }

@@ -1,6 +1,7 @@
 ﻿using Domain.Common;
-using Domain.Entities;
 using Domain.Enums;
+
+namespace Domain.Entities;
 
 public class StockRequest : CompanyEntity<int>
 {

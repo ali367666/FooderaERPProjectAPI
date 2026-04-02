@@ -62,6 +62,8 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IWarehouseTransferRepository, WarehouseTransferRepository>();
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IStockRequestLineRepository, StockRequestLineRepository>();
+        
 
         return services;
     }
