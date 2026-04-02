@@ -2,13 +2,14 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-public class StockRequestConfiguration : IEntityTypeConfiguration<StockRequest>
+public class StockRequestConfiguration : IEntityTypeConfiguration<Domain.Entities.StockRequest>
 {
-    public void Configure(EntityTypeBuilder<StockRequest> builder)
+    public void Configure(EntityTypeBuilder<Domain.Entities.StockRequest> builder)
     {
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Status)
+               .HasConversion<int>()
                .IsRequired()
                .HasDefaultValue(StockRequestStatus.Draft);
 

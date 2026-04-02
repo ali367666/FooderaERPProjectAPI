@@ -25,14 +25,14 @@ public class CreateStockRequestCommandHandler
         CreateStockRequestCommand request,
         CancellationToken cancellationToken)
     {
-        var entity = new StockRequest
+        var entity = new Domain.Entities.StockRequest
         {
             CompanyId = request.Request.CompanyId,
             RequestingWarehouseId = request.Request.RequestingWarehouseId,
             SupplyingWarehouseId = request.Request.SupplyingWarehouseId,
             Status = StockRequestStatus.Draft,
             Note = request.Request.Note,
-            Lines = request.Request.Lines.Select(x => new StockRequestLine
+            Lines = request.Request.Lines.Select(x => new Domain.Entities.StockRequestLine
             {
                 CompanyId = request.Request.CompanyId,
                 StockItemId = x.StockItemId,

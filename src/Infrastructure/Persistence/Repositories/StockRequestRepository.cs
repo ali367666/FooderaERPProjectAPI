@@ -14,25 +14,25 @@ public class StockRequestRepository : IStockRequestRepository
         _context = context;
     }
 
-    public async Task AddAsync(StockRequest stockRequest, CancellationToken cancellationToken)
+    public async Task AddAsync(Domain.Entities.StockRequest stockRequest, CancellationToken cancellationToken)
     {
         await _context.StockRequests.AddAsync(stockRequest, cancellationToken);
     }
 
-    public async Task<StockRequest?> GetByIdAsync(int id, CancellationToken cancellationToken)
+    public async Task<Domain.Entities.StockRequest?> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
         return await _context.StockRequests
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
-    public async Task<StockRequest?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken)
+    public async Task<  Domain.Entities.StockRequest?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken)
     {
         return await _context.StockRequests
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
-    public async Task<List<StockRequest>> GetAllByCompanyIdAsync(int companyId, CancellationToken cancellationToken)
+    public async Task<List<Domain.Entities.StockRequest>> GetAllByCompanyIdAsync(int companyId, CancellationToken cancellationToken)
     {
         return await _context.StockRequests
             .Where(x => x.CompanyId == companyId)
@@ -40,7 +40,7 @@ public class StockRequestRepository : IStockRequestRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<StockRequest>> GetByStatusAsync(int companyId, StockRequestStatus status, CancellationToken cancellationToken)
+    public async Task<List< Domain.Entities.StockRequest>> GetByStatusAsync(int companyId, StockRequestStatus status, CancellationToken cancellationToken)
     {
         return await _context.StockRequests
             .Where(x => x.CompanyId == companyId && x.Status == status)
@@ -48,7 +48,7 @@ public class StockRequestRepository : IStockRequestRepository
             .ToListAsync(cancellationToken);
     }
 
-    public void Update(StockRequest stockRequest)
+    public void Update(Domain.Entities.StockRequest stockRequest)
     {
         _context.StockRequests.Update(stockRequest);
     }
