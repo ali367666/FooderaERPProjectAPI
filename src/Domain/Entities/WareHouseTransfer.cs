@@ -18,7 +18,7 @@ public class WarehouseTransfer : CompanyEntity<int>
     public int? VehicleWarehouseId { get; set; }
     public Warehouse? VehicleWarehouse { get; set; }
 
-    public TransferStatus Status { get; set; } = TransferStatus.Pending;
+    public TransferStatus Status { get; set; } = TransferStatus.Draft;
 
     public string? Note { get; set; }
 

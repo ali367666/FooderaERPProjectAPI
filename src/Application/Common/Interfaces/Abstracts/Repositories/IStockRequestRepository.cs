@@ -11,4 +11,8 @@ public interface IStockRequestRepository
     Task<List<Domain.Entities.StockRequest>> GetAllByCompanyIdAsync(int companyId, CancellationToken cancellationToken);
     Task<List<Domain.Entities.StockRequest>> GetByStatusAsync(int companyId, StockRequestStatus status, CancellationToken cancellationToken);
     void Update(Domain.Entities.StockRequest stockRequest);
+    
+    Task<List<Domain.Entities.StockRequest>> GetAllWithDetailsAsync(CancellationToken cancellationToken);
+    Task DeleteAsync(Domain.Entities.StockRequest stockRequest, CancellationToken cancellationToken);
+    Task SaveChangesAsync(CancellationToken cancellationToken);
 }

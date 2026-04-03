@@ -1,4 +1,5 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
@@ -51,5 +52,30 @@ public class StockRequestRepository : IStockRequestRepository
     public void Update(Domain.Entities.StockRequest stockRequest)
     {
         _context.StockRequests.Update(stockRequest);
+    }
+
+    
+
+    public async Task<List<StockRequest>> GetAllWithDetailsAsync(CancellationToken cancellationToken)
+    {
+        return await _context.StockRequests
+            .Include(x => x.RequestingWarehouse)
+            .Include(x => x.SupplyingWarehouse)
+            .Include(x => x.Lines)
+                .ThenInclude(x => x.StockItem)
+            .OrderByDescending(x => x.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task DeleteAsync(StockRequest stockRequest, CancellationToken cancellationToken)
+    {
+        _context.StockRequestLines.RemoveRange(stockRequest.Lines);
+        _context.StockRequests.Remove(stockRequest);
+        await Task.CompletedTask;
+    }
+
+    public async Task SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

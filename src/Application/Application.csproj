@@ -37,11 +37,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="StockRequest\Dtos\Responce\" />
-    <Folder Include="StockRequest\Queries\" />
     <Folder Include="User\Commands\Delete\" />
     <Folder Include="User\Queries\" />
     <Folder Include="WarehouseStock\Commands\Patch\" />
+    <Folder Include="WarehouseTransfer\Commands\Approve\" />
+    <Folder Include="WarehouseTransfer\Commands\Dispatch\" />
+    <Folder Include="WarehouseTransfer\Commands\Cancel\" />
+    <Folder Include="WarehouseTransfer\Commands\Receive\" />
+    <Folder Include="WarehouseTransfer\Commands\Submit\" />
+    <Folder Include="WarehouseTransfer\Commands\Update\" />
   </ItemGroup>
 
 </Project>
