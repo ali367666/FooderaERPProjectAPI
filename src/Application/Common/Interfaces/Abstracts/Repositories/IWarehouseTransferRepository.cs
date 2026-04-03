@@ -5,10 +5,11 @@ namespace Application.Common.Interfaces.Abstracts.Repositories;
 
 public interface IWarehouseTransferRepository
 {
-    Task AddAsync(WarehouseTransfer warehouseTransfer, CancellationToken cancellationToken);
-    Task<WarehouseTransfer?> GetByIdAsync(int id, CancellationToken cancellationToken);
-    Task<WarehouseTransfer?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken);
-    Task<List<WarehouseTransfer>> GetAllByCompanyIdAsync(int companyId, CancellationToken cancellationToken);
-    Task<List<WarehouseTransfer>> GetByStatusAsync(int companyId, TransferStatus status, CancellationToken cancellationToken);
-    void Update(WarehouseTransfer warehouseTransfer);
+    Task AddAsync(Domain.Entities.WarehouseTransfer warehouseTransfer, CancellationToken cancellationToken);
+    Task<Domain.Entities.WarehouseTransfer?> GetByIdAsync(int id, CancellationToken cancellationToken);
+    Task<Domain.Entities.WarehouseTransfer?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken);
+    Task<List<Domain.Entities.WarehouseTransfer>> GetAllWithDetailsAsync(CancellationToken cancellationToken);
+    void Update(Domain.Entities.WarehouseTransfer warehouseTransfer);
+    Task DeleteAsync(Domain.Entities.WarehouseTransfer warehouseTransfer, CancellationToken cancellationToken);
+    Task SaveChangesAsync(CancellationToken cancellationToken);
 }

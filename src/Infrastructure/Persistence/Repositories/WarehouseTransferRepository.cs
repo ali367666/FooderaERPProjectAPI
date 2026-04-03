@@ -1,6 +1,5 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
 using Domain.Entities;
-using Domain.Enums;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,22 +28,24 @@ public class WarehouseTransferRepository : IWarehouseTransferRepository
     public async Task<WarehouseTransfer?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken)
     {
         return await _context.WarehouseTransfers
+            .Include(x => x.FromWarehouse)
+            .Include(x => x.ToWarehouse)
+            .Include(x => x.VehicleWarehouse)
+            .Include(x => x.StockRequest)
             .Include(x => x.Lines)
+                .ThenInclude(x => x.StockItem)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
-    public async Task<List<WarehouseTransfer>> GetAllByCompanyIdAsync(int companyId, CancellationToken cancellationToken)
+    public async Task<List<WarehouseTransfer>> GetAllWithDetailsAsync(CancellationToken cancellationToken)
     {
         return await _context.WarehouseTransfers
-            .Where(x => x.CompanyId == companyId)
-            .OrderByDescending(x => x.Id)
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<List<WarehouseTransfer>> GetByStatusAsync(int companyId, TransferStatus status, CancellationToken cancellationToken)
-    {
-        return await _context.WarehouseTransfers
-            .Where(x => x.CompanyId == companyId && x.Status == status)
+            .Include(x => x.FromWarehouse)
+            .Include(x => x.ToWarehouse)
+            .Include(x => x.VehicleWarehouse)
+            .Include(x => x.StockRequest)
+            .Include(x => x.Lines)
+                .ThenInclude(x => x.StockItem)
             .OrderByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
     }
@@ -52,5 +53,17 @@ public class WarehouseTransferRepository : IWarehouseTransferRepository
     public void Update(WarehouseTransfer warehouseTransfer)
     {
         _context.WarehouseTransfers.Update(warehouseTransfer);
+    }
+
+    public async Task DeleteAsync(WarehouseTransfer warehouseTransfer, CancellationToken cancellationToken)
+    {
+        _context.WarehouseTransferLines.RemoveRange(warehouseTransfer.Lines);
+        _context.WarehouseTransfers.Remove(warehouseTransfer);
+        await Task.CompletedTask;
+    }
+
+    public async Task SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

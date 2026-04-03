@@ -1,11 +1,14 @@
 ﻿using Application.Common.Responce;
 using Application.StockRequests.Commands.Approve;
 using Application.StockRequests.Commands.Create;
+using Application.StockRequests.Commands.Delete;
 using Application.StockRequests.Commands.Recall;
 using Application.StockRequests.Commands.Reject;
 using Application.StockRequests.Commands.Submit;
 using Application.StockRequests.Commands.Update;
 using Application.StockRequests.Dtos.Request;
+using Application.StockRequests.Queries.GetAll;
+using Application.StockRequests.Queries.GetById;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -81,6 +84,36 @@ public class StockRequestsController : ControllerBase
     public async Task<ActionResult<BaseResponse>> Reject(int id)
     {
         var result = await _mediator.Send(new RejectStockRequestCommand(id));
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var result = await _mediator.Send(new GetStockRequestByIdQuery(id));
+
+        if (!result.Success)
+            return NotFound(result);
+
+        return Ok(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var result = await _mediator.Send(new GetAllStockRequestsQuery());
+
+        return Ok(result);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var result = await _mediator.Send(new DeleteStockRequestCommand(id));
 
         if (!result.Success)
             return BadRequest(result);
