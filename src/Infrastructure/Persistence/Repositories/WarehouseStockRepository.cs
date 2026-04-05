@@ -78,5 +78,10 @@ public class WarehouseStockRepository : IWarehouseStockRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    
+    public void Update(WarehouseStock warehouseStock)
+    {
+        _context.WarehouseStocks.Update(warehouseStock);
+    }
+
+
 }

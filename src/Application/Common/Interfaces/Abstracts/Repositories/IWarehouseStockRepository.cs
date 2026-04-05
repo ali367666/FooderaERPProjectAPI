@@ -11,5 +11,6 @@ public interface IWarehouseStockRepository
     Task<List<Domain.Entities.WarehouseStock>> SearchAsync(int companyId, string? search, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
     void Delete(Domain.Entities.WarehouseStock warehouseStock);
-    
+    void Update(Domain.Entities.WarehouseStock warehouseStock);
+
 }
