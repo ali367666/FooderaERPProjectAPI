@@ -2,6 +2,7 @@
 using Domain.Entities;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Persistence.Repositories;
 
@@ -28,25 +29,14 @@ public class WarehouseTransferRepository : IWarehouseTransferRepository
     public async Task<WarehouseTransfer?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken)
     {
         return await _context.WarehouseTransfers
-            .Include(x => x.FromWarehouse)
-            .Include(x => x.ToWarehouse)
-            .Include(x => x.VehicleWarehouse)
-            .Include(x => x.StockRequest)
             .Include(x => x.Lines)
-                .ThenInclude(x => x.StockItem)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
     public async Task<List<WarehouseTransfer>> GetAllWithDetailsAsync(CancellationToken cancellationToken)
     {
         return await _context.WarehouseTransfers
-            .Include(x => x.FromWarehouse)
-            .Include(x => x.ToWarehouse)
-            .Include(x => x.VehicleWarehouse)
-            .Include(x => x.StockRequest)
             .Include(x => x.Lines)
-                .ThenInclude(x => x.StockItem)
-            .OrderByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
     }
 
@@ -57,7 +47,6 @@ public class WarehouseTransferRepository : IWarehouseTransferRepository
 
     public async Task DeleteAsync(WarehouseTransfer warehouseTransfer, CancellationToken cancellationToken)
     {
-        _context.WarehouseTransferLines.RemoveRange(warehouseTransfer.Lines);
         _context.WarehouseTransfers.Remove(warehouseTransfer);
         await Task.CompletedTask;
     }
@@ -65,5 +54,29 @@ public class WarehouseTransferRepository : IWarehouseTransferRepository
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> WarehouseExistsAsync(int warehouseId, CancellationToken cancellationToken)
+    {
+        return await _context.Warehouses
+            .AnyAsync(x => x.Id == warehouseId, cancellationToken);
+    }
+
+    public async Task<List<int>> GetExistingStockItemIdsAsync(List<int> stockItemIds, CancellationToken cancellationToken)
+    {
+        return await _context.StockItems
+            .Where(x => stockItemIds.Contains(x.Id))
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public void RemoveLines(IEnumerable<WarehouseTransferLine> lines)
+    {
+        _context.WarehouseTransferLines.RemoveRange(lines);
+    }
+
+    public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
+    {
+        return await _context.Database.BeginTransactionAsync(cancellationToken);
     }
 }

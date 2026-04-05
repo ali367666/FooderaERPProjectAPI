@@ -1,7 +1,5 @@
 ﻿using Domain.Entities;
-using Domain.Enums;
-
-namespace Application.Common.Interfaces.Abstracts.Repositories;
+using Microsoft.EntityFrameworkCore.Storage;
 
 public interface IWarehouseTransferRepository
 {
@@ -12,4 +10,10 @@ public interface IWarehouseTransferRepository
     void Update(Domain.Entities.WarehouseTransfer warehouseTransfer);
     Task DeleteAsync(Domain.Entities.WarehouseTransfer warehouseTransfer, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    Task<bool> WarehouseExistsAsync(int warehouseId, CancellationToken cancellationToken);
+    Task<List<int>> GetExistingStockItemIdsAsync(List<int> stockItemIds, CancellationToken cancellationToken);
+    void RemoveLines(IEnumerable<WarehouseTransferLine> lines);
+
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
 }
