@@ -38,7 +38,9 @@ public sealed class JwtTokenService : IJwtTokenService
             new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? string.Empty),
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
-            new Claim(ClaimTypes.Email, user.Email ?? string.Empty)
+            new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim("companyId", user.CompanyId.ToString())
         };
 
         foreach (var role in roles)

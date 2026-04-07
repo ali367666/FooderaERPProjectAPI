@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces;
+﻿using Application.Abstractions.Repositories;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -49,6 +50,8 @@ public static class InfrastructureServiceRegistration
         .AddEntityFrameworkStores<AppDbContext>()
         .AddDefaultTokenProviders();
 
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
         // 🔹 Repository-lər
         services.AddScoped<ICompanyRepository,       CompanyRepository>();
         services.AddScoped<IStockCategoryRepository, StockCategoryRepository>();
@@ -63,7 +66,10 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IStockRequestLineRepository, StockRequestLineRepository>();
-        
+        services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+        services.AddScoped<IPositionRepository, PositionRepository>();
+        services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+
 
         return services;
     }
