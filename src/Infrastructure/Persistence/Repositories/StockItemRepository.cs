@@ -1,6 +1,6 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.StockItem.Dtos.Request;
-using Domain.Entities;
+using Domain.Entities.WarehouseAndStock;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;

@@ -32,15 +32,11 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         builder.Property(x => x.Address)
             .HasMaxLength(250);
 
-        builder.Property(x => x.HireDate)
-            .IsRequired();
-
-        builder.Property(x => x.TerminationDate)
-            .IsRequired(false);
+        builder.Property(x => x.UserId)
+            .HasMaxLength(450);
 
         builder.Property(x => x.IsActive)
-            .IsRequired()
-            .HasDefaultValue(true);
+            .IsRequired();
 
         builder.HasOne(x => x.Department)
             .WithMany(x => x.Employees)
@@ -53,12 +49,8 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.User)
-            .WithOne()
-            .HasForeignKey<Employee>(x => x.UserId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        builder.HasIndex(x => x.UserId)
-            .IsUnique()
-            .HasFilter("[UserId] IS NOT NULL");
+               .WithOne()
+               .HasForeignKey<Employee>(x => x.UserId)
+               .OnDelete(DeleteBehavior.SetNull);
     }
 }

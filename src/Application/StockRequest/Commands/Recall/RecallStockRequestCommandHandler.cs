@@ -1,7 +1,6 @@
 ﻿using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
-using Domain.Entities;
 using Domain.Enums;
 using MediatR;
 
@@ -25,7 +24,7 @@ public class RecallStockRequestCommandHandler
         RecallStockRequestCommand request,
         CancellationToken cancellationToken)
     {
-        Domain.Entities.StockRequest? entity = await _stockRequestRepository
+        Domain.Entities.WarehouseAndStock.StockRequest? entity = await _stockRequestRepository
             .GetByIdAsync(request.Id, cancellationToken);
 
         if (entity is null)

@@ -130,7 +130,7 @@ public class CreateWarehouseStockCommandHandler
             return BaseResponse.Fail("This stock item already exists in the selected warehouse.");
         }
 
-        var warehouseStock = new Domain.Entities.WarehouseStock
+        var warehouseStock = new Domain.Entities.WarehouseAndStock.WarehouseStock
         {
             CompanyId = warehouse.CompanyId,
             WarehouseId = request.Request.WarehouseId,

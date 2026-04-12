@@ -69,6 +69,11 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         services.AddScoped<IPositionRepository, PositionRepository>();
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+        services.AddScoped<IMenuCategoryRepository, MenuCategoryRepository>();
+        services.AddScoped<IMenuItemRepository, MenuItemRepository>();  
+        services.AddScoped<IRestaurantTableRepository, RestaurantTableRepository>();
+        services.AddScoped<IOrderRepository, OrderRepository>();
+        services.AddScoped<IOrderLineRepository, OrderLineRepository>();
 
 
         return services;

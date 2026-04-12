@@ -7,9 +7,7 @@ public class CreateDepartmentValidator : AbstractValidator<CreateDepartmentReque
 {
     public CreateDepartmentValidator()
     {
-        RuleFor(x => x.CompanyId)
-            .GreaterThan(0)
-            .WithMessage("CompanyId 0-dan böyük olmalıdır.");
+        
 
         RuleFor(x => x.Name)
             .NotEmpty()

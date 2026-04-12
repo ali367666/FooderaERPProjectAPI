@@ -3,7 +3,6 @@ using Application.Common.Responce;
 using Application.StockCategory.Commands.Create;
 using Application.StockCategory.Dtos.Response;
 using AutoMapper;
-using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -68,7 +67,7 @@ public class CreateStockCategoryCommandHandler
             return BaseResponse<CreateStockCategoryResponse>.Fail("Category name already exists for this company.");
         }
 
-        Domain.Entities.StockCategory? parentCategory = null;
+        Domain.Entities.WarehouseAndStock.StockCategory? parentCategory = null;
 
         if (dto.ParentId.HasValue)
         {
@@ -94,7 +93,7 @@ public class CreateStockCategoryCommandHandler
             }
         }
 
-        Domain.Entities.StockCategory stockCategory = new Domain.Entities.StockCategory
+        Domain.Entities.WarehouseAndStock.StockCategory stockCategory = new Domain.Entities.WarehouseAndStock.StockCategory
         {
             Name = normalizedName,
             Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),

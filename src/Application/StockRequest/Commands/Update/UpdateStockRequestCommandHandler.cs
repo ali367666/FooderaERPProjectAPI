@@ -70,7 +70,7 @@ public class UpdateStockRequestCommandHandler
             }
             else
             {
-                entity.Lines.Add(new Domain.Entities.StockRequestLine
+                entity.Lines.Add(new Domain.Entities.WarehouseAndStock.StockRequestLine
                 {
                     CompanyId = entity.CompanyId,
                     StockItemId = incomingLine.StockItemId,

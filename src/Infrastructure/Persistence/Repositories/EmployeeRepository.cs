@@ -25,9 +25,7 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(x => x.Department)
             .Include(x => x.Position)
             .Include(x => x.User)
-            .FirstOrDefaultAsync(
-                x => x.Id == id && x.CompanyId == companyId,
-                cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
     public async Task<List<Employee>> GetAllAsync(int companyId, CancellationToken cancellationToken)
@@ -37,7 +35,6 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(x => x.Position)
             .Include(x => x.User)
             .Where(x => x.CompanyId == companyId)
-            .OrderByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
     }
 

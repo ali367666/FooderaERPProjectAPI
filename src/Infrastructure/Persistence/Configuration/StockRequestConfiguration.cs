@@ -1,10 +1,11 @@
-﻿using Domain.Enums;
+﻿using Domain.Entities.WarehouseAndStock;
+using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-public class StockRequestConfiguration : IEntityTypeConfiguration<Domain.Entities.StockRequest>
+public class StockRequestConfiguration : IEntityTypeConfiguration<StockRequest>
 {
-    public void Configure(EntityTypeBuilder<Domain.Entities.StockRequest> builder)
+    public void Configure(EntityTypeBuilder<StockRequest> builder)
     {
         builder.HasKey(x => x.Id);
 

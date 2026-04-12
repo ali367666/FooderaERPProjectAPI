@@ -86,7 +86,7 @@ public class CreateStockItemCommandHandler
             }
         }
 
-        var stockItem = _mapper.Map<Domain.Entities.StockItem>(request.Request);
+        var stockItem = _mapper.Map<Domain.Entities.WarehouseAndStock.StockItem>(request.Request);
 
         await _stockItemRepository.AddAsync(stockItem, cancellationToken);
         await _stockItemRepository.SaveChangesAsync(cancellationToken);

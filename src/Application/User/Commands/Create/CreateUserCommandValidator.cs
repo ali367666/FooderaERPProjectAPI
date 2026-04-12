@@ -1,5 +1,5 @@
-﻿using FluentValidation;
-using Domain.Enums;
+﻿using Domain.Enums;
+using FluentValidation;
 
 namespace Application.User.Commands.Create;
 
@@ -7,30 +7,36 @@ public class CreateUserCommandValidator : AbstractValidator<CreateUserCommand>
 {
     public CreateUserCommandValidator()
     {
-        RuleFor(x => x.dto.FullName)
-            .NotEmpty()
-            .MaximumLength(100);
+        RuleFor(x => x.dto.EmployeeId)
+            .GreaterThan(0)
+            .WithMessage("EmployeeId düzgün daxil edilməlidir.");
 
         RuleFor(x => x.dto.UserName)
             .NotEmpty()
-            .MaximumLength(50);
+            .WithMessage("UserName boş ola bilməz.")
+            .MaximumLength(50)
+            .WithMessage("UserName maksimum 50 simvol ola bilər.");
 
         RuleFor(x => x.dto.Email)
             .NotEmpty()
-            .EmailAddress();
+            .WithMessage("Email boş ola bilməz.")
+            .EmailAddress()
+            .WithMessage("Email formatı düzgün deyil.");
 
         RuleFor(x => x.dto.Password)
             .NotEmpty()
-            .MinimumLength(6);
+            .WithMessage("Password boş ola bilməz.")
+            .MinimumLength(6)
+            .WithMessage("Password minimum 6 simvol olmalıdır.");
 
-        RuleFor(x => x.dto.CompanyId)
-            .GreaterThan(0);
+        RuleFor(x => x.dto.RestaurantId)
+            .Null()
+            .When(x => x.dto.WorkplaceType == EmployeeWorkplaceType.HeadOffice)
+            .WithMessage("HeadOffice üçün RestaurantId boş olmalıdır.");
 
-        RuleFor(x => x.dto)
-            .Must(x =>
-                (x.WorkplaceType == EmployeeWorkplaceType.HeadOffice && x.RestaurantId == null) ||
-                (x.WorkplaceType == EmployeeWorkplaceType.Restaurant && x.RestaurantId != null)
-            )
-            .WithMessage("WorkplaceType və RestaurantId uyğun deyil.");
+        RuleFor(x => x.dto.RestaurantId)
+            .NotNull()
+            .When(x => x.dto.WorkplaceType == EmployeeWorkplaceType.Restaurant)
+            .WithMessage("Restaurant workplace üçün RestaurantId mütləq verilməlidir.");
     }
 }
