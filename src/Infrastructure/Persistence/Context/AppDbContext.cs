@@ -1,7 +1,9 @@
 ﻿using Domain.Entities;
+using Domain.Entities.WarehouseAndStock;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Persistence.Configurations;
 
 namespace Infrastructure.Persistence.Context;
 
@@ -40,6 +42,12 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     public DbSet<Department> Departments { get; set; } = null!;
     public DbSet<Employee> Employees { get; set; } = null!;
     public DbSet<Position> Positions { get; set; } = null!;
+
+    public DbSet<MenuCategory> MenuCategories { get; set; } = null!;
+    public DbSet<MenuItem> MenuItems { get; set; } = null!;
+    public DbSet<Order> Orders { get; set; } = null!;
+    public DbSet<OrderLine> OrderLines { get; set; } = null!;
+    public DbSet<RestaurantTable> RestaurantTables { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

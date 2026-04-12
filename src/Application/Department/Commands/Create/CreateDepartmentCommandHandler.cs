@@ -1,4 +1,6 @@
 ﻿using Application.Abstractions.Repositories;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.Departments.Dtos;
@@ -12,13 +14,16 @@ public sealed class CreateDepartmentCommandHandler
     : IRequestHandler<CreateDepartmentCommand, BaseResponse<DepartmentResponse>>
 {
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<CreateDepartmentCommandHandler> _logger;
 
     public CreateDepartmentCommandHandler(
         IDepartmentRepository departmentRepository,
+        ICurrentUserService currentUserService,
         ILogger<CreateDepartmentCommandHandler> logger)
     {
         _departmentRepository = departmentRepository;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -29,35 +34,40 @@ public sealed class CreateDepartmentCommandHandler
         try
         {
             var dto = request.Request;
-
-            _logger.LogInformation(
-                "CreateDepartmentCommand başladı. CompanyId: {CompanyId}, Name: {Name}",
-                dto.CompanyId,
-                dto.Name);
+            var companyId = _currentUserService.CompanyId;
 
             if (string.IsNullOrWhiteSpace(dto.Name))
                 return BaseResponse<DepartmentResponse>.Fail("Department adı boş ola bilməz.");
 
+            var departmentName = dto.Name.Trim();
+
+            _logger.LogInformation(
+                "CreateDepartmentCommand başladı. CompanyId: {CompanyId}, Name: {Name}",
+                companyId,
+                departmentName);
+
             var exists = await _departmentRepository.ExistsByNameAsync(
-                dto.CompanyId,
-                dto.Name.Trim(),
+                companyId,
+                departmentName,
                 cancellationToken);
 
             if (exists)
             {
                 _logger.LogWarning(
-                    "Department yaradılmadı. Eyni adda department artıq mövcuddur. CompanyId: {CompanyId}, Name: {Name}",
-                    dto.CompanyId,
-                    dto.Name);
+                    "Department yaradılmadı. Duplicate name. CompanyId: {CompanyId}, Name: {Name}",
+                    companyId,
+                    departmentName);
 
                 return BaseResponse<DepartmentResponse>.Fail("Bu adda department artıq mövcuddur.");
             }
 
             var department = new Department
             {
-                CompanyId = dto.CompanyId,
-                Name = dto.Name.Trim(),
-                Description = dto.Description?.Trim()
+                CompanyId = companyId,
+                Name = departmentName,
+                Description = string.IsNullOrWhiteSpace(dto.Description)
+                    ? null
+                    : dto.Description.Trim()
             };
 
             await _departmentRepository.AddAsync(department, cancellationToken);
@@ -72,10 +82,9 @@ public sealed class CreateDepartmentCommandHandler
             };
 
             _logger.LogInformation(
-                "Department uğurla yaradıldı. DepartmentId: {DepartmentId}, CompanyId: {CompanyId}, Name: {Name}",
+                "Department uğurla yaradıldı. DepartmentId: {DepartmentId}, CompanyId: {CompanyId}",
                 department.Id,
-                department.CompanyId,
-                department.Name);
+                department.CompanyId);
 
             return BaseResponse<DepartmentResponse>.Ok(response, "Department uğurla yaradıldı.");
         }
@@ -83,8 +92,7 @@ public sealed class CreateDepartmentCommandHandler
         {
             _logger.LogError(
                 ex,
-                "CreateDepartmentCommand zamanı xəta baş verdi. CompanyId: {CompanyId}, Name: {Name}",
-                request.Request.CompanyId,
+                "CreateDepartmentCommand zamanı xəta baş verdi. Name: {Name}",
                 request.Request.Name);
 
             throw;

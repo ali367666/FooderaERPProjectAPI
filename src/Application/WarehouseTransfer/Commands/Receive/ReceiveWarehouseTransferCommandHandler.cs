@@ -51,7 +51,7 @@ public class ReceiveWarehouseTransferCommandHandler
 
                 if (warehouseStock is null)
                 {
-                    var newStock = new Domain.Entities.WarehouseStock
+                    var newStock = new Domain.Entities.WarehouseAndStock.WarehouseStock
                     {
                         CompanyId = transfer.CompanyId,
                         WarehouseId = transfer.ToWarehouseId,

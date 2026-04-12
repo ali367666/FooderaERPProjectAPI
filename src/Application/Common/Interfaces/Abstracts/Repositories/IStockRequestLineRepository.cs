@@ -1,8 +1,8 @@
-﻿using Domain.Entities;
+﻿using Domain.Entities.WarehouseAndStock;
 
 namespace Application.Common.Interfaces.Abstracts.Repositories;
 
 public interface IStockRequestLineRepository
 {
-    void Remove(Domain.Entities.StockRequestLine entity);
+    void Remove(StockRequestLine entity);
 }

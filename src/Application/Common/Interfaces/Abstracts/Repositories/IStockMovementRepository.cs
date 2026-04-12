@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+﻿using Domain.Entities.WarehouseAndStock;
 
 namespace Application.Common.Interfaces.Abstracts.Repositories;
 

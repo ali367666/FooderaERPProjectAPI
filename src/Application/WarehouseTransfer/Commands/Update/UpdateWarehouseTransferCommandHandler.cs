@@ -1,6 +1,7 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Domain.Entities;
+using Domain.Entities.WarehouseAndStock;
 using Domain.Enums;
 using MediatR;
 

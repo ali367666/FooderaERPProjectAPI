@@ -38,7 +38,7 @@ public class CreateWarehouseTransferCommandHandler
             };
         }
 
-        var warehouseTransfer = new Domain.Entities.WarehouseTransfer
+        var warehouseTransfer = new Domain.Entities.WarehouseAndStock.WarehouseTransfer
         {
             CompanyId = dto.CompanyId,
             StockRequestId = dto.StockRequestId,
@@ -48,7 +48,7 @@ public class CreateWarehouseTransferCommandHandler
             Note = dto.Note,
             Status = TransferStatus.Draft,
             TransferDate = DateTime.UtcNow,
-            Lines = dto.Lines.Select(x => new WarehouseTransferLine
+            Lines = dto.Lines.Select(x => new Domain.Entities.WarehouseAndStock.WarehouseTransferLine
             {
                 CompanyId = dto.CompanyId,
                 StockItemId = x.StockItemId,

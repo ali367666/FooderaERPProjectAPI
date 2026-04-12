@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Text.Json;
+using Application.Common.Exceptions;
 using FluentValidation;
 
 namespace API.Middlewares;
@@ -47,6 +48,46 @@ public class ExceptionMiddleware
                 Success = false,
                 Message = "Validation failed",
                 Errors = errors.Select(x => x.Error).ToList()
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        }
+        catch (BadRequestException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Bad request xətası baş verdi. Path: {Path}, Method: {Method}",
+                context.Request.Path,
+                context.Request.Method);
+
+            context.Response.Clear();
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                Success = false,
+                Message = ex.Message
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        }
+        catch (NotFoundException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Not found xətası baş verdi. Path: {Path}, Method: {Method}",
+                context.Request.Path,
+                context.Request.Method);
+
+            context.Response.Clear();
+            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                Success = false,
+                Message = ex.Message
             };
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));

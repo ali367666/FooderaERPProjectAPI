@@ -1,5 +1,5 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
-using Domain.Entities;
+using Domain.Entities.WarehouseAndStock;
 using Domain.Enums;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
