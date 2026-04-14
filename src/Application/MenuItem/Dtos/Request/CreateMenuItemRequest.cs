@@ -1,4 +1,6 @@
-﻿namespace Application.MenuItems.Dtos;
+﻿using Domain.Enums;
+
+namespace Application.MenuItems.Dtos;
 
 public class CreateMenuItemRequest
 {
@@ -7,4 +9,5 @@ public class CreateMenuItemRequest
     public decimal Price { get; set; }
     public string? Portion { get; set; }
     public int MenuCategoryId { get; set; }
+    public PreparationType PreparationType { get; set; }
 }

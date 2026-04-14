@@ -10,4 +10,13 @@ public interface IOrderLineRepository
     void Update(OrderLine orderLine);
     void Delete(OrderLine orderLine);
     Task SaveChangesAsync(CancellationToken cancellationToken);
+    Task<List<OrderLine>> GetKitchenLinesAsync(
+    int companyId,
+    int restaurantId,
+    CancellationToken cancellationToken);
+
+    Task<List<OrderLine>> GetReadyKitchenLinesAsync(
+        int companyId,
+        int restaurantId,
+        CancellationToken cancellationToken);
 }

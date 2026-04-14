@@ -1,5 +1,8 @@
-﻿using Application.Common.Extensions;
+﻿using System.Text.Json;
+using Application.Common.Extensions;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Common.Responce;
 using Application.Company.Dtos.Responce;
 using MediatR;
@@ -11,13 +14,16 @@ public sealed class UpdateCompanyCommandHandler
     : IRequestHandler<UpdateCompanyCommand, BaseResponse<UpdateCompanyResponse>>
 {
     private readonly ICompanyRepository _repository;
+    private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateCompanyCommandHandler> _logger;
 
     public UpdateCompanyCommandHandler(
         ICompanyRepository repository,
+        IAuditLogService auditLogService,
         ILogger<UpdateCompanyCommandHandler> logger)
     {
         _repository = repository;
+        _auditLogService = auditLogService;
         _logger = logger;
     }
 
@@ -41,6 +47,18 @@ public sealed class UpdateCompanyCommandHandler
         }
 
         var dto = request.dto;
+
+        var oldValues = JsonSerializer.Serialize(new
+        {
+            company.CompanyCode,
+            company.Name,
+            company.Description,
+            company.Address,
+            company.TaxNumber,
+            company.TaxOfficeCode,
+            company.Country,
+            company.CountryCode
+        });
 
         if (!string.IsNullOrWhiteSpace(dto.CompanyCode))
             company.CompanyCode = dto.CompanyCode;
@@ -67,6 +85,31 @@ public sealed class UpdateCompanyCommandHandler
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
+
+        var newValues = JsonSerializer.Serialize(new
+        {
+            company.CompanyCode,
+            company.Name,
+            company.Description,
+            company.Address,
+            company.TaxNumber,
+            company.TaxOfficeCode,
+            company.Country,
+            company.CountryCode
+        });
+
+        await _auditLogService.LogAsync(
+            new AuditLogEntry
+            {
+                EntityName = "Company",
+                EntityId = company.Id.ToString(),
+                ActionType = "Update",
+                OldValues = oldValues,
+                NewValues = newValues,
+                Message = $"Company yeniləndi. Id: {company.Id}, Code: {company.CompanyCode}, Ad: {company.Name}",
+                IsSuccess = true
+            },
+            cancellationToken);
 
         _logger.LogInformation(
             "Şirkət uğurla yeniləndi. CompanyId: {CompanyId}, CompanyCode: {CompanyCode}, Name: {Name}",

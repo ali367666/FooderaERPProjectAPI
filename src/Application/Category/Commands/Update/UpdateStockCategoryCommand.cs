@@ -5,5 +5,7 @@ using MediatR;
 
 namespace Application.StockCategory.Commands.Update;
 
-public record UpdateStockCategoryCommand(int Id, UpdateStockCategoryRequest Request)
-    : IRequest<BaseResponse<StockCategoryResponse>>;
+public record UpdateStockCategoryCommand(
+    int Id,
+    UpdateStockCategoryRequest Request
+) : IRequest<BaseResponse<CreateStockCategoryResponse>>;

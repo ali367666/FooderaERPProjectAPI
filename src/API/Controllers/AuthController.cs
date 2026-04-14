@@ -1,6 +1,8 @@
 ﻿using Application.Auth.Commands.Login;
+using Application.Auth.Dtos;
 using Application.Auth.Dtos.Requests;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
@@ -17,9 +19,18 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        var result = await _mediator.Send(new LoginCommand(request));
-        return result.Success ? Ok(result) : Unauthorized(result);
+        var command = new LoginCommand
+        {
+            Request = request,
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+        };
+
+        var result = await _mediator.Send(command);
+        return Ok(result);
     }
+
+    
 }

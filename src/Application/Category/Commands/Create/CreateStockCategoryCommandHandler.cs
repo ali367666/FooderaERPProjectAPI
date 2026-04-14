@@ -1,6 +1,7 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Common.Responce;
-using Application.StockCategory.Commands.Create;
 using Application.StockCategory.Dtos.Response;
 using AutoMapper;
 using MediatR;
@@ -13,17 +14,20 @@ public class CreateStockCategoryCommandHandler
 {
     private readonly IStockCategoryRepository _stockCategoryRepository;
     private readonly ICompanyRepository _companyRepository;
+    private readonly IAuditLogService _auditLogService;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateStockCategoryCommandHandler> _logger;
 
     public CreateStockCategoryCommandHandler(
         IStockCategoryRepository stockCategoryRepository,
         ICompanyRepository companyRepository,
+        IAuditLogService auditLogService,
         IMapper mapper,
         ILogger<CreateStockCategoryCommandHandler> logger)
     {
         _stockCategoryRepository = stockCategoryRepository;
         _companyRepository = companyRepository;
+        _auditLogService = auditLogService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -71,7 +75,9 @@ public class CreateStockCategoryCommandHandler
 
         if (dto.ParentId.HasValue)
         {
-            parentCategory = await _stockCategoryRepository.GetByIdAsync(dto.ParentId.Value, cancellationToken);
+            parentCategory = await _stockCategoryRepository.GetByIdAsync(
+                dto.ParentId.Value,
+                cancellationToken);
 
             if (parentCategory is null)
             {
@@ -93,7 +99,7 @@ public class CreateStockCategoryCommandHandler
             }
         }
 
-        Domain.Entities.WarehouseAndStock.StockCategory stockCategory = new Domain.Entities.WarehouseAndStock.StockCategory
+        var stockCategory = new Domain.Entities.WarehouseAndStock.StockCategory
         {
             Name = normalizedName,
             Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
@@ -104,6 +110,18 @@ public class CreateStockCategoryCommandHandler
 
         await _stockCategoryRepository.AddAsync(stockCategory, cancellationToken);
         await _stockCategoryRepository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.LogAsync(
+            new AuditLogEntry
+            {
+                EntityName = "StockCategory",
+                EntityId = stockCategory.Id.ToString(),
+                ActionType = "Create",
+                Message = dto.ParentId.HasValue
+                    ? $"Stock category yaradıldı. Ad: {stockCategory.Name}, CompanyId: {stockCategory.CompanyId}, ParentId: {stockCategory.ParentId}"
+                    : $"Stock category yaradıldı. Ad: {stockCategory.Name}, CompanyId: {stockCategory.CompanyId}"
+            },
+            cancellationToken);
 
         _logger.LogInformation(
             "Stock category created successfully. Id: {Id}, Name: {Name}, CompanyId: {CompanyId}",

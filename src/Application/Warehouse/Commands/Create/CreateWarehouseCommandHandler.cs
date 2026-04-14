@@ -1,9 +1,10 @@
 ﻿using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Common.Responce;
 using Application.Warehouse.Dtos.Response;
 using AutoMapper;
-using Domain.Entities;
 using Domain.Enums;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ public class CreateWarehouseCommandHandler
     private readonly ICompanyRepository _companyRepository;
     private readonly IRestaurantRepository _restaurantRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IAuditLogService _auditLogService;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateWarehouseCommandHandler> _logger;
 
@@ -25,6 +27,7 @@ public class CreateWarehouseCommandHandler
         ICompanyRepository companyRepository,
         IRestaurantRepository restaurantRepository,
         IUserRepository userRepository,
+        IAuditLogService auditLogService,
         IMapper mapper,
         ILogger<CreateWarehouseCommandHandler> logger)
     {
@@ -32,6 +35,7 @@ public class CreateWarehouseCommandHandler
         _companyRepository = companyRepository;
         _restaurantRepository = restaurantRepository;
         _userRepository = userRepository;
+        _auditLogService = auditLogService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -60,8 +64,10 @@ public class CreateWarehouseCommandHandler
             return BaseResponse<WarehouseResponse>.Fail("Company not found.");
         }
 
+        var trimmedName = dto.Name.Trim();
+
         var warehouseNameExists = await _warehouseRepository.ExistsByNameAsync(
-            dto.Name.Trim(),
+            trimmedName,
             dto.CompanyId,
             cancellationToken);
 
@@ -70,7 +76,7 @@ public class CreateWarehouseCommandHandler
             _logger.LogWarning(
                 "CreateWarehouseCommand failed. Warehouse name already exists. CompanyId: {CompanyId}, Name: {Name}",
                 dto.CompanyId,
-                dto.Name);
+                trimmedName);
 
             return BaseResponse<WarehouseResponse>.Fail("Warehouse name already exists for this company.");
         }
@@ -101,9 +107,9 @@ public class CreateWarehouseCommandHandler
             }
         }
 
-        Domain.Entities.Warehouse warehouse = new Domain.Entities.Warehouse
+        var warehouse = new Domain.Entities.Warehouse
         {
-            Name = dto.Name.Trim(),
+            Name = trimmedName,
             Type = dto.Type,
             CompanyId = dto.CompanyId,
             RestaurantId = dto.Type == WarehouseType.Restaurant ? dto.RestaurantId : null,
@@ -112,6 +118,31 @@ public class CreateWarehouseCommandHandler
 
         await _warehouseRepository.AddAsync(warehouse, cancellationToken);
         await _warehouseRepository.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "Warehouse",
+                    EntityId = warehouse.Id.ToString(),
+                    ActionType = "Create",
+                    Message = $"Warehouse yaradıldı. Id: {warehouse.Id}, Name: {warehouse.Name}, Type: {warehouse.Type}, CompanyId: {warehouse.CompanyId}, RestaurantId: {warehouse.RestaurantId}, DriverUserId: {warehouse.DriverUserId}",
+                    IsSuccess = true
+                },
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Warehouse üçün audit log yazıldı. WarehouseId: {WarehouseId}",
+                warehouse.Id);
+        }
+        catch (Exception auditEx)
+        {
+            _logger.LogError(
+                auditEx,
+                "Warehouse create audit log yazılarkən xəta baş verdi. WarehouseId: {WarehouseId}",
+                warehouse.Id);
+        }
 
         var response = _mapper.Map<WarehouseResponse>(warehouse);
 

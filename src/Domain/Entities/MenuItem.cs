@@ -1,4 +1,5 @@
 ﻿using Domain.Common;
+using Domain.Enums;
 
 namespace Domain.Entities;
 
@@ -11,6 +12,8 @@ public class MenuItem : CompanyEntity<int>
     public string? Portion { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    public PreparationType PreparationType { get; set; } = PreparationType.Kitchen;
 
     public int MenuCategoryId { get; set; }
     public MenuCategory MenuCategory { get; set; } = default!;

@@ -51,6 +51,60 @@ public static class RolePermissionSeeder
                 AppPermissions.StockRequestDelete,
 
                 AppPermissions.AuditLogView,
+
+                AppPermissions.PositionView,
+                AppPermissions.PositionCreate,
+                AppPermissions.PositionUpdate,
+                AppPermissions.PositionDelete,
+
+                AppPermissions.DepartmentCreate,
+                AppPermissions.DepartmentUpdate,
+                AppPermissions.DepartmentDelete,
+                AppPermissions.DepartmentView,
+
+                AppPermissions.EmployeeView,
+                AppPermissions.EmployeeCreate,
+                AppPermissions.EmployeeUpdate,
+                AppPermissions.EmployeeDelete,
+
+                AppPermissions.OrdersView,
+                AppPermissions.OrdersCreate,
+                AppPermissions.OrdersUpdate,
+                AppPermissions.OrdersDelete,
+
+                AppPermissions.KitchenView,
+                AppPermissions.KitchenMarkReady,
+                AppPermissions.KitchenStartPreparing,
+
+                AppPermissions.MenuCategoryView,
+                AppPermissions.MenuCategoryCreate,
+                AppPermissions.MenuCategoryUpdate,
+                AppPermissions.MenuCategoryDelete,
+
+                AppPermissions.MenuItemView,
+                AppPermissions.MenuItemCreate,
+                AppPermissions.MenuItemUpdate,
+                AppPermissions.MenuItemDelete,
+
+                AppPermissions.RestaurantTableView,
+                AppPermissions.RestaurantTableCreate,
+                AppPermissions.RestaurantTableUpdate,
+                AppPermissions.RestaurantTableDelete,
+
+                AppPermissions.WarehouseTransferView,
+                AppPermissions.WarehouseTransferCreate,
+                AppPermissions.WarehouseTransferUpdate,
+                AppPermissions.WarehouseTransferDelete,
+                AppPermissions.WarehouseTransferApprove,
+                AppPermissions.WarehouseTransferReject,
+                AppPermissions.WarehouseTransferCancel,
+                AppPermissions.WarehouseTransferReceive,
+                AppPermissions.WarehouseTransferSubmit,
+                AppPermissions.WarehouseTransferDispatch,
+
+
+
+
             }
         },
         {
@@ -62,7 +116,19 @@ public static class RolePermissionSeeder
                 AppPermissions.RestaurantView,
                 AppPermissions.StockCategoryView,
                 AppPermissions.WarehouseView,
-                AppPermissions.WarehouseStockView
+                AppPermissions.WarehouseStockView,
+                AppPermissions.PositionView,
+                AppPermissions.StockItemView,
+                AppPermissions.StockRequestView,
+                AppPermissions.DepartmentView,
+                AppPermissions.EmployeeView,
+                AppPermissions.OrdersView,
+                AppPermissions.AuditLogView,
+                AppPermissions.KitchenView,
+                AppPermissions.MenuCategoryView,
+                AppPermissions.MenuItemView,
+                AppPermissions.RestaurantTableView,
+                AppPermissions.WarehouseTransferView,
             }
         }
     };

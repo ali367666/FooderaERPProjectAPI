@@ -6,6 +6,7 @@ using Application.Positions.Commands.Update;
 using Application.Positions.Queries.GetAll;
 using Application.Positions.Queries.GetById;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
@@ -21,6 +22,7 @@ public class PositionsController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize(Policy = "PositionCreate")]
     [HttpPost]
     public async Task<ActionResult<BaseResponse>> Create([FromBody] CreatePositionRequest request)
     {
@@ -32,6 +34,7 @@ public class PositionsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Policy = "PositionUpdate")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Update(int id, [FromBody] UpdatePositionRequest request)
     {
@@ -43,6 +46,7 @@ public class PositionsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Policy = "PositionDelete")]
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Delete(int id)
     {
@@ -54,6 +58,7 @@ public class PositionsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Policy = "PositionView")]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<BaseResponse<PositionResponse>>> GetById(int id)
     {
@@ -64,6 +69,8 @@ public class PositionsController : ControllerBase
 
         return Ok(result);
     }
+
+    [Authorize(Policy = "PositionView")]
 
     [HttpGet]
     public async Task<ActionResult<BaseResponse<List<PositionResponse>>>> GetAll()

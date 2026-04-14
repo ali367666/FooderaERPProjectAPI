@@ -74,6 +74,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IRestaurantTableRepository, RestaurantTableRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IOrderLineRepository, OrderLineRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
 
         return services;

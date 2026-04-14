@@ -1,4 +1,6 @@
-﻿namespace Application.Orders.Dtos;
+﻿using Domain.Enums;
+
+namespace Application.Orders.Dtos;
 
 public class OrderLineResponse
 {
@@ -9,5 +11,6 @@ public class OrderLineResponse
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
     public string? Note { get; set; }
+    public PreparationType PreparationType { get; set; }
     public string Status { get; set; } = default!;
 }

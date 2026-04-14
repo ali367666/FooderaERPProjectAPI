@@ -5,6 +5,7 @@ using Application.MenuItems.Dtos;
 using Application.MenuItems.Queries.GetAll;
 using Application.MenuItems.Queries.GetById;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers;
@@ -20,6 +21,7 @@ public class MenuItemsController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize(Policy = "MenuItemCreate")]
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreateMenuItemRequest request,
@@ -35,7 +37,7 @@ public class MenuItemsController : ControllerBase
             Message = "Menu məhsulu uğurla yaradıldı."
         });
     }
-
+    [Authorize(Policy = "MenuItemUpdate")]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(
         int id,
@@ -48,7 +50,7 @@ public class MenuItemsController : ControllerBase
 
         return NoContent();
     }
-
+    [Authorize(Policy = "MenuItemDelete")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(
         int id,
@@ -60,7 +62,7 @@ public class MenuItemsController : ControllerBase
 
         return NoContent();
     }
-
+    [Authorize(Policy = "MenuItemView")]
     [HttpGet("{id}")]
     public async Task<ActionResult<MenuItemResponse>> GetById(
         int id,
@@ -73,6 +75,7 @@ public class MenuItemsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Policy = "MenuItemView")]
     [HttpGet]
     public async Task<ActionResult<List<MenuItemResponse>>> GetAll(
         CancellationToken cancellationToken)

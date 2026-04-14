@@ -5,6 +5,7 @@ using Application.MenuCategories.Dtos;
 using Application.MenuCategories.Queries.GetAll;
 using Application.MenuCategories.Queries.GetById;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers;
@@ -19,8 +20,7 @@ public class MenuCategoriesController : ControllerBase
     {
         _mediator = mediator;
     }
-
-    [HttpPost]
+    [Authorize(Policy = "MenuCategoryCreate")]
     [HttpPost]
     public async Task<IActionResult> Create(
     [FromBody] CreateMenuCategoryRequest request,
@@ -37,6 +37,7 @@ public class MenuCategoriesController : ControllerBase
         });
     }
 
+    [Authorize(Policy = "MenuCategoryUpdate")]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(
         int id,
@@ -50,7 +51,7 @@ public class MenuCategoriesController : ControllerBase
 
         return NoContent();
     }
-
+    [Authorize(Policy = "MenuCategoryDelete")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(
         int id,
@@ -63,7 +64,7 @@ public class MenuCategoriesController : ControllerBase
 
         return NoContent();
     }
-
+    [Authorize(Policy = "MenuCategoryView")]
     [HttpGet("{id}")]
     public async Task<ActionResult<MenuCategoryResponse>> GetById(
         int id,
@@ -77,7 +78,7 @@ public class MenuCategoriesController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet]
+    [Authorize(Policy = "MenuCategoryView")]
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {

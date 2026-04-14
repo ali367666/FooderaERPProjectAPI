@@ -2,9 +2,9 @@
 
 public sealed class LoginResponse
 {
-    public string Token { get; set; } = default!;
-    public DateTime Expiration { get; set; }
-    public string UserName { get; set; } = default!;
-    public string Email { get; set; } = default!;
-    public IList<string> Roles { get; set; } = new List<string>();
+    public string AccessToken { get; set; } = default!;
+    public DateTime AccessTokenExpiration { get; set; }
+
+    public string RefreshToken { get; set; } = default!;
+    public DateTime RefreshTokenExpiration { get; set; }
 }

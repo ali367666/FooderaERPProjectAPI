@@ -6,6 +6,7 @@ using Application.RestaurantTables.Dtos;
 using Application.RestaurantTables.Queries.GetAll;
 using Application.RestaurantTables.Queries.GetById;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers;
@@ -21,6 +22,7 @@ public class RestaurantTablesController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize(Policy = "RestaurantTableCreate")]
     [HttpPost]
     public async Task<ActionResult<RestaurantTableResponse>> Create(
         [FromBody] CreateRestaurantTableCommand command,
@@ -30,6 +32,7 @@ public class RestaurantTablesController : ControllerBase
         return Ok(response);
     }
 
+    [Authorize(Policy = "RestaurantTableUpdate")]
     [HttpPut("{id}")]
     public async Task<ActionResult<RestaurantTableResponse>> Update(
         int id,
@@ -46,6 +49,7 @@ public class RestaurantTablesController : ControllerBase
         return Ok(response);
     }
 
+    [Authorize(Policy = "RestaurantTableView")]
     [HttpGet("{id}")]
     public async Task<ActionResult<RestaurantTableResponse>> GetById(
         int id,
@@ -55,6 +59,7 @@ public class RestaurantTablesController : ControllerBase
         return Ok(response);
     }
 
+    [Authorize(Policy = "RestaurantTableView")]
     [HttpGet]
     public async Task<ActionResult<List<RestaurantTableResponse>>> GetAll(CancellationToken cancellationToken)
     {
@@ -62,6 +67,7 @@ public class RestaurantTablesController : ControllerBase
         return Ok(response);
     }
 
+    [Authorize(Policy = "RestaurantTableDelete")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {

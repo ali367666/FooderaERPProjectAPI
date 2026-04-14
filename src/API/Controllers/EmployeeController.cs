@@ -22,7 +22,7 @@ public class EmployeesController : ControllerBase
     {
         _mediator = mediator;
     }
-
+    [Authorize(Policy = "EmployeeCreate")]
     [HttpPost]
     public async Task<ActionResult<BaseResponse<int>>> Create([FromBody] CreateEmployeeRequest request)
     {
@@ -33,7 +33,7 @@ public class EmployeesController : ControllerBase
 
         return Ok(result);
     }
-
+    [Authorize(Policy = "EmployeeUpdate")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Update(int id, [FromBody] UpdateEmployeeRequest request)
     {
@@ -44,7 +44,7 @@ public class EmployeesController : ControllerBase
 
         return Ok(result);
     }
-
+    [Authorize(Policy = "EmployeeDelete")]
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Delete(int id)
     {
@@ -55,7 +55,7 @@ public class EmployeesController : ControllerBase
 
         return Ok(result);
     }
-
+    [Authorize(Policy = "EmployeeView")]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<BaseResponse<EmployeeResponse>>> GetById(int id)
     {
@@ -66,7 +66,7 @@ public class EmployeesController : ControllerBase
 
         return Ok(result);
     }
-
+    [Authorize(Policy = "EmployeeView")]
     [HttpGet]
     public async Task<ActionResult<BaseResponse<List<EmployeeResponse>>>> GetAll()
     {

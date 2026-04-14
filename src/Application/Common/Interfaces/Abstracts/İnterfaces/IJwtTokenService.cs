@@ -5,5 +5,6 @@ namespace Application.Common.Interfaces.Abstracts.İnterfaces;
 
 public interface IJwtTokenService
 {
-    Task<LoginResponse> CreateTokenAsync(Domain.Entities.User user);
+    Task<LoginResponse> CreateTokenAsync(Domain.Entities.User user, string? ipAddress = null);
+    string GenerateRefreshToken();
 }
