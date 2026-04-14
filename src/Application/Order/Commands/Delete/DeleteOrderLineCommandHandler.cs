@@ -1,8 +1,12 @@
-﻿using Application.Common.Interfaces;
+﻿using System.Text.Json;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Orders.Dtos;
 using Domain.Enums;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Application.OrderLines.Commands.Delete;
 
@@ -11,20 +15,31 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
     private readonly IOrderLineRepository _orderLineRepository;
     private readonly IOrderRepository _orderRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ILogger<DeleteOrderLineCommandHandler> _logger;
 
     public DeleteOrderLineCommandHandler(
         IOrderLineRepository orderLineRepository,
         IOrderRepository orderRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IAuditLogService auditLogService,
+        ILogger<DeleteOrderLineCommandHandler> logger)
     {
         _orderLineRepository = orderLineRepository;
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
+        _auditLogService = auditLogService;
+        _logger = logger;
     }
 
     public async Task<OrderResponse> Handle(DeleteOrderLineCommand request, CancellationToken cancellationToken)
     {
         var companyId = _currentUserService.CompanyId;
+
+        _logger.LogInformation(
+            "DeleteOrderLineCommand başladı. OrderLineId: {OrderLineId}, CompanyId: {CompanyId}",
+            request.Id,
+            companyId);
 
         var line = await _orderLineRepository.GetByIdAsync(
             request.Id,
@@ -32,14 +47,57 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
             cancellationToken);
 
         if (line is null)
-            throw new Exception("Order line tapılmadı.");
+        {
+            _logger.LogWarning(
+                "OrderLine silinmədi. Tapılmadı. OrderLineId: {OrderLineId}",
+                request.Id);
 
-        var order = await _orderRepository.GetByIdAsync(line.OrderId, companyId, cancellationToken);
+            throw new Exception("Order line tapılmadı.");
+        }
+
+        var order = await _orderRepository.GetByIdAsync(
+            line.OrderId,
+            companyId,
+            cancellationToken);
+
         if (order is null)
+        {
+            _logger.LogWarning(
+                "OrderLine silinmədi. Sifariş tapılmadı. OrderId: {OrderId}",
+                line.OrderId);
+
             throw new Exception("Sifariş tapılmadı.");
+        }
 
         if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Cancelled)
+        {
+            _logger.LogWarning(
+                "OrderLine silinmədi. Sifariş statusu uyğun deyil. OrderId: {OrderId}, Status: {Status}",
+                order.Id,
+                order.Status);
+
             throw new Exception("Bu sifarişin line-ı silinə bilməz.");
+        }
+
+        var oldOrderLineValues = JsonSerializer.Serialize(new
+        {
+            line.Id,
+            line.OrderId,
+            line.MenuItemId,
+            line.Quantity,
+            line.UnitPrice,
+            line.LineTotal,
+            line.Note,
+            line.PreparationType,
+            line.Status
+        });
+
+        var oldOrderValues = JsonSerializer.Serialize(new
+        {
+            order.Id,
+            order.Status,
+            order.TotalAmount
+        });
 
         if (line.Status != OrderLineStatus.Cancelled)
         {
@@ -54,9 +112,73 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
 
         await _orderRepository.SaveChangesAsync(cancellationToken);
 
-        var updatedOrder = await _orderRepository.GetByIdAsync(order.Id, companyId, cancellationToken);
+        var newOrderValues = JsonSerializer.Serialize(new
+        {
+            order.Id,
+            order.Status,
+            order.TotalAmount
+        });
+
+        try
+        {
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "OrderLine",
+                    EntityId = line.Id.ToString(),
+                    ActionType = "Delete",
+                    OldValues = oldOrderLineValues,
+                    NewValues = null,
+                    Message = $"OrderLine silindi. OrderLineId: {line.Id}, OrderId: {line.OrderId}, MenuItemId: {line.MenuItemId}, Məbləğ: {line.LineTotal}",
+                    IsSuccess = true
+                },
+                cancellationToken);
+
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "Order",
+                    EntityId = order.Id.ToString(),
+                    ActionType = "Update",
+                    OldValues = oldOrderValues,
+                    NewValues = newOrderValues,
+                    Message = $"Order total yeniləndi. OrderId: {order.Id}, YeniTotalAmount: {order.TotalAmount}",
+                    IsSuccess = true
+                },
+                cancellationToken);
+
+            _logger.LogInformation(
+                "DeleteOrderLine audit logları yazıldı. OrderLineId: {OrderLineId}, OrderId: {OrderId}",
+                line.Id,
+                order.Id);
+        }
+        catch (Exception auditEx)
+        {
+            _logger.LogError(
+                auditEx,
+                "DeleteOrderLine audit log yazılarkən xəta baş verdi. OrderLineId: {OrderLineId}, OrderId: {OrderId}",
+                line.Id,
+                order.Id);
+        }
+
+        var updatedOrder = await _orderRepository.GetByIdAsync(
+            order.Id,
+            companyId,
+            cancellationToken);
+
         if (updatedOrder is null)
+        {
+            _logger.LogWarning(
+                "Yenilənmiş sifariş tapılmadı. OrderId: {OrderId}",
+                order.Id);
+
             throw new Exception("Yenilənmiş sifariş tapılmadı.");
+        }
+
+        _logger.LogInformation(
+            "OrderLine uğurla silindi. OrderLineId: {OrderLineId}, OrderId: {OrderId}",
+            line.Id,
+            order.Id);
 
         return new OrderResponse
         {

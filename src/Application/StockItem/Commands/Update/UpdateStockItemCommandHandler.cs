@@ -1,4 +1,6 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Common.Responce;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -11,17 +13,20 @@ public class UpdateStockItemCommandHandler
     private readonly IStockItemRepository _stockItemRepository;
     private readonly IStockCategoryRepository _stockCategoryRepository;
     private readonly IRestaurantRepository _restaurantRepository;
+    private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateStockItemCommandHandler> _logger;
 
     public UpdateStockItemCommandHandler(
         IStockItemRepository stockItemRepository,
         IStockCategoryRepository stockCategoryRepository,
         IRestaurantRepository restaurantRepository,
+        IAuditLogService auditLogService,
         ILogger<UpdateStockItemCommandHandler> logger)
     {
         _stockItemRepository = stockItemRepository;
         _stockCategoryRepository = stockCategoryRepository;
         _restaurantRepository = restaurantRepository;
+        _auditLogService = auditLogService;
         _logger = logger;
     }
 
@@ -68,16 +73,49 @@ public class UpdateStockItemCommandHandler
             }
         }
 
+        var oldName = stockItem.Name;
+        var oldBarcode = stockItem.Barcode;
+        var oldType = stockItem.Type;
+        var oldUnit = stockItem.Unit;
+        var oldCategoryId = stockItem.CategoryId;
+        var oldCompanyId = stockItem.CompanyId;
+        
+
         stockItem.Name = request.Request.Name;
         stockItem.Barcode = request.Request.Barcode;
         stockItem.Type = request.Request.Type;
         stockItem.Unit = request.Request.Unit;
         stockItem.CategoryId = request.Request.CategoryId;
         stockItem.CompanyId = request.Request.CompanyId;
-        //stockItem.RestaurantId = request.Request.RestaurantId;
+        // stockItem.RestaurantId = request.Request.RestaurantId;
 
         _stockItemRepository.Update(stockItem);
         await _stockItemRepository.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "StockItem",
+                    EntityId = stockItem.Id.ToString(),
+                    ActionType = "Update",
+                    Message = $"StockItem yeniləndi. Id: {stockItem.Id}, OldName: {oldName}, NewName: {stockItem.Name}, OldBarcode: {oldBarcode}, NewBarcode: {stockItem.Barcode}, OldType: {oldType}, NewType: {stockItem.Type}, OldUnit: {oldUnit}, NewUnit: {stockItem.Unit}, OldCategoryId: {oldCategoryId}, NewCategoryId: {stockItem.CategoryId}, OldCompanyId: {oldCompanyId}, NewCompanyId: {stockItem.CompanyId}",
+                    IsSuccess = true
+                },
+                cancellationToken);
+
+            _logger.LogInformation(
+                "StockItem üçün audit log yazıldı. StockItemId: {StockItemId}",
+                stockItem.Id);
+        }
+        catch (Exception auditEx)
+        {
+            _logger.LogError(
+                auditEx,
+                "StockItem update audit log yazılarkən xəta baş verdi. StockItemId: {StockItemId}",
+                stockItem.Id);
+        }
 
         _logger.LogInformation("Stock item updated successfully. Id: {Id}", stockItem.Id);
 

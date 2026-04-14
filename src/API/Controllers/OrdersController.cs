@@ -26,6 +26,7 @@ public class OrdersController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize(Policy = "OrdersCreate")]
     [HttpPost]
     public async Task<ActionResult<OrderResponse>> Create([FromBody] CreateOrderRequest request)
     {
@@ -33,6 +34,7 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Policy = "OrdersUpdate")]
     [HttpPut]
     public async Task<ActionResult<OrderResponse>> Update([FromBody] UpdateOrderRequest request)
     {
@@ -40,41 +42,42 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Policy = "OrdersDelete")]
     [HttpDelete("{id}")]
     public async Task<ActionResult<string>> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteOrderCommand(id));
         return Ok(result);
     }
-
+    [Authorize(Policy = "OrdersAdd")]
     [HttpPost("lines")]
     public async Task<ActionResult<OrderResponse>> AddLine([FromBody] AddOrderLineRequest request)
     {
         var result = await _mediator.Send(new AddOrderLineCommand(request));
         return Ok(result);
     }
-
+    [Authorize(Policy = "OrdersUpdate")]
     [HttpPut("lines")]
     public async Task<ActionResult<OrderResponse>> UpdateLine([FromBody] UpdateOrderLineRequest request)
     {
         var result = await _mediator.Send(new UpdateOrderLineCommand(request));
         return Ok(result);
     }
-
+    [Authorize(Policy = "OrdersDelete")]
     [HttpDelete("lines/{id}")]
     public async Task<ActionResult<OrderResponse>> DeleteLine(int id)
     {
         var result = await _mediator.Send(new DeleteOrderLineCommand(id));
         return Ok(result);
     }
-
+    [Authorize(Policy = "OrdersView")]
     [HttpGet("{id}")]
     public async Task<ActionResult<OrderResponse>> GetById(int id)
     {
         var result = await _mediator.Send(new GetOrderByIdQuery(id));
         return Ok(result);
     }
-
+    [Authorize(Policy = "OrdersView")]
     [HttpGet]
     public async Task<ActionResult<List<OrderResponse>>> GetAll()
     {

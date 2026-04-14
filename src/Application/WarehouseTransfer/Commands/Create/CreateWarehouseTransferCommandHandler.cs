@@ -1,8 +1,10 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Common.Responce;
-using Domain.Entities;
 using Domain.Enums;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Application.WarehouseTransfers.Commands.Create;
 
@@ -10,11 +12,17 @@ public class CreateWarehouseTransferCommandHandler
     : IRequestHandler<CreateWarehouseTransferCommand, BaseResponse<int>>
 {
     private readonly IWarehouseTransferRepository _warehouseTransferRepository;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ILogger<CreateWarehouseTransferCommandHandler> _logger;
 
     public CreateWarehouseTransferCommandHandler(
-        IWarehouseTransferRepository warehouseTransferRepository)
+        IWarehouseTransferRepository warehouseTransferRepository,
+        IAuditLogService auditLogService,
+        ILogger<CreateWarehouseTransferCommandHandler> logger)
     {
         _warehouseTransferRepository = warehouseTransferRepository;
+        _auditLogService = auditLogService;
+        _logger = logger;
     }
 
     public async Task<BaseResponse<int>> Handle(
@@ -22,6 +30,14 @@ public class CreateWarehouseTransferCommandHandler
         CancellationToken cancellationToken)
     {
         var dto = request.Request;
+
+        _logger.LogInformation(
+            "CreateWarehouseTransferCommand başladı. CompanyId: {CompanyId}, FromWarehouseId: {FromWarehouseId}, ToWarehouseId: {ToWarehouseId}, VehicleWarehouseId: {VehicleWarehouseId}, StockRequestId: {StockRequestId}",
+            dto.CompanyId,
+            dto.FromWarehouseId,
+            dto.ToWarehouseId,
+            dto.VehicleWarehouseId,
+            dto.StockRequestId);
 
         var duplicateStockItemIds = dto.Lines
             .GroupBy(x => x.StockItemId)
@@ -31,6 +47,11 @@ public class CreateWarehouseTransferCommandHandler
 
         if (duplicateStockItemIds.Any())
         {
+            _logger.LogWarning(
+                "Warehouse transfer yaradılmadı. Duplicate StockItem var. CompanyId: {CompanyId}, DuplicateStockItemIds: {DuplicateStockItemIds}",
+                dto.CompanyId,
+                string.Join(", ", duplicateStockItemIds));
+
             return new BaseResponse<int>
             {
                 Success = false,
@@ -58,6 +79,36 @@ public class CreateWarehouseTransferCommandHandler
 
         await _warehouseTransferRepository.AddAsync(warehouseTransfer, cancellationToken);
         await _warehouseTransferRepository.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "WarehouseTransfer",
+                    EntityId = warehouseTransfer.Id.ToString(),
+                    ActionType = "Create",
+                    Message = $"WarehouseTransfer yaradıldı. Id: {warehouseTransfer.Id}, CompanyId: {warehouseTransfer.CompanyId}, StockRequestId: {warehouseTransfer.StockRequestId}, FromWarehouseId: {warehouseTransfer.FromWarehouseId}, ToWarehouseId: {warehouseTransfer.ToWarehouseId}, VehicleWarehouseId: {warehouseTransfer.VehicleWarehouseId}, Status: {warehouseTransfer.Status}, TransferDate: {warehouseTransfer.TransferDate}, Note: {warehouseTransfer.Note}, LineCount: {warehouseTransfer.Lines.Count}",
+                    IsSuccess = true
+                },
+                cancellationToken);
+
+            _logger.LogInformation(
+                "WarehouseTransfer üçün audit log yazıldı. TransferId: {TransferId}",
+                warehouseTransfer.Id);
+        }
+        catch (Exception auditEx)
+        {
+            _logger.LogError(
+                auditEx,
+                "WarehouseTransfer create audit log yazılarkən xəta baş verdi. TransferId: {TransferId}",
+                warehouseTransfer.Id);
+        }
+
+        _logger.LogInformation(
+            "Warehouse transfer uğurla yaradıldı. TransferId: {TransferId}, CompanyId: {CompanyId}",
+            warehouseTransfer.Id,
+            warehouseTransfer.CompanyId);
 
         return new BaseResponse<int>
         {

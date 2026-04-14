@@ -24,5 +24,7 @@ public class UpdateMenuItemCommandValidator : AbstractValidator<UpdateMenuItemCo
 
         RuleFor(x => x.Request.MenuCategoryId)
             .GreaterThan(0);
+        RuleFor(x => x.Request.PreparationType)
+            .IsInEnum().WithMessage("PreparationType düzgün seçilməlidir.");
     }
 }

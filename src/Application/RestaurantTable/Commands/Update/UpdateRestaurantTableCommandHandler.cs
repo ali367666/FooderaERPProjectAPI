@@ -1,7 +1,10 @@
 ﻿using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.RestaurantTables.Dtos;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Application.RestaurantTables.Commands.Update;
 
@@ -10,42 +13,119 @@ public class UpdateRestaurantTableCommandHandler
 {
     private readonly IRestaurantTableRepository _restaurantTableRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ILogger<UpdateRestaurantTableCommandHandler> _logger;
 
     public UpdateRestaurantTableCommandHandler(
         IRestaurantTableRepository restaurantTableRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IAuditLogService auditLogService,
+        ILogger<UpdateRestaurantTableCommandHandler> logger)
     {
         _restaurantTableRepository = restaurantTableRepository;
         _currentUserService = currentUserService;
+        _auditLogService = auditLogService;
+        _logger = logger;
     }
 
-    public async Task<RestaurantTableResponse> Handle(UpdateRestaurantTableCommand request, CancellationToken cancellationToken)
+    public async Task<RestaurantTableResponse> Handle(
+        UpdateRestaurantTableCommand request,
+        CancellationToken cancellationToken)
     {
+        var companyId = _currentUserService.CompanyId;
+        var dto = request.Request;
+        var trimmedName = dto.Name.Trim();
+
+        _logger.LogInformation(
+            "UpdateRestaurantTableCommand başladı. TableId: {TableId}, Name: {Name}, RestaurantId: {RestaurantId}, CompanyId: {CompanyId}",
+            request.Id,
+            trimmedName,
+            dto.RestaurantId,
+            companyId);
+
         var table = await _restaurantTableRepository.GetByIdAsync(
             request.Id,
-            _currentUserService.CompanyId,
+            companyId,
             cancellationToken);
 
         if (table is null)
+        {
+            _logger.LogWarning(
+                "RestaurantTable update olunmadı. Masa tapılmadı. TableId: {TableId}, CompanyId: {CompanyId}",
+                request.Id,
+                companyId);
+
             throw new Exception("Masa tapılmadı.");
+        }
 
         var exists = await _restaurantTableRepository.ExistsByNameAsync(
-            _currentUserService.CompanyId,
-            request.Request.RestaurantId,
+            companyId,
+            dto.RestaurantId,
             table.Id,
-            request.Request.Name.Trim(),
+            trimmedName,
             cancellationToken);
 
         if (exists)
-            throw new Exception("Bu restoranda bu adda başqa masa artıq mövcuddur.");
+        {
+            _logger.LogWarning(
+                "RestaurantTable update olunmadı. Eyni adda masa artıq mövcuddur. TableId: {TableId}, Name: {Name}, RestaurantId: {RestaurantId}, CompanyId: {CompanyId}",
+                request.Id,
+                trimmedName,
+                dto.RestaurantId,
+                companyId);
 
-        table.RestaurantId = request.Request.RestaurantId;
-        table.Name = request.Request.Name.Trim();
-        table.Capacity = request.Request.Capacity;
-        table.IsActive = request.Request.IsActive;
+            throw new Exception("Bu restoranda bu adda başqa masa artıq mövcuddur.");
+        }
+
+        // 🔥 OLD VALUES (audit üçün)
+        var oldRestaurantId = table.RestaurantId;
+        var oldName = table.Name;
+        var oldCapacity = table.Capacity;
+        var oldIsActive = table.IsActive;
+
+        // UPDATE
+        table.RestaurantId = dto.RestaurantId;
+        table.Name = trimmedName;
+        table.Capacity = dto.Capacity;
+        table.IsActive = dto.IsActive;
 
         _restaurantTableRepository.Update(table);
         await _restaurantTableRepository.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "RestaurantTable",
+                    EntityId = table.Id.ToString(),
+                    ActionType = "Update",
+                    Message = $"RestaurantTable yeniləndi. Id: {table.Id}, " +
+                              $"OldName: {oldName}, NewName: {table.Name}, " +
+                              $"OldRestaurantId: {oldRestaurantId}, NewRestaurantId: {table.RestaurantId}, " +
+                              $"OldCapacity: {oldCapacity}, NewCapacity: {table.Capacity}, " +
+                              $"OldIsActive: {oldIsActive}, NewIsActive: {table.IsActive}",
+                    IsSuccess = true
+                },
+                cancellationToken);
+
+            _logger.LogInformation(
+                "RestaurantTable üçün audit log yazıldı. TableId: {TableId}",
+                table.Id);
+        }
+        catch (Exception auditEx)
+        {
+            _logger.LogError(
+                auditEx,
+                "RestaurantTable update audit log yazılarkən xəta baş verdi. TableId: {TableId}",
+                table.Id);
+        }
+
+        _logger.LogInformation(
+            "RestaurantTable uğurla yeniləndi. TableId: {TableId}, RestaurantId: {RestaurantId}, CompanyId: {CompanyId}",
+            table.Id,
+            table.RestaurantId,
+            companyId);
 
         return new RestaurantTableResponse
         {

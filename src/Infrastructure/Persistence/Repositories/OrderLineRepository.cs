@@ -1,5 +1,6 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
 using Domain.Entities;
+using Domain.Enums;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,5 +49,41 @@ public class OrderLineRepository : IOrderLineRepository
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         return _context.SaveChangesAsync(cancellationToken);
+    }
+    public async Task<List<OrderLine>> GetKitchenLinesAsync(
+    int companyId,
+    int restaurantId,
+    CancellationToken cancellationToken)
+    {
+        return await _context.OrderLines
+            .Include(x => x.Order)
+                .ThenInclude(o => o.Table)
+            .Include(x => x.MenuItem)
+            .Where(x =>
+                x.CompanyId == companyId &&
+                x.Order.RestaurantId == restaurantId &&
+                x.PreparationType == PreparationType.Kitchen &&
+                x.Status != OrderLineStatus.Served &&
+                x.Status != OrderLineStatus.Cancelled)
+            .OrderBy(x => x.Order.OpenedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<OrderLine>> GetReadyKitchenLinesAsync(
+        int companyId,
+        int restaurantId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.OrderLines
+            .Include(x => x.Order)
+                .ThenInclude(o => o.Table)
+            .Include(x => x.MenuItem)
+            .Where(x =>
+                x.CompanyId == companyId &&
+                x.Order.RestaurantId == restaurantId &&
+                x.PreparationType == PreparationType.Kitchen &&
+                x.Status == OrderLineStatus.Ready)
+            .OrderBy(x => x.Order.OpenedAt)
+            .ToListAsync(cancellationToken);
     }
 }

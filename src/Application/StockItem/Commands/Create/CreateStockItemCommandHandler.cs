@@ -1,4 +1,7 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Common.Responce;
 using AutoMapper;
 using MediatR;
@@ -12,6 +15,8 @@ public class CreateStockItemCommandHandler
     private readonly IStockItemRepository _stockItemRepository;
     private readonly IStockCategoryRepository _stockCategoryRepository;
     private readonly IRestaurantRepository _restaurantRepository;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly IAuditLogService _auditLogService;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateStockItemCommandHandler> _logger;
 
@@ -19,12 +24,16 @@ public class CreateStockItemCommandHandler
         IStockItemRepository stockItemRepository,
         IStockCategoryRepository stockCategoryRepository,
         IRestaurantRepository restaurantRepository,
+        ICurrentUserService currentUserService,
+        IAuditLogService auditLogService,
         IMapper mapper,
         ILogger<CreateStockItemCommandHandler> logger)
     {
         _stockItemRepository = stockItemRepository;
         _stockCategoryRepository = stockCategoryRepository;
         _restaurantRepository = restaurantRepository;
+        _currentUserService = currentUserService;
+        _auditLogService = auditLogService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -90,6 +99,31 @@ public class CreateStockItemCommandHandler
 
         await _stockItemRepository.AddAsync(stockItem, cancellationToken);
         await _stockItemRepository.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "StockItem",
+                    EntityId = stockItem.Id.ToString(),
+                    ActionType = "Create",
+                    Message = $"StockItem yaradıldı. Id: {stockItem.Id}, Name: {stockItem.Name}, CompanyId: {stockItem.CompanyId}, CategoryId: {stockItem.CategoryId},Barcode: {stockItem.Barcode}",
+                    IsSuccess = true
+                },
+                cancellationToken);
+
+            _logger.LogInformation(
+                "StockItem üçün audit log yazıldı. StockItemId: {StockItemId}",
+                stockItem.Id);
+        }
+        catch (Exception auditEx)
+        {
+            _logger.LogError(
+                auditEx,
+                "StockItem create audit log yazılarkən xəta baş verdi. StockItemId: {StockItemId}",
+                stockItem.Id);
+        }
 
         _logger.LogInformation(
             "Stock item created successfully. Id: {Id}",

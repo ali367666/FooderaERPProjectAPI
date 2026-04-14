@@ -1,5 +1,6 @@
 ﻿using Application.StockItem.Commands.Create;
 using Application.StockItem.Commands.Delete;
+using Application.StockItem.Commands.Patch;
 using Application.StockItem.Commands.Update;
 using Application.StockItem.Dtos.Request;
 using Application.StockItem.Queries;

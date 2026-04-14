@@ -1,5 +1,4 @@
-﻿using Application.StockItem.Commands.Update;
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace Application.StockItem.Commands.Patch;
 

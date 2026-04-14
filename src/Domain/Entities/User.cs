@@ -15,4 +15,6 @@ public class User : IdentityUser<int>
 
     public int? RestaurantId { get; set; }
     public Restaurant? Restaurant { get; set; }
+
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }

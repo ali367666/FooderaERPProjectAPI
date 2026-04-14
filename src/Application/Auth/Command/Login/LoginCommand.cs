@@ -5,5 +5,8 @@ using MediatR;
 
 namespace Application.Auth.Commands.Login;
 
-public sealed record LoginCommand(LoginRequest Request)
-    : IRequest<BaseResponse<LoginResponse>>;
+public sealed class LoginCommand : IRequest<BaseResponse<LoginResponse>>
+{
+    public LoginRequest Request { get; set; } = default!;
+    public string? IpAddress { get; set; }
+}

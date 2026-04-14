@@ -73,4 +73,11 @@ public class OrderRepository : IOrderRepository
     {
         return _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<Order?> GetByIdWithLinesAsync(int id, int companyId, CancellationToken cancellationToken)
+    {
+        return await _context.Orders
+            .Include(x => x.Lines)
+            .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
+    }
 }

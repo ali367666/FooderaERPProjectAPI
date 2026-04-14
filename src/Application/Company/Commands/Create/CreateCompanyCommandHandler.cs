@@ -1,5 +1,7 @@
 ﻿using Application.Common.Extensions;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Common.Responce;
 using Application.Company.Dtos.Responce;
 using AutoMapper;
@@ -12,23 +14,25 @@ public sealed class CreateCompanyCommandHandler
     : IRequestHandler<CreateCompanyCommand, BaseResponse<CreateCompanyResponse>>
 {
     private readonly ICompanyRepository _repository;
+    private readonly IAuditLogService _auditLogService;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateCompanyCommandHandler> _logger;
 
     public CreateCompanyCommandHandler(
         ICompanyRepository repository,
+        IAuditLogService auditLogService,
         IMapper mapper,
         ILogger<CreateCompanyCommandHandler> logger)
     {
         _repository = repository;
+        _auditLogService = auditLogService;
         _mapper = mapper;
         _logger = logger;
     }
 
-
     public async Task<BaseResponse<CreateCompanyResponse>> Handle(
-    CreateCompanyCommand request,
-    CancellationToken cancellationToken)
+        CreateCompanyCommand request,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -70,6 +74,17 @@ public sealed class CreateCompanyCommandHandler
 
             await _repository.AddAsync(company, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
+
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "Company",
+                    EntityId = company.Id.ToString(),
+                    ActionType = "Create",
+                    Message = $"Company yaradıldı. Id: {company.Id}, Code: {company.CompanyCode}, Ad: {company.Name}",
+                    IsSuccess = true
+                },
+                cancellationToken);
 
             _logger.LogInformation(
                 "Company uğurla yaradıldı. CompanyId: {CompanyId}, CompanyCode: {CompanyCode}, Name: {Name}",

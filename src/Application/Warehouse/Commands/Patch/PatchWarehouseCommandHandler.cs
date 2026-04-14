@@ -1,4 +1,6 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Common.Responce;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -10,15 +12,18 @@ public class PatchWarehouseCommandHandler
 {
     private readonly IWarehouseRepository _warehouseRepository;
     private readonly IRestaurantRepository _restaurantRepository;
+    private readonly IAuditLogService _auditLogService;
     private readonly ILogger<PatchWarehouseCommandHandler> _logger;
 
     public PatchWarehouseCommandHandler(
         IWarehouseRepository warehouseRepository,
         IRestaurantRepository restaurantRepository,
+        IAuditLogService auditLogService,
         ILogger<PatchWarehouseCommandHandler> logger)
     {
         _warehouseRepository = warehouseRepository;
         _restaurantRepository = restaurantRepository;
+        _auditLogService = auditLogService;
         _logger = logger;
     }
 
@@ -41,20 +46,21 @@ public class PatchWarehouseCommandHandler
             return BaseResponse.Fail("Warehouse not found.");
         }
 
-        // NAME
-        if (!string.IsNullOrWhiteSpace(request.Request.Name))
-            warehouse.Name = request.Request.Name;
+        var oldName = warehouse.Name;
+        var oldType = warehouse.Type;
+        var oldRestaurantId = warehouse.RestaurantId;
+        var oldDriverUserId = warehouse.DriverUserId;
 
-        // TYPE
+        if (!string.IsNullOrWhiteSpace(request.Request.Name))
+            warehouse.Name = request.Request.Name.Trim();
+
         if (request.Request.Type.HasValue)
             warehouse.Type = request.Request.Type.Value;
 
-        // RESTAURANT
         if (request.Request.RestaurantId.HasValue)
         {
             if (request.Request.RestaurantId.Value == 0)
             {
-                // detach etmək istəyirsənsə
                 warehouse.RestaurantId = null;
             }
             else
@@ -71,11 +77,13 @@ public class PatchWarehouseCommandHandler
                     return BaseResponse.Fail("Restaurant not found.");
                 }
 
-                // Company check (çox vacibdir)
                 if (restaurant.CompanyId != warehouse.CompanyId)
                 {
                     _logger.LogWarning(
-                        "PatchWarehouse failed. Restaurant does not belong to same company.");
+                        "PatchWarehouse failed. Restaurant does not belong to same company. WarehouseId: {WarehouseId}, RestaurantId: {RestaurantId}, CompanyId: {CompanyId}",
+                        warehouse.Id,
+                        restaurant.Id,
+                        warehouse.CompanyId);
 
                     return BaseResponse.Fail("Restaurant does not belong to this company.");
                 }
@@ -84,7 +92,6 @@ public class PatchWarehouseCommandHandler
             }
         }
 
-        // DRIVER
         if (request.Request.DriverUserId.HasValue)
         {
             if (request.Request.DriverUserId.Value == 0)
@@ -93,13 +100,37 @@ public class PatchWarehouseCommandHandler
             }
             else
             {
-                // istəsən burada user yoxlanışı da əlavə edə bilərsən
                 warehouse.DriverUserId = request.Request.DriverUserId.Value;
             }
         }
 
         await _warehouseRepository.UpdateAsync(warehouse, cancellationToken);
         await _warehouseRepository.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "Warehouse",
+                    EntityId = warehouse.Id.ToString(),
+                    ActionType = "Patch",
+                    Message = $"Warehouse patch olundu. Id: {warehouse.Id}, OldName: {oldName}, NewName: {warehouse.Name}, OldType: {oldType}, NewType: {warehouse.Type}, OldRestaurantId: {oldRestaurantId}, NewRestaurantId: {warehouse.RestaurantId}, OldDriverUserId: {oldDriverUserId}, NewDriverUserId: {warehouse.DriverUserId}",
+                    IsSuccess = true
+                },
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Warehouse üçün audit log yazıldı. WarehouseId: {WarehouseId}",
+                warehouse.Id);
+        }
+        catch (Exception auditEx)
+        {
+            _logger.LogError(
+                auditEx,
+                "Warehouse patch audit log yazılarkən xəta baş verdi. WarehouseId: {WarehouseId}",
+                warehouse.Id);
+        }
 
         _logger.LogInformation(
             "Warehouse patched successfully. WarehouseId: {WarehouseId}",

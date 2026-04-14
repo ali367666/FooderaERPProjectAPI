@@ -6,6 +6,7 @@ using Application.Departments.Dtos;
 using Application.Departments.Queries.GetAll;
 using Application.Departments.Queries.GetById;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Foodera.API.Controllers;
@@ -20,7 +21,7 @@ public class DepartmentsController : ControllerBase
     {
         _mediator = mediator;
     }
-
+    [Authorize(Policy = "DepartmentCreate")]
     [HttpPost]
     public async Task<ActionResult<BaseResponse<DepartmentResponse>>> Create(
         [FromBody] CreateDepartmentRequest request)
@@ -32,7 +33,7 @@ public class DepartmentsController : ControllerBase
 
         return Ok(result);
     }
-
+    [Authorize(Policy = "DepartmentUpdate")]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<BaseResponse<DepartmentResponse>>> Update(
         int id,
@@ -46,7 +47,7 @@ public class DepartmentsController : ControllerBase
 
         return Ok(result);
     }
-
+    [Authorize(Policy = "DepartmentView")]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<BaseResponse<DepartmentResponse>>> GetById(
         int id,
@@ -59,7 +60,7 @@ public class DepartmentsController : ControllerBase
 
         return Ok(result);
     }
-
+    [Authorize(Policy = "DepartmentView")]
     [HttpGet]
     public async Task<ActionResult<BaseResponse<List<DepartmentResponse>>>> GetAll(
         [FromQuery] int companyId)
@@ -67,7 +68,7 @@ public class DepartmentsController : ControllerBase
         var result = await _mediator.Send(new GetAllDepartmentsQuery(companyId));
         return Ok(result);
     }
-
+    [Authorize(Policy = "DepartmentDelete")]
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Delete(
         int id,

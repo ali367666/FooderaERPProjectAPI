@@ -1,7 +1,8 @@
 ﻿using Application.Abstractions.Repositories;
 using Application.Common.Interfaces;
-using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Models;
 using Application.Common.Responce;
 using Application.Departments.Dtos;
 using Domain.Entities;
@@ -15,15 +16,18 @@ public sealed class CreateDepartmentCommandHandler
 {
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IAuditLogService _auditLogService;
     private readonly ILogger<CreateDepartmentCommandHandler> _logger;
 
     public CreateDepartmentCommandHandler(
         IDepartmentRepository departmentRepository,
         ICurrentUserService currentUserService,
+        IAuditLogService auditLogService,
         ILogger<CreateDepartmentCommandHandler> logger)
     {
         _departmentRepository = departmentRepository;
         _currentUserService = currentUserService;
+        _auditLogService = auditLogService;
         _logger = logger;
     }
 
@@ -72,6 +76,37 @@ public sealed class CreateDepartmentCommandHandler
 
             await _departmentRepository.AddAsync(department, cancellationToken);
             await _departmentRepository.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Department DB-yə yazıldı. Id: {Id}",
+                department.Id);
+
+            // 🔥 AUDIT (SAFE şəkildə)
+            try
+            {
+                await _auditLogService.LogAsync(
+                    new AuditLogEntry
+                    {
+                        EntityName = "Department",
+                        EntityId = department.Id.ToString(),
+                        ActionType = "Create",
+                        Message = $"Department yaradıldı. Id: {department.Id}, Ad: {department.Name}, CompanyId: {department.CompanyId}",
+                        IsSuccess = true
+                    },
+                    cancellationToken);
+
+                _logger.LogInformation(
+                    "AuditLog yazıldı. DepartmentId: {DepartmentId}",
+                    department.Id);
+            }
+            catch (Exception auditEx)
+            {
+                // 🔥 Audit problemi əsas prosesi sındırmasın
+                _logger.LogError(
+                    auditEx,
+                    "AuditLog yazılarkən xəta baş verdi. DepartmentId: {DepartmentId}",
+                    department.Id);
+            }
 
             var response = new DepartmentResponse
             {

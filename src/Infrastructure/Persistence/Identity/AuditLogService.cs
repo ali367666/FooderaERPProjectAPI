@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Domain.Entities;
@@ -8,10 +9,14 @@ namespace Infrastructure.Services;
 public class AuditLogService : IAuditLogService
 {
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AuditLogService(IAuditLogRepository auditLogRepository)
+    public AuditLogService(
+        IAuditLogRepository auditLogRepository,
+        ICurrentUserService currentUserService)
     {
         _auditLogRepository = auditLogRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken)
@@ -24,8 +29,8 @@ public class AuditLogService : IAuditLogService
             OldValues = entry.OldValues,
             NewValues = entry.NewValues,
             Message = entry.Message,
-            UserId = entry.UserId,
-            CompanyId = entry.CompanyId,
+            UserId = _currentUserService.UserId,
+            CompanyId = _currentUserService.CompanyId,
             CorrelationId = entry.CorrelationId,
             IsSuccess = entry.IsSuccess
         };

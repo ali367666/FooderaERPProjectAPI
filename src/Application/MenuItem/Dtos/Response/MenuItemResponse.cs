@@ -1,4 +1,6 @@
-﻿namespace Application.MenuItems.Dtos;
+﻿using Domain.Enums;
+
+namespace Application.MenuItems.Dtos;
 
 public class MenuItemResponse
 {
@@ -11,4 +13,5 @@ public class MenuItemResponse
 
     public int MenuCategoryId { get; set; }
     public string MenuCategoryName { get; set; } = default!;
+    public PreparationType PreparationType { get; set; }
 }
