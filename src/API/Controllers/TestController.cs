@@ -8,14 +8,24 @@ namespace Api.Controllers;
 [ApiController]
 public class TestController : ControllerBase
 {
-    [Authorize] // 🔥 VACİB
-    [HttpGet("me")]
-    public IActionResult Me([FromServices] ICurrentUserService currentUser)
+    private readonly INotificationService _notificationService;
+
+    public TestController(INotificationService notificationService)
     {
-        return Ok(new
-        {
-            userId = currentUser.UserId,
-            companyId = currentUser.CompanyId
-        });
+        _notificationService = notificationService;
+    }
+
+    [HttpPost("send")]
+    public async Task<IActionResult> Send(CancellationToken cancellationToken)
+    {
+        await _notificationService.CreateAsync(
+            userId: 1,
+            companyId: 5,
+            title: "Test notification",
+            message: "Bu test notification-dur.",
+            type: "Info",
+            cancellationToken: cancellationToken);
+
+        return Ok("Notification yaradıldı");
     }
 }

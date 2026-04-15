@@ -75,6 +75,8 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IOrderLineRepository, OrderLineRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<INotificationService, NotificationService>();
 
 
         return services;

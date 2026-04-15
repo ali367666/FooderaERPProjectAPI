@@ -11,6 +11,8 @@ public class Warehouse : CompanyEntity<int>
 
     public int? RestaurantId { get; set; }
     public Restaurant? Restaurant { get; set; }
+    public int? ResponsibleEmployeeId { get; set; }
+    public Employee? ResponsibleEmployee { get; set; }
 
     public int? DriverUserId { get; set; }      // Vehicle anbarı sürücüyə bağlıdır
     public User? DriverUser { get; set; }       // istəməsən domain-a user bağlamaya bilərsən, sadəcə int saxla

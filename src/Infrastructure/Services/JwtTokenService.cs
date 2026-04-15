@@ -24,7 +24,10 @@ public class JwtTokenService : IJwtTokenService
         _refreshTokenRepository = refreshTokenRepository;
     }
 
-    public async Task<LoginResponse> CreateTokenAsync(User user, string? ipAddress = null)
+    public async Task<LoginResponse> CreateTokenAsync(
+        User user,
+        IEnumerable<string> permissions,
+        string? ipAddress = null)
     {
         var accessTokenExpiration = DateTime.UtcNow.AddMinutes(15);
         var refreshTokenExpiration = DateTime.UtcNow.AddDays(7);
@@ -36,6 +39,11 @@ public class JwtTokenService : IJwtTokenService
             new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
             new Claim("CompanyId", user.CompanyId.ToString())
         };
+
+        foreach (var permission in permissions.Distinct())
+        {
+            claims.Add(new Claim("Permission", permission));
+        }
 
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"]!));
@@ -74,11 +82,6 @@ public class JwtTokenService : IJwtTokenService
             RefreshToken = refreshTokenValue,
             RefreshTokenExpiration = refreshTokenExpiration
         };
-    }
-
-    public Task<LoginResponse> CreateTokenAsync(User user)
-    {
-        throw new NotImplementedException();
     }
 
     public string GenerateRefreshToken()

@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -15,17 +16,23 @@ public class CreateStockRequestCommandHandler
     private readonly IStockRequestRepository _stockRequestRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogService _auditLogService;
+    private readonly IWarehouseRepository _warehouseRepository;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<CreateStockRequestCommandHandler> _logger;
 
     public CreateStockRequestCommandHandler(
         IStockRequestRepository stockRequestRepository,
         IUnitOfWork unitOfWork,
         IAuditLogService auditLogService,
+        IWarehouseRepository warehouseRepository,
+        INotificationService notificationService,
         ILogger<CreateStockRequestCommandHandler> logger)
     {
         _stockRequestRepository = stockRequestRepository;
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
+        _warehouseRepository = warehouseRepository;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -56,6 +63,59 @@ public class CreateStockRequestCommandHandler
 
         await _stockRequestRepository.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            var supplyingWarehouse = await _warehouseRepository.GetByIdWithResponsibleAsync(
+                request.Request.SupplyingWarehouseId,
+                request.Request.CompanyId,
+                cancellationToken);
+
+            if (supplyingWarehouse is not null)
+            {
+                var responsibleEmployee = supplyingWarehouse.ResponsibleEmployee;
+
+                if (responsibleEmployee?.UserId is not null)
+                {
+                    await _notificationService.CreateAsync(
+                        userId: responsibleEmployee.UserId.Value,
+                        companyId: request.Request.CompanyId,
+                        title: "Yeni stok sorğusu",
+                        message: $"{supplyingWarehouse.Name} anbarı üçün #{entity.Id} nömrəli yeni stok sorğusu yaradıldı.",
+                        type: "StockRequest",
+                        referenceId: entity.Id,
+                        referenceType: "StockRequest",
+                        cancellationToken: cancellationToken);
+
+                    _logger.LogInformation(
+                        "StockRequest notification yaradıldı. StockRequestId: {StockRequestId}, TargetUserId: {TargetUserId}",
+                        entity.Id,
+                        responsibleEmployee.UserId.Value);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Supplying warehouse məsul işçisinin UserId-si tapılmadı. WarehouseId: {WarehouseId}, StockRequestId: {StockRequestId}",
+                        supplyingWarehouse.Id,
+                        entity.Id);
+                }
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Supplying warehouse tapılmadı. WarehouseId: {WarehouseId}, CompanyId: {CompanyId}, StockRequestId: {StockRequestId}",
+                    request.Request.SupplyingWarehouseId,
+                    request.Request.CompanyId,
+                    entity.Id);
+            }
+        }
+        catch (Exception notificationEx)
+        {
+            _logger.LogError(
+                notificationEx,
+                "StockRequest notification yaradılarkən xəta baş verdi. StockRequestId: {StockRequestId}",
+                entity.Id);
+        }
 
         try
         {

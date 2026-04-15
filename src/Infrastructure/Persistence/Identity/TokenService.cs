@@ -18,14 +18,19 @@ public class TokenService : ITokenService
         _configuration = configuration;
     }
 
-    public string GenerateAccessToken(User user)
+    public string GenerateAccessToken(User user, IEnumerable<string> permissions)
     {
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.UserName),
+            new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
             new Claim("CompanyId", user.CompanyId.ToString())
         };
+
+        foreach (var permission in permissions.Distinct())
+        {
+            claims.Add(new Claim("Permission", permission));
+        }
 
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));

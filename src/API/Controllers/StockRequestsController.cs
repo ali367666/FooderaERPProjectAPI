@@ -111,7 +111,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockRequestView")]
+   // [Authorize(Policy = "StockRequestView")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {

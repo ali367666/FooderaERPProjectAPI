@@ -19,7 +19,17 @@ public class WarehouseRepository : IWarehouseRepository
         return await _context.Warehouses
             .Include(x => x.Restaurant)
             .Include(x => x.DriverUser)
+            .Include(x => x.ResponsibleEmployee)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<Warehouse?> GetByIdWithResponsibleAsync(int id, int companyId, CancellationToken cancellationToken)
+    {
+        return await _context.Warehouses
+            .Include(x => x.Restaurant)
+            .Include(x => x.DriverUser)
+            .Include(x => x.ResponsibleEmployee)
+            .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
     public async Task<List<Warehouse>> GetAllAsync(CancellationToken cancellationToken)
@@ -27,6 +37,7 @@ public class WarehouseRepository : IWarehouseRepository
         return await _context.Warehouses
             .Include(x => x.Restaurant)
             .Include(x => x.DriverUser)
+            .Include(x => x.ResponsibleEmployee)
             .AsNoTracking()
             .OrderByDescending(x => x.Id)
             .ToListAsync(cancellationToken);
@@ -37,6 +48,19 @@ public class WarehouseRepository : IWarehouseRepository
         return await _context.Warehouses
             .Include(x => x.Restaurant)
             .Include(x => x.DriverUser)
+            .Include(x => x.ResponsibleEmployee)
+            .Where(x => x.CompanyId == companyId)
+            .AsNoTracking()
+            .OrderByDescending(x => x.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<Warehouse>> GetByCompanyIdWithResponsibleAsync(int companyId, CancellationToken cancellationToken)
+    {
+        return await _context.Warehouses
+            .Include(x => x.Restaurant)
+            .Include(x => x.DriverUser)
+            .Include(x => x.ResponsibleEmployee)
             .Where(x => x.CompanyId == companyId)
             .AsNoTracking()
             .OrderByDescending(x => x.Id)
@@ -48,6 +72,7 @@ public class WarehouseRepository : IWarehouseRepository
         return await _context.Warehouses
             .Include(x => x.Restaurant)
             .Include(x => x.DriverUser)
+            .Include(x => x.ResponsibleEmployee)
             .Where(x => x.RestaurantId == restaurantId)
             .AsNoTracking()
             .OrderByDescending(x => x.Id)
@@ -59,6 +84,7 @@ public class WarehouseRepository : IWarehouseRepository
         return await _context.Warehouses
             .Include(x => x.Restaurant)
             .Include(x => x.DriverUser)
+            .Include(x => x.ResponsibleEmployee)
             .Where(x => x.DriverUserId == driverUserId)
             .AsNoTracking()
             .OrderByDescending(x => x.Id)
@@ -104,6 +130,12 @@ public class WarehouseRepository : IWarehouseRepository
         _context.Warehouses.Update(warehouse);
     }
 
+    public Task UpdateAsync(Warehouse warehouse, CancellationToken cancellationToken)
+    {
+        _context.Warehouses.Update(warehouse);
+        return Task.CompletedTask;
+    }
+
     public void Delete(Warehouse warehouse)
     {
         _context.Warehouses.Remove(warehouse);
@@ -114,17 +146,15 @@ public class WarehouseRepository : IWarehouseRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public Task UpdateAsync(Warehouse warehouse, CancellationToken cancellationToken)
-    {
-        _context.Warehouses.Update(warehouse);
-        return Task.CompletedTask;
-    }
     public async Task<List<Warehouse>> SearchAsync(
-    int companyId,
-    string? search,
-    CancellationToken cancellationToken)
+        int companyId,
+        string? search,
+        CancellationToken cancellationToken)
     {
         var query = _context.Warehouses
+            .Include(x => x.Restaurant)
+            .Include(x => x.DriverUser)
+            .Include(x => x.ResponsibleEmployee)
             .Where(x => x.CompanyId == companyId)
             .AsQueryable();
 
@@ -138,6 +168,7 @@ public class WarehouseRepository : IWarehouseRepository
         }
 
         return await query
+            .AsNoTracking()
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
     }
