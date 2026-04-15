@@ -43,5 +43,10 @@ public class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
         // eyni şirkətdə eyni adlı warehouse olmasın
         builder.HasIndex(x => new { x.CompanyId, x.Name })
                .IsUnique();
+
+        builder.HasOne(x => x.ResponsibleEmployee)
+               .WithMany()
+               .HasForeignKey(x => x.ResponsibleEmployeeId)
+               .OnDelete(DeleteBehavior.Restrict);
     }
 }

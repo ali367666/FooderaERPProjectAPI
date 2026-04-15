@@ -4,6 +4,7 @@ using Application.Common.Responce;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace Application.Auth.Commands.Login;
 
@@ -11,15 +12,18 @@ public sealed class LoginCommandHandler
     : IRequestHandler<LoginCommand, BaseResponse<LoginResponse>>
 {
     private readonly UserManager<Domain.Entities.User> _userManager;
+    private readonly RoleManager<IdentityRole<int>> _roleManager;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ILogger<LoginCommandHandler> _logger;
 
     public LoginCommandHandler(
         UserManager<Domain.Entities.User> userManager,
+        RoleManager<IdentityRole<int>> roleManager,
         IJwtTokenService jwtTokenService,
         ILogger<LoginCommandHandler> logger)
     {
         _userManager = userManager;
+        _roleManager = roleManager;
         _jwtTokenService = jwtTokenService;
         _logger = logger;
     }
@@ -48,7 +52,29 @@ public sealed class LoginCommandHandler
             return BaseResponse<LoginResponse>.Fail("Email/username or password is incorrect");
         }
 
-        var tokenResponse = await _jwtTokenService.CreateTokenAsync(user);
+        var permissions = new HashSet<string>();
+
+        var userClaims = await _userManager.GetClaimsAsync(user);
+        foreach (var claim in userClaims.Where(x => x.Type == "Permission"))
+        {
+            permissions.Add(claim.Value);
+        }
+
+        var roles = await _userManager.GetRolesAsync(user);
+        foreach (var roleName in roles)
+        {
+            var role = await _roleManager.FindByNameAsync(roleName);
+            if (role is null)
+                continue;
+
+            var roleClaims = await _roleManager.GetClaimsAsync(role);
+            foreach (var claim in roleClaims.Where(x => x.Type == "Permission"))
+            {
+                permissions.Add(claim.Value);
+            }
+        }
+
+        var tokenResponse = await _jwtTokenService.CreateTokenAsync(user, permissions);
 
         _logger.LogInformation("Login successful for user {UserId}", user.Id);
 
