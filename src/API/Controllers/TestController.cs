@@ -1,5 +1,5 @@
 ﻿using Application.Common.Interfaces;
-using Microsoft.AspNetCore.Authorization;
+using Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
@@ -9,10 +9,14 @@ namespace Api.Controllers;
 public class TestController : ControllerBase
 {
     private readonly INotificationService _notificationService;
+    private readonly IEmailService _emailService;
 
-    public TestController(INotificationService notificationService)
+    public TestController(
+        INotificationService notificationService,
+        IEmailService emailService)
     {
         _notificationService = notificationService;
+        _emailService = emailService;
     }
 
     [HttpPost("send")]
@@ -27,5 +31,21 @@ public class TestController : ControllerBase
             cancellationToken: cancellationToken);
 
         return Ok("Notification yaradıldı");
+    }
+
+    [HttpPost("send-email")]
+    public async Task<IActionResult> SendEmail(CancellationToken cancellationToken)
+    {
+        var body = EmailTemplateBuilder.BuildBasicTemplate(
+            "Test Email",
+            "Bu Foodera ERP test mailidir.");
+
+        await _emailService.SendAsync(
+            "aliahmadov366@gmail.com",
+            "Foodera ERP Test Mail",
+            body,
+            cancellationToken);
+
+        return Ok("Mail gonderildi.");
     }
 }

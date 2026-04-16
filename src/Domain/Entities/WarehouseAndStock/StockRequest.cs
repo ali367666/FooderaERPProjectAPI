@@ -16,4 +16,6 @@ public class StockRequest : CompanyEntity<int>
     public string? Note { get; set; }
 
     public ICollection<StockRequestLine> Lines { get; set; } = new List<StockRequestLine>();
+    public int? RequestedByUserId { get; set; }
+    public User? RequestedByUser { get; set; }
 }

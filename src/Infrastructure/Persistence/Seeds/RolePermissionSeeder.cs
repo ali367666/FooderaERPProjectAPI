@@ -49,6 +49,8 @@ public static class RolePermissionSeeder
                 AppPermissions.StockRequestCreate,
                 AppPermissions.StockRequestUpdate,
                 AppPermissions.StockRequestDelete,
+                AppPermissions.StockRequestSubmit,
+                AppPermissions.StockRequestReject,
 
                 AppPermissions.AuditLogView,
 

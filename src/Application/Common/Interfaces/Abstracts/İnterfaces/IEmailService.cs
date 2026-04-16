@@ -3,8 +3,8 @@
 public interface IEmailService
 {
     Task SendAsync(
-        string subject,
         string to,
+        string subject,
         string htmlBody,
         CancellationToken cancellationToken = default);
 }

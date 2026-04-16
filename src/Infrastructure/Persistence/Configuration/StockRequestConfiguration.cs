@@ -37,6 +37,11 @@ public class StockRequestConfiguration : IEntityTypeConfiguration<StockRequest>
                .HasForeignKey(x => x.StockRequestId)
                .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne(x => x.RequestedByUser)
+            .WithMany()
+            .HasForeignKey(x => x.RequestedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(x => x.CompanyId);
         builder.HasIndex(x => x.RequestingWarehouseId);
         builder.HasIndex(x => x.SupplyingWarehouseId);

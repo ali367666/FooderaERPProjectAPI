@@ -5,6 +5,7 @@ using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Domain.Entities;
 using Infrastructure.Identity;
+using Infrastructure.Options;
 using Infrastructure.Persistence.Context;
 using Infrastructure.Persistence.Repositories;
 using Infrastructure.Repositories;
@@ -77,6 +78,11 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<INotificationService, NotificationService>();
+
+        services.Configure<EmailSettings>(
+                configuration.GetSection("EmailSettings"));
+
+        services.AddScoped<IEmailService, EmailService>();
 
 
         return services;
