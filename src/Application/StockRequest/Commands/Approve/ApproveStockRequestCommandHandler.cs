@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -13,19 +14,25 @@ public class ApproveStockRequestCommandHandler
     : IRequestHandler<ApproveStockRequestCommand, BaseResponse>
 {
     private readonly IStockRequestRepository _stockRequestRepository;
+    private readonly IWarehouseRepository _warehouseRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogService _auditLogService;
+    private readonly IEmailService _emailService;
     private readonly ILogger<ApproveStockRequestCommandHandler> _logger;
 
     public ApproveStockRequestCommandHandler(
         IStockRequestRepository stockRequestRepository,
+        IWarehouseRepository warehouseRepository,
         IUnitOfWork unitOfWork,
         IAuditLogService auditLogService,
+        IEmailService emailService,
         ILogger<ApproveStockRequestCommandHandler> logger)
     {
         _stockRequestRepository = stockRequestRepository;
+        _warehouseRepository = warehouseRepository;
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -44,7 +51,7 @@ public class ApproveStockRequestCommandHandler
         if (entity is null)
         {
             _logger.LogWarning(
-                "Stock request approve olunmadı. StockRequest tapılmadı. StockRequestId: {StockRequestId}",
+                "Stock request approve olunmadı. Tapılmadı. StockRequestId: {StockRequestId}",
                 request.Id);
 
             return BaseResponse.Fail("Stock request not found.");
@@ -61,12 +68,12 @@ public class ApproveStockRequestCommandHandler
         }
 
         var oldStatus = entity.Status;
-
         entity.Status = StockRequestStatus.Approved;
 
         _stockRequestRepository.Update(entity);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // 🔵 Audit Log
         try
         {
             await _auditLogService.LogAsync(
@@ -81,14 +88,64 @@ public class ApproveStockRequestCommandHandler
                 cancellationToken);
 
             _logger.LogInformation(
-                "StockRequest üçün audit log yazıldı. StockRequestId: {StockRequestId}",
+                "Audit log yazıldı. StockRequestId: {StockRequestId}",
                 entity.Id);
         }
         catch (Exception auditEx)
         {
             _logger.LogError(
                 auditEx,
-                "StockRequest approve audit log yazılarkən xəta baş verdi. StockRequestId: {StockRequestId}",
+                "Audit log yazılarkən xəta. StockRequestId: {StockRequestId}",
+                entity.Id);
+        }
+
+        // 🟢 MAIL → Requesting Warehouse
+        try
+        {
+            var requestingWarehouse = await _warehouseRepository.GetByIdWithResponsibleAsync(
+                entity.RequestingWarehouseId,
+                entity.CompanyId,
+                cancellationToken);
+
+            var requesterEmail = requestingWarehouse?.ResponsibleEmployee?.Email;
+
+            if (!string.IsNullOrWhiteSpace(requesterEmail))
+            {
+                var subject = $"Stock request approved #{entity.Id}";
+
+                var body = $@"
+<html>
+<body style='font-family:Arial,sans-serif;line-height:1.6;'>
+    <h2>Stock request təsdiq edildi</h2>
+    <p><strong>Sorğu nömrəsi:</strong> #{entity.Id}</p>
+    <p><strong>Status:</strong> {entity.Status}</p>
+    <p>Sizin anbar tərəfindən göndərilən stok sorğusu təsdiq edildi.</p>
+</body>
+</html>";
+
+                await _emailService.SendAsync(
+                    requesterEmail,
+                    subject,
+                    body,
+                    cancellationToken);
+
+                _logger.LogInformation(
+                    "Requester warehouse mail göndərildi. StockRequestId: {StockRequestId}, Email: {Email}",
+                    entity.Id,
+                    requesterEmail);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Requester email tapılmadı. StockRequestId: {StockRequestId}",
+                    entity.Id);
+            }
+        }
+        catch (Exception emailEx)
+        {
+            _logger.LogError(
+                emailEx,
+                "Approve sonrası mail göndərilərkən xəta. StockRequestId: {StockRequestId}",
                 entity.Id);
         }
 

@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -13,19 +14,25 @@ public class SubmitStockRequestCommandHandler
     : IRequestHandler<SubmitStockRequestCommand, BaseResponse>
 {
     private readonly IStockRequestRepository _stockRequestRepository;
+    private readonly IWarehouseRepository _warehouseRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogService _auditLogService;
+    private readonly IEmailService _emailService;
     private readonly ILogger<SubmitStockRequestCommandHandler> _logger;
 
     public SubmitStockRequestCommandHandler(
         IStockRequestRepository stockRequestRepository,
+        IWarehouseRepository warehouseRepository,
         IUnitOfWork unitOfWork,
         IAuditLogService auditLogService,
+        IEmailService emailService,
         ILogger<SubmitStockRequestCommandHandler> logger)
     {
         _stockRequestRepository = stockRequestRepository;
+        _warehouseRepository = warehouseRepository;
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -110,6 +117,100 @@ public class SubmitStockRequestCommandHandler
             _logger.LogError(
                 auditEx,
                 "StockRequest submit audit log yazılarkən xəta baş verdi. StockRequestId: {StockRequestId}",
+                entity.Id);
+        }
+
+        try
+        {
+            var supplyingWarehouse = await _warehouseRepository.GetByIdWithResponsibleAsync(
+                entity.SupplyingWarehouseId,
+                entity.CompanyId,
+                cancellationToken);
+
+            var requestingWarehouse = await _warehouseRepository.GetByIdAsync(
+                entity.RequestingWarehouseId,
+                cancellationToken);
+
+            if (supplyingWarehouse is null)
+            {
+                _logger.LogWarning(
+                    "Supplying warehouse tapılmadı. StockRequestId: {StockRequestId}, WarehouseId: {WarehouseId}",
+                    entity.Id,
+                    entity.SupplyingWarehouseId);
+            }
+            else
+            {
+                var approverEmail = supplyingWarehouse.ResponsibleEmployee?.Email;
+
+                if (!string.IsNullOrWhiteSpace(approverEmail))
+                {
+                    // Portu öz API portuna uyğun dəyiş
+                    var baseUrl = "https://localhost:7145";
+
+                    var approveUrl = $"{baseUrl}/api/StockRequests/{entity.Id}/approve-from-mail";
+                    var rejectUrl = $"{baseUrl}/api/StockRequests/{entity.Id}/reject-from-mail";
+
+                    var body = $@"
+<html>
+<head>
+    <meta charset='UTF-8' />
+</head>
+<body style='font-family:Arial,sans-serif;line-height:1.6;'>
+    <h2>Yeni stok sorğusu təsdiq gözləyir</h2>
+
+    <p><strong>Sorğu nömrəsi:</strong> #{entity.Id}</p>
+    <p><strong>İstəyən anbar:</strong> {requestingWarehouse?.Name ?? "-"}</p>
+    <p><strong>Təchiz edən anbar:</strong> {supplyingWarehouse.Name}</p>
+    <p><strong>Sətir sayı:</strong> {lineCount}</p>
+    <p><strong>Qeyd:</strong> {entity.Note ?? "-"}</p>
+
+    <p>
+        <a href='{approveUrl}' 
+           style='display:inline-block;padding:10px 16px;background:#198754;color:white;text-decoration:none;border-radius:6px;'>
+           Approve
+        </a>
+
+        &nbsp;
+
+        <a href='{rejectUrl}' 
+           style='display:inline-block;padding:10px 16px;background:#dc3545;color:white;text-decoration:none;border-radius:6px;'>
+           Reject
+        </a>
+    </p>
+
+    <p>Approve link:</p>
+    <p>{approveUrl}</p>
+
+    <p>Reject link:</p>
+    <p>{rejectUrl}</p>
+</body>
+</html>";
+
+                    await _emailService.SendAsync(
+                        approverEmail,
+                        $"Stock request approval #{entity.Id}",
+                        body,
+                        cancellationToken);
+
+                    _logger.LogInformation(
+                        "StockRequest submit email göndərildi. StockRequestId: {StockRequestId}, Email: {Email}",
+                        entity.Id,
+                        approverEmail);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Approver email tapılmadı. StockRequestId: {StockRequestId}, WarehouseId: {WarehouseId}",
+                        entity.Id,
+                        supplyingWarehouse.Id);
+                }
+            }
+        }
+        catch (Exception emailEx)
+        {
+            _logger.LogError(
+                emailEx,
+                "StockRequest submit email göndərilərkən xəta baş verdi. StockRequestId: {StockRequestId}",
                 entity.Id);
         }
 
