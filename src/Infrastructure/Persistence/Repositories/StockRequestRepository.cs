@@ -26,10 +26,13 @@ public class StockRequestRepository : IStockRequestRepository
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
-    public async Task<  StockRequest?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken)
+    public async Task<StockRequest?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken)
     {
         return await _context.StockRequests
+            .Include(x => x.RequestingWarehouse)
+            .Include(x => x.SupplyingWarehouse)
             .Include(x => x.Lines)
+                .ThenInclude(l => l.StockItem)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
@@ -77,5 +80,15 @@ public class StockRequestRepository : IStockRequestRepository
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<StockRequest?> GetByIdWithDetailsAsync(int id, CancellationToken cancellationToken)
+    {
+        return await _context.StockRequests
+            .Include(x => x.RequestingWarehouse)
+            .Include(x => x.SupplyingWarehouse)
+            .Include(x => x.Lines)
+                .ThenInclude(x => x.StockItem)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 }

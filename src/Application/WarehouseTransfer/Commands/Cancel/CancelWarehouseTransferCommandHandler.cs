@@ -45,6 +45,24 @@ public class CancelWarehouseTransferCommandHandler
             return BaseResponse.Fail("Warehouse transfer not found.");
         }
 
+        if (transfer.Status == TransferStatus.Cancelled)
+        {
+            _logger.LogWarning(
+                "Warehouse transfer cancel olunmadı. Artıq Cancelled-dir. TransferId: {TransferId}",
+                transfer.Id);
+
+            return BaseResponse.Fail("Warehouse transfer is already cancelled.");
+        }
+
+        if (transfer.Status == TransferStatus.Rejected)
+        {
+            _logger.LogWarning(
+                "Warehouse transfer cancel olunmadı. Status Rejected-dir. TransferId: {TransferId}",
+                transfer.Id);
+
+            return BaseResponse.Fail("Rejected warehouse transfers cannot be cancelled.");
+        }
+
         if (transfer.Status == TransferStatus.InTransit)
         {
             _logger.LogWarning(
@@ -63,24 +81,6 @@ public class CancelWarehouseTransferCommandHandler
             return BaseResponse.Fail("Completed warehouse transfers cannot be cancelled.");
         }
 
-        if (transfer.Status == TransferStatus.Rejected)
-        {
-            _logger.LogWarning(
-                "Warehouse transfer cancel olunmadı. Status Rejected-dir. TransferId: {TransferId}",
-                transfer.Id);
-
-            return BaseResponse.Fail("Rejected warehouse transfers cannot be cancelled.");
-        }
-
-        if (transfer.Status == TransferStatus.Cancelled)
-        {
-            _logger.LogWarning(
-                "Warehouse transfer cancel olunmadı. Artıq Cancelled-dir. TransferId: {TransferId}",
-                transfer.Id);
-
-            return BaseResponse.Fail("Warehouse transfer is already cancelled.");
-        }
-
         var oldStatus = transfer.Status;
 
         transfer.Status = TransferStatus.Cancelled;
@@ -96,7 +96,7 @@ public class CancelWarehouseTransferCommandHandler
                     EntityName = "WarehouseTransfer",
                     EntityId = transfer.Id.ToString(),
                     ActionType = "Cancel",
-                    Message = $"WarehouseTransfer cancel olundu. Id: {transfer.Id}, FromWarehouseId: {transfer.FromWarehouseId}, ToWarehouseId: {transfer.ToWarehouseId}, OldStatus: {oldStatus}, NewStatus: {transfer.Status}",
+                    Message = $"WarehouseTransfer cancel olundu. Id: {transfer.Id}, FromWarehouseId: {transfer.FromWarehouseId}, ToWarehouseId: {transfer.ToWarehouseId}, VehicleWarehouseId: {transfer.VehicleWarehouseId}, OldStatus: {oldStatus}, NewStatus: {transfer.Status}",
                     IsSuccess = true
                 },
                 cancellationToken);

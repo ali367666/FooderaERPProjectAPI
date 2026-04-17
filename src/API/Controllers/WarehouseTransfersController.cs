@@ -30,7 +30,7 @@ public class WarehouseTransfersController : ControllerBase
 
     [Authorize(Policy = "WarehouseTransferCreate")]
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateWarehouseTransferRequest request)
+    public async Task<ActionResult<BaseResponse<int>>> Create([FromBody] CreateWarehouseTransferRequest request)
     {
         var result = await _mediator.Send(new CreateWarehouseTransferCommand(request));
 
@@ -41,8 +41,8 @@ public class WarehouseTransfersController : ControllerBase
     }
 
     [Authorize(Policy = "WarehouseTransferView")]
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<BaseResponse>> GetById(int id)
     {
         var result = await _mediator.Send(new GetWarehouseTransferByIdQuery(id));
 
@@ -54,17 +54,9 @@ public class WarehouseTransfersController : ControllerBase
 
     [Authorize(Policy = "WarehouseTransferView")]
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<ActionResult<BaseResponse>> GetAll()
     {
         var result = await _mediator.Send(new GetAllWarehouseTransfersQuery());
-        return Ok(result);
-    }
-
-    [Authorize(Policy = "WarehouseTransferDelete")]
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        var result = await _mediator.Send(new DeleteWarehouseTransferCommand(id));
 
         if (!result.Success)
             return BadRequest(result);
@@ -79,6 +71,18 @@ public class WarehouseTransfersController : ControllerBase
         [FromBody] UpdateWarehouseTransferRequest request)
     {
         var result = await _mediator.Send(new UpdateWarehouseTransferCommand(id, request));
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    [Authorize(Policy = "WarehouseTransferDelete")]
+    [HttpDelete("{id:int}")]
+    public async Task<ActionResult<BaseResponse>> Delete(int id)
+    {
+        var result = await _mediator.Send(new DeleteWarehouseTransferCommand(id));
 
         if (!result.Success)
             return BadRequest(result);
@@ -146,7 +150,6 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-
     [Authorize(Policy = "WarehouseTransferReject")]
     [HttpPost("{id:int}/reject")]
     public async Task<ActionResult<BaseResponse>> Reject(int id)
@@ -157,5 +160,29 @@ public class WarehouseTransfersController : ControllerBase
             return BadRequest(result);
 
         return Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{id:int}/approve-from-mail")]
+    public async Task<IActionResult> ApproveFromMail(int id)
+    {
+        var result = await _mediator.Send(new ApproveWarehouseTransferCommand(id));
+
+        if (!result.Success)
+            return BadRequest(result.Message);
+
+        return Content("Warehouse transfer approved successfully.");
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{id:int}/reject-from-mail")]
+    public async Task<IActionResult> RejectFromMail(int id)
+    {
+        var result = await _mediator.Send(new RejectWarehouseTransferCommand(id));
+
+        if (!result.Success)
+            return BadRequest(result.Message);
+
+        return Content("Warehouse transfer rejected successfully.");
     }
 }
