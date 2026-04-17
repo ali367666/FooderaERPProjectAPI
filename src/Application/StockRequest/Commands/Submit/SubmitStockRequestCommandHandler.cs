@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces;
+﻿using System.Text;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -144,25 +145,50 @@ public class SubmitStockRequestCommandHandler
 
                 if (!string.IsNullOrWhiteSpace(approverEmail))
                 {
-                    // Portu öz API portuna uyğun dəyiş
                     var baseUrl = "https://localhost:7145";
 
                     var approveUrl = $"{baseUrl}/api/StockRequests/{entity.Id}/approve-from-mail";
                     var rejectUrl = $"{baseUrl}/api/StockRequests/{entity.Id}/reject-from-mail";
+
+                    var linesHtml = new StringBuilder();
+
+                    foreach (var line in entity.Lines)
+                    {
+                        linesHtml.Append($@"
+<tr>
+    <td style='border:1px solid #ddd;padding:8px;'>{line.StockItem?.Name ?? "-"}</td>
+    <td style='border:1px solid #ddd;padding:8px;'>{line.Quantity:0.##}</td>
+</tr>");
+                    }
 
                     var body = $@"
 <html>
 <head>
     <meta charset='UTF-8' />
 </head>
-<body style='font-family:Arial,sans-serif;line-height:1.6;'>
+<body style='font-family:Arial,sans-serif;line-height:1.6;color:#212529;'>
     <h2>Yeni stok sorğusu təsdiq gözləyir</h2>
 
     <p><strong>Sorğu nömrəsi:</strong> #{entity.Id}</p>
     <p><strong>İstəyən anbar:</strong> {requestingWarehouse?.Name ?? "-"}</p>
     <p><strong>Təchiz edən anbar:</strong> {supplyingWarehouse.Name}</p>
-    <p><strong>Sətir sayı:</strong> {lineCount}</p>
     <p><strong>Qeyd:</strong> {entity.Note ?? "-"}</p>
+
+    <h3>Stok siyahısı</h3>
+
+    <table style='border-collapse:collapse;width:100%;max-width:700px;'>
+        <thead>
+            <tr style='background-color:#f8f9fa;'>
+                <th style='border:1px solid #ddd;padding:8px;text-align:left;'>Stok adı</th>
+                <th style='border:1px solid #ddd;padding:8px;text-align:left;'>Miqdarı</th>
+            </tr>
+        </thead>
+        <tbody>
+            {linesHtml}
+        </tbody>
+    </table>
+
+    <br />
 
     <p>
         <a href='{approveUrl}' 
@@ -178,10 +204,10 @@ public class SubmitStockRequestCommandHandler
         </a>
     </p>
 
-    <p>Approve link:</p>
+    <p><strong>Approve link:</strong></p>
     <p>{approveUrl}</p>
 
-    <p>Reject link:</p>
+    <p><strong>Reject link:</strong></p>
     <p>{rejectUrl}</p>
 </body>
 </html>";

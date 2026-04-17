@@ -97,6 +97,28 @@ public static class AuthorizationExtensions
 
             options.AddPolicy("AuditLogView",
                 policy => policy.RequireClaim("Permission", AppPermissions.AuditLogView));
+
+            options.AddPolicy("WarehouseTransferView",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferView));
+            options.AddPolicy("WarehouseTransferCreate",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferCreate));
+            options.AddPolicy("WarehouseTransferUpdate",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferUpdate));
+            options.AddPolicy("WarehouseTransferDelete",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferDelete));
+            options.AddPolicy("WarehouseTransferApprove",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferApprove));
+            options.AddPolicy("WarehouseTransferReject",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferReject));
+            options.AddPolicy("WarehouseTransferCancel",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferCancel));
+            options.AddPolicy("WarehouseTransferSubmit",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferSubmit));
+            options.AddPolicy("WarehouseTransferDispatch",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferDispatch));
+            options.AddPolicy("WarehouseTransferReceive",
+                policy => policy.RequireClaim("Permission", AppPermissions.WarehouseTransferReceive));
+
         });
 
         return services;

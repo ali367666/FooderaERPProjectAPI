@@ -30,6 +30,7 @@ public class WarehouseTransferRepository : IWarehouseTransferRepository
     {
         return await _context.WarehouseTransfers
             .Include(x => x.Lines)
+                .ThenInclude(x => x.StockItem)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
