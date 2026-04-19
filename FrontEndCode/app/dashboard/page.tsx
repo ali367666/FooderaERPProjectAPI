@@ -58,13 +58,24 @@ const orderStatusData = [
 ];
 
 export default function DashboardPage() {
-  const [timeFilter, setTimeFilter] = useState<'7d' | '30d'>('7d');
+  const [timeFilter, setTimeFilter] = useState<"7d" | "30d">("7d");
 
-  const criticalAlerts = inventoryAlerts.filter(a => a.alertType === 'critical').length;
-  const lowStockAlerts = inventoryAlerts.filter(a => a.alertType === 'low_stock').length;
-  const pendingApprovalsCount = pendingApprovals.filter(a => a.status === 'pending').length;
+  const criticalAlerts = inventoryAlerts.filter(
+    (a) => a.alertType === "critical"
+  ).length;
 
-  const inStockItems = inventoryItems.filter(i => i.status === 'in_stock').length;
+  const lowStockAlerts = inventoryAlerts.filter(
+    (a) => a.alertType === "low_stock"
+  ).length;
+
+  const pendingApprovalsCount = pendingApprovals.filter(
+    (a) => a.status === "pending"
+  ).length;
+
+  const inStockItems = inventoryItems.filter(
+    (i) => i.status === "in_stock"
+  ).length;
+
   const totalItems = inventoryItems.length;
 
   return (
