@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const TOKEN_KEY = "token";
+import { subscribeToToken } from "@/lib/auth-client";
 
 export default function AuthGuard({
   children,
@@ -14,16 +13,7 @@ export default function AuthGuard({
   const [token, setToken] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
-    const sync = () => setToken(localStorage.getItem(TOKEN_KEY));
-
-    sync();
-    const intervalId = window.setInterval(sync, 1000);
-    window.addEventListener("storage", sync);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("storage", sync);
-    };
+    return subscribeToToken(setToken);
   }, []);
 
   useEffect(() => {
