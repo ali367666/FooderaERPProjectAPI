@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navGroups } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { LogoutButton } from "@/components/logout-button";
 import { ChefHat, Menu, X } from "lucide-react";
 import { useState } from "react";
 
@@ -84,8 +85,9 @@ export function AppSidebar() {
         </nav>
 
         {/* Footer Section */}
-        <div className="flex-shrink-0 p-4 border-t border-sidebar-border text-xs text-sidebar-foreground/60">
-          <p>© 2024 Foodera ERP</p>
+        <div className="mt-auto p-4 border-t border-sidebar-border">
+          <LogoutButton />
+          <p className="mt-3 text-xs text-sidebar-foreground/60">© 2024 Foodera ERP</p>
         </div>
       </aside>
 
