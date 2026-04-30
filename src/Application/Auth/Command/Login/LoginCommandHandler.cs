@@ -45,6 +45,12 @@ public sealed class LoginCommandHandler
             return BaseResponse<LoginResponse>.Fail("Email/username or password is incorrect");
         }
 
+        if (!user.IsActive)
+        {
+            _logger.LogWarning("Login failed. User account is disabled. UserId: {UserId}", user.Id);
+            return BaseResponse<LoginResponse>.Fail("This account has been disabled. Contact an administrator.");
+        }
+
         var passwordValid = await _userManager.CheckPasswordAsync(user, dto.Password);
         if (!passwordValid)
         {
@@ -52,7 +58,7 @@ public sealed class LoginCommandHandler
             return BaseResponse<LoginResponse>.Fail("Email/username or password is incorrect");
         }
 
-        var permissions = new HashSet<string>();
+        var permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var userClaims = await _userManager.GetClaimsAsync(user);
         foreach (var claim in userClaims.Where(x => x.Type == "Permission"))
@@ -61,6 +67,7 @@ public sealed class LoginCommandHandler
         }
 
         var roles = await _userManager.GetRolesAsync(user);
+        _logger.LogInformation("Login roles for user {UserId}: {Roles}", user.Id, string.Join(", ", roles));
         foreach (var roleName in roles)
         {
             var role = await _roleManager.FindByNameAsync(roleName);
@@ -74,7 +81,17 @@ public sealed class LoginCommandHandler
             }
         }
 
-        var tokenResponse = await _jwtTokenService.CreateTokenAsync(user, permissions);
+        _logger.LogInformation(
+            "Collected permission claims for user {UserId}: {Permissions}",
+            user.Id,
+            string.Join(", ", permissions.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)));
+
+        var tokenResponse = await _jwtTokenService.CreateTokenAsync(user, permissions, roles);
+
+        _logger.LogInformation(
+            "JWT permissions for user {UserId}: {Permissions}",
+            user.Id,
+            string.Join(", ", tokenResponse.Permissions));
 
         _logger.LogInformation("Login successful for user {UserId}", user.Id);
 

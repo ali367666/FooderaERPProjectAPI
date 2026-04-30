@@ -1,4 +1,4 @@
-﻿using Application.MenuCategories.Commands.Create;
+using Application.MenuCategories.Commands.Create;
 using Application.MenuCategories.Commands.Delete;
 using Application.MenuCategories.Commands.Update;
 using Application.MenuCategories.Dtos;
@@ -7,6 +7,7 @@ using Application.MenuCategories.Queries.GetById;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace WebApi.Controllers;
 
@@ -20,7 +21,7 @@ public class MenuCategoriesController : ControllerBase
     {
         _mediator = mediator;
     }
-    [Authorize(Policy = "MenuCategoryCreate")]
+    [Authorize(Policy = AppPermissions.MenuCategoryCreate)]
     [HttpPost]
     public async Task<IActionResult> Create(
     [FromBody] CreateMenuCategoryRequest request,
@@ -37,7 +38,7 @@ public class MenuCategoriesController : ControllerBase
         });
     }
 
-    [Authorize(Policy = "MenuCategoryUpdate")]
+    [Authorize(Policy = AppPermissions.MenuCategoryUpdate)]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(
         int id,
@@ -51,7 +52,7 @@ public class MenuCategoriesController : ControllerBase
 
         return NoContent();
     }
-    [Authorize(Policy = "MenuCategoryDelete")]
+    [Authorize(Policy = AppPermissions.MenuCategoryDelete)]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(
         int id,
@@ -64,7 +65,7 @@ public class MenuCategoriesController : ControllerBase
 
         return NoContent();
     }
-    [Authorize(Policy = "MenuCategoryView")]
+    [Authorize(Policy = AppPermissions.MenuCategoryView)]
     [HttpGet("{id}")]
     public async Task<ActionResult<MenuCategoryResponse>> GetById(
         int id,
@@ -78,7 +79,7 @@ public class MenuCategoriesController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "MenuCategoryView")]
+    [Authorize(Policy = AppPermissions.MenuCategoryView)]
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {

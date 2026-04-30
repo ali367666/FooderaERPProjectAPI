@@ -1,9 +1,10 @@
-﻿using Application.Kitchen.Commands.MarkReady;
+using Application.Kitchen.Commands.MarkReady;
 using Application.Kitchen.Commands.StartPreparation;
 using Application.Kitchen.Queries.GetKitchenLines;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace WebApi.Controllers;
 
@@ -17,22 +18,24 @@ public class KitchenController : ControllerBase
     {
         _mediator = mediator;
     }
-    [Authorize(Policy = "KitchenView")]
-    [HttpGet("{restaurantId}")]
-    public async Task<IActionResult> GetKitchenLines(int restaurantId)
+    [Authorize(Policy = AppPermissions.KitchenView)]
+    [HttpGet("{restaurantId:int}")]
+    public async Task<IActionResult> GetKitchenOrders(int restaurantId)
     {
         var result = await _mediator.Send(new GetKitchenLinesQuery(restaurantId));
         return Ok(result);
     }
-    [Authorize(Policy = "KitchenStartPreparing")]
-    [HttpPut("start/{orderLineId}")]
+
+    [Authorize(Policy = AppPermissions.KitchenStartPreparing)]
+    [HttpPut("start/{orderLineId:int}")]
     public async Task<IActionResult> StartPreparation(int orderLineId)
     {
         await _mediator.Send(new StartKitchenOrderLineCommand(orderLineId));
         return NoContent();
     }
-    [Authorize(Policy = "KitchenMarkReady")]
-    [HttpPut("ready/{orderLineId}")]
+
+    [Authorize(Policy = AppPermissions.KitchenMarkReady)]
+    [HttpPut("ready/{orderLineId:int}")]
     public async Task<IActionResult> MarkReady(int orderLineId)
     {
         await _mediator.Send(new MarkKitchenOrderLineReadyCommand(orderLineId));

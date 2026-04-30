@@ -7,7 +7,9 @@ public class CreateDepartmentValidator : AbstractValidator<CreateDepartmentReque
 {
     public CreateDepartmentValidator()
     {
-        
+        RuleFor(x => x.CompanyId)
+            .GreaterThan(0)
+            .WithMessage("Valid companyId is required.");
 
         RuleFor(x => x.Name)
             .NotEmpty()

@@ -80,6 +80,16 @@ public sealed class UpdateCompanyCommandHandler
 
         if (dto.Country.HasValue)
         {
+            if (!Enum.IsDefined(dto.Country.Value))
+            {
+                _logger.LogWarning(
+                    "Şirkət yenilənmədi. Ölkə düzgün seçilməyib. CompanyId: {CompanyId}, Country: {Country}",
+                    request.Id,
+                    dto.Country.Value);
+
+                return BaseResponse<UpdateCompanyResponse>.Fail("Ölkə düzgün seçilməyib.");
+            }
+
             company.Country = dto.Country.Value;
             company.CountryCode = dto.Country.Value.GetCode();
         }

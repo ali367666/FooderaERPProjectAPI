@@ -4,6 +4,7 @@ public class RestaurantTableResponse
 {
     public int Id { get; set; }
     public int RestaurantId { get; set; }
+    public string RestaurantName { get; set; } = default!;
     public string Name { get; set; } = default!;
     public int Capacity { get; set; }
     public bool IsActive { get; set; }

@@ -27,6 +27,7 @@ public class GetAllWarehouseTransfersQueryHandler
         {
             Id = warehouseTransfer.Id,
             CompanyId = warehouseTransfer.CompanyId,
+            DocumentNo = warehouseTransfer.DocumentNo,
             StockRequestId = warehouseTransfer.StockRequestId,
 
             FromWarehouseId = warehouseTransfer.FromWarehouseId,

@@ -201,6 +201,9 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, Ord
             WaiterName = updatedOrder.Waiter != null
                 ? $"{updatedOrder.Waiter.FirstName} {updatedOrder.Waiter.LastName}"
                 : null,
+            ProcessedByUserId = updatedOrder.ProcessedByUserId,
+            ProcessedByUserName = updatedOrder.ProcessedByUser?.FullName,
+            ProcessedAt = updatedOrder.ProcessedAt,
             Status = updatedOrder.Status.ToString(),
             Note = updatedOrder.Note,
             OpenedAt = updatedOrder.OpenedAt,

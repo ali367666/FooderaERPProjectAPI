@@ -38,6 +38,7 @@ public class RestaurantRepository : IRestaurantRepository
     public async Task<Restaurant?> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
         return await _context.Restaurants
+            .Include(x => x.Company)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
@@ -45,6 +46,7 @@ public class RestaurantRepository : IRestaurantRepository
     {
         return await _context.Restaurants
             .AsNoTracking()
+            .Include(x => x.Company)
             .ToListAsync(cancellationToken);
     }
 
@@ -52,6 +54,7 @@ public class RestaurantRepository : IRestaurantRepository
     {
         return await _context.Restaurants
             .AsNoTracking()
+            .Include(x => x.Company)
             .Where(x => x.CompanyId == companyId)
             .ToListAsync(cancellationToken);
     }

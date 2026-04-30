@@ -9,4 +9,5 @@ public class RestaurantResponse
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public int CompanyId { get; set; }
+    public string CompanyName { get; set; } = default!;
 }

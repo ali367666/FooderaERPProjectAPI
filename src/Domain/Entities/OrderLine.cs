@@ -16,6 +16,7 @@ public class OrderLine : CompanyEntity<int>
     public decimal LineTotal { get; set; }
     public PreparationType PreparationType { get; set; }
     public string? Note { get; set; }
+    public bool IsStockDeducted { get; set; }
 
     public OrderLineStatus Status { get; set; } = OrderLineStatus.Pending;
 }

@@ -1,4 +1,4 @@
-﻿using Application.StockItem.Commands.Create;
+using Application.StockItem.Commands.Create;
 using Application.StockItem.Commands.Delete;
 using Application.StockItem.Commands.Patch;
 using Application.StockItem.Commands.Update;
@@ -9,6 +9,7 @@ using Application.StockItem.Queries.GetById;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace API.Controllers;
 
@@ -25,7 +26,7 @@ public class StockItemController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy ="StockItemCreate")]
+    [Authorize(Policy = AppPermissions.StockItemCreate)]
     public async Task<IActionResult> Create([FromBody] StockItemRequest request)
     {
         var result = await _mediator.Send(new CreateStockItemCommand(request));
@@ -33,7 +34,7 @@ public class StockItemController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Policy = "StockItemUpdate")]
+    [Authorize(Policy = AppPermissions.StockItemUpdate)]
     public async Task<IActionResult> Update(int id, [FromBody] StockItemRequest request)
     {
         var result = await _mediator.Send(new UpdateStockItemCommand(id, request));
@@ -41,7 +42,7 @@ public class StockItemController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Policy = "StockItemDelete")]
+    [Authorize(Policy = AppPermissions.StockItemDelete)]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteStockItemCommand(id));
@@ -49,7 +50,7 @@ public class StockItemController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [Authorize(Policy = "StockItemView")]
+    [Authorize(Policy = AppPermissions.StockItemView)]
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _mediator.Send(new GetStockItemByIdQuery(id));
@@ -57,7 +58,7 @@ public class StockItemController : ControllerBase
     }
 
     [HttpGet("company/{companyId}")]
-    [Authorize(Policy = "StockItemView")]
+    [Authorize(Policy = AppPermissions.StockItemView)]
     public async Task<IActionResult> GetByCompanyId(int companyId)
     {
         var result = await _mediator.Send(new GetStockItemsByCompanyIdQuery(companyId));
@@ -65,14 +66,14 @@ public class StockItemController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Policy = "StockItemView")]
+    [Authorize(Policy = AppPermissions.StockItemView)]
     public async Task<IActionResult> GetAll([FromQuery] GetAllStockItemsRequest request)
     {
         var result = await _mediator.Send(new GetAllStockItemsQuery(request));
         return Ok(result);
     }
     [HttpPatch("{id}")]
-    [Authorize(Policy = "StockItemUpdate")]
+    [Authorize(Policy = AppPermissions.StockItemUpdate)]
     public async Task<IActionResult> Patch(int id, [FromBody] PatchStockItemRequest request)
     {
         var result = await _mediator.Send(new PatchStockItemCommand(id, request));

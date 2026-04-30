@@ -1,9 +1,10 @@
-﻿using Application.Restaurant.Commands.Create;
+using Application.Restaurant.Commands.Create;
 using Application.Restaurant.Dtos.Request;
 using Application.Restaurant.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace API.Controllers;
 
@@ -19,7 +20,7 @@ public class RestaurantController : ControllerBase
         _mediator = mediator;
     }
 
-    [Authorize(Policy = "RestaurantCreate")]
+    [Authorize(Policy = AppPermissions.RestaurantCreate)]
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreateRestaurantRequest request,
@@ -34,7 +35,7 @@ public class RestaurantController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "RestaurantView")]
+    [Authorize(Policy = AppPermissions.RestaurantView)]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(
         [FromRoute] int id,
@@ -49,7 +50,7 @@ public class RestaurantController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "RestaurantView")]
+    [Authorize(Policy = AppPermissions.RestaurantView)]
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
@@ -62,7 +63,7 @@ public class RestaurantController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "RestaurantView")]
+    [Authorize(Policy = AppPermissions.RestaurantView)]
     [HttpGet("company/{companyId:int}")]
     public async Task<IActionResult> GetByCompanyId(
         [FromRoute] int companyId,
@@ -77,7 +78,7 @@ public class RestaurantController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "RestaurantUpdate")]
+    [Authorize(Policy = AppPermissions.RestaurantUpdate)]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(
         [FromRoute] int id,
@@ -93,7 +94,7 @@ public class RestaurantController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "RestaurantDelete")]
+    [Authorize(Policy = AppPermissions.RestaurantDelete)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(
         [FromRoute] int id,

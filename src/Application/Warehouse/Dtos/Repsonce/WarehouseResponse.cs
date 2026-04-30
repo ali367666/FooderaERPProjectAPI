@@ -13,6 +13,9 @@ public class WarehouseResponse
     public int? RestaurantId { get; set; }
     public string? RestaurantName { get; set; }
 
+    public int? ResponsibleEmployeeId { get; set; }
+    public string? ResponsibleEmployeeFullName { get; set; }
+
     public int? DriverUserId { get; set; }
     public string? DriverFullName { get; set; }
 }

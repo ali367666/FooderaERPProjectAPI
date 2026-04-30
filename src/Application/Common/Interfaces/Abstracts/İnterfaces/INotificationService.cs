@@ -10,6 +10,7 @@ public interface INotificationService
         string type,
         int? referenceId = null,
         string? referenceType = null,
+        int? createdByUserId = null,
         CancellationToken cancellationToken = default);
 
     Task MarkAsReadAsync(

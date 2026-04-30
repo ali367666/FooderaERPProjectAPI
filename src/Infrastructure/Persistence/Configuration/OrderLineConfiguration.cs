@@ -24,6 +24,10 @@ public class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
         builder.Property(x => x.Status)
             .IsRequired();
 
+        builder.Property(x => x.IsStockDeducted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.HasOne(x => x.Order)
        .WithMany(x => x.Lines)
        .HasForeignKey(x => x.OrderId)

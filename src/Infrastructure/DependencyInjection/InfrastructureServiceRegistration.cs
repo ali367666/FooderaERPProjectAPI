@@ -29,6 +29,7 @@ public static class InfrastructureServiceRegistration
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
         services.AddScoped<IIdentityService, IdentityService>();
+        services.AddScoped<IIdentityAdminService, IdentityAdminService>();
         services.AddScoped<IRestaurantRepository, RestaurantRepository>();
 
         // 🔹 Identity
@@ -53,14 +54,17 @@ public static class InfrastructureServiceRegistration
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IAuthenticatedUserAccessor, AuthenticatedUserAccessor>();
         // 🔹 Repository-lər
         services.AddScoped<ICompanyRepository,       CompanyRepository>();
         services.AddScoped<IStockCategoryRepository, StockCategoryRepository>();
         services.AddScoped<IWarehouseRepository,     WarehouseRepository>();
         services.AddScoped<IUserRepository,          UserRepository>();
         services.AddScoped<IStockItemRepository,     StockItemRepository>();
+        services.AddScoped<IWarehouseStockDocumentRepository, WarehouseStockDocumentRepository>();
         services.AddScoped<IWarehouseStockRepository, WarehouseStockRepository>();
         services.AddScoped<IAuditLogService, AuditLogService>();
+        services.AddScoped<IRecipeStockDeductionService, RecipeStockDeductionService>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<IStockRequestRepository, StockRequestRepository>();
         services.AddScoped<IWarehouseTransferRepository, WarehouseTransferRepository>();
@@ -72,6 +76,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<IMenuCategoryRepository, MenuCategoryRepository>();
         services.AddScoped<IMenuItemRepository, MenuItemRepository>();  
+        services.AddScoped<IMenuItemRecipeRepository, MenuItemRecipeRepository>();
         services.AddScoped<IRestaurantTableRepository, RestaurantTableRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IOrderLineRepository, OrderLineRepository>();

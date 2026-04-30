@@ -11,5 +11,5 @@ public class AuditLogEntry
     public int? UserId { get; set; }
     public int? CompanyId { get; set; }
     public string? CorrelationId { get; set; }
-    public bool IsSuccess { get; set; }
+    public bool IsSuccess { get; set; } = true;
 }

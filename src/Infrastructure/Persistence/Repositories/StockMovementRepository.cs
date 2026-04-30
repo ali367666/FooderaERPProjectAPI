@@ -1,6 +1,5 @@
 ﻿using Application.Common.Interfaces.Abstracts.Repositories;
 using Domain.Entities.WarehouseAndStock;
-using Domain.Enums;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,14 +31,50 @@ public class StockMovementRepository : IStockMovementRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<StockMovement>> SearchByCompanyAsync(
+        int companyId,
+        string? search,
+        CancellationToken cancellationToken)
+    {
+        var query = _context.StockMovements
+            .AsNoTracking()
+            .Include(x => x.StockItem)
+            .Include(x => x.Warehouse)
+            .Include(x => x.FromWarehouse)
+            .Include(x => x.ToWarehouse)
+            .Where(x => x.CompanyId == companyId);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(x =>
+                (x.SourceDocumentNo != null && x.SourceDocumentNo.ToLower().Contains(s)) ||
+                x.StockItem.Name.ToLower().Contains(s) ||
+                x.Warehouse.Name.ToLower().Contains(s) ||
+                (x.FromWarehouse != null && x.FromWarehouse.Name.ToLower().Contains(s)) ||
+                (x.ToWarehouse != null && x.ToWarehouse.Name.ToLower().Contains(s)) ||
+                (x.Note != null && x.Note.ToLower().Contains(s)));
+        }
+
+        return await query
+            .OrderByDescending(x => x.MovementDate)
+            .ThenByDescending(x => x.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<decimal> GetStockBalanceAsync(int warehouseId, int stockItemId, CancellationToken cancellationToken)
     {
-        var movements = await _context.StockMovements
-            .Where(x => x.WarehouseId == warehouseId && x.StockItemId == stockItemId)
-            .ToListAsync(cancellationToken);
+        var row = await _context.WarehouseStocks
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.WarehouseId == warehouseId && x.StockItemId == stockItemId,
+                cancellationToken);
 
-        return movements.Sum(x => x.Type == StockMovementType.TransferIn
-            ? x.Quantity
-            : -x.Quantity);
+        return row?.Quantity ?? 0;
+    }
+
+    public async Task SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

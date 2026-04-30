@@ -11,39 +11,60 @@ public class StockMovementConfiguration : IEntityTypeConfiguration<StockMovement
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Type)
-               .IsRequired();
+            .IsRequired();
+
+        builder.Property(x => x.SourceType)
+            .IsRequired();
+
+        builder.Property(x => x.MovementDate)
+            .IsRequired();
 
         builder.Property(x => x.Quantity)
-               .IsRequired()
-               .HasColumnType("decimal(18,2)");
+            .IsRequired()
+            .HasPrecision(18, 4);
+
+        builder.Property(x => x.SourceDocumentNo)
+            .HasMaxLength(64);
 
         builder.Property(x => x.Note)
-               .HasMaxLength(500);
+            .HasMaxLength(500);
 
         builder.HasOne(x => x.Company)
-               .WithMany()
-               .HasForeignKey(x => x.CompanyId)
-               .OnDelete(DeleteBehavior.Restrict);
+            .WithMany()
+            .HasForeignKey(x => x.CompanyId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.Warehouse)
-               .WithMany()
-               .HasForeignKey(x => x.WarehouseId)
-               .OnDelete(DeleteBehavior.Restrict);
+            .WithMany()
+            .HasForeignKey(x => x.WarehouseId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.FromWarehouse)
+            .WithMany()
+            .HasForeignKey(x => x.FromWarehouseId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.ToWarehouse)
+            .WithMany()
+            .HasForeignKey(x => x.ToWarehouseId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.StockItem)
-               .WithMany()
-               .HasForeignKey(x => x.StockItemId)
-               .OnDelete(DeleteBehavior.Restrict);
+            .WithMany()
+            .HasForeignKey(x => x.StockItemId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.WarehouseTransfer)
-               .WithMany()
-               .HasForeignKey(x => x.WarehouseTransferId)
-               .OnDelete(DeleteBehavior.Restrict);
+            .WithMany()
+            .HasForeignKey(x => x.WarehouseTransferId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => new { x.CompanyId, x.WarehouseId });
         builder.HasIndex(x => new { x.CompanyId, x.StockItemId });
         builder.HasIndex(x => new { x.CompanyId, x.WarehouseId, x.StockItemId });
         builder.HasIndex(x => x.WarehouseTransferId);
         builder.HasIndex(x => x.Type);
+        builder.HasIndex(x => x.SourceType);
+        builder.HasIndex(x => x.MovementDate);
     }
 }

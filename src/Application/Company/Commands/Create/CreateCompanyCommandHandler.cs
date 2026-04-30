@@ -69,6 +69,15 @@ public sealed class CreateCompanyCommandHandler
                 return BaseResponse<CreateCompanyResponse>.Fail("Bu company name artıq mövcuddur.");
             }
 
+            if (!Enum.IsDefined(dto.Country))
+            {
+                _logger.LogWarning(
+                    "Company yaradılmadı. Ölkə düzgün seçilməyib. Country: {Country}",
+                    dto.Country);
+
+                return BaseResponse<CreateCompanyResponse>.Fail("Ölkə düzgün seçilməyib.");
+            }
+
             var company = _mapper.Map<Domain.Entities.Company>(dto);
             company.CountryCode = dto.Country.GetCode();
 

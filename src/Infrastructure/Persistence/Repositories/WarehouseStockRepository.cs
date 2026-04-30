@@ -3,7 +3,7 @@ using Domain.Entities.WarehouseAndStock;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
-namespace Persistence.Repositories;
+namespace Infrastructure.Repositories;
 
 public class WarehouseStockRepository : IWarehouseStockRepository
 {
@@ -14,68 +14,56 @@ public class WarehouseStockRepository : IWarehouseStockRepository
         _context = context;
     }
 
-    public async Task AddAsync(WarehouseStock warehouseStock, CancellationToken cancellationToken)
-    {
-        await _context.WarehouseStocks.AddAsync(warehouseStock, cancellationToken);
-    }
-
-    public async Task<WarehouseStock?> GetByIdAsync(int id, CancellationToken cancellationToken)
-    {
-        return await _context.WarehouseStocks
-            .Include(x => x.StockItem)
-            .Include(x => x.Warehouse)
-            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-    }
-
     public async Task<WarehouseStock?> GetByWarehouseAndStockItemAsync(
+        int companyId,
         int warehouseId,
         int stockItemId,
         CancellationToken cancellationToken)
     {
         return await _context.WarehouseStocks
             .FirstOrDefaultAsync(
-                x => x.WarehouseId == warehouseId && x.StockItemId == stockItemId,
+                x => x.CompanyId == companyId
+                     && x.WarehouseId == warehouseId
+                     && x.StockItemId == stockItemId,
                 cancellationToken);
     }
 
-    public async Task<List<WarehouseStock>> GetByWarehouseIdAsync(int warehouseId, CancellationToken cancellationToken)
-    {
-        return await _context.WarehouseStocks
-            .Include(x => x.StockItem)
-            .Include(x => x.Warehouse)
-            .Where(x => x.WarehouseId == warehouseId)
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<List<WarehouseStock>> SearchAsync(int companyId, string? search, CancellationToken cancellationToken)
+    public async Task<List<WarehouseStock>> SearchAsync(
+        int companyId,
+        int? warehouseId,
+        int? stockItemId,
+        string? search,
+        CancellationToken cancellationToken)
     {
         var query = _context.WarehouseStocks
-            .Include(x => x.StockItem)
+            .AsNoTracking()
             .Include(x => x.Warehouse)
-            .Where(x => x.CompanyId == companyId)
-            .AsQueryable();
+            .Include(x => x.StockItem)
+            .Where(x => x.CompanyId == companyId);
+
+        if (warehouseId.HasValue)
+            query = query.Where(x => x.WarehouseId == warehouseId.Value);
+
+        if (stockItemId.HasValue)
+            query = query.Where(x => x.StockItemId == stockItemId.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            search = search.Trim().ToLower();
-
+            var s = search.Trim().ToLower();
             query = query.Where(x =>
-                x.StockItem.Name.ToLower().Contains(search) ||
-                x.Warehouse.Name.ToLower().Contains(search) ||
-                x.Id.ToString().Contains(search));
+                x.Warehouse.Name.ToLower().Contains(s) ||
+                x.StockItem.Name.ToLower().Contains(s));
         }
 
-        return await query.ToListAsync(cancellationToken);
+        return await query
+            .OrderBy(x => x.Warehouse.Name)
+            .ThenBy(x => x.StockItem.Name)
+            .ToListAsync(cancellationToken);
     }
 
-    public void Delete(WarehouseStock warehouseStock)
+    public async Task AddAsync(WarehouseStock warehouseStock, CancellationToken cancellationToken)
     {
-        _context.WarehouseStocks.Remove(warehouseStock);
-    }
-
-    public async Task SaveChangesAsync(CancellationToken cancellationToken)
-    {
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.WarehouseStocks.AddAsync(warehouseStock, cancellationToken);
     }
 
     public void Update(WarehouseStock warehouseStock)
@@ -83,5 +71,41 @@ public class WarehouseStockRepository : IWarehouseStockRepository
         _context.WarehouseStocks.Update(warehouseStock);
     }
 
+    public async Task<WarehouseStock> GetOrCreateZeroBalanceAsync(
+        int companyId,
+        int warehouseId,
+        int stockItemId,
+        int unitId,
+        int? createdByUserId,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        var row = await GetByWarehouseAndStockItemAsync(
+            companyId,
+            warehouseId,
+            stockItemId,
+            cancellationToken);
 
+        if (row is not null)
+            return row;
+
+        row = new WarehouseStock
+        {
+            CompanyId = companyId,
+            WarehouseId = warehouseId,
+            StockItemId = stockItemId,
+            Quantity = 0,
+            UnitId = unitId,
+            CreatedAtUtc = utcNow,
+            CreatedByUserId = createdByUserId,
+        };
+
+        await AddAsync(row, cancellationToken);
+        return row;
+    }
+
+    public async Task SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }

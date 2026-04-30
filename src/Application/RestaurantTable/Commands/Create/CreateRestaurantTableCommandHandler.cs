@@ -49,6 +49,21 @@ public class CreateRestaurantTableCommandHandler
             trimmedName,
             cancellationToken);
 
+        var restaurantExists = await _restaurantTableRepository.RestaurantExistsAsync(
+            companyId,
+            dto.RestaurantId,
+            cancellationToken);
+
+        if (!restaurantExists)
+        {
+            _logger.LogWarning(
+                "RestaurantTable yaradılmadı. Restaurant tapılmadı və ya tenant-a aid deyil. RestaurantId: {RestaurantId}, CompanyId: {CompanyId}",
+                dto.RestaurantId,
+                companyId);
+
+            throw new Exception("Restaurant tapılmadı.");
+        }
+
         if (exists)
         {
             _logger.LogWarning(
@@ -108,6 +123,7 @@ public class CreateRestaurantTableCommandHandler
         {
             Id = table.Id,
             RestaurantId = table.RestaurantId,
+            RestaurantName = (await _restaurantTableRepository.GetByIdAsync(table.Id, companyId, cancellationToken))?.Restaurant?.Name ?? string.Empty,
             Name = table.Name,
             Capacity = table.Capacity,
             IsActive = table.IsActive,

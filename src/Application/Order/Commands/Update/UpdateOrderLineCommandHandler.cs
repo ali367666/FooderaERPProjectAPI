@@ -99,9 +99,6 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             order.TotalAmount
         });
 
-        var oldLineTotal = line.LineTotal;
-        var oldLineStatus = line.Status;
-
         line.Quantity = request.Request.Quantity;
         line.Note = string.IsNullOrWhiteSpace(request.Request.Note)
             ? null
@@ -122,23 +119,11 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             line.Status = parsedStatus;
         }
 
+        line.UnitPrice = line.MenuItem.Price;
         line.LineTotal = line.UnitPrice * line.Quantity;
-
-        if (oldLineStatus == OrderLineStatus.Cancelled && line.Status != OrderLineStatus.Cancelled)
-        {
-            order.TotalAmount += line.LineTotal;
-        }
-        else if (oldLineStatus != OrderLineStatus.Cancelled && line.Status == OrderLineStatus.Cancelled)
-        {
-            order.TotalAmount -= oldLineTotal;
-        }
-        else if (line.Status != OrderLineStatus.Cancelled)
-        {
-            order.TotalAmount = order.TotalAmount - oldLineTotal + line.LineTotal;
-        }
-
-        if (order.TotalAmount < 0)
-            order.TotalAmount = 0;
+        order.TotalAmount = order.Lines
+            .Where(x => x.Status != OrderLineStatus.Cancelled)
+            .Sum(x => x.Id == line.Id ? line.LineTotal : x.LineTotal);
 
         _orderLineRepository.Update(line);
         _orderRepository.Update(order);
@@ -229,8 +214,10 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         return new OrderResponse
         {
             Id = updatedOrder.Id,
+            CompanyId = updatedOrder.CompanyId,
             OrderNumber = updatedOrder.OrderNumber,
             RestaurantId = updatedOrder.RestaurantId,
+            RestaurantName = updatedOrder.Restaurant?.Name,
             TableId = updatedOrder.TableId,
             TableName = updatedOrder.Table?.Name,
             WaiterId = updatedOrder.WaiterId,
@@ -247,9 +234,11 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,
                 MenuItemName = x.MenuItem.Name,
+                MenuItemType = x.MenuItem.PreparationType.ToString(),
                 Quantity = x.Quantity,
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
+                PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString()
             }).ToList()

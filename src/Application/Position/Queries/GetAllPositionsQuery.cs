@@ -4,4 +4,4 @@ using MediatR;
 
 namespace Application.Positions.Queries.GetAll;
 
-public record GetAllPositionsQuery() : IRequest<BaseResponse<List<PositionResponse>>>;
+public record GetAllPositionsQuery(int CompanyId) : IRequest<BaseResponse<List<PositionResponse>>>;

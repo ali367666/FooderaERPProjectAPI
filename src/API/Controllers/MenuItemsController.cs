@@ -1,4 +1,4 @@
-﻿using Application.MenuItems.Commands.Create;
+using Application.MenuItems.Commands.Create;
 using Application.MenuItems.Commands.Delete;
 using Application.MenuItems.Commands.Update;
 using Application.MenuItems.Dtos;
@@ -7,6 +7,7 @@ using Application.MenuItems.Queries.GetById;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace WebApi.Controllers;
 
@@ -21,7 +22,7 @@ public class MenuItemsController : ControllerBase
         _mediator = mediator;
     }
 
-    [Authorize(Policy = "MenuItemCreate")]
+    [Authorize(Policy = AppPermissions.MenuItemCreate)]
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreateMenuItemRequest request,
@@ -37,7 +38,7 @@ public class MenuItemsController : ControllerBase
             Message = "Menu məhsulu uğurla yaradıldı."
         });
     }
-    [Authorize(Policy = "MenuItemUpdate")]
+    [Authorize(Policy = AppPermissions.MenuItemUpdate)]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(
         int id,
@@ -50,7 +51,7 @@ public class MenuItemsController : ControllerBase
 
         return NoContent();
     }
-    [Authorize(Policy = "MenuItemDelete")]
+    [Authorize(Policy = AppPermissions.MenuItemDelete)]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(
         int id,
@@ -62,7 +63,7 @@ public class MenuItemsController : ControllerBase
 
         return NoContent();
     }
-    [Authorize(Policy = "MenuItemView")]
+    [Authorize(Policy = AppPermissions.MenuItemView)]
     [HttpGet("{id}")]
     public async Task<ActionResult<MenuItemResponse>> GetById(
         int id,
@@ -75,7 +76,7 @@ public class MenuItemsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "MenuItemView")]
+    [Authorize(Policy = AppPermissions.MenuItemView)]
     [HttpGet]
     public async Task<ActionResult<List<MenuItemResponse>>> GetAll(
         CancellationToken cancellationToken)

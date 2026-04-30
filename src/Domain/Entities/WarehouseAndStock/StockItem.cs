@@ -1,4 +1,5 @@
-﻿using Domain.Common;
+﻿using System.Collections.Generic;
+using Domain.Common;
 using Domain.Enums;
 
 namespace Domain.Entities.WarehouseAndStock;
@@ -17,4 +18,5 @@ public class StockItem : BaseEntity<int>
     public Company Company { get; set; } = default!;
 
     public ICollection<WarehouseStock> WarehouseStocks { get; set; } = new List<WarehouseStock>();
+    public ICollection<MenuItemRecipeLine> RecipeLines { get; set; } = new List<MenuItemRecipeLine>();
 }

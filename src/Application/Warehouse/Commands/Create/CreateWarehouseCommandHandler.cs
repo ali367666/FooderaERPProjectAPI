@@ -18,6 +18,7 @@ public class CreateWarehouseCommandHandler
     private readonly ICompanyRepository _companyRepository;
     private readonly IRestaurantRepository _restaurantRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IEmployeeRepository _employeeRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateWarehouseCommandHandler> _logger;
@@ -27,6 +28,7 @@ public class CreateWarehouseCommandHandler
         ICompanyRepository companyRepository,
         IRestaurantRepository restaurantRepository,
         IUserRepository userRepository,
+        IEmployeeRepository employeeRepository,
         IAuditLogService auditLogService,
         IMapper mapper,
         ILogger<CreateWarehouseCommandHandler> logger)
@@ -35,6 +37,7 @@ public class CreateWarehouseCommandHandler
         _companyRepository = companyRepository;
         _restaurantRepository = restaurantRepository;
         _userRepository = userRepository;
+        _employeeRepository = employeeRepository;
         _auditLogService = auditLogService;
         _mapper = mapper;
         _logger = logger;
@@ -47,11 +50,12 @@ public class CreateWarehouseCommandHandler
         var dto = request.Request;
 
         _logger.LogInformation(
-            "CreateWarehouseCommand started. CompanyId: {CompanyId}, Name: {Name}, Type: {Type}, RestaurantId: {RestaurantId}, DriverUserId: {DriverUserId}",
+            "CreateWarehouseCommand started. CompanyId: {CompanyId}, Name: {Name}, Type: {Type}, RestaurantId: {RestaurantId}, ResponsibleEmployeeId: {ResponsibleEmployeeId}, DriverUserId: {DriverUserId}",
             dto.CompanyId,
             dto.Name,
             dto.Type,
             dto.RestaurantId,
+            dto.ResponsibleEmployeeId,
             dto.DriverUserId);
 
         var companyExists = await _companyRepository.ExistsAsync(dto.CompanyId, cancellationToken);
@@ -107,12 +111,31 @@ public class CreateWarehouseCommandHandler
             }
         }
 
+        if (dto.ResponsibleEmployeeId.HasValue)
+        {
+            var responsible = await _employeeRepository.GetByIdAsync(
+                dto.ResponsibleEmployeeId.Value,
+                dto.CompanyId,
+                cancellationToken);
+
+            if (responsible is null)
+            {
+                _logger.LogWarning(
+                    "CreateWarehouseCommand failed. Responsible employee not found. ResponsibleEmployeeId: {ResponsibleEmployeeId}, CompanyId: {CompanyId}",
+                    dto.ResponsibleEmployeeId,
+                    dto.CompanyId);
+
+                return BaseResponse<WarehouseResponse>.Fail("Responsible employee not found for this company.");
+            }
+        }
+
         var warehouse = new Domain.Entities.Warehouse
         {
             Name = trimmedName,
             Type = dto.Type,
             CompanyId = dto.CompanyId,
             RestaurantId = dto.Type == WarehouseType.Restaurant ? dto.RestaurantId : null,
+            ResponsibleEmployeeId = dto.ResponsibleEmployeeId,
             DriverUserId = dto.Type == WarehouseType.Vehicle ? dto.DriverUserId : null
         };
 

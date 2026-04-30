@@ -201,6 +201,7 @@ public class CreateWarehouseTransferCommandHandler
         var warehouseTransfer = new Domain.Entities.WarehouseAndStock.WarehouseTransfer
         {
             CompanyId = dto.CompanyId,
+            DocumentNo = Guid.NewGuid().ToString("N"),
             StockRequestId = dto.StockRequestId,
             FromWarehouseId = dto.FromWarehouseId,
             ToWarehouseId = dto.ToWarehouseId,
@@ -217,6 +218,10 @@ public class CreateWarehouseTransferCommandHandler
         };
 
         await _warehouseTransferRepository.AddAsync(warehouseTransfer, cancellationToken);
+        await _warehouseTransferRepository.SaveChangesAsync(cancellationToken);
+
+        warehouseTransfer.DocumentNo = $"WT-{warehouseTransfer.Id:D6}";
+        _warehouseTransferRepository.Update(warehouseTransfer);
         await _warehouseTransferRepository.SaveChangesAsync(cancellationToken);
 
         try

@@ -6,6 +6,7 @@ using Application.StockCategory.Dtos.Response;
 using AutoMapper;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace Application.StockCategory.Commands.Create;
 
@@ -99,40 +100,59 @@ public class CreateStockCategoryCommandHandler
             }
         }
 
-        var stockCategory = new Domain.Entities.WarehouseAndStock.StockCategory
+        Domain.Entities.WarehouseAndStock.StockCategory? stockCategory = null;
+        try
         {
-            Name = normalizedName,
-            Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
-            IsActive = dto.IsActive,
-            CompanyId = dto.CompanyId,
-            ParentId = dto.ParentId
-        };
-
-        await _stockCategoryRepository.AddAsync(stockCategory, cancellationToken);
-        await _stockCategoryRepository.SaveChangesAsync(cancellationToken);
-
-        await _auditLogService.LogAsync(
-            new AuditLogEntry
+            stockCategory = new Domain.Entities.WarehouseAndStock.StockCategory
             {
-                EntityName = "StockCategory",
-                EntityId = stockCategory.Id.ToString(),
-                ActionType = "Create",
-                Message = dto.ParentId.HasValue
-                    ? $"Stock category yaradıldı. Ad: {stockCategory.Name}, CompanyId: {stockCategory.CompanyId}, ParentId: {stockCategory.ParentId}"
-                    : $"Stock category yaradıldı. Ad: {stockCategory.Name}, CompanyId: {stockCategory.CompanyId}"
-            },
-            cancellationToken);
+                Name = normalizedName,
+                Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
+                IsActive = dto.IsActive,
+                CompanyId = dto.CompanyId,
+                ParentId = dto.ParentId
+            };
 
-        _logger.LogInformation(
-            "Stock category created successfully. Id: {Id}, Name: {Name}, CompanyId: {CompanyId}",
-            stockCategory.Id,
-            stockCategory.Name,
-            stockCategory.CompanyId);
+            await _stockCategoryRepository.AddAsync(stockCategory, cancellationToken);
+            await _stockCategoryRepository.SaveChangesAsync(cancellationToken);
 
-        var response = _mapper.Map<CreateStockCategoryResponse>(stockCategory);
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "StockCategory",
+                    EntityId = stockCategory.Id.ToString(),
+                    ActionType = "Create",
+                    Message = dto.ParentId.HasValue
+                        ? $"Stock category yaradıldı. Ad: {stockCategory.Name}, CompanyId: {stockCategory.CompanyId}, ParentId: {stockCategory.ParentId}"
+                        : $"Stock category yaradıldı. Ad: {stockCategory.Name}, CompanyId: {stockCategory.CompanyId}",
+                    NewValues = JsonSerializer.Serialize(stockCategory),
+                    IsSuccess = true
+                },
+                cancellationToken);
 
-        return BaseResponse<CreateStockCategoryResponse>.Ok(
-            response,
-            "Stock category created successfully.");
+            _logger.LogInformation(
+                "Stock category created successfully. Id: {Id}, Name: {Name}, CompanyId: {CompanyId}",
+                stockCategory.Id,
+                stockCategory.Name,
+                stockCategory.CompanyId);
+
+            var response = _mapper.Map<CreateStockCategoryResponse>(stockCategory);
+            return BaseResponse<CreateStockCategoryResponse>.Ok(
+                response,
+                "Stock category created successfully.");
+        }
+        catch (Exception ex)
+        {
+            await _auditLogService.LogAsync(
+                new AuditLogEntry
+                {
+                    EntityName = "StockCategory",
+                    EntityId = stockCategory?.Id.ToString() ?? string.Empty,
+                    ActionType = "Create",
+                    Message = ex.Message,
+                    IsSuccess = false
+                },
+                cancellationToken);
+            throw;
+        }
     }
 }

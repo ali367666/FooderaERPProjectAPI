@@ -23,12 +23,14 @@ public class RestaurantTableRepository : IRestaurantTableRepository
     public async Task<RestaurantTable?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken)
     {
         return await _context.RestaurantTables
+            .Include(x => x.Restaurant)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
     public async Task<List<RestaurantTable>> GetAllAsync(int companyId, CancellationToken cancellationToken)
     {
         return await _context.RestaurantTables
+            .Include(x => x.Restaurant)
             .Where(x => x.CompanyId == companyId)
             .OrderBy(x => x.RestaurantId)
             .ThenBy(x => x.Name)
@@ -38,9 +40,16 @@ public class RestaurantTableRepository : IRestaurantTableRepository
     public async Task<List<RestaurantTable>> GetAllByRestaurantAsync(int companyId, int restaurantId, CancellationToken cancellationToken)
     {
         return await _context.RestaurantTables
+            .Include(x => x.Restaurant)
             .Where(x => x.CompanyId == companyId && x.RestaurantId == restaurantId)
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> RestaurantExistsAsync(int companyId, int restaurantId, CancellationToken cancellationToken)
+    {
+        return await _context.Restaurants
+            .AnyAsync(x => x.CompanyId == companyId && x.Id == restaurantId, cancellationToken);
     }
 
     public async Task<bool> ExistsByNameAsync(int companyId, int restaurantId, string name, CancellationToken cancellationToken)

@@ -23,9 +23,12 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     public DbSet<StockCategory> Categories { get; set; } = null!;
     public DbSet<StockItem> StockItems { get; set; } = null!;
     public DbSet<StockMovement> StockMovements { get; set; } = null!;
+    public DbSet<MenuItemRecipeLine> MenuItemRecipeLines { get; set; } = null!;
 
     // Warehouse
     public DbSet<Warehouse> Warehouses { get; set; } = null!;
+    public DbSet<WarehouseStockDocument> WarehouseStockDocuments { get; set; } = null!;
+    public DbSet<WarehouseStockLine> WarehouseStockLines { get; set; } = null!;
     public DbSet<WarehouseStock> WarehouseStocks { get; set; } = null!;
 
     // Request system
@@ -50,6 +53,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     public DbSet<RestaurantTable> RestaurantTables { get; set; } = null!;
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
     public DbSet<Notification> Notifications { get; set; } = null!;
+    public DbSet<Permission> Permissions { get; set; } = null!;
+    public DbSet<RolePermission> RolePermissions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

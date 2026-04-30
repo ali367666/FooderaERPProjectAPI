@@ -7,4 +7,6 @@ public sealed class LoginResponse
 
     public string RefreshToken { get; set; } = default!;
     public DateTime RefreshTokenExpiration { get; set; }
+    public List<string> Roles { get; set; } = [];
+    public List<string> Permissions { get; set; } = [];
 }

@@ -15,6 +15,10 @@ public interface IOrderLineRepository
     int restaurantId,
     CancellationToken cancellationToken);
 
+    Task<List<OrderLine>> GetKitchenLinesByCompanyAsync(
+        int companyId,
+        CancellationToken cancellationToken);
+
     Task<List<OrderLine>> GetReadyKitchenLinesAsync(
         int companyId,
         int restaurantId,

@@ -2,7 +2,9 @@
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
+using Domain.Entities.WarehouseAndStock;
 using Domain.Enums;
+using StockBalanceRow = Domain.Entities.WarehouseAndStock.WarehouseStock;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -13,17 +15,20 @@ public class ReceiveWarehouseTransferCommandHandler
 {
     private readonly IWarehouseTransferRepository _warehouseTransferRepository;
     private readonly IWarehouseStockRepository _warehouseStockRepository;
+    private readonly IStockMovementRepository _stockMovementRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<ReceiveWarehouseTransferCommandHandler> _logger;
 
     public ReceiveWarehouseTransferCommandHandler(
         IWarehouseTransferRepository warehouseTransferRepository,
         IWarehouseStockRepository warehouseStockRepository,
+        IStockMovementRepository stockMovementRepository,
         IAuditLogService auditLogService,
         ILogger<ReceiveWarehouseTransferCommandHandler> logger)
     {
         _warehouseTransferRepository = warehouseTransferRepository;
         _warehouseStockRepository = warehouseStockRepository;
+        _stockMovementRepository = stockMovementRepository;
         _auditLogService = auditLogService;
         _logger = logger;
     }
@@ -51,7 +56,25 @@ public class ReceiveWarehouseTransferCommandHandler
         if (transfer.Lines is null || !transfer.Lines.Any())
             return BaseResponse.Fail("Transfer has no lines.");
 
+        foreach (var line in transfer.Lines)
+        {
+            var vehicleBalance = await _warehouseStockRepository.GetByWarehouseAndStockItemAsync(
+                transfer.CompanyId,
+                transfer.VehicleWarehouseId.Value,
+                line.StockItemId,
+                cancellationToken);
+
+            var available = vehicleBalance?.Quantity ?? 0;
+            var itemName = line.StockItem.Name;
+            if (available < line.Quantity)
+            {
+                return BaseResponse.Fail(
+                    $"Insufficient stock for {itemName}. Available: {available}");
+            }
+        }
+
         var oldStatus = transfer.Status;
+        var movementDate = DateTime.UtcNow;
 
         await using var transaction = await _warehouseTransferRepository
             .BeginTransactionAsync(cancellationToken);
@@ -60,53 +83,67 @@ public class ReceiveWarehouseTransferCommandHandler
         {
             foreach (var line in transfer.Lines)
             {
-                // 🔴 VEHICLE WAREHOUSE ↓
-                var vehicleStock = await _warehouseStockRepository
-                    .GetByWarehouseAndStockItemAsync(
-                        transfer.VehicleWarehouseId.Value,
-                        line.StockItemId,
-                        cancellationToken);
+                await ApplyVehicleDecreaseAsync(
+                    transfer.CompanyId,
+                    transfer.VehicleWarehouseId!.Value,
+                    line.StockItemId,
+                    line.Quantity,
+                    (int)line.StockItem.Unit,
+                    cancellationToken);
 
-                if (vehicleStock is null || vehicleStock.QuantityOnHand < line.Quantity)
+                var toRow = await _warehouseStockRepository.GetByWarehouseAndStockItemAsync(
+                    transfer.CompanyId,
+                    transfer.ToWarehouseId,
+                    line.StockItemId,
+                    cancellationToken);
+
+                if (toRow is null)
                 {
-                    return BaseResponse.Fail(
-                        $"Vehicle warehouse stock not enough for item {line.StockItemId}");
-                }
-
-                vehicleStock.QuantityOnHand -= line.Quantity;
-                _warehouseStockRepository.Update(vehicleStock);
-
-                // 🔴 TO WAREHOUSE ↑
-                var toStock = await _warehouseStockRepository
-                    .GetByWarehouseAndStockItemAsync(
-                        transfer.ToWarehouseId,
-                        line.StockItemId,
+                    await _warehouseStockRepository.AddAsync(
+                        new StockBalanceRow
+                        {
+                            CompanyId = transfer.CompanyId,
+                            WarehouseId = transfer.ToWarehouseId,
+                            StockItemId = line.StockItemId,
+                            Quantity = line.Quantity,
+                            UnitId = (int)line.StockItem.Unit,
+                            CreatedAtUtc = movementDate,
+                        },
                         cancellationToken);
-
-                if (toStock is null)
-                {
-                    var newStock = new Domain.Entities.WarehouseAndStock.WarehouseStock
-                    {
-                        CompanyId = transfer.CompanyId,
-                        WarehouseId = transfer.ToWarehouseId,
-                        StockItemId = line.StockItemId,
-                        QuantityOnHand = line.Quantity
-                    };
-
-                    await _warehouseStockRepository.AddAsync(newStock, cancellationToken);
                 }
                 else
                 {
-                    toStock.QuantityOnHand += line.Quantity;
-                    _warehouseStockRepository.Update(toStock);
+                    toRow.Quantity += line.Quantity;
+                    toRow.UnitId = (int)line.StockItem.Unit;
+                    toRow.LastModifiedAtUtc = movementDate;
+                    _warehouseStockRepository.Update(toRow);
                 }
+
+                await _stockMovementRepository.AddAsync(
+                    new StockMovement
+                    {
+                        CompanyId = transfer.CompanyId,
+                        WarehouseId = transfer.ToWarehouseId,
+                        FromWarehouseId = transfer.FromWarehouseId,
+                        ToWarehouseId = transfer.ToWarehouseId,
+                        StockItemId = line.StockItemId,
+                        Type = StockMovementType.TransferIn,
+                        SourceType = StockMovementSourceType.WarehouseTransfer,
+                        SourceId = transfer.Id,
+                        SourceDocumentNo = transfer.DocumentNo,
+                        MovementDate = movementDate,
+                        Quantity = line.Quantity,
+                        WarehouseTransferId = transfer.Id,
+                        Note =
+                            $"Receive into {transfer.ToWarehouse?.Name ?? "warehouse " + transfer.ToWarehouseId}"
+                    },
+                    cancellationToken);
             }
 
             transfer.Status = TransferStatus.Completed;
 
             _warehouseTransferRepository.Update(transfer);
 
-            await _warehouseStockRepository.SaveChangesAsync(cancellationToken);
             await _warehouseTransferRepository.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -139,5 +176,32 @@ public class ReceiveWarehouseTransferCommandHandler
         }
 
         return BaseResponse.Ok("Warehouse transfer received successfully.");
+    }
+
+    private async Task ApplyVehicleDecreaseAsync(
+        int companyId,
+        int warehouseId,
+        int stockItemId,
+        decimal qty,
+        int unitId,
+        CancellationToken cancellationToken)
+    {
+        var row = await _warehouseStockRepository.GetByWarehouseAndStockItemAsync(
+            companyId,
+            warehouseId,
+            stockItemId,
+            cancellationToken);
+
+        if (row is null)
+            throw new InvalidOperationException("Vehicle warehouse has no balance row for item.");
+
+        row.Quantity -= qty;
+        row.UnitId = unitId;
+        row.LastModifiedAtUtc = DateTime.UtcNow;
+
+        if (row.Quantity < 0)
+            throw new InvalidOperationException("Stock quantity would become negative.");
+
+        _warehouseStockRepository.Update(row);
     }
 }
