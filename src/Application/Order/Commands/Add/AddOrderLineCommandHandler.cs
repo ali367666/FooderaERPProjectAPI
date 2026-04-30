@@ -16,6 +16,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
     private readonly IOrderRepository _orderRepository;
     private readonly IOrderLineRepository _orderLineRepository;
     private readonly IMenuItemRepository _menuItemRepository;
+    private readonly IRecipeStockDeductionService _recipeStockDeductionService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<AddOrderLineCommandHandler> _logger;
@@ -24,6 +25,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         IOrderRepository orderRepository,
         IOrderLineRepository orderLineRepository,
         IMenuItemRepository menuItemRepository,
+        IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<AddOrderLineCommandHandler> logger)
@@ -31,6 +33,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         _orderRepository = orderRepository;
         _orderLineRepository = orderLineRepository;
         _menuItemRepository = menuItemRepository;
+        _recipeStockDeductionService = recipeStockDeductionService;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -107,13 +110,12 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         };
 
         await _orderLineRepository.AddAsync(orderLine, cancellationToken);
+        order.Lines.Add(orderLine);
+        await _recipeStockDeductionService.DeductForOrderLineAsync(orderLine, cancellationToken);
 
-        order.TotalAmount += orderLine.LineTotal;
-
-        var oldOrderStatus = order.Status;
-
-        if (order.Status == OrderStatus.Open)
-            order.Status = OrderStatus.InPreparation;
+        order.TotalAmount = order.Lines
+            .Where(x => x.Status != OrderLineStatus.Cancelled)
+            .Sum(x => x.LineTotal);
 
         _orderRepository.Update(order);
 
@@ -199,8 +201,10 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         return new OrderResponse
         {
             Id = updatedOrder.Id,
+            CompanyId = updatedOrder.CompanyId,
             OrderNumber = updatedOrder.OrderNumber,
             RestaurantId = updatedOrder.RestaurantId,
+            RestaurantName = updatedOrder.Restaurant?.Name,
             TableId = updatedOrder.TableId,
             TableName = updatedOrder.Table?.Name,
             WaiterId = updatedOrder.WaiterId,
@@ -217,9 +221,11 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,
                 MenuItemName = x.MenuItem.Name,
+                MenuItemType = x.MenuItem.PreparationType.ToString(),
                 Quantity = x.Quantity,
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
+                PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString()
             }).ToList()

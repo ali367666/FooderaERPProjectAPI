@@ -1,4 +1,4 @@
-﻿using Application.RestaurantTable.Dtos.Request;
+using Application.RestaurantTable.Dtos.Request;
 using Application.RestaurantTables.Commands.Create;
 using Application.RestaurantTables.Commands.Delete;
 using Application.RestaurantTables.Commands.Update;
@@ -8,6 +8,7 @@ using Application.RestaurantTables.Queries.GetById;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace WebApi.Controllers;
 
@@ -22,7 +23,7 @@ public class RestaurantTablesController : ControllerBase
         _mediator = mediator;
     }
 
-    [Authorize(Policy = "RestaurantTableCreate")]
+    [Authorize(Policy = AppPermissions.RestaurantTableCreate)]
     [HttpPost]
     public async Task<ActionResult<RestaurantTableResponse>> Create(
         [FromBody] CreateRestaurantTableCommand command,
@@ -32,7 +33,7 @@ public class RestaurantTablesController : ControllerBase
         return Ok(response);
     }
 
-    [Authorize(Policy = "RestaurantTableUpdate")]
+    [Authorize(Policy = AppPermissions.RestaurantTableUpdate)]
     [HttpPut("{id}")]
     public async Task<ActionResult<RestaurantTableResponse>> Update(
         int id,
@@ -49,7 +50,7 @@ public class RestaurantTablesController : ControllerBase
         return Ok(response);
     }
 
-    [Authorize(Policy = "RestaurantTableView")]
+    [Authorize(Policy = AppPermissions.RestaurantTableView)]
     [HttpGet("{id}")]
     public async Task<ActionResult<RestaurantTableResponse>> GetById(
         int id,
@@ -59,7 +60,7 @@ public class RestaurantTablesController : ControllerBase
         return Ok(response);
     }
 
-    [Authorize(Policy = "RestaurantTableView")]
+    [Authorize(Policy = AppPermissions.RestaurantTableView)]
     [HttpGet]
     public async Task<ActionResult<List<RestaurantTableResponse>>> GetAll(CancellationToken cancellationToken)
     {
@@ -67,7 +68,7 @@ public class RestaurantTablesController : ControllerBase
         return Ok(response);
     }
 
-    [Authorize(Policy = "RestaurantTableDelete")]
+    [Authorize(Policy = AppPermissions.RestaurantTableDelete)]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {

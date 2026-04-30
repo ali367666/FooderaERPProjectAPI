@@ -13,6 +13,7 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
     private readonly ICompanyRepository _companyRepository;
     private readonly IRestaurantRepository _restaurantRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IEmployeeRepository _employeeRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateWarehouseCommandHandler> _logger;
 
@@ -21,6 +22,7 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
         ICompanyRepository companyRepository,
         IRestaurantRepository restaurantRepository,
         IUserRepository userRepository,
+        IEmployeeRepository employeeRepository,
         IAuditLogService auditLogService,
         ILogger<UpdateWarehouseCommandHandler> logger)
     {
@@ -28,6 +30,7 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
         _companyRepository = companyRepository;
         _restaurantRepository = restaurantRepository;
         _userRepository = userRepository;
+        _employeeRepository = employeeRepository;
         _auditLogService = auditLogService;
         _logger = logger;
     }
@@ -37,12 +40,13 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "UpdateWarehouseCommand started. WarehouseId: {WarehouseId}, Name: {Name}, Type: {Type}, CompanyId: {CompanyId}, RestaurantId: {RestaurantId}, DriverUserId: {DriverUserId}",
+            "UpdateWarehouseCommand started. WarehouseId: {WarehouseId}, Name: {Name}, Type: {Type}, CompanyId: {CompanyId}, RestaurantId: {RestaurantId}, ResponsibleEmployeeId: {ResponsibleEmployeeId}, DriverUserId: {DriverUserId}",
             request.Id,
             request.Request.Name,
             request.Request.Type,
             request.Request.CompanyId,
             request.Request.RestaurantId,
+            request.Request.ResponsibleEmployeeId,
             request.Request.DriverUserId);
 
         var warehouse = await _warehouseRepository.GetByIdAsync(request.Id, cancellationToken);
@@ -92,6 +96,24 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
             }
         }
 
+        if (request.Request.ResponsibleEmployeeId.HasValue)
+        {
+            var responsible = await _employeeRepository.GetByIdAsync(
+                request.Request.ResponsibleEmployeeId.Value,
+                request.Request.CompanyId,
+                cancellationToken);
+
+            if (responsible is null)
+            {
+                _logger.LogWarning(
+                    "Responsible employee not found. ResponsibleEmployeeId: {ResponsibleEmployeeId}, CompanyId: {CompanyId}",
+                    request.Request.ResponsibleEmployeeId.Value,
+                    request.Request.CompanyId);
+
+                return BaseResponse.Fail("Responsible employee not found for this company.");
+            }
+        }
+
         var normalizedNewName = request.Request.Name.Trim();
 
         var sameNameExists = await _warehouseRepository.ExistsByNameAsync(
@@ -118,6 +140,7 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
         warehouse.Type = request.Request.Type;
         warehouse.CompanyId = request.Request.CompanyId;
         warehouse.RestaurantId = request.Request.RestaurantId;
+        warehouse.ResponsibleEmployeeId = request.Request.ResponsibleEmployeeId;
         warehouse.DriverUserId = request.Request.DriverUserId;
 
         _warehouseRepository.Update(warehouse);

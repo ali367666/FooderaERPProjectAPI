@@ -1,4 +1,4 @@
-﻿using Application.Common.Responce;
+using Application.Common.Responce;
 using Application.WarehouseTransfer.Commands.Approve;
 using Application.WarehouseTransfer.Commands.Cancel;
 using Application.WarehouseTransfer.Commands.Delete;
@@ -14,6 +14,7 @@ using Application.WarehouseTransfers.Dtos.Request;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace FooderaERP.Api.Controllers;
 
@@ -28,7 +29,7 @@ public class WarehouseTransfersController : ControllerBase
         _mediator = mediator;
     }
 
-    [Authorize(Policy = "WarehouseTransferCreate")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferCreate)]
     [HttpPost]
     public async Task<ActionResult<BaseResponse<int>>> Create([FromBody] CreateWarehouseTransferRequest request)
     {
@@ -40,7 +41,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferView")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferView)]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<BaseResponse>> GetById(int id)
     {
@@ -52,7 +53,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferView")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferView)]
     [HttpGet]
     public async Task<ActionResult<BaseResponse>> GetAll()
     {
@@ -64,7 +65,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferUpdate")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferUpdate)]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Update(
         int id,
@@ -78,7 +79,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferDelete")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferDelete)]
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Delete(int id)
     {
@@ -90,7 +91,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferSubmit")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferSubmit)]
     [HttpPost("{id:int}/submit")]
     public async Task<ActionResult<BaseResponse>> Submit(int id)
     {
@@ -102,7 +103,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferApprove")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferApprove)]
     [HttpPost("{id:int}/approve")]
     public async Task<ActionResult<BaseResponse>> Approve(int id)
     {
@@ -114,7 +115,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferDispatch")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferDispatch)]
     [HttpPost("{id:int}/dispatch")]
     public async Task<ActionResult<BaseResponse>> Dispatch(int id)
     {
@@ -126,7 +127,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferReceive")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferReceive)]
     [HttpPost("{id:int}/receive")]
     public async Task<ActionResult<BaseResponse>> Receive(int id)
     {
@@ -138,7 +139,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferCancel")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferCancel)]
     [HttpPost("{id:int}/cancel")]
     public async Task<ActionResult<BaseResponse>> Cancel(int id)
     {
@@ -150,7 +151,7 @@ public class WarehouseTransfersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "WarehouseTransferReject")]
+    [Authorize(Policy = AppPermissions.WarehouseTransferReject)]
     [HttpPost("{id:int}/reject")]
     public async Task<ActionResult<BaseResponse>> Reject(int id)
     {

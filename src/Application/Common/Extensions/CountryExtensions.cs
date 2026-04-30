@@ -8,7 +8,7 @@ public static class CountryExtensions
     {
         Country.Azerbaijan => "AZE",
         Country.Turkey => "TUR",
-        Country.Germany => "DEU",
+        Country.Germany => "GER",
         Country.USA => "USA",
         _ => throw new ArgumentOutOfRangeException(nameof(country), "Unknown country")
     };

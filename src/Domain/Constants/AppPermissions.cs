@@ -2,105 +2,112 @@
 
 public static class AppPermissions
 {
-    public const string CompanyView = "Permissions.Company.View";
-    public const string CompanyCreate = "Permissions.Company.Create";
-    public const string CompanyUpdate = "Permissions.Company.Update";
-    public const string CompanyDelete = "Permissions.Company.Delete";
+    public const string CompanyView = "Company.View";
+    public const string CompanyCreate = "Company.Create";
+    public const string CompanyUpdate = "Company.Update";
+    public const string CompanyDelete = "Company.Delete";
 
-    public const string UserView = "Permissions.User.View";
-    public const string UserCreate = "Permissions.User.Create";
-    public const string UserUpdate = "Permissions.User.Update";
-    public const string UserDelete = "Permissions.User.Delete";
+    public const string UserView = "User.View";
+    public const string UserCreate = "User.Create";
+    public const string UserUpdate = "User.Update";
+    public const string UserDelete = "User.Delete";
 
-    public const string RestaurantView = "Permissions.Restaurant.View";
-    public const string RestaurantCreate = "Permissions.Restaurant.Create";
-    public const string RestaurantUpdate = "Permissions.Restaurant.Update";
-    public const string RestaurantDelete = "Permissions.Restaurant.Delete";
+    public const string RestaurantView = "Restaurant.View";
+    public const string RestaurantCreate = "Restaurant.Create";
+    public const string RestaurantUpdate = "Restaurant.Update";
+    public const string RestaurantDelete = "Restaurant.Delete";
 
-    public const string StockCategoryView = "Permissions.StockCategory.View";
-    public const string StockCategoryCreate = "Permissions.StockCategory.Create";
-    public const string StockCategoryUpdate = "Permissions.StockCategory.Update";
-    public const string StockCategoryDelete = "Permissions.StockCategory.Delete";
+    public const string StockCategoryView = "StockCategory.View";
+    public const string StockCategoryCreate = "StockCategory.Create";
+    public const string StockCategoryUpdate = "StockCategory.Update";
+    public const string StockCategoryDelete = "StockCategory.Delete";
 
-    public const string WarehouseView = "Permissions.Warehouse.View";
-    public const string WarehouseCreate = "Permissions.Warehouse.Create";
-    public const string WarehouseUpdate = "Permissions.Warehouse.Update";
-    public const string WarehouseDelete = "Permissions.Warehouse.Delete";
+    public const string WarehouseView = "Warehouse.View";
+    public const string WarehouseCreate = "Warehouse.Create";
+    public const string WarehouseUpdate = "Warehouse.Update";
+    public const string WarehouseDelete = "Warehouse.Delete";
 
-    public const string StockItemView = "Permissions.StockItem.View";
-    public const string StockItemCreate = "Permissions.StockItem.Create";
-    public const string StockItemUpdate = "Permissions.StockItem.Update";
-    public const string StockItemDelete = "Permissions.StockItem.Delete";
+    public const string StockItemView = "StockItem.View";
+    public const string StockItemCreate = "StockItem.Create";
+    public const string StockItemUpdate = "StockItem.Update";
+    public const string StockItemDelete = "StockItem.Delete";
 
-    public const string WarehouseStockView = "Permissions.WarehouseStock.View";
-    public const string WarehouseStockCreate = "Permissions.WarehouseStock.Create";
-    public const string WarehouseStockUpdate = "Permissions.WarehouseStock.Update";
-    public const string WarehouseStockDelete = "Permissions.WarehouseStock.Delete";
+    public const string WarehouseStockView = "WarehouseStock.View";
+    public const string WarehouseStockCreate = "WarehouseStock.Create";
+    public const string WarehouseStockUpdate = "WarehouseStock.Update";
+    public const string WarehouseStockDelete = "WarehouseStock.Delete";
 
-    public const string StockRequestView = "Permissions.StockRequest.View";
-    public const string StockRequestCreate = "Permissions.StockRequest.Create";
-    public const string StockRequestUpdate = "Permissions.StockRequest.Update";
-    public const string StockRequestDelete = "Permissions.StockRequest.Delete";
-    public const string StockRequestApprove = "Permissions.StockRequest.Approve";
-    public const string StockRequestReject = "Permissions.StockRequest.Reject";
-    public const string StockRequestCancel = "Permissions.StockRequest.Cancel";
-    public const string StockRequestSubmit = "Permissions.StockRequest.Submit";
-    public const string StockRequestRecall = "Permissions.StockRequest.Recall";
+    public const string StockRequestView = "StockRequest.View";
+    public const string StockRequestCreate = "StockRequest.Create";
+    public const string StockRequestUpdate = "StockRequest.Update";
+    public const string StockRequestDelete = "StockRequest.Delete";
+    public const string StockRequestApprove = "StockRequest.Approve";
+    public const string StockRequestReject = "StockRequest.Reject";
+    public const string StockRequestCancel = "StockRequest.Cancel";
+    public const string StockRequestSubmit = "StockRequest.Submit";
+    public const string StockRequestRecall = "StockRequest.Recall";
 
-    public const string RestaurantTableView = "Permissions.RestaurantTable.View";
-    public const string RestaurantTableCreate = "Permissions.RestaurantTable.Create";
-    public const string RestaurantTableUpdate = "Permissions.RestaurantTable.Update";
-    public const string RestaurantTableDelete = "Permissions.RestaurantTable.Delete";
+    public const string RestaurantTableView = "RestaurantTable.View";
+    public const string RestaurantTableCreate = "RestaurantTable.Create";
+    public const string RestaurantTableUpdate = "RestaurantTable.Update";
+    public const string RestaurantTableDelete = "RestaurantTable.Delete";
 
-    public const string DepartmentView = "Permissions.Department.View";
-    public const string DepartmentCreate = "Permissions.Department.Create";
-    public const string DepartmentUpdate = "Permissions.Department.Update";
-    public const string DepartmentDelete = "Permissions.Department.Delete";
+    public const string DepartmentView = "Department.View";
+    public const string DepartmentCreate = "Department.Create";
+    public const string DepartmentUpdate = "Department.Update";
+    public const string DepartmentDelete = "Department.Delete";
 
-    public const string PositionView = "Permissions.Position.View";
-    public const string PositionCreate = "Permissions.Position.Create";
-    public const string PositionUpdate = "Permissions.Position.Update";
-    public const string PositionDelete = "Permissions.Position.Delete";
+    public const string PositionView = "Position.View";
+    public const string PositionCreate = "Position.Create";
+    public const string PositionUpdate = "Position.Update";
+    public const string PositionDelete = "Position.Delete";
 
-    public const string EmployeeView = "Permissions.Employee.View";
-    public const string EmployeeCreate = "Permissions.Employee.Create";
-    public const string EmployeeUpdate = "Permissions.Employee.Update";
-    public const string EmployeeDelete = "Permissions.Employee.Delete";
+    public const string EmployeeView = "Employee.View";
+    public const string EmployeeCreate = "Employee.Create";
+    public const string EmployeeUpdate = "Employee.Update";
+    public const string EmployeeDelete = "Employee.Delete";
 
-    public const string OrdersView = "Permissions.Orders.View";
-    public const string OrdersCreate = "Permissions.Orders.Create";
-    public const string OrdersUpdate = "Permissions.Orders.Update";
-    public const string OrdersDelete = "Permissions.Orders.Delete";
-    public const string OrdersAdd    = "Permissions.Orders.Add";
+    public const string OrdersView = "Orders.View";
+    public const string OrdersCreate = "Orders.Create";
+    public const string OrdersUpdate = "Orders.Update";
+    public const string OrdersDelete = "Orders.Delete";
+    public const string OrdersAdd    = "Orders.Add";
+    public const string OrdersServe = "Orders.Serve";
+    public const string OrdersPay = "Orders.Pay";
+    public const string PaymentCreate = "Payment.Create";
+    public const string RoleView = "Role.View";
+    public const string UserRoleManage = "UserRole.Manage";
 
-    public const string WarehouseTransferView = "Permissions.WarehouseTransfer.View";
-    public const string WarehouseTransferCreate = "Permissions.WarehouseTransfer.Create";
-    public const string WarehouseTransferUpdate = "Permissions.WarehouseTransfer.Update";
-    public const string WarehouseTransferDelete = "Permissions.WarehouseTransfer.Delete";
-    public const string WarehouseTransferApprove = "Permissions.WarehouseTransfer.Approve";
-    public const string WarehouseTransferReject = "Permissions.WarehouseTransfer.Reject";
-    public const string WarehouseTransferCancel = "Permissions.WarehouseTransfer.Cancel";
-    public const string WarehouseTransferSubmit = "Permissions.WarehouseTransfer.Submit";
-    public const string WarehouseTransferReceive = "Permissions.WarehouseTransfer.Receive";
-    public const string WarehouseTransferDispatch = "Permissions.WarehouseTransfer.Dispatch";
+    public const string WarehouseTransferView = "WarehouseTransfer.View";
+    public const string WarehouseTransferCreate = "WarehouseTransfer.Create";
+    public const string WarehouseTransferUpdate = "WarehouseTransfer.Update";
+    public const string WarehouseTransferDelete = "WarehouseTransfer.Delete";
+    public const string WarehouseTransferApprove = "WarehouseTransfer.Approve";
+    public const string WarehouseTransferReject = "WarehouseTransfer.Reject";
+    public const string WarehouseTransferCancel = "WarehouseTransfer.Cancel";
+    public const string WarehouseTransferSubmit = "WarehouseTransfer.Submit";
+    public const string WarehouseTransferReceive = "WarehouseTransfer.Receive";
+    public const string WarehouseTransferDispatch = "WarehouseTransfer.Dispatch";
 
-    public const string MenuItemView = "Permissions.MenuItem.View";
-    public const string MenuItemCreate = "Permissions.MenuItem.Create";
-    public const string MenuItemUpdate = "Permissions.MenuItem.Update";
-    public const string MenuItemDelete = "Permissions.MenuItem.Delete";
+    public const string MenuItemView = "MenuItem.View";
+    public const string MenuItemCreate = "MenuItem.Create";
+    public const string MenuItemUpdate = "MenuItem.Update";
+    public const string MenuItemDelete = "MenuItem.Delete";
 
-    public const string MenuCategoryView = "Permissions.MenuCategory.View";
-    public const string MenuCategoryCreate = "Permissions.MenuCategory.Create";
-    public const string MenuCategoryUpdate = "Permissions.MenuCategory.Update";
-    public const string MenuCategoryDelete = "Permissions.MenuCategory.Delete";
+    public const string MenuCategoryView = "MenuCategory.View";
+    public const string MenuCategoryCreate = "MenuCategory.Create";
+    public const string MenuCategoryUpdate = "MenuCategory.Update";
+    public const string MenuCategoryDelete = "MenuCategory.Delete";
 
-    public const string KitchenView = "Permissions.Kitchen.View";
-    public const string KitchenMarkReady = "Permissions.Kitchen.MarkReady";
-    public const string KitchenStartPreparing = "Permissions.Kitchen.StartPreparing";
+    public const string KitchenView = "Kitchen.View";
+    public const string KitchenMarkReady = "Kitchen.MarkReady";
+    public const string KitchenStartPreparing = "Kitchen.StartPreparing";
+    public const string KitchenMarkServed = "Kitchen.MarkServed";
 
 
 
 
     public const string AuditLogView = "Permissions.AuditLog.View";
+    public const string AuditLogsView = AuditLogView;
 
 }

@@ -19,6 +19,8 @@ public class SubmitStockRequestCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogService _auditLogService;
     private readonly IEmailService _emailService;
+    private readonly INotificationService _notificationService;
+    private readonly IAuthenticatedUserAccessor _authenticatedUserAccessor;
     private readonly ILogger<SubmitStockRequestCommandHandler> _logger;
 
     public SubmitStockRequestCommandHandler(
@@ -27,6 +29,8 @@ public class SubmitStockRequestCommandHandler
         IUnitOfWork unitOfWork,
         IAuditLogService auditLogService,
         IEmailService emailService,
+        INotificationService notificationService,
+        IAuthenticatedUserAccessor authenticatedUserAccessor,
         ILogger<SubmitStockRequestCommandHandler> logger)
     {
         _stockRequestRepository = stockRequestRepository;
@@ -34,6 +38,8 @@ public class SubmitStockRequestCommandHandler
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
         _emailService = emailService;
+        _notificationService = notificationService;
+        _authenticatedUserAccessor = authenticatedUserAccessor;
         _logger = logger;
     }
 
@@ -88,10 +94,15 @@ public class SubmitStockRequestCommandHandler
             return BaseResponse.Fail("Requesting warehouse and supplying warehouse cannot be the same.");
         }
 
+        var actingUserId = await _authenticatedUserAccessor.ResolveUserIdAsync(cancellationToken);
+
         var oldStatus = entity.Status;
         var lineCount = entity.Lines.Count;
 
         entity.Status = StockRequestStatus.Submitted;
+
+        if ((entity.RequestedByUserId is null || entity.RequestedByUserId == 0) && actingUserId > 0)
+            entity.RequestedByUserId = actingUserId;
 
         _stockRequestRepository.Update(entity);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -123,6 +134,57 @@ public class SubmitStockRequestCommandHandler
 
         try
         {
+            var docNo = $"SR-{entity.Id:D5}";
+            var submitterId = actingUserId > 0 ? actingUserId : entity.RequestedByUserId ?? 0;
+
+            if (submitterId > 0 && entity.CompanyId > 0)
+            {
+                try
+                {
+                    _logger.LogInformation(
+                        "StockRequest submitted: Id={StockRequestId}, DocumentNo={DocumentNo}, CompanyId={CompanyId}. Creating submitter notification UserId={UserId}.",
+                        entity.Id,
+                        docNo,
+                        entity.CompanyId,
+                        submitterId);
+
+                    await _notificationService.CreateAsync(
+                        submitterId,
+                        entity.CompanyId,
+                        "Stok sorğusu göndərildi",
+                        $"{docNo} nömrəli sorğu təsdiq üçün göndərildi.",
+                        "StockRequest",
+                        entity.Id,
+                        "StockRequest",
+                        actingUserId > 0 ? actingUserId : null,
+                        cancellationToken);
+
+                    _logger.LogInformation(
+                        "StockRequest submit notification (submitter) committed. StockRequestId: {StockRequestId}, DocumentNo: {DocumentNo}, UserId: {UserId}, CompanyId: {CompanyId}",
+                        entity.Id,
+                        docNo,
+                        submitterId,
+                        entity.CompanyId);
+                }
+                catch (Exception notifyEx)
+                {
+                    _logger.LogError(
+                        notifyEx,
+                        "StockRequest submit notification (submitter) failed. StockRequestId: {StockRequestId}",
+                        entity.Id);
+                }
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "StockRequest submit: no user id for in-app notification (submitter). StockRequestId: {StockRequestId}, DocumentNo: {DocumentNo}, ActingUserId: {ActingUserId}, RequestedByUserId: {RequestedByUserId}, CompanyId: {CompanyId}",
+                    entity.Id,
+                    docNo,
+                    actingUserId,
+                    entity.RequestedByUserId,
+                    entity.CompanyId);
+            }
+
             var supplyingWarehouse = await _warehouseRepository.GetByIdWithResponsibleAsync(
                 entity.SupplyingWarehouseId,
                 entity.CompanyId,
@@ -141,6 +203,45 @@ public class SubmitStockRequestCommandHandler
             }
             else
             {
+                try
+                {
+                    var approverUserId = supplyingWarehouse.ResponsibleEmployee?.UserId;
+                    if (approverUserId is > 0 && approverUserId != submitterId)
+                    {
+                        await _notificationService.CreateAsync(
+                            approverUserId.Value,
+                            entity.CompanyId,
+                            "Təsdiq gözləyən stok sorğusu",
+                            $"{docNo} nömrəli sorğu sizin təsdiqinizi gözləyir. İstəyən anbar: {requestingWarehouse?.Name ?? "—"}; Təchiz: {supplyingWarehouse.Name}.",
+                            "StockRequest",
+                            entity.Id,
+                            "StockRequest",
+                            actingUserId > 0 ? actingUserId : null,
+                            cancellationToken);
+
+                        _logger.LogInformation(
+                            "StockRequest submit notification (approver). StockRequestId: {StockRequestId}, DocumentNo: {DocumentNo}, ApproverUserId: {ApproverUserId}, CompanyId: {CompanyId}",
+                            entity.Id,
+                            docNo,
+                            approverUserId.Value,
+                            entity.CompanyId);
+                    }
+                    else if (approverUserId is null or 0)
+                    {
+                        _logger.LogWarning(
+                            "StockRequest submit: supplying warehouse responsible has no linked UserId (approver in-app skipped). StockRequestId: {StockRequestId}, WarehouseId: {WarehouseId}",
+                            entity.Id,
+                            supplyingWarehouse.Id);
+                    }
+                }
+                catch (Exception notifyEx)
+                {
+                    _logger.LogError(
+                        notifyEx,
+                        "StockRequest submit notification (approver) failed. StockRequestId: {StockRequestId}",
+                        entity.Id);
+                }
+
                 var approverEmail = supplyingWarehouse.ResponsibleEmployee?.Email;
 
                 if (!string.IsNullOrWhiteSpace(approverEmail))

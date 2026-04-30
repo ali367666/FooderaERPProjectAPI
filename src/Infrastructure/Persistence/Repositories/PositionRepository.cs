@@ -19,10 +19,20 @@ public class PositionRepository : IPositionRepository
         await _context.Positions.AddAsync(position, cancellationToken);
     }
 
+    /// <inheritdoc cref="IPositionRepository.GetByIdAsync(int, CancellationToken)" />
+    public async Task<Position?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Positions
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public async Task<Position?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken)
     {
         return await _context.Positions
-            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Include(x => x.Department)
+            .Include(x => x.Company)
             .FirstOrDefaultAsync(
                 x => x.Id == id && x.CompanyId == companyId,
                 cancellationToken);
@@ -32,6 +42,8 @@ public class PositionRepository : IPositionRepository
     {
         return await _context.Positions
             .AsNoTracking()
+            .Include(x => x.Department)
+            .Include(x => x.Company)
             .Where(x => x.CompanyId == companyId)
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);

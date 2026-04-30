@@ -35,29 +35,56 @@ public class UpdatePositionCommandHandler
         var companyId = _currentUserService.CompanyId;
 
         _logger.LogInformation(
-            "UpdatePositionCommand başladı. PositionId: {PositionId}, NewName: {NewName}, NewDepartmentId: {NewDepartmentId}, CompanyId: {CompanyId}",
+            "Updating Position: requested Id={PositionId}, NewName={NewName}, NewDepartmentId={NewDepartmentId}, current user CompanyId={CompanyId}, current user UserId={UserId}",
             request.Id,
             request.Request.Name,
             request.Request.DepartmentId,
-            companyId);
+            companyId,
+            _currentUserService.UserId);
+
+        if (companyId <= 0)
+        {
+            _logger.LogWarning(
+                "Update Position rejected: invalid or missing company context (CompanyId={CompanyId}).",
+                companyId);
+
+            return BaseResponse.Fail("Company context is required.");
+        }
 
         var position = await _positionRepository.GetByIdAsync(
             request.Id,
             companyId,
             cancellationToken);
 
+        _logger.LogInformation(
+            "DEBUG Update -> RequestId={RequestId}, UserCompanyId={UserCompanyId}, FoundPositionId={FoundPositionId}",
+            request.Id,
+            companyId,
+            position?.Id);
+
         if (position is null)
         {
             _logger.LogWarning(
-                "Position yenilənmədi. Position tapılmadı. PositionId: {PositionId}, CompanyId: {CompanyId}",
+                "Update Position: no row with Id={PositionId} for CompanyId={CompanyId}.",
                 request.Id,
                 companyId);
 
-            return new BaseResponse
-            {
-                Success = false,
-                Message = "Position not found."
-            };
+            return BaseResponse.Fail("Position not found.");
+        }
+
+        var departmentExists = await _positionRepository.DepartmentExistsAsync(
+            request.Request.DepartmentId,
+            companyId,
+            cancellationToken);
+
+        if (!departmentExists)
+        {
+            _logger.LogWarning(
+                "Update Position rejected: DepartmentId={DepartmentId} does not belong to CompanyId={CompanyId}.",
+                request.Request.DepartmentId,
+                companyId);
+
+            return BaseResponse.Fail("Department not found.");
         }
 
         var oldName = position.Name;
@@ -65,40 +92,29 @@ public class UpdatePositionCommandHandler
 
         var trimmedName = request.Request.Name.Trim();
 
-        var nameChanged = !string.Equals(
-            position.Name,
+        var exists = await _positionRepository.ExistsByNameAsync(
+            companyId,
+            request.Request.DepartmentId,
             trimmedName,
-            StringComparison.OrdinalIgnoreCase);
+            cancellationToken);
 
-        var departmentChanged = position.DepartmentId != request.Request.DepartmentId;
-
-        if (nameChanged || departmentChanged)
+        if (exists &&
+            !(string.Equals(oldName, trimmedName, StringComparison.OrdinalIgnoreCase)
+              && oldDepartmentId == request.Request.DepartmentId))
         {
-            var exists = await _positionRepository.ExistsByNameAsync(
-                companyId,
-                request.Request.DepartmentId,
+            _logger.LogWarning(
+                "Position update rejected because duplicate exists. PositionId={PositionId}, Name={Name}, DepartmentId={DepartmentId}, CompanyId={CompanyId}",
+                request.Id,
                 trimmedName,
-                cancellationToken);
+                request.Request.DepartmentId,
+                companyId);
 
-            if (exists)
-            {
-                _logger.LogWarning(
-                    "Position yenilənmədi. Eyni adda position artıq mövcuddur. PositionId: {PositionId}, Name: {Name}, DepartmentId: {DepartmentId}, CompanyId: {CompanyId}",
-                    request.Id,
-                    trimmedName,
-                    request.Request.DepartmentId,
-                    companyId);
-
-                return new BaseResponse
-                {
-                    Success = false,
-                    Message = "Position with this name already exists in the department."
-                };
-            }
+            return BaseResponse.Fail("Position with this name already exists in the department.");
         }
 
-        position.DepartmentId = request.Request.DepartmentId;
         position.Name = trimmedName;
+        position.DepartmentId = request.Request.DepartmentId;
+        position.Description = request.Request.Description;
 
         _positionRepository.Update(position);
         await _positionRepository.SaveChangesAsync(cancellationToken);
@@ -111,32 +127,24 @@ public class UpdatePositionCommandHandler
                     EntityName = "Position",
                     EntityId = position.Id.ToString(),
                     ActionType = "Update",
-                    Message = $"Position yeniləndi. Id: {position.Id}, OldName: {oldName}, NewName: {position.Name}, OldDepartmentId: {oldDepartmentId}, NewDepartmentId: {position.DepartmentId}",
+                    Message = $"Position updated. Id: {position.Id}, OldName: {oldName}, NewName: {position.Name}, OldDepartmentId: {oldDepartmentId}, NewDepartmentId: {position.DepartmentId}",
                     IsSuccess = true
                 },
                 cancellationToken);
-
-            _logger.LogInformation(
-                "Position üçün audit log yazıldı. PositionId: {PositionId}",
-                position.Id);
         }
         catch (Exception auditEx)
         {
             _logger.LogError(
                 auditEx,
-                "Position update audit log yazılarkən xəta baş verdi. PositionId: {PositionId}",
+                "Error while writing audit log for Position update. PositionId={PositionId}",
                 position.Id);
         }
 
         _logger.LogInformation(
-            "Position uğurla yeniləndi. PositionId: {PositionId}, CompanyId: {CompanyId}",
+            "Position updated successfully. PositionId={PositionId}, CompanyId={CompanyId}",
             position.Id,
             companyId);
 
-        return new BaseResponse
-        {
-            Success = true,
-            Message = "Position updated successfully."
-        };
+        return BaseResponse.Ok("Position updated successfully.");
     }
 }

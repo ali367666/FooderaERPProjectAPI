@@ -1,16 +1,24 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Search, Edit, Trash2, Plus } from "lucide-react";
+import { Search, Edit, Trash2, Plus, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 interface Column<T> {
   key: keyof T;
   label: string;
   render?: (value: any, row: T) => React.ReactNode;
+}
+
+export type IdSortDirection = "none" | "asc" | "desc";
+
+function sortKeyNumericValue(val: unknown): number {
+  if (typeof val === "number" && Number.isFinite(val)) return val;
+  const n = Number(val);
+  if (Number.isFinite(n)) return n;
+  return 0;
 }
 
 interface DataTableProps<T> {
@@ -22,6 +30,8 @@ interface DataTableProps<T> {
   title?: string;
   searchPlaceholder?: string;
   searchableFields?: (keyof T)[];
+  /** When set, the matching column header toggles ID sort: none → asc → desc → none */
+  idSortKey?: keyof T;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -33,9 +43,11 @@ export function DataTable<T extends { id: string }>({
   title,
   searchPlaceholder = "Search...",
   searchableFields = [],
+  idSortKey,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [idSortDirection, setIdSortDirection] = useState<IdSortDirection>("none");
   const itemsPerPage = 10;
 
   const filteredData = useMemo(() => {
@@ -55,13 +67,43 @@ export function DataTable<T extends { id: string }>({
     });
   }, [data, searchTerm, searchableFields]);
 
+  const sortedData = useMemo(() => {
+    if (!idSortKey || idSortDirection === "none") return filteredData;
+    const copy = [...filteredData];
+    copy.sort((a, b) => {
+      const av = sortKeyNumericValue(a[idSortKey]);
+      const bv = sortKeyNumericValue(b[idSortKey]);
+      return idSortDirection === "asc" ? av - bv : bv - av;
+    });
+    return copy;
+  }, [filteredData, idSortKey, idSortDirection]);
+
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage) || 1;
+
+  useEffect(() => {
+    setCurrentPage((prev) => {
+      if (prev > totalPages) return totalPages;
+      if (prev < 1) return 1;
+      return prev;
+    });
+  }, [totalPages]);
+
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return filteredData.slice(startIndex, endIndex);
-  }, [filteredData, currentPage]);
+    return sortedData.slice(startIndex, endIndex);
+  }, [sortedData, currentPage]);
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const displayTotalPages = Math.ceil(sortedData.length / itemsPerPage);
+
+  const cycleIdSort = () => {
+    setIdSortDirection((d) => {
+      if (d === "none") return "asc";
+      if (d === "asc") return "desc";
+      return "none";
+    });
+    setCurrentPage(1);
+  };
 
   return (
     <Card className="p-6 border border-border">
@@ -100,14 +142,35 @@ export function DataTable<T extends { id: string }>({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              {columns.map((column) => (
-                <th
-                  key={String(column.key)}
-                  className="text-left py-3 px-4 font-medium text-muted-foreground"
-                >
-                  {column.label}
-                </th>
-              ))}
+              {columns.map((column) => {
+                const isIdSortable = Boolean(idSortKey && column.key === idSortKey);
+                return (
+                  <th
+                    key={String(column.key)}
+                    className="text-left py-3 px-4 font-medium text-muted-foreground"
+                  >
+                    {isIdSortable ? (
+                      <button
+                        type="button"
+                        onClick={cycleIdSort}
+                        className="inline-flex items-center gap-1.5 rounded-md py-0.5 -mx-1 px-1 text-left hover:bg-muted/80 hover:text-foreground transition-colors"
+                        title="Sort by ID"
+                      >
+                        <span>{column.label}</span>
+                        {idSortDirection === "asc" ? (
+                          <ArrowUp className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                        ) : idSortDirection === "desc" ? (
+                          <ArrowDown className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                        ) : (
+                          <ArrowUpDown className="h-4 w-4 shrink-0 opacity-45" aria-hidden />
+                        )}
+                      </button>
+                    ) : (
+                      column.label
+                    )}
+                  </th>
+                );
+              })}
               {(onEdit || onDelete) && (
                 <th className="text-left py-3 px-4 font-medium text-muted-foreground">
                   Actions
@@ -173,12 +236,12 @@ export function DataTable<T extends { id: string }>({
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {displayTotalPages > 1 && (
         <div className="flex items-center justify-between mt-6">
           <p className="text-sm text-muted-foreground">
             Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-            {Math.min(currentPage * itemsPerPage, filteredData.length)} of{" "}
-            {filteredData.length} results
+            {Math.min(currentPage * itemsPerPage, sortedData.length)} of{" "}
+            {sortedData.length} results
           </p>
           <div className="flex gap-2">
             <Button
@@ -193,9 +256,9 @@ export function DataTable<T extends { id: string }>({
               variant="outline"
               size="sm"
               onClick={() =>
-                setCurrentPage(Math.min(totalPages, currentPage + 1))
+                setCurrentPage(Math.min(displayTotalPages, currentPage + 1))
               }
-              disabled={currentPage === totalPages}
+              disabled={currentPage === displayTotalPages}
             >
               Next
             </Button>

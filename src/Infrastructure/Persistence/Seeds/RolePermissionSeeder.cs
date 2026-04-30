@@ -4,133 +4,83 @@ namespace Infrastructure.Identity;
 
 public static class RolePermissionSeeder
 {
+    public static readonly List<(string Name, string DisplayName, string Module, string Action)> PermissionCatalog =
+    [
+        (AppPermissions.MenuItemView, "View Menu Items", "MenuItem", "View"),
+        (AppPermissions.MenuItemCreate, "Create Menu Item", "MenuItem", "Create"),
+        (AppPermissions.MenuItemUpdate, "Update Menu Item", "MenuItem", "Update"),
+        (AppPermissions.MenuItemDelete, "Delete Menu Item", "MenuItem", "Delete"),
+        (AppPermissions.MenuCategoryView, "View Menu Categories", "MenuCategory", "View"),
+        (AppPermissions.MenuCategoryCreate, "Create Menu Category", "MenuCategory", "Create"),
+        (AppPermissions.MenuCategoryUpdate, "Update Menu Category", "MenuCategory", "Update"),
+        (AppPermissions.MenuCategoryDelete, "Delete Menu Category", "MenuCategory", "Delete"),
+        (AppPermissions.OrdersView, "View Orders", "Order", "View"),
+        (AppPermissions.OrdersCreate, "Create Order", "Order", "Create"),
+        (AppPermissions.OrdersAdd, "Add Order Line", "Order", "Add"),
+        (AppPermissions.OrdersUpdate, "Update Order", "Order", "Update"),
+        (AppPermissions.OrdersDelete, "Delete Order", "Order", "Delete"),
+        (AppPermissions.OrdersServe, "Serve Order", "Order", "Serve"),
+        (AppPermissions.OrdersPay, "Create Payment", "Payment", "Create"),
+        (AppPermissions.PaymentCreate, "Create Payment", "Payment", "Create"),
+        (AppPermissions.KitchenView, "View Kitchen", "Kitchen", "View"),
+        (AppPermissions.KitchenMarkReady, "Mark Kitchen Line Ready", "Kitchen", "MarkReady"),
+        (AppPermissions.KitchenStartPreparing, "Start Kitchen Preparation", "Kitchen", "StartPreparing"),
+        (AppPermissions.UserView, "View Users", "User", "View"),
+        (AppPermissions.UserCreate, "Create User", "User", "Create"),
+        (AppPermissions.UserUpdate, "Update User", "User", "Update"),
+        (AppPermissions.UserDelete, "Delete User", "User", "Delete"),
+        (AppPermissions.RoleView, "View Roles", "Role", "View"),
+        (AppPermissions.UserRoleManage, "Manage User Roles", "UserRole", "Manage"),
+        (AppPermissions.RestaurantView, "View Restaurants", "Restaurant", "View"),
+        (AppPermissions.RestaurantTableView, "View Restaurant Tables", "RestaurantTable", "View"),
+        (AppPermissions.EmployeeView, "View Employees", "Employee", "View"),
+        (AppPermissions.AuditLogView, "View Audit Logs", "AuditLog", "View"),
+    ];
+
     public static readonly Dictionary<string, List<string>> Permissions = new()
     {
+        { AppRoles.Admin, PermissionCatalog.Select(x => x.Name).ToList() },
         {
-            AppRoles.Admin,
+            AppRoles.Manager,
             new List<string>
             {
-                AppPermissions.CompanyView,
-                AppPermissions.CompanyCreate,
-                AppPermissions.CompanyUpdate,
-                AppPermissions.CompanyDelete,
-
-                AppPermissions.UserView,
-                AppPermissions.UserCreate,
-                AppPermissions.UserUpdate,
-                AppPermissions.UserDelete,
-
-                AppPermissions.RestaurantView,
-                AppPermissions.RestaurantCreate,
-                AppPermissions.RestaurantUpdate,
-                AppPermissions.RestaurantDelete,
-
-                AppPermissions.StockCategoryCreate,
-                AppPermissions.StockCategoryUpdate,
-                AppPermissions.StockCategoryDelete,
-                AppPermissions.StockCategoryView,
-
-                AppPermissions.WarehouseView,
-                AppPermissions.WarehouseCreate,
-                AppPermissions.WarehouseUpdate,
-                AppPermissions.WarehouseDelete,
-
-                AppPermissions.StockItemView,
-                AppPermissions.StockItemCreate,
-                AppPermissions.StockItemUpdate,
-                AppPermissions.StockItemDelete,
-
-                AppPermissions.WarehouseStockView,
-                AppPermissions.WarehouseStockCreate,
-                AppPermissions.WarehouseStockUpdate,
-                AppPermissions.WarehouseStockDelete,
-
-                AppPermissions.StockRequestView,
-                AppPermissions.StockRequestCreate,
-                AppPermissions.StockRequestUpdate,
-                AppPermissions.StockRequestDelete,
-                AppPermissions.StockRequestSubmit,
-                AppPermissions.StockRequestReject,
-
-                AppPermissions.AuditLogView,
-
-                AppPermissions.PositionView,
-                AppPermissions.PositionCreate,
-                AppPermissions.PositionUpdate,
-                AppPermissions.PositionDelete,
-
-                AppPermissions.DepartmentCreate,
-                AppPermissions.DepartmentUpdate,
-                AppPermissions.DepartmentDelete,
-                AppPermissions.DepartmentView,
-
-                AppPermissions.EmployeeView,
-                AppPermissions.EmployeeCreate,
-                AppPermissions.EmployeeUpdate,
-                AppPermissions.EmployeeDelete,
-
-                AppPermissions.OrdersView,
-                AppPermissions.OrdersCreate,
-                AppPermissions.OrdersUpdate,
-                AppPermissions.OrdersDelete,
-
-                AppPermissions.KitchenView,
-                AppPermissions.KitchenMarkReady,
-                AppPermissions.KitchenStartPreparing,
-
-                AppPermissions.MenuCategoryView,
-                AppPermissions.MenuCategoryCreate,
-                AppPermissions.MenuCategoryUpdate,
-                AppPermissions.MenuCategoryDelete,
-
-                AppPermissions.MenuItemView,
-                AppPermissions.MenuItemCreate,
-                AppPermissions.MenuItemUpdate,
-                AppPermissions.MenuItemDelete,
-
-                AppPermissions.RestaurantTableView,
-                AppPermissions.RestaurantTableCreate,
-                AppPermissions.RestaurantTableUpdate,
-                AppPermissions.RestaurantTableDelete,
-
-                AppPermissions.WarehouseTransferView,
-                AppPermissions.WarehouseTransferCreate,
-                AppPermissions.WarehouseTransferUpdate,
-                AppPermissions.WarehouseTransferDelete,
-                AppPermissions.WarehouseTransferApprove,
-                AppPermissions.WarehouseTransferReject,
-                AppPermissions.WarehouseTransferCancel,
-                AppPermissions.WarehouseTransferReceive,
-                AppPermissions.WarehouseTransferSubmit,
-                AppPermissions.WarehouseTransferDispatch,
-
-
-
-
+                AppPermissions.MenuItemView, AppPermissions.MenuItemCreate, AppPermissions.MenuItemUpdate,
+                AppPermissions.MenuCategoryView, AppPermissions.MenuCategoryCreate, AppPermissions.MenuCategoryUpdate,
+                AppPermissions.OrdersView, AppPermissions.OrdersCreate, AppPermissions.OrdersUpdate, AppPermissions.OrdersPay,
+                AppPermissions.OrdersServe,
+                AppPermissions.KitchenView, AppPermissions.KitchenMarkReady, AppPermissions.KitchenStartPreparing,
+                AppPermissions.UserView, AppPermissions.RoleView, AppPermissions.UserRoleManage
+            }
+        },
+        {
+            AppRoles.Waiter,
+            new List<string>
+            {
+                AppPermissions.OrdersView, AppPermissions.OrdersCreate, AppPermissions.OrdersAdd,
+                AppPermissions.OrdersServe, AppPermissions.MenuItemView,
+                AppPermissions.RestaurantView, AppPermissions.RestaurantTableView, AppPermissions.EmployeeView
+            }
+        },
+        {
+            AppRoles.Kitchen,
+            new List<string>
+            {
+                AppPermissions.KitchenView, AppPermissions.KitchenMarkReady, AppPermissions.KitchenStartPreparing
+            }
+        },
+        {
+            AppRoles.Cashier,
+            new List<string>
+            {
+                AppPermissions.OrdersView, AppPermissions.OrdersPay, AppPermissions.PaymentCreate
             }
         },
         {
             AppRoles.User,
             new List<string>
             {
-                AppPermissions.CompanyView,
-                AppPermissions.UserView,
-                AppPermissions.RestaurantView,
-                AppPermissions.StockCategoryView,
-                AppPermissions.WarehouseView,
-                AppPermissions.WarehouseStockView,
-                AppPermissions.PositionView,
-                AppPermissions.StockItemView,
-                AppPermissions.StockRequestView,
-                AppPermissions.DepartmentView,
-                AppPermissions.EmployeeView,
                 AppPermissions.OrdersView,
-                AppPermissions.AuditLogView,
-                AppPermissions.KitchenView,
-                AppPermissions.MenuCategoryView,
                 AppPermissions.MenuItemView,
-                AppPermissions.RestaurantTableView,
-                AppPermissions.WarehouseTransferView,
             }
         }
     };

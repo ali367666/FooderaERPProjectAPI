@@ -31,16 +31,19 @@ public class GetKitchenLinesQueryHandler
         return lines.Select(x => new KitchenOrderLineResponse
         {
             OrderLineId = x.Id,
+            OrderLineStatus = x.Status,
             OrderId = x.OrderId,
             OrderNumber = x.Order.OrderNumber,
             TableId = x.Order.TableId,
             TableName = x.Order.Table.Name,
+            RestaurantName = x.Order.Restaurant.Name,
             MenuItemId = x.MenuItemId,
             MenuItemName = x.MenuItem.Name,
             Quantity = x.Quantity,
             Note = x.Note,
-            Status = x.Status,
-            OpenedAt = x.Order.OpenedAt
+            OrderStatus = x.Order.Status,
+            KitchenStatus = x.Status,
+            CreatedAt = x.CreatedAtUtc
         }).ToList();
     }
 }

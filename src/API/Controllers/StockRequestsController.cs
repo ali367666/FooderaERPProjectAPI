@@ -1,4 +1,4 @@
-﻿using Application.Common.Responce;
+using Application.Common.Responce;
 using Application.StockRequests.Commands.Approve;
 using Application.StockRequests.Commands.Create;
 using Application.StockRequests.Commands.Delete;
@@ -12,6 +12,7 @@ using Application.StockRequests.Queries.GetById;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace API.Controllers;
 
@@ -26,7 +27,7 @@ public class StockRequestsController : ControllerBase
         _mediator = mediator;
     }
 
-    [Authorize(Policy = "StockRequestCreate")]
+    [Authorize(Policy = AppPermissions.StockRequestCreate)]
     [HttpPost]
     public async Task<ActionResult<BaseResponse<int>>> Create([FromBody] CreateStockRequestRequest request)
     {
@@ -38,7 +39,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockRequestUpdate")]
+    [Authorize(Policy = AppPermissions.StockRequestUpdate)]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Update(int id, [FromBody] UpdateStockRequestRequest request)
     {
@@ -50,7 +51,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockRequestSubmit")]
+    [Authorize(Policy = AppPermissions.StockRequestSubmit)]
     [HttpPost("{id:int}/submit")]
     public async Task<ActionResult<BaseResponse>> Submit(int id)
     {
@@ -62,7 +63,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockRequestRecall")]
+    [Authorize(Policy = AppPermissions.StockRequestRecall)]
     [HttpPost("{id:int}/recall")]
     public async Task<ActionResult<BaseResponse>> Recall(int id)
     {
@@ -74,7 +75,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockRequestApprove")]
+    [Authorize(Policy = AppPermissions.StockRequestApprove)]
     [HttpPost("{id:int}/approve")]
     public async Task<ActionResult<BaseResponse>> Approve(int id)
     {
@@ -86,7 +87,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockRequestReject")]
+    [Authorize(Policy = AppPermissions.StockRequestReject)]
     [HttpPost("{id:int}/reject")]
     public async Task<ActionResult<BaseResponse>> Reject(int id)
     {
@@ -98,7 +99,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockRequestView")]
+    [Authorize(Policy = AppPermissions.StockRequestView)]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -110,7 +111,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    //[Authorize(Policy = "StockRequestView")]
+    //[Authorize(Policy = AppPermissions.StockRequestView)]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -118,7 +119,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockRequestDelete")]
+    [Authorize(Policy = AppPermissions.StockRequestDelete)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {

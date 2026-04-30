@@ -45,5 +45,9 @@ public class CreateCompanyCommandValidator : AbstractValidator<CreateCompanyComm
             .EmailAddress()
             .When(x => !string.IsNullOrWhiteSpace(x.Request.Email))
             .WithMessage("Email formatı düzgün deyil.");
+
+        RuleFor(x => x.Request.Country)
+            .IsInEnum()
+            .WithMessage("Ölkə düzgün seçilməyib.");
     }
 }

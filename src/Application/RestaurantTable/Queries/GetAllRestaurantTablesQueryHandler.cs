@@ -29,6 +29,7 @@ public class GetAllRestaurantTablesQueryHandler
         {
             Id = x.Id,
             RestaurantId = x.RestaurantId,
+            RestaurantName = x.Restaurant?.Name ?? string.Empty,
             Name = x.Name,
             Capacity = x.Capacity,
             IsActive = x.IsActive,

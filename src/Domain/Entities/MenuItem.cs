@@ -1,5 +1,6 @@
 ﻿using Domain.Common;
 using Domain.Enums;
+using Domain.Entities.WarehouseAndStock;
 
 namespace Domain.Entities;
 
@@ -19,4 +20,5 @@ public class MenuItem : CompanyEntity<int>
     public MenuCategory MenuCategory { get; set; } = default!;
 
     public ICollection<OrderLine> OrderLines { get; set; } = new List<OrderLine>();
+    public ICollection<MenuItemRecipeLine> RecipeLines { get; set; } = new List<MenuItemRecipeLine>();
 }

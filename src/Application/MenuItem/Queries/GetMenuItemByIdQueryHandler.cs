@@ -44,7 +44,8 @@ public class GetMenuItemByIdQueryHandler
             Portion = entity.Portion,
             IsActive = entity.IsActive,
             MenuCategoryId = entity.MenuCategoryId,
-            MenuCategoryName = entity.MenuCategory.Name
+            MenuCategoryName = entity.MenuCategory.Name,
+            PreparationType = entity.PreparationType
         };
     }
 }

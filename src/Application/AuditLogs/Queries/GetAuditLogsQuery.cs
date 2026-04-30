@@ -7,5 +7,9 @@ namespace Application.AuditLogs.Queries.GetAll;
 public record GetAuditLogsQuery(
     string? EntityName,
     string? EntityId,
-    string? ActionType
+    string? ActionType,
+    int? UserId,
+    DateTime? FromUtc,
+    DateTime? ToUtc,
+    string? Search
 ) : IRequest<BaseResponse<List<AuditLogResponse>>>;

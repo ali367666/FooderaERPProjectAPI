@@ -13,4 +13,5 @@ public interface IOrderRepository
     void Delete(Domain.Entities.Order order);
     Task SaveChangesAsync(CancellationToken cancellationToken);
     Task<Domain.Entities.Order?> GetByIdWithLinesAsync(int id, int companyId, CancellationToken cancellationToken);
+    Task<Domain.Entities.Order?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken);
 }

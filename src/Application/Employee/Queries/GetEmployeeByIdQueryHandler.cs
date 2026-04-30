@@ -43,6 +43,7 @@ public class GetEmployeeByIdQueryHandler
         var response = new EmployeeResponse
         {
             Id = employee.Id,
+            FullName = $"{employee.FirstName} {employee.LastName}".Trim(),
             FirstName = employee.FirstName,
             LastName = employee.LastName,
             FatherName = employee.FatherName,

@@ -7,6 +7,8 @@ public class WarehouseTransferResponse
     public int Id { get; set; }
     public int CompanyId { get; set; }
 
+    public string DocumentNo { get; set; } = default!;
+
     public int? StockRequestId { get; set; }
 
     public int FromWarehouseId { get; set; }

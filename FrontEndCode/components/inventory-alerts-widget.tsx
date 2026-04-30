@@ -1,13 +1,13 @@
 'use client';
 
-import { InventoryAlert } from '@/lib/mock-data';
+import { DashboardInventoryAlert } from '@/lib/dashboard-types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface InventoryAlertsWidgetProps {
-  alerts: InventoryAlert[];
+  alerts: DashboardInventoryAlert[];
 }
 
 export function InventoryAlertsWidget({ alerts }: InventoryAlertsWidgetProps) {

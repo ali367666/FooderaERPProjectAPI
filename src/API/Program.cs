@@ -1,5 +1,6 @@
 using API.Extensions;
 using API.Middlewares;
+using API.Authorization;
 using Application.Common.Behaviors;
 using Application.Common.Mappings.Marker;
 using FluentValidation;
@@ -36,6 +37,8 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavi
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddPermissionPolicies();
+builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PermissionAuthorizationHandler>();
 
 builder.Services.AddCors(options =>
 {

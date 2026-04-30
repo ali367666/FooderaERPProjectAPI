@@ -1,8 +1,10 @@
 ﻿using System.Text.Json;
+using Application.Common.Exceptions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
+using Domain.Entities;
 using Domain.Enums;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -14,6 +16,7 @@ public class MarkKitchenOrderLineReadyCommandHandler
 {
     private readonly IOrderLineRepository _orderLineRepository;
     private readonly IOrderRepository _orderRepository;
+    private readonly IRecipeStockDeductionService _recipeStockDeductionService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<MarkKitchenOrderLineReadyCommandHandler> _logger;
@@ -21,12 +24,14 @@ public class MarkKitchenOrderLineReadyCommandHandler
     public MarkKitchenOrderLineReadyCommandHandler(
         IOrderLineRepository orderLineRepository,
         IOrderRepository orderRepository,
+        IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<MarkKitchenOrderLineReadyCommandHandler> logger)
     {
         _orderLineRepository = orderLineRepository;
         _orderRepository = orderRepository;
+        _recipeStockDeductionService = recipeStockDeductionService;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -52,7 +57,7 @@ public class MarkKitchenOrderLineReadyCommandHandler
                 "Kitchen ready əməliyyatı uğursuz oldu. OrderLine tapılmadı. OrderLineId: {OrderLineId}",
                 request.OrderLineId);
 
-            throw new Exception("OrderLine tapılmadı.");
+            throw new NotFoundException("Kitchen order line was not found.");
         }
 
         if (orderLine.PreparationType != PreparationType.Kitchen)
@@ -61,7 +66,7 @@ public class MarkKitchenOrderLineReadyCommandHandler
                 "Kitchen ready əməliyyatı uğursuz oldu. Məhsul kitchen-ə aid deyil. OrderLineId: {OrderLineId}",
                 request.OrderLineId);
 
-            throw new Exception("Bu məhsul mətbəxə aid deyil.");
+            throw new BadRequestException("This order line is not a kitchen item.");
         }
 
         if (orderLine.Status != OrderLineStatus.InPreparation)
@@ -71,7 +76,12 @@ public class MarkKitchenOrderLineReadyCommandHandler
                 request.OrderLineId,
                 orderLine.Status);
 
-            throw new Exception("Yalnız InPreparation olan OrderLine Ready ola bilər.");
+            throw new BadRequestException("Only accepted kitchen lines can be marked as ready.");
+        }
+
+        if (!orderLine.IsStockDeducted)
+        {
+            await _recipeStockDeductionService.DeductForOrderLineAsync(orderLine, cancellationToken);
         }
 
         var oldOrderLineValues = JsonSerializer.Serialize(new
@@ -106,13 +116,14 @@ public class MarkKitchenOrderLineReadyCommandHandler
                 order.Status
             });
 
-            var activeLines = order.Lines
-                .Where(x => x.Status != OrderLineStatus.Cancelled)
+            var activeKitchenLines = order.Lines
+                .Where(x => x.PreparationType == PreparationType.Kitchen && x.Status != OrderLineStatus.Cancelled)
                 .ToList();
 
-            if (activeLines.All(x => x.Status == OrderLineStatus.Ready || x.Status == OrderLineStatus.Served))
+            if (activeKitchenLines.Count > 0 &&
+                activeKitchenLines.All(x => x.Status == OrderLineStatus.Ready || x.Status == OrderLineStatus.Served))
                 order.Status = OrderStatus.Ready;
-            else if (activeLines.Any(x => x.Status == OrderLineStatus.InPreparation))
+            else if (activeKitchenLines.Any(x => x.Status == OrderLineStatus.InPreparation))
                 order.Status = OrderStatus.InPreparation;
             else
                 order.Status = OrderStatus.Open;

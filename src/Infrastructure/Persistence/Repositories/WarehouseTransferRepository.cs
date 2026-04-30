@@ -29,6 +29,9 @@ public class WarehouseTransferRepository : IWarehouseTransferRepository
     public async Task<WarehouseTransfer?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken)
     {
         return await _context.WarehouseTransfers
+            .Include(x => x.FromWarehouse)
+            .Include(x => x.ToWarehouse)
+            .Include(x => x.VehicleWarehouse)
             .Include(x => x.Lines)
                 .ThenInclude(x => x.StockItem)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -37,7 +40,11 @@ public class WarehouseTransferRepository : IWarehouseTransferRepository
     public async Task<List<WarehouseTransfer>> GetAllWithDetailsAsync(CancellationToken cancellationToken)
     {
         return await _context.WarehouseTransfers
+            .Include(x => x.FromWarehouse)
+            .Include(x => x.ToWarehouse)
+            .Include(x => x.VehicleWarehouse)
             .Include(x => x.Lines)
+                .ThenInclude(x => x.StockItem)
             .ToListAsync(cancellationToken);
     }
 

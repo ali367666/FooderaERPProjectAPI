@@ -58,10 +58,36 @@ public class OrderLineRepository : IOrderLineRepository
         return await _context.OrderLines
             .Include(x => x.Order)
                 .ThenInclude(o => o.Table)
+            .Include(x => x.Order)
+                .ThenInclude(o => o.Restaurant)
             .Include(x => x.MenuItem)
             .Where(x =>
                 x.CompanyId == companyId &&
                 x.Order.RestaurantId == restaurantId &&
+                x.Order.Status != OrderStatus.Draft &&
+                x.PreparationType == PreparationType.Kitchen &&
+                x.Status != OrderLineStatus.Served &&
+                x.Status != OrderLineStatus.Cancelled)
+            .OrderBy(x => x.Order.OpenedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<OrderLine>> GetKitchenLinesByCompanyAsync(
+        int companyId,
+        CancellationToken cancellationToken)
+    {
+        return await _context.OrderLines
+            .Include(x => x.Order)
+                .ThenInclude(o => o.Table)
+            .Include(x => x.Order)
+                .ThenInclude(o => o.Restaurant)
+            .Include(x => x.MenuItem)
+            .Where(x =>
+                x.CompanyId == companyId &&
+                x.Order.Status != OrderStatus.Draft &&
+                x.Order.Status != OrderStatus.Cancelled &&
+                x.Order.Status != OrderStatus.Served &&
+                x.Order.Status != OrderStatus.Paid &&
                 x.PreparationType == PreparationType.Kitchen &&
                 x.Status != OrderLineStatus.Served &&
                 x.Status != OrderLineStatus.Cancelled)

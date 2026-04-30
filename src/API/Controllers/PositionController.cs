@@ -1,4 +1,4 @@
-﻿using Application.Common.Responce;
+using Application.Common.Responce;
 using Application.Position.Dtos;
 using Application.Positions.Commands.Create;
 using Application.Positions.Commands.Delete;
@@ -8,6 +8,7 @@ using Application.Positions.Queries.GetById;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace Api.Controllers;
 
@@ -22,7 +23,7 @@ public class PositionsController : ControllerBase
         _mediator = mediator;
     }
 
-    [Authorize(Policy = "PositionCreate")]
+    [Authorize(Policy = AppPermissions.PositionCreate)]
     [HttpPost]
     public async Task<ActionResult<BaseResponse>> Create([FromBody] CreatePositionRequest request)
     {
@@ -34,7 +35,7 @@ public class PositionsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "PositionUpdate")]
+    [Authorize(Policy = AppPermissions.PositionUpdate)]
     [HttpPut("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Update(int id, [FromBody] UpdatePositionRequest request)
     {
@@ -46,7 +47,7 @@ public class PositionsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "PositionDelete")]
+    [Authorize(Policy = AppPermissions.PositionDelete)]
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<BaseResponse>> Delete(int id)
     {
@@ -58,7 +59,7 @@ public class PositionsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "PositionView")]
+    [Authorize(Policy = AppPermissions.PositionView)]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<BaseResponse<PositionResponse>>> GetById(int id)
     {
@@ -70,12 +71,22 @@ public class PositionsController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "PositionView")]
-
+    [Authorize(Policy = AppPermissions.PositionView)]
     [HttpGet]
-    public async Task<ActionResult<BaseResponse<List<PositionResponse>>>> GetAll()
+    public async Task<ActionResult<BaseResponse<List<PositionResponse>>>> GetAll(
+        [FromQuery] int? companyId)
     {
-        var result = await _mediator.Send(new GetAllPositionsQuery());
+        var companyIdFromClaim = User.FindFirst("companyId")?.Value
+            ?? User.FindFirst("CompanyId")?.Value;
+
+        var effectiveCompanyId = companyId;
+        if (effectiveCompanyId is null && int.TryParse(companyIdFromClaim, out var parsedCompanyId))
+            effectiveCompanyId = parsedCompanyId;
+
+        if (effectiveCompanyId is null || effectiveCompanyId <= 0)
+            return BadRequest(BaseResponse<List<PositionResponse>>.Fail("Valid companyId is required."));
+
+        var result = await _mediator.Send(new GetAllPositionsQuery(effectiveCompanyId.Value));
 
         if (!result.Success)
             return BadRequest(result);

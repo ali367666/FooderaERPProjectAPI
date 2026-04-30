@@ -1,5 +1,4 @@
-﻿using Application.Common.Interfaces;
-using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.Position.Dtos;
 using MediatR;
@@ -10,38 +9,38 @@ public class GetAllPositionsQueryHandler
     : IRequestHandler<GetAllPositionsQuery, BaseResponse<List<PositionResponse>>>
 {
     private readonly IPositionRepository _positionRepository;
-    private readonly ICurrentUserService _currentUserService;
 
-    public GetAllPositionsQueryHandler(
-        IPositionRepository positionRepository,
-        ICurrentUserService currentUserService)
+    public GetAllPositionsQueryHandler(IPositionRepository positionRepository)
     {
         _positionRepository = positionRepository;
-        _currentUserService = currentUserService;
     }
 
     public async Task<BaseResponse<List<PositionResponse>>> Handle(
         GetAllPositionsQuery request,
         CancellationToken cancellationToken)
     {
-        var companyId = _currentUserService.CompanyId;
+        if (request.CompanyId <= 0)
+        {
+            return BaseResponse<List<PositionResponse>>.Fail("Valid companyId is required.");
+        }
 
-        var positions = await _positionRepository.GetAllAsync(companyId, cancellationToken);
+        var positions = await _positionRepository.GetAllAsync(request.CompanyId, cancellationToken);
 
         var response = positions
             .Select(x => new PositionResponse
             {
                 Id = x.Id,
+                CompanyId = x.CompanyId,
                 DepartmentId = x.DepartmentId,
-                Name = x.Name
+                Name = x.Name,
+                Description = x.Description,
+                DepartmentName = x.Department?.Name,
+                CompanyName = x.Company?.Name,
             })
             .ToList();
 
-        return new BaseResponse<List<PositionResponse>>
-        {
-            Success = true,
-            Message = "Positions retrieved successfully.",
-            Data = response
-        };
+        return BaseResponse<List<PositionResponse>>.Ok(
+            response,
+            "Positions retrieved successfully.");
     }
 }

@@ -11,6 +11,15 @@ import {
   Bell,
   FileText,
   LucideIcon,
+  Boxes,
+  Warehouse,
+  ClipboardList,
+  Layers,
+  History,
+  Shield,
+  UserCog,
+  ChefHat,
+  ShieldCheck,
 } from "lucide-react";
 
 export interface NavItem {
@@ -18,6 +27,7 @@ export interface NavItem {
   href: string;
   icon: LucideIcon;
   badge?: string;
+  permission?: string;
 }
 
 export interface NavGroup {
@@ -40,6 +50,11 @@ export const navGroups: NavGroup[] = [
     title: "HR MANAGEMENT",
     items: [
       {
+        title: "Companies",
+        href: "/dashboard/companies",
+        icon: Building2,
+      },
+      {
         title: "Departments",
         href: "/dashboard/departments",
         icon: Building2,
@@ -60,6 +75,36 @@ export const navGroups: NavGroup[] = [
     title: "INVENTORY & OPERATIONS",
     items: [
       {
+        title: "Stock Categories",
+        href: "/dashboard/stock-categories",
+        icon: Layers,
+      },
+      {
+        title: "Stock Items",
+        href: "/dashboard/stock-items",
+        icon: Boxes,
+      },
+      {
+        title: "Warehouses",
+        href: "/dashboard/warehouses",
+        icon: Warehouse,
+      },
+      {
+        title: "Stock entry documents",
+        href: "/dashboard/warehouse-stock-documents",
+        icon: FileText,
+      },
+      {
+        title: "Warehouse stock balances",
+        href: "/dashboard/warehouse-stocks",
+        icon: ClipboardList,
+      },
+      {
+        title: "Stock movements",
+        href: "/dashboard/stock-movements",
+        icon: History,
+      },
+      {
         title: "Stock Requests",
         href: "/dashboard/stock-requests",
         icon: Package,
@@ -78,6 +123,11 @@ export const navGroups: NavGroup[] = [
         title: "Orders",
         href: "/dashboard/orders",
         icon: ShoppingCart,
+      },
+      {
+        title: "Kitchen",
+        href: "/dashboard/kitchen",
+        icon: ChefHat,
       },
     ],
   },
@@ -104,11 +154,37 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/menu-items",
         icon: ShoppingCart,
       },
+      {
+        title: "Menu Item Recipes",
+        href: "/dashboard/menu-item-recipes",
+        icon: FileText,
+        permission: "Permissions.MenuItemRecipe.View",
+      },
     ],
   },
   {
     title: "SYSTEM",
     items: [
+      {
+        title: "Users",
+        href: "/dashboard/users",
+        icon: Users,
+      },
+      {
+        title: "Roles",
+        href: "/dashboard/roles",
+        icon: Shield,
+      },
+      {
+        title: "User Roles",
+        href: "/dashboard/user-roles",
+        icon: UserCog,
+      },
+      {
+        title: "Role Permissions",
+        href: "/dashboard/role-permissions",
+        icon: ShieldCheck,
+      },
       {
         title: "Notifications",
         href: "/dashboard/notifications",

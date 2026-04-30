@@ -1,4 +1,4 @@
-﻿using Application.Warehouse.Commands.Create;
+using Application.Warehouse.Commands.Create;
 using Application.Warehouse.Commands.Delete;
 using Application.Warehouse.Commands.Patch;
 using Application.Warehouse.Commands.Update;
@@ -12,6 +12,7 @@ using Application.Warehouse.Queries.Search;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace API.Controllers;
 
@@ -37,7 +38,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Policy ="WarehouseUpdate")]
+    [Authorize(Policy = AppPermissions.WarehouseUpdate)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateWarehouseRequest request)
     {
         var result = await _mediator.Send(new UpdateWarehouseCommand(id, request));
@@ -46,7 +47,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Policy ="WarehouseDelete")]
+    [Authorize(Policy = AppPermissions.WarehouseDelete)]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteWarehouseCommand(id));
@@ -55,7 +56,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-    [Authorize(Policy = "WarehouseView")]
+    [Authorize(Policy = AppPermissions.WarehouseView)]
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _mediator.Send(new GetWarehouseByIdQuery(id));
@@ -64,7 +65,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Policy = "WarehouseView")]
+    [Authorize(Policy = AppPermissions.WarehouseView)]
     public async Task<IActionResult> GetAll()
     {
         var result = await _mediator.Send(new GetAllWarehousesQuery());
@@ -73,7 +74,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpGet("by-company/{companyId:int}")]
-    [Authorize(Policy = "WarehouseView")]
+    [Authorize(Policy = AppPermissions.WarehouseView)]
     public async Task<IActionResult> GetByCompanyId(int companyId)
     {
         var result = await _mediator.Send(new GetWarehousesByCompanyIdQuery(companyId));
@@ -82,7 +83,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpGet("by-restaurant/{restaurantId:int}")]
-    [Authorize(Policy = "WarehouseView")]
+    [Authorize(Policy = AppPermissions.WarehouseView)]
     public async Task<IActionResult> GetByRestaurantId(int restaurantId)
     {
         var result = await _mediator.Send(new GetWarehousesByRestaurantIdQuery(restaurantId));
@@ -91,7 +92,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpGet("by-driver/{driverUserId:int}")]
-    [Authorize(Policy = "WarehouseView")]
+    [Authorize(Policy = AppPermissions.WarehouseView)]
     public async Task<IActionResult> GetByDriverUserId(int driverUserId)
     {
         var result = await _mediator.Send(new GetWarehousesByDriverUserIdQuery(driverUserId));
@@ -100,7 +101,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpPatch("{id:int}")]
-    [Authorize(Policy = "WarehouseUpdate")]
+    [Authorize(Policy = AppPermissions.WarehouseUpdate)]
     public async Task<IActionResult> Patch(int id, [FromBody] PatchWarehouseRequest request)
     {
         var result = await _mediator.Send(new PatchWarehouseCommand(id, request));
@@ -111,7 +112,7 @@ public class WarehousesController : ControllerBase
         return Ok(result);
     }
     [HttpGet("search")]
-    [Authorize(Policy = "WarehouseView")]
+    [Authorize(Policy = AppPermissions.WarehouseView)]
     public async Task<IActionResult> Search([FromQuery] int companyId, [FromQuery] string? search)
     {
         var result = await _mediator.Send(new SearchWarehousesQuery(companyId, search));

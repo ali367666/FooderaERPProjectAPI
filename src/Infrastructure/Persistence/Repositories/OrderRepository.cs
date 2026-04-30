@@ -22,8 +22,10 @@ public class OrderRepository : IOrderRepository
     public async Task<Order?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken)
     {
         return await _context.Orders
+            .Include(x => x.Restaurant)
             .Include(x => x.Table)
             .Include(x => x.Waiter)
+            .Include(x => x.ProcessedByUser)
             .Include(x => x.Lines)
                 .ThenInclude(x => x.MenuItem)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
@@ -32,8 +34,10 @@ public class OrderRepository : IOrderRepository
     public async Task<List<Order>> GetAllAsync(int companyId, CancellationToken cancellationToken)
     {
         return await _context.Orders
+            .Include(x => x.Restaurant)
             .Include(x => x.Table)
             .Include(x => x.Waiter)
+            .Include(x => x.ProcessedByUser)
             .Include(x => x.Lines)
                 .ThenInclude(x => x.MenuItem)
             .Where(x => x.CompanyId == companyId)
@@ -79,5 +83,16 @@ public class OrderRepository : IOrderRepository
         return await _context.Orders
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
+    }
+
+    public async Task<Order?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken)
+    {
+        return await _context.Orders
+            .Include(x => x.Lines)
+                .ThenInclude(x => x.MenuItem)
+            .Include(x => x.Restaurant)
+            .Include(x => x.Table)
+            .Include(x => x.Waiter)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 }

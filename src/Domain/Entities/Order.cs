@@ -14,11 +14,20 @@ public class Order : CompanyEntity<int>
 
     public int WaiterId { get; set; }
     public Employee Waiter { get; set; } = default!;
+    public int? ProcessedByUserId { get; set; }
+    public User? ProcessedByUser { get; set; }
+    public DateTime? ProcessedAt { get; set; }
 
     public OrderStatus Status { get; set; } = OrderStatus.Open;
 
     public string? Note { get; set; }
     public decimal TotalAmount { get; set; }
+    public bool IsPaid { get; set; }
+    public DateTime? PaidAt { get; set; }
+    public PaymentMethod? PaymentMethod { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal ChangeAmount { get; set; }
+    public string? ReceiptNumber { get; set; }
 
     public DateTime OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }

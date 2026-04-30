@@ -2,6 +2,12 @@
 
 export const TOKEN_KEY = "token";
 export const REFRESH_TOKEN_KEY = "refreshToken";
+export const AUTH_USER_KEY = "authUser";
+
+export type AuthUserSnapshot = {
+  roles: string[];
+  permissions: string[];
+};
 
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -11,6 +17,7 @@ export function getStoredToken(): string | null {
 export function clearStoredAuth(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
 }
 
 export function persistAuth(accessToken: string, refreshToken?: string): void {
@@ -18,6 +25,26 @@ export function persistAuth(accessToken: string, refreshToken?: string): void {
   if (refreshToken) {
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
+}
+
+export function getStoredAuthUser(): AuthUserSnapshot | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(AUTH_USER_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<AuthUserSnapshot>;
+    const roles = Array.isArray(parsed.roles) ? parsed.roles.filter((x): x is string => typeof x === "string") : [];
+    const permissions = Array.isArray(parsed.permissions)
+      ? parsed.permissions.filter((x): x is string => typeof x === "string")
+      : [];
+    return { roles, permissions };
+  } catch {
+    return null;
+  }
+}
+
+export function persistAuthUser(user: AuthUserSnapshot): void {
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
 }
 
 /**

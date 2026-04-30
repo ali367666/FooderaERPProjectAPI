@@ -33,6 +33,7 @@ public class GetRestaurantTableByIdQueryHandler
         {
             Id = table.Id,
             RestaurantId = table.RestaurantId,
+            RestaurantName = table.Restaurant?.Name ?? string.Empty,
             Name = table.Name,
             Capacity = table.Capacity,
             IsActive = table.IsActive,

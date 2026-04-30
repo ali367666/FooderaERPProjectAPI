@@ -37,6 +37,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasForeignKey(x => x.WaiterId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(x => x.ProcessedByUser)
+            .WithMany()
+            .HasForeignKey(x => x.ProcessedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(x => x.Lines)
        .WithOne(x => x.Order)
        .HasForeignKey(x => x.OrderId)
@@ -48,5 +53,16 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(x => x.TotalAmount)
                 .HasColumnType("decimal(18,2)")
                 .HasDefaultValue(0);
+
+        builder.Property(x => x.PaidAmount)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0);
+
+        builder.Property(x => x.ChangeAmount)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0);
+
+        builder.Property(x => x.ReceiptNumber)
+            .HasMaxLength(100);
     }
 }

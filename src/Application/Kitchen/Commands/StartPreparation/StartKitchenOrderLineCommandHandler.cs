@@ -1,5 +1,6 @@
 ﻿using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Exceptions;
 using Domain.Enums;
 using MediatR;
 
@@ -32,13 +33,13 @@ public class StartKitchenOrderLineCommandHandler
             cancellationToken);
 
         if (orderLine is null)
-            throw new Exception("OrderLine tapılmadı.");
+            throw new NotFoundException("Kitchen order line was not found.");
 
         if (orderLine.PreparationType != PreparationType.Kitchen)
-            throw new Exception("Bu məhsul mətbəxə aid deyil.");
+            throw new BadRequestException("This order line is not a kitchen item.");
 
         if (orderLine.Status != OrderLineStatus.Pending)
-            throw new Exception("Yalnız Pending olan OrderLine hazırlanmağa başlaya bilər.");
+            throw new BadRequestException("Only pending kitchen lines can be accepted.");
 
         orderLine.Status = OrderLineStatus.InPreparation;
         _orderLineRepository.Update(orderLine);

@@ -6,11 +6,35 @@ import { navGroups } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
 import { ChefHat, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { usePermissionSet } from "@/hooks/use-auth-permissions";
+import { getStoredAuthUser } from "@/lib/auth-client";
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
+  const permissionSet = usePermissionSet();
+
+  const isAdmin = useMemo(() => {
+    const authUser = getStoredAuthUser();
+    const roles = authUser?.roles ?? [];
+    return roles.some((r) => r.trim().toLowerCase() === "admin");
+  }, [permissionSet]);
+
+  const visibleNavGroups = useMemo(
+    () =>
+      navGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => {
+            if (!item.permission) return true;
+            if (isAdmin) return true;
+            return permissionSet.has(item.permission);
+          }),
+        }))
+        .filter((group) => group.items.length > 0),
+    [isAdmin, permissionSet],
+  );
 
   return (
     <>
@@ -46,7 +70,7 @@ export function AppSidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4">
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div key={group.title} className="mb-8">
               <h3 className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                 {group.title}

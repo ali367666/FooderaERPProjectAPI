@@ -1,16 +1,21 @@
 ﻿using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Domain.Entities;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services;
 
 public class NotificationService : INotificationService
 {
     private readonly INotificationRepository _notificationRepository;
+    private readonly ILogger<NotificationService> _logger;
 
-    public NotificationService(INotificationRepository notificationRepository)
+    public NotificationService(
+        INotificationRepository notificationRepository,
+        ILogger<NotificationService> logger)
     {
         _notificationRepository = notificationRepository;
+        _logger = logger;
     }
 
     public async Task CreateAsync(
@@ -21,8 +26,10 @@ public class NotificationService : INotificationService
         string type,
         int? referenceId = null,
         string? referenceType = null,
+        int? createdByUserId = null,
         CancellationToken cancellationToken = default)
     {
+        var utcNow = DateTime.UtcNow;
         var notification = new Notification
         {
             UserId = userId,
@@ -32,11 +39,27 @@ public class NotificationService : INotificationService
             Type = type,
             ReferenceId = referenceId,
             ReferenceType = referenceType,
-            IsRead = false
+            IsRead = false,
+            CreatedAtUtc = utcNow,
+            CreatedByUserId = createdByUserId ?? userId,
         };
+
+        _logger.LogInformation(
+            "Creating notification: UserId={UserId}, CompanyId={CompanyId}, Type={Type}, ReferenceId={ReferenceId}, ReferenceType={ReferenceType}",
+            userId,
+            companyId,
+            type,
+            referenceId,
+            referenceType);
 
         await _notificationRepository.AddAsync(notification, cancellationToken);
         await _notificationRepository.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Notification saved: Id={NotificationId}, UserId={UserId}, CompanyId={CompanyId}",
+            notification.Id,
+            userId,
+            companyId);
     }
 
     public async Task MarkAsReadAsync(

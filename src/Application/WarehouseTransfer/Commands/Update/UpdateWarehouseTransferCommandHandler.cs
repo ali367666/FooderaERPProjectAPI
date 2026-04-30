@@ -110,6 +110,7 @@ public class UpdateWarehouseTransferCommandHandler
 
         transfer.FromWarehouseId = request.Request.FromWarehouseId;
         transfer.ToWarehouseId = request.Request.ToWarehouseId;
+        transfer.VehicleWarehouseId = request.Request.VehicleWarehouseId;
         transfer.Note = request.Request.Note;
 
         if (transfer.Lines.Any())

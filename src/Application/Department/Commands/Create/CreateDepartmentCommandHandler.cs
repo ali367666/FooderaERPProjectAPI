@@ -38,7 +38,10 @@ public sealed class CreateDepartmentCommandHandler
         try
         {
             var dto = request.Request;
-            var companyId = _currentUserService.CompanyId;
+            var companyId = dto.CompanyId > 0 ? dto.CompanyId : _currentUserService.CompanyId;
+
+            if (companyId <= 0)
+                return BaseResponse<DepartmentResponse>.Fail("Valid companyId is required.");
 
             if (string.IsNullOrWhiteSpace(dto.Name))
                 return BaseResponse<DepartmentResponse>.Fail("Department adı boş ola bilməz.");

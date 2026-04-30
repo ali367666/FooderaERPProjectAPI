@@ -1,4 +1,5 @@
-﻿using Application.AuditLogs.Dtos.Response;
+﻿using Application.AuditLogs;
+using Application.AuditLogs.Dtos.Response;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using MediatR;
@@ -23,22 +24,13 @@ public class GetAuditLogsQueryHandler
             request.EntityName,
             request.EntityId,
             request.ActionType,
+            request.UserId,
+            request.FromUtc,
+            request.ToUtc,
+            request.Search,
             cancellationToken);
 
-        var response = logs.Select(x => new AuditLogResponse
-        {
-            Id = x.Id,
-            EntityName = x.EntityName,
-            EntityId = x.EntityId,
-            ActionType = x.ActionType,
-            OldValues = x.OldValues,
-            NewValues = x.NewValues,
-            Message = x.Message,
-            UserId = x.UserId,
-            CompanyId = x.CompanyId,
-            IsSuccess = x.IsSuccess,
-            CreatedAtUtc = x.CreatedAtUtc
-        }).ToList();
+        var response = logs.Select(AuditLogUserMapper.ToResponse).ToList();
 
         return BaseResponse<List<AuditLogResponse>>.Ok(response);
     }

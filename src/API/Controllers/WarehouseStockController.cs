@@ -1,15 +1,17 @@
-﻿using Application.Common.Responce;
-using Application.WarehouseStock.Commands.Create;
-using Application.WarehouseStock.Commands.Delete;
-using Application.WarehouseStock.Commands.Update;
+using Application.Common.Responce;
+using Application.WarehouseStock.Commands.ApproveDocument;
+using Application.WarehouseStock.Commands.CreateDocument;
+using Application.WarehouseStock.Commands.DeleteDocument;
+using Application.WarehouseStock.Commands.UpdateDocument;
 using Application.WarehouseStock.Dtos.Request;
 using Application.WarehouseStock.Dtos.Response;
-using Application.WarehouseStock.Queries.GetById;
-using Application.WarehouseStock.Queries.GetByWarehouseId;
-using Application.WarehouseStock.Queries.Search;
+using Application.WarehouseStock.Queries.GetDocumentById;
+using Application.WarehouseStock.Queries.GetDocumentsByWarehouseId;
+using Application.WarehouseStock.Queries.SearchDocuments;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace API.Controllers;
 
@@ -25,10 +27,10 @@ public class WarehouseStockController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "WarehouseStockCreate")]
-    public async Task<ActionResult<BaseResponse>> Create([FromBody] CreateWarehouseStockRequest request)
+    [Authorize(Policy = AppPermissions.WarehouseStockCreate)]
+    public async Task<ActionResult<BaseResponse<int>>> Create([FromBody] CreateWarehouseStockDocumentRequest request)
     {
-        var result = await _mediator.Send(new CreateWarehouseStockCommand(request));
+        var result = await _mediator.Send(new CreateWarehouseStockDocumentCommand(request));
 
         if (!result.Success)
             return BadRequest(result);
@@ -37,12 +39,12 @@ public class WarehouseStockController : ControllerBase
     }
 
     [HttpGet("warehouse/{warehouseId:int}")]
-    [Authorize(Policy = "WarehouseStockView")]
-    public async Task<ActionResult<BaseResponse<List<WarehouseStockResponse>>>> GetByWarehouseId(
+    [Authorize(Policy = AppPermissions.WarehouseStockView)]
+    public async Task<ActionResult<BaseResponse<List<WarehouseStockDocumentSummaryResponse>>>> GetByWarehouseId(
         int warehouseId,
         [FromQuery] string? search)
     {
-        var result = await _mediator.Send(new GetWarehouseStocksByWarehouseIdQuery(warehouseId, search));
+        var result = await _mediator.Send(new GetWarehouseStockDocumentsByWarehouseIdQuery(warehouseId, search));
 
         if (!result.Success)
             return BadRequest(result);
@@ -51,10 +53,10 @@ public class WarehouseStockController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-    [Authorize(Policy = "WarehouseStockView")]
-    public async Task<ActionResult<BaseResponse<WarehouseStockResponse>>> GetById(int id)
+    [Authorize(Policy = AppPermissions.WarehouseStockView)]
+    public async Task<ActionResult<BaseResponse<WarehouseStockDocumentDetailResponse>>> GetById(int id)
     {
-        var result = await _mediator.Send(new GetWarehouseStockByIdQuery(id));
+        var result = await _mediator.Send(new GetWarehouseStockDocumentByIdQuery(id));
 
         if (!result.Success)
             return NotFound(result);
@@ -63,12 +65,12 @@ public class WarehouseStockController : ControllerBase
     }
 
     [HttpGet("search")]
-    [Authorize(Policy = "WarehouseStockView")]
-    public async Task<ActionResult<BaseResponse<List<WarehouseStockResponse>>>> Search(
+    [Authorize(Policy = AppPermissions.WarehouseStockView)]
+    public async Task<ActionResult<BaseResponse<List<WarehouseStockDocumentSummaryResponse>>>> Search(
         [FromQuery] int companyId,
         [FromQuery] string? search)
     {
-        var result = await _mediator.Send(new SearchWarehouseStocksQuery(companyId, search));
+        var result = await _mediator.Send(new SearchWarehouseStockDocumentsQuery(companyId, search));
 
         if (!result.Success)
             return BadRequest(result);
@@ -77,12 +79,24 @@ public class WarehouseStockController : ControllerBase
     }
 
     [HttpPatch("{id:int}")]
-    [Authorize(Policy = "WarehouseStockUpdate")]
+    [Authorize(Policy = AppPermissions.WarehouseStockUpdate)]
     public async Task<ActionResult<BaseResponse>> Update(
         int id,
-        [FromBody] UpdateWarehouseStockRequest request)
+        [FromBody] UpdateWarehouseStockDocumentRequest request)
     {
-        var result = await _mediator.Send(new UpdateWarehouseStockCommand(id, request));
+        var result = await _mediator.Send(new UpdateWarehouseStockDocumentCommand(id, request));
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    [HttpPost("{id:int}/approve")]
+    [Authorize(Policy = AppPermissions.WarehouseStockUpdate)]
+    public async Task<ActionResult<BaseResponse>> Approve(int id)
+    {
+        var result = await _mediator.Send(new ApproveWarehouseStockDocumentCommand(id));
 
         if (!result.Success)
             return BadRequest(result);
@@ -91,10 +105,10 @@ public class WarehouseStockController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Policy = "WarehouseStockDelete")]
+    [Authorize(Policy = AppPermissions.WarehouseStockDelete)]
     public async Task<ActionResult<BaseResponse>> Delete(int id)
     {
-        var result = await _mediator.Send(new DeleteWarehouseStockCommand(id));
+        var result = await _mediator.Send(new DeleteWarehouseStockDocumentCommand(id));
 
         if (!result.Success)
             return NotFound(result);

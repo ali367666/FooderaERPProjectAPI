@@ -26,12 +26,18 @@ public class GetPositionByIdQueryHandler
     {
         var companyId = _currentUserService.CompanyId;
 
-        var position = await _positionRepository.GetByIdAsync(
-            request.Id,
-            companyId,
-            cancellationToken);
+        if (companyId <= 0)
+        {
+            return new BaseResponse<PositionResponse>
+            {
+                Success = false,
+                Message = "Company context is required."
+            };
+        }
 
-        if (position is null)
+        var position = await _positionRepository.GetByIdAsync(request.Id, cancellationToken);
+
+        if (position is null || position.CompanyId != companyId)
         {
             return new BaseResponse<PositionResponse>
             {
@@ -43,8 +49,12 @@ public class GetPositionByIdQueryHandler
         var response = new PositionResponse
         {
             Id = position.Id,
+            CompanyId = position.CompanyId,
             DepartmentId = position.DepartmentId,
-            Name = position.Name
+            Name = position.Name,
+            Description = position.Description,
+            DepartmentName = position.Department?.Name,
+            CompanyName = position.Company?.Name,
         };
 
         return new BaseResponse<PositionResponse>

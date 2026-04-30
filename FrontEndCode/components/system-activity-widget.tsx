@@ -1,12 +1,12 @@
 'use client';
 
-import { SystemActivity } from '@/lib/mock-data';
+import { DashboardRecentActivity } from '@/lib/dashboard-types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Activity, Package, Truck, ShoppingCart, CheckCircle2 } from 'lucide-react';
 
 interface SystemActivityWidgetProps {
-  activities: SystemActivity[];
+  activities: DashboardRecentActivity[];
 }
 
 const activityIcons: Record<string, React.ReactNode> = {
@@ -30,7 +30,8 @@ const statusBadgeClass: Record<string, string> = {
 };
 
 export function SystemActivityWidget({ activities }: SystemActivityWidgetProps) {
-  const formatTime = (date: Date) => {
+  const formatTime = (dateValue: string) => {
+    const date = new Date(dateValue);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const mins = Math.floor(diff / (1000 * 60));

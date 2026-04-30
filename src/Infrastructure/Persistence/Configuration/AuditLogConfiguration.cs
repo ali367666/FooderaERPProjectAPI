@@ -43,5 +43,10 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
         builder.HasIndex(x => x.CompanyId);
         builder.HasIndex(x => x.UserId);
         builder.HasIndex(x => x.CreatedAtUtc);
+
+        builder.HasOne(x => x.User)
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .IsRequired(false);
     }
 }

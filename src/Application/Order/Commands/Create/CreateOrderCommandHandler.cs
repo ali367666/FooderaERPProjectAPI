@@ -99,7 +99,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             RestaurantId = request.Request.RestaurantId,
             TableId = request.Request.TableId,
             WaiterId = request.Request.WaiterId,
-            Status = OrderStatus.Open,
+            Status = OrderStatus.Draft,
             Note = string.IsNullOrWhiteSpace(request.Request.Note)
                 ? null
                 : request.Request.Note.Trim(),
@@ -144,12 +144,17 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
         return new OrderResponse
         {
             Id = order.Id,
+            CompanyId = order.CompanyId,
             OrderNumber = order.OrderNumber,
             RestaurantId = order.RestaurantId,
+            RestaurantName = table.Restaurant?.Name,
             TableId = order.TableId,
             TableName = table.Name,
             WaiterId = order.WaiterId,
             WaiterName = $"{waiter.FirstName} {waiter.LastName}",
+            ProcessedByUserId = order.ProcessedByUserId,
+            ProcessedByUserName = null,
+            ProcessedAt = order.ProcessedAt,
             Status = order.Status.ToString(),
             Note = order.Note,
             OpenedAt = order.OpenedAt,

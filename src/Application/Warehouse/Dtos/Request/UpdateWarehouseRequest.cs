@@ -9,5 +9,6 @@ public class UpdateWarehouseRequest
 
     public int CompanyId { get; set; }
     public int? RestaurantId { get; set; }
+    public int? ResponsibleEmployeeId { get; set; }
     public int? DriverUserId { get; set; }
 }

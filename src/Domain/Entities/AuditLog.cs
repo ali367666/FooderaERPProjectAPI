@@ -1,5 +1,7 @@
 ﻿using Domain.Common;
 
+namespace Domain.Entities;
+
 public class AuditLog : BaseEntity<long>
 {
     public string EntityName { get; set; } = default!;
@@ -12,6 +14,8 @@ public class AuditLog : BaseEntity<long>
     public string Message { get; set; } = default!;
 
     public int? UserId { get; set; }
+    public User? User { get; set; }
+
     public int? CompanyId { get; set; }
 
     public string? CorrelationId { get; set; }

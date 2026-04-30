@@ -35,45 +35,53 @@ public class DeletePositionCommandHandler
         var companyId = _currentUserService.CompanyId;
 
         _logger.LogInformation(
-            "DeletePositionCommand başladı. PositionId: {PositionId}, CompanyId: {CompanyId}",
+            "Deleting Position: requested Id={PositionId}, current user CompanyId={CompanyId}, current user UserId={UserId}",
             request.Id,
-            companyId);
+            companyId,
+            _currentUserService.UserId);
+
+        if (companyId <= 0)
+        {
+            _logger.LogWarning(
+                "Delete Position rejected: invalid or missing company context (CompanyId={CompanyId}).",
+                companyId);
+
+            return BaseResponse.Fail("Company context is required.");
+        }
 
         var position = await _positionRepository.GetByIdAsync(
             request.Id,
             companyId,
             cancellationToken);
 
+        _logger.LogInformation(
+            "DEBUG Delete -> RequestId={RequestId}, UserCompanyId={UserCompanyId}, FoundPositionId={FoundPositionId}",
+            request.Id,
+            companyId,
+            position?.Id);
+
         if (position is null)
         {
             _logger.LogWarning(
-                "Position silinmədi. Position tapılmadı. PositionId: {PositionId}, CompanyId: {CompanyId}",
+                "Delete Position: no row with Id={PositionId} for CompanyId={CompanyId}.",
                 request.Id,
                 companyId);
 
-            return new BaseResponse
-            {
-                Success = false,
-                Message = "Position not found."
-            };
+            return BaseResponse.Fail("Position not found.");
         }
 
         var hasEmployees = await _positionRepository.HasAnyEmployeeAsync(
-            request.Id,
+            position.Id,
             cancellationToken);
 
         if (hasEmployees)
         {
             _logger.LogWarning(
-                "Position silinmədi. Position işçilərə təyin olunub. PositionId: {PositionId}, CompanyId: {CompanyId}",
-                request.Id,
+                "Position could not be deleted because it is assigned to employees. PositionId={PositionId}, CompanyId={CompanyId}",
+                position.Id,
                 companyId);
 
-            return new BaseResponse
-            {
-                Success = false,
-                Message = "This position cannot be deleted because it is assigned to one or more employees."
-            };
+            return BaseResponse.Fail("This position cannot be deleted because it is assigned to one or more employees.");
         }
 
         _positionRepository.Delete(position);
@@ -87,32 +95,28 @@ public class DeletePositionCommandHandler
                     EntityName = "Position",
                     EntityId = position.Id.ToString(),
                     ActionType = "Delete",
-                    Message = $"Position silindi. Id: {position.Id}, Name: {position.Name}, DepartmentId: {position.DepartmentId}",
+                    Message = $"Position deleted. Id: {position.Id}, Name: {position.Name}, DepartmentId: {position.DepartmentId}",
                     IsSuccess = true
                 },
                 cancellationToken);
 
             _logger.LogInformation(
-                "Position üçün audit log yazıldı. PositionId: {PositionId}",
+                "Audit log written for Position delete. PositionId={PositionId}",
                 position.Id);
         }
         catch (Exception auditEx)
         {
             _logger.LogError(
                 auditEx,
-                "Position delete audit log yazılarkən xəta baş verdi. PositionId: {PositionId}",
+                "Error while writing audit log for Position delete. PositionId={PositionId}",
                 position.Id);
         }
 
         _logger.LogInformation(
-            "Position uğurla silindi. PositionId: {PositionId}, CompanyId: {CompanyId}",
+            "Position deleted successfully. PositionId={PositionId}, CompanyId={CompanyId}",
             position.Id,
             companyId);
 
-        return new BaseResponse
-        {
-            Success = true,
-            Message = "Position deleted successfully."
-        };
+        return BaseResponse.Ok("Position deleted successfully.");
     }
 }

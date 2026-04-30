@@ -2,7 +2,9 @@
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
+using Domain.Entities.WarehouseAndStock;
 using Domain.Enums;
+using StockBalanceRow = Domain.Entities.WarehouseAndStock.WarehouseStock;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -13,17 +15,20 @@ public class DispatchWarehouseTransferCommandHandler
 {
     private readonly IWarehouseTransferRepository _warehouseTransferRepository;
     private readonly IWarehouseStockRepository _warehouseStockRepository;
+    private readonly IStockMovementRepository _stockMovementRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<DispatchWarehouseTransferCommandHandler> _logger;
 
     public DispatchWarehouseTransferCommandHandler(
         IWarehouseTransferRepository warehouseTransferRepository,
         IWarehouseStockRepository warehouseStockRepository,
+        IStockMovementRepository stockMovementRepository,
         IAuditLogService auditLogService,
         ILogger<DispatchWarehouseTransferCommandHandler> logger)
     {
         _warehouseTransferRepository = warehouseTransferRepository;
         _warehouseStockRepository = warehouseStockRepository;
+        _stockMovementRepository = stockMovementRepository;
         _auditLogService = auditLogService;
         _logger = logger;
     }
@@ -51,24 +56,23 @@ public class DispatchWarehouseTransferCommandHandler
         if (transfer.Lines is null || !transfer.Lines.Any())
             return BaseResponse.Fail("Transfer has no lines.");
 
-        // 🔴 STOCK CHECK
         foreach (var line in transfer.Lines)
         {
-            var fromStock = await _warehouseStockRepository
-                .GetByWarehouseAndStockItemAsync(
-                    transfer.FromWarehouseId,
-                    line.StockItemId,
-                    cancellationToken);
+            var fromBalance = await _warehouseStockRepository.GetByWarehouseAndStockItemAsync(
+                transfer.CompanyId,
+                transfer.FromWarehouseId,
+                line.StockItemId,
+                cancellationToken);
 
-            if (fromStock is null)
-                return BaseResponse.Fail($"Stock item {line.StockItemId} not found in source warehouse.");
-
-            if (fromStock.QuantityOnHand < line.Quantity)
+            var available = fromBalance?.Quantity ?? 0;
+            var itemName = line.StockItem.Name;
+            if (available < line.Quantity)
                 return BaseResponse.Fail(
-                    $"Insufficient stock for item {line.StockItemId}. Available: {fromStock.QuantityOnHand}");
+                    $"Insufficient stock for {itemName}. Available: {available}");
         }
 
         var oldStatus = transfer.Status;
+        var movementDate = DateTime.UtcNow;
 
         await using var transaction = await _warehouseTransferRepository
             .BeginTransactionAsync(cancellationToken);
@@ -77,47 +81,47 @@ public class DispatchWarehouseTransferCommandHandler
         {
             foreach (var line in transfer.Lines)
             {
-                // 🔴 FROM WAREHOUSE ↓
-                var fromStock = await _warehouseStockRepository
-                    .GetByWarehouseAndStockItemAsync(
-                        transfer.FromWarehouseId,
-                        line.StockItemId,
-                        cancellationToken);
+                await ApplyQuantityDeltaAsync(
+                    transfer.CompanyId,
+                    transfer.FromWarehouseId,
+                    line.StockItemId,
+                    -line.Quantity,
+                    (int)line.StockItem.Unit,
+                    cancellationToken);
 
-                fromStock!.QuantityOnHand -= line.Quantity;
-                _warehouseStockRepository.Update(fromStock);
+                await ApplyQuantityDeltaAsync(
+                    transfer.CompanyId,
+                    transfer.VehicleWarehouseId!.Value,
+                    line.StockItemId,
+                    line.Quantity,
+                    (int)line.StockItem.Unit,
+                    cancellationToken);
 
-                // 🔴 VEHICLE WAREHOUSE ↑
-                var vehicleStock = await _warehouseStockRepository
-                    .GetByWarehouseAndStockItemAsync(
-                        transfer.VehicleWarehouseId.Value,
-                        line.StockItemId,
-                        cancellationToken);
-
-                if (vehicleStock is null)
-                {
-                    vehicleStock = new Domain.Entities.WarehouseAndStock.WarehouseStock
+                await _stockMovementRepository.AddAsync(
+                    new StockMovement
                     {
                         CompanyId = transfer.CompanyId,
-                        WarehouseId = transfer.VehicleWarehouseId.Value,
+                        WarehouseId = transfer.FromWarehouseId,
+                        FromWarehouseId = transfer.FromWarehouseId,
+                        ToWarehouseId = transfer.ToWarehouseId,
                         StockItemId = line.StockItemId,
-                        QuantityOnHand = line.Quantity
-                    };
-
-                    await _warehouseStockRepository.AddAsync(vehicleStock, cancellationToken);
-                }
-                else
-                {
-                    vehicleStock.QuantityOnHand += line.Quantity;
-                    _warehouseStockRepository.Update(vehicleStock);
-                }
+                        Type = StockMovementType.TransferOut,
+                        SourceType = StockMovementSourceType.WarehouseTransfer,
+                        SourceId = transfer.Id,
+                        SourceDocumentNo = transfer.DocumentNo,
+                        MovementDate = movementDate,
+                        Quantity = line.Quantity,
+                        WarehouseTransferId = transfer.Id,
+                        Note =
+                            $"Dispatch from {transfer.FromWarehouse?.Name ?? "warehouse " + transfer.FromWarehouseId} toward {transfer.ToWarehouse?.Name ?? "warehouse " + transfer.ToWarehouseId}"
+                    },
+                    cancellationToken);
             }
 
             transfer.Status = TransferStatus.InTransit;
 
             _warehouseTransferRepository.Update(transfer);
 
-            await _warehouseStockRepository.SaveChangesAsync(cancellationToken);
             await _warehouseTransferRepository.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -150,5 +154,51 @@ public class DispatchWarehouseTransferCommandHandler
         }
 
         return BaseResponse.Ok("Warehouse transfer dispatched successfully.");
+    }
+
+    private async Task ApplyQuantityDeltaAsync(
+        int companyId,
+        int warehouseId,
+        int stockItemId,
+        decimal delta,
+        int unitId,
+        CancellationToken cancellationToken)
+    {
+        var row = await _warehouseStockRepository.GetByWarehouseAndStockItemAsync(
+            companyId,
+            warehouseId,
+            stockItemId,
+            cancellationToken);
+
+        if (row is null)
+        {
+            if (delta >= 0)
+            {
+                await _warehouseStockRepository.AddAsync(
+                    new StockBalanceRow
+                    {
+                        CompanyId = companyId,
+                        WarehouseId = warehouseId,
+                        StockItemId = stockItemId,
+                        Quantity = delta,
+                        UnitId = unitId,
+                        CreatedAtUtc = DateTime.UtcNow
+                    },
+                    cancellationToken);
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Cannot decrease stock: no balance row for warehouse {warehouseId}, item {stockItemId}.");
+        }
+
+        row.Quantity += delta;
+        row.UnitId = unitId;
+        row.LastModifiedAtUtc = DateTime.UtcNow;
+
+        if (row.Quantity < 0)
+            throw new InvalidOperationException("Stock quantity would become negative.");
+
+        _warehouseStockRepository.Update(row);
     }
 }

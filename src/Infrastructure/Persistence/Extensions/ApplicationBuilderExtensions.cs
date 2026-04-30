@@ -20,7 +20,7 @@ public static class ApplicationBuilderExtensions
         var userManager = services.GetRequiredService<UserManager<User>>();
 
         var companyId = await CompanySeeder.SeedDefaultCompanyAsync(context);
-        await IdentitySeeder.SeedRolesAndPermissionsAsync(roleManager);
+        await IdentitySeeder.SeedRolesAndPermissionsAsync(roleManager, context);
         await AdminSeeder.SeedAdminAsync(userManager, companyId);
 
         return app;

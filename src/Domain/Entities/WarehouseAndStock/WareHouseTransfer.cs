@@ -6,6 +6,8 @@ namespace Domain.Entities.WarehouseAndStock;
 
 public class WarehouseTransfer : CompanyEntity<int>
 {
+    public string DocumentNo { get; set; } = default!;
+
     public int? StockRequestId { get; set; }
     public StockRequest? StockRequest { get; set; }
 

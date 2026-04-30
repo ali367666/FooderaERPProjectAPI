@@ -1,6 +1,6 @@
 'use client';
 
-import { PendingApproval } from '@/lib/mock-data';
+import { DashboardPendingApproval } from '@/lib/dashboard-types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,10 @@ import { CheckCircle, XCircle, Eye, Clock } from 'lucide-react';
 import { useState } from 'react';
 
 interface PendingApprovalsWidgetProps {
-  approvals: PendingApproval[];
+  approvals: DashboardPendingApproval[];
+  onApprove?: (approval: DashboardPendingApproval) => void;
+  onReject?: (approval: DashboardPendingApproval) => void;
+  actionsDisabled?: boolean;
 }
 
 const typeColors = {
@@ -23,18 +26,33 @@ const typeLabels = {
   order: 'Order',
 };
 
-export function PendingApprovalsWidget({ approvals }: PendingApprovalsWidgetProps) {
+export function PendingApprovalsWidget({
+  approvals,
+  onApprove,
+  onReject,
+  actionsDisabled = false,
+}: PendingApprovalsWidgetProps) {
   const [actions, setActions] = useState<{ [key: string]: string }>({});
 
-  const handleApprove = (id: string) => {
+  const handleApprove = (approval: DashboardPendingApproval) => {
+    if (onApprove && approval.actionable !== false) {
+      onApprove(approval);
+      return;
+    }
+    const id = approval.id;
     setActions(prev => ({ ...prev, [id]: 'approved' }));
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = (approval: DashboardPendingApproval) => {
+    if (onReject && approval.actionable !== false) {
+      onReject(approval);
+      return;
+    }
+    const id = approval.id;
     setActions(prev => ({ ...prev, [id]: 'rejected' }));
   };
 
-  const getIcon = (type: PendingApproval['type']) => {
+  const getIcon = (type: DashboardPendingApproval['type']) => {
     switch (type) {
       case 'stock_request':
         return '📦';
@@ -47,7 +65,8 @@ export function PendingApprovalsWidget({ approvals }: PendingApprovalsWidgetProp
     }
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (dateValue: string) => {
+    const date = new Date(dateValue);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -96,6 +115,7 @@ export function PendingApprovalsWidget({ approvals }: PendingApprovalsWidgetProp
                 return null;
               }
 
+              const canAction = !actionsDisabled && approval.actionable !== false;
               return (
                 <div key={approval.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                   <div className="flex items-start justify-between gap-4">
@@ -124,7 +144,8 @@ export function PendingApprovalsWidget({ approvals }: PendingApprovalsWidgetProp
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleApprove(approval.id)}
+                        onClick={() => handleApprove(approval)}
+                        disabled={!canAction}
                         className="text-green-600 hover:text-green-700 hover:bg-green-50"
                       >
                         <CheckCircle className="w-4 h-4 mr-1" />
@@ -133,7 +154,8 @@ export function PendingApprovalsWidget({ approvals }: PendingApprovalsWidgetProp
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleReject(approval.id)}
+                        onClick={() => handleReject(approval)}
+                        disabled={!canAction}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         <XCircle className="w-4 h-4 mr-1" />

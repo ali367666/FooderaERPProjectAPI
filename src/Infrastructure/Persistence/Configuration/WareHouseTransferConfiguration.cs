@@ -10,6 +10,13 @@ public class WarehouseTransferConfiguration : IEntityTypeConfiguration<Warehouse
     {
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.DocumentNo)
+            .IsRequired()
+            .HasMaxLength(32);
+
+        builder.HasIndex(x => new { x.CompanyId, x.DocumentNo })
+            .IsUnique();
+
         builder.Property(x => x.Status)
                .IsRequired();
 

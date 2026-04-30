@@ -1,14 +1,35 @@
-﻿namespace Application.Common.Interfaces.Abstracts.Repositories;
+﻿using WarehouseStockRow = Domain.Entities.WarehouseAndStock.WarehouseStock;
+
+namespace Application.Common.Interfaces.Abstracts.Repositories;
 
 public interface IWarehouseStockRepository
 {
-    Task AddAsync(Domain.Entities.WarehouseAndStock.WarehouseStock warehouseStock, CancellationToken cancellationToken);
-    Task<Domain.Entities.WarehouseAndStock.WarehouseStock?> GetByIdAsync(int id, CancellationToken cancellationToken);
-    Task<Domain.Entities.WarehouseAndStock.WarehouseStock?> GetByWarehouseAndStockItemAsync(int warehouseId, int stockItemId, CancellationToken cancellationToken);
-    Task<List<Domain.Entities.WarehouseAndStock.WarehouseStock>> GetByWarehouseIdAsync(int warehouseId, CancellationToken cancellationToken);
-    Task<List<Domain.Entities.WarehouseAndStock.WarehouseStock>> SearchAsync(int companyId, string? search, CancellationToken cancellationToken);
-    Task SaveChangesAsync(CancellationToken cancellationToken);
-    void Delete(Domain.Entities.WarehouseAndStock.WarehouseStock warehouseStock);
-    void Update(Domain.Entities.WarehouseAndStock.WarehouseStock warehouseStock);
+    Task<WarehouseStockRow?> GetByWarehouseAndStockItemAsync(
+        int companyId,
+        int warehouseId,
+        int stockItemId,
+        CancellationToken cancellationToken);
 
+    Task<List<WarehouseStockRow>> SearchAsync(
+        int companyId,
+        int? warehouseId,
+        int? stockItemId,
+        string? search,
+        CancellationToken cancellationToken);
+
+    Task AddAsync(WarehouseStockRow warehouseStock, CancellationToken cancellationToken);
+
+    void Update(WarehouseStockRow warehouseStock);
+
+    /// <summary>Tracked row with Quantity 0 if none existed (for receive / positive adjustments).</summary>
+    Task<WarehouseStockRow> GetOrCreateZeroBalanceAsync(
+        int companyId,
+        int warehouseId,
+        int stockItemId,
+        int unitId,
+        int? createdByUserId,
+        DateTime utcNow,
+        CancellationToken cancellationToken);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
 }

@@ -1,4 +1,4 @@
-﻿using Application.StockCategory.Commands.Create;
+using Application.StockCategory.Commands.Create;
 using Application.StockCategory.Commands.Delete;
 using Application.StockCategory.Commands.Update;
 using Application.StockCategory.Dtos.Request;
@@ -9,6 +9,7 @@ using Application.StockCategory.Queries.GetChildrenByParentId;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Constants;
 
 namespace API.Controllers;
 
@@ -24,7 +25,7 @@ public class StockCategoryController : ControllerBase
         _mediator = mediator;
     }
 
-    [Authorize(Policy = "StockCategoryCreate")]
+    [Authorize(Policy = AppPermissions.StockCategoryCreate)]
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreateStockCategoryRequest request,
@@ -39,7 +40,7 @@ public class StockCategoryController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockCategoryView")]
+    [Authorize(Policy = AppPermissions.StockCategoryView)]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(
         [FromRoute] int id,
@@ -54,7 +55,7 @@ public class StockCategoryController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockCategoryView")]
+    [Authorize(Policy = AppPermissions.StockCategoryView)]
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] GetAllStockCategoriesRequest request,
@@ -69,7 +70,7 @@ public class StockCategoryController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockCategoryView")]
+    [Authorize(Policy = AppPermissions.StockCategoryView)]
     [HttpGet("company/{companyId:int}")]
     public async Task<IActionResult> GetByCompanyId(int companyId, CancellationToken cancellationToken)
     {
@@ -80,7 +81,7 @@ public class StockCategoryController : ControllerBase
 
         return Ok(result);
     }
-    [Authorize(Policy = "StockCategoryView")]
+    [Authorize(Policy = AppPermissions.StockCategoryView)]
     [HttpGet("children/{parentId:int}")]
     public async Task<IActionResult> GetChildren(
         [FromRoute] int parentId,
@@ -95,7 +96,7 @@ public class StockCategoryController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockCategoryUpdate")]
+    [Authorize(Policy = AppPermissions.StockCategoryUpdate)]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(
         [FromRoute] int id,
@@ -111,7 +112,7 @@ public class StockCategoryController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = "StockCategoryDelete")]
+    [Authorize(Policy = AppPermissions.StockCategoryDelete)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(
         [FromRoute] int id,
