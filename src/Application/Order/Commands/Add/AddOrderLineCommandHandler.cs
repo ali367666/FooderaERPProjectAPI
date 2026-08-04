@@ -113,9 +113,10 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         order.Lines.Add(orderLine);
         await _recipeStockDeductionService.DeductForOrderLineAsync(orderLine, cancellationToken);
 
-        order.TotalAmount = order.Lines
+        var subtotal = order.Lines
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.LineTotal);
+        order.TotalAmount = Math.Max(0, subtotal - order.DiscountAmount);
 
         _orderRepository.Update(order);
 
@@ -216,6 +217,8 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,
+            DiscountCode = updatedOrder.DiscountCode,
+            DiscountAmount = updatedOrder.DiscountAmount,
             Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
             {
                 Id = x.Id,

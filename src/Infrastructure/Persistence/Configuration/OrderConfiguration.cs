@@ -64,5 +64,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.Property(x => x.ReceiptNumber)
             .HasMaxLength(100);
+
+        builder.Property(x => x.DiscountAmount)
+            .HasColumnType("decimal(18,2)")
+            .HasDefaultValue(0);
     }
 }

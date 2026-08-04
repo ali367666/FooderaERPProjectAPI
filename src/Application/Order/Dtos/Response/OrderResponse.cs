@@ -19,6 +19,8 @@ public class OrderResponse
     public DateTime OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
     public decimal TotalAmount { get; set; }
+    public string? DiscountCode { get; set; }
+    public decimal DiscountAmount { get; set; }
     public bool IsPaid { get; set; }
     public DateTime? PaidAt { get; set; }
     public string? PaymentMethod { get; set; }

@@ -57,6 +57,8 @@ export type OrderDto = {
   openedAt: string;
   closedAt: string | null;
   totalAmount: number;
+  discountCode: string | null;
+  discountAmount: number;
   processedByUserId: number | null;
   processedByUserName: string | null;
   processedAt: string | null;
@@ -201,6 +203,8 @@ function normalizeOrder(raw: unknown): OrderDto | null {
     openedAt: String(pick(o, "openedAt", "OpenedAt") ?? ""),
     closedAt: (pick(o, "closedAt", "ClosedAt") as string | null | undefined) ?? null,
     totalAmount: Number(pick(o, "totalAmount", "TotalAmount") ?? 0),
+    discountCode: (pick(o, "discountCode", "DiscountCode") as string | null | undefined) ?? null,
+    discountAmount: Number(pick(o, "discountAmount", "DiscountAmount") ?? 0),
     processedByUserId: Number(pick(o, "processedByUserId", "ProcessedByUserId") ?? 0) || null,
     processedByUserName:
       (pick(o, "processedByUserName", "ProcessedByUserName") as string | null | undefined) ?? null,
@@ -426,6 +430,32 @@ export async function payOrder(id: number, payload: { paymentMethod: PaymentMeth
     return row;
   } catch (error) {
     throw toApiFormError(error, "Failed to pay order");
+  }
+}
+
+export async function applyDiscountToOrder(id: number, code: string): Promise<OrderDto> {
+  try {
+    const response = await api.post<unknown>(`/Orders/${id}/apply-discount`, null, {
+      params: { code },
+    });
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid order response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to apply discount");
+  }
+}
+
+export async function removeDiscountFromOrder(id: number): Promise<OrderDto> {
+  try {
+    const response = await api.post<unknown>(`/Orders/${id}/remove-discount`);
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid order response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to remove discount");
   }
 }
 

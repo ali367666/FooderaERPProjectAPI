@@ -196,6 +196,8 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,
+            DiscountCode = updatedOrder.DiscountCode,
+            DiscountAmount = updatedOrder.DiscountAmount,
             Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
             {
                 Id = x.Id,

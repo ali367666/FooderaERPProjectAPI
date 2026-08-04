@@ -38,11 +38,12 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
             }
         }
 
-        var expectedOrderTotal = order.Lines
+        var subtotal = order.Lines
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.LineTotal);
+        var expectedOrderTotal = order.IsPaid ? order.TotalAmount : Math.Max(0, subtotal - order.DiscountAmount);
 
-        if (order.TotalAmount != expectedOrderTotal)
+        if (!order.IsPaid && order.TotalAmount != expectedOrderTotal)
         {
             order.TotalAmount = expectedOrderTotal;
             hasLegacyLineTotals = true;
@@ -73,6 +74,8 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = order.TotalAmount,
+            DiscountCode = order.DiscountCode,
+            DiscountAmount = order.DiscountAmount,
             IsPaid = order.IsPaid,
             PaidAt = order.PaidAt,
             PaymentMethod = order.PaymentMethod?.ToString(),

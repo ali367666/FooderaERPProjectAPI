@@ -29,6 +29,11 @@ public class Order : CompanyEntity<int>
     public decimal ChangeAmount { get; set; }
     public string? ReceiptNumber { get; set; }
 
+    public int? DiscountId { get; set; }
+    public Discount? Discount { get; set; }
+    public string? DiscountCode { get; set; }
+    public decimal DiscountAmount { get; set; } = 0;
+
     public DateTime OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
 

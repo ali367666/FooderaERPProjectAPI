@@ -208,9 +208,11 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, Ord
             Note = updatedOrder.Note,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
-            TotalAmount = updatedOrder.Lines
+            TotalAmount = Math.Max(0, updatedOrder.Lines
                 .Where(x => x.Status != OrderLineStatus.Cancelled)
-                .Sum(x => x.UnitPrice * x.Quantity),
+                .Sum(x => x.UnitPrice * x.Quantity) - updatedOrder.DiscountAmount),
+            DiscountCode = updatedOrder.DiscountCode,
+            DiscountAmount = updatedOrder.DiscountAmount,
             Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
             {
                 Id = x.Id,

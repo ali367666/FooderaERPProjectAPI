@@ -3,6 +3,8 @@ import {
   Building2,
   Briefcase,
   Users,
+  LayoutGrid,
+  PenTool,
   Package,
   Truck,
   ShoppingCart,
@@ -20,6 +22,11 @@ import {
   UserCog,
   ChefHat,
   ShieldCheck,
+  BarChart3,
+  CalendarCheck,
+  Calculator,
+  Tag,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export interface NavItem {
@@ -43,6 +50,16 @@ export const navGroups: NavGroup[] = [
         title: "Dashboard",
         href: "/dashboard",
         icon: LayoutDashboard,
+      },
+      {
+        title: "Analitika",
+        href: "/dashboard/analytics",
+        icon: BarChart3,
+      },
+      {
+        title: "Food Cost",
+        href: "/dashboard/food-cost",
+        icon: Calculator,
       },
     ],
   },
@@ -114,11 +131,41 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/warehouse-transfers",
         icon: Truck,
       },
+      {
+        title: "Stock Purchases",
+        href: "/dashboard/stock-purchases",
+        icon: ShoppingCart,
+      },
+      {
+        title: "BSC İnvoice",
+        href: "/dashboard/bsc-invoices",
+        icon: FileSpreadsheet,
+      },
     ],
   },
   {
-    title: "ORDERS",
+    title: "ORDERS & TABLES",
     items: [
+      {
+        title: "Table Map",
+        href: "/dashboard/table-map",
+        icon: LayoutGrid,
+      },
+      {
+        title: "Rezervasiyalar",
+        href: "/dashboard/reservations",
+        icon: CalendarCheck,
+      },
+      {
+        title: "Endirimlər",
+        href: "/dashboard/discounts",
+        icon: Tag,
+      },
+      {
+        title: "Zal Dizaynı",
+        href: "/dashboard/floor-plan",
+        icon: PenTool,
+      },
       {
         title: "Orders",
         href: "/dashboard/orders",

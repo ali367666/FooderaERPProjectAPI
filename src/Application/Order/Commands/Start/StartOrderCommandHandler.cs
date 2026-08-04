@@ -69,9 +69,11 @@ public class StartOrderCommandHandler : IRequestHandler<StartOrderCommand, Order
             Note = order.Note,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
-            TotalAmount = order.Lines
+            TotalAmount = Math.Max(0, order.Lines
                 .Where(x => x.Status != OrderLineStatus.Cancelled)
-                .Sum(x => x.UnitPrice * x.Quantity),
+                .Sum(x => x.UnitPrice * x.Quantity) - order.DiscountAmount),
+            DiscountCode = order.DiscountCode,
+            DiscountAmount = order.DiscountAmount,
             Lines = order.Lines.Select(x => new OrderLineResponse
             {
                 Id = x.Id,

@@ -4,3 +4,7 @@ obj/
 *.user
 *.suo
 *.cache
+
+# Sensitive config files - never commit these
+src/API/appsettings.Development.json
+appsettings.Development.json

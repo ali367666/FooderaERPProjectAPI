@@ -1,5 +1,7 @@
 using Application.Order.Dtos.Request;
 using Application.Order.Commands.Serve;
+using Application.Discounts.Commands.ApplyToOrder;
+using Application.Discounts.Commands.RemoveFromOrder;
 using Application.OrderLines.Commands.Add;
 using Application.Orders.Commands.Pay;
 using Application.Orders.Dtos.Request;
@@ -147,6 +149,22 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<OrderReceiptResponse>> GetReceipt(int id)
     {
         var result = await _mediator.Send(new GetOrderReceiptQuery(id));
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.DiscountApply)]
+    [HttpPost("{id:int}/apply-discount")]
+    public async Task<ActionResult<OrderResponse>> ApplyDiscount(int id, [FromQuery] string code)
+    {
+        var result = await _mediator.Send(new ApplyDiscountToOrderCommand { OrderId = id, Code = code });
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.DiscountApply)]
+    [HttpPost("{id:int}/remove-discount")]
+    public async Task<ActionResult<OrderResponse>> RemoveDiscount(int id)
+    {
+        var result = await _mediator.Send(new RemoveDiscountFromOrderCommand { OrderId = id });
         return Ok(result);
     }
 }
