@@ -150,7 +150,13 @@ public class UpdateRestaurantTableCommandHandler
             Name = table.Name,
             Capacity = table.Capacity,
             IsActive = table.IsActive,
-            IsOccupied = table.IsOccupied
+            IsOccupied = table.IsOccupied,
+            PosX = table.PosX,
+            PosY = table.PosY,
+            Width = table.Width,
+            Height = table.Height,
+            Shape = table.Shape,
+            Rotation = table.Rotation
         };
     }
 }

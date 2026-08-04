@@ -1,4 +1,5 @@
 ﻿using Domain.Entities;
+using Domain.Entities.BscInvoice;
 using Domain.Entities.WarehouseAndStock;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -18,12 +19,16 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     // Core entities
     public DbSet<Company> Companies { get; set; } = null!;
     public DbSet<Restaurant> Restaurants { get; set; } = null!;
+    public DbSet<Reservation> Reservations { get; set; } = null!;
+    public DbSet<Discount> Discounts { get; set; } = null!;
 
     // Stock system
     public DbSet<StockCategory> Categories { get; set; } = null!;
     public DbSet<StockItem> StockItems { get; set; } = null!;
     public DbSet<StockMovement> StockMovements { get; set; } = null!;
     public DbSet<MenuItemRecipeLine> MenuItemRecipeLines { get; set; } = null!;
+    public DbSet<StockPurchase> StockPurchases { get; set; } = null!;
+    public DbSet<StockPurchaseLine> StockPurchaseLines { get; set; } = null!;
 
     // Warehouse
     public DbSet<Warehouse> Warehouses { get; set; } = null!;
@@ -38,6 +43,10 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     // Transfer system
     public DbSet<WarehouseTransfer> WarehouseTransfers { get; set; } = null!;
     public DbSet<WarehouseTransferLine> WarehouseTransferLines { get; set; } = null!;
+
+    // BSC Invoice sync
+    public DbSet<BscInvoiceM> BscInvoiceMs { get; set; } = null!;
+    public DbSet<BscInvoiceD> BscInvoiceDs { get; set; } = null!;
 
     //Loggin system
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;

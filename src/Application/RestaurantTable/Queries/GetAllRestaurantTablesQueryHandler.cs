@@ -33,7 +33,13 @@ public class GetAllRestaurantTablesQueryHandler
             Name = x.Name,
             Capacity = x.Capacity,
             IsActive = x.IsActive,
-            IsOccupied = x.IsOccupied
+            IsOccupied = x.IsOccupied,
+            PosX = x.PosX,
+            PosY = x.PosY,
+            Width = x.Width,
+            Height = x.Height,
+            Shape = x.Shape,
+            Rotation = x.Rotation
         }).ToList();
     }
 }

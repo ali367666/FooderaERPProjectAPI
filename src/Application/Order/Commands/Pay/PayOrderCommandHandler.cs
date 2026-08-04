@@ -39,9 +39,12 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         foreach (var line in order.Lines)
             line.LineTotal = line.UnitPrice * line.Quantity;
 
-        var totalAmount = order.Lines
+        var subtotal = order.Lines
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.LineTotal);
+
+        // Discount (if any) was locked in by ApplyDiscountToOrderCommand before payment
+        var totalAmount = Math.Max(0, subtotal - order.DiscountAmount);
 
         if (request.Request.PaidAmount < totalAmount)
             throw new BadRequestException("Paid amount cannot be less than total amount.");
@@ -90,6 +93,8 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = order.TotalAmount,
+            DiscountCode = order.DiscountCode,
+            DiscountAmount = order.DiscountAmount,
             IsPaid = order.IsPaid,
             PaidAt = order.PaidAt,
             PaymentMethod = order.PaymentMethod?.ToString(),

@@ -13,5 +13,13 @@ public class RestaurantTable : CompanyEntity<int>
     public bool IsActive { get; set; } = true;
     public bool IsOccupied { get; set; } = false;
 
+    // Floor plan position
+    public int PosX { get; set; } = 0;
+    public int PosY { get; set; } = 0;
+    public int Width { get; set; } = 80;
+    public int Height { get; set; } = 80;
+    public string Shape { get; set; } = "square"; // square, round, rectangle
+    public int Rotation { get; set; } = 0;
+
     public ICollection<Order> Orders { get; set; } = new List<Order>();
 }

@@ -110,4 +110,24 @@ public static class AppPermissions
     public const string AuditLogView = "Permissions.AuditLog.View";
     public const string AuditLogsView = AuditLogView;
 
+    public const string StockPurchaseView = "StockPurchase.View";
+    public const string StockPurchaseCreate = "StockPurchase.Create";
+    public const string StockPurchaseUpdate = "StockPurchase.Update";
+    public const string StockPurchaseDelete = "StockPurchase.Delete";
+    public const string StockPurchaseSubmit = "StockPurchase.Submit";
+    public const string StockPurchaseApprove = "StockPurchase.Approve";
+    public const string StockPurchaseReject = "StockPurchase.Reject";
+
+    public const string ReservationView = "Reservation.View";
+    public const string ReservationCreate = "Reservation.Create";
+    public const string ReservationUpdate = "Reservation.Update";
+    public const string ReservationDelete = "Reservation.Delete";
+    public const string ReservationConfirm = "Reservation.Confirm";
+    public const string ReservationCancel = "Reservation.Cancel";
+
+    public const string DiscountView = "Discount.View";
+    public const string DiscountCreate = "Discount.Create";
+    public const string DiscountUpdate = "Discount.Update";
+    public const string DiscountDelete = "Discount.Delete";
+    public const string DiscountApply = "Discount.Apply";
 }

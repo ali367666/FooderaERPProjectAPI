@@ -121,9 +121,10 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
 
         line.UnitPrice = line.MenuItem.Price;
         line.LineTotal = line.UnitPrice * line.Quantity;
-        order.TotalAmount = order.Lines
+        var subtotal = order.Lines
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.Id == line.Id ? line.LineTotal : x.LineTotal);
+        order.TotalAmount = Math.Max(0, subtotal - order.DiscountAmount);
 
         _orderLineRepository.Update(line);
         _orderRepository.Update(order);
@@ -229,6 +230,8 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,
+            DiscountCode = updatedOrder.DiscountCode,
+            DiscountAmount = updatedOrder.DiscountAmount,
             Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
             {
                 Id = x.Id,

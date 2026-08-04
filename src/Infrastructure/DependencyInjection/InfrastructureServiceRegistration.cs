@@ -83,6 +83,14 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IStockPurchaseRepository, StockPurchaseRepository>();
+        services.AddScoped<IBscInvoiceRepository, BscInvoiceRepository>();
+        services.AddScoped<Infrastructure.Services.BscInvoiceSyncService>();
+        services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
+        services.AddScoped<IReservationRepository, ReservationRepository>();
+        services.AddScoped<IDiscountRepository, DiscountRepository>();
+
+        services.AddHttpClient<ICbarExchangeRateService, CbarExchangeRateService>();
 
         services.Configure<EmailSettings>(
                 configuration.GetSection("EmailSettings"));

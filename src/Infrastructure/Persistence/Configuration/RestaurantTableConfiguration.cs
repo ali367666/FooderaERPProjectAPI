@@ -27,6 +27,13 @@ public class RestaurantTableConfiguration : IEntityTypeConfiguration<RestaurantT
             .IsRequired()
             .HasDefaultValue(false);
 
+        builder.Property(x => x.PosX).HasDefaultValue(0);
+        builder.Property(x => x.PosY).HasDefaultValue(0);
+        builder.Property(x => x.Width).HasDefaultValue(80);
+        builder.Property(x => x.Height).HasDefaultValue(80);
+        builder.Property(x => x.Shape).HasMaxLength(20).HasDefaultValue("square");
+        builder.Property(x => x.Rotation).HasDefaultValue(0);
+
         builder.HasIndex(x => new { x.CompanyId, x.Name })
             .IsUnique();
     }

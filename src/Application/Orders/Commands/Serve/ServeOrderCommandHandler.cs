@@ -50,6 +50,8 @@ public class ServeOrderCommandHandler : IRequestHandler<ServeOrderCommand, Order
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = order.TotalAmount,
+            DiscountCode = order.DiscountCode,
+            DiscountAmount = order.DiscountAmount,
             IsPaid = order.IsPaid,
             PaidAt = order.PaidAt,
             PaymentMethod = order.PaymentMethod?.ToString(),

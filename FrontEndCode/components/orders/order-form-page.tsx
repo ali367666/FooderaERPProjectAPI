@@ -22,6 +22,7 @@ import { toApiFormError } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import {
   addOrderLine,
+  applyDiscountToOrder,
   createOrder,
   deleteOrderLine,
   getOrderById,
@@ -29,6 +30,7 @@ import {
   getOrderStatusValue,
   isOrderPaid,
   payOrder,
+  removeDiscountFromOrder,
   serveOrder,
   submitOrder,
   updateOrder,
@@ -38,6 +40,7 @@ import {
   type OrderReceiptDto,
   type PaymentMethod,
 } from "@/lib/services/order-service";
+import { Tag, X as XIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/format-currency";
 
 type Variant = "create" | "edit";
@@ -76,6 +79,9 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
   const [newLineQty, setNewLineQty] = useState("1");
   const [newLineNote, setNewLineNote] = useState("");
 
+  const [discountCodeInput, setDiscountCodeInput] = useState("");
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+
   const statusValue = getOrderStatusValue(order?.statusRaw ?? order?.status);
   const isPaid = isOrderPaid(order);
 
@@ -108,6 +114,12 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
         await loadDependencies();
         if (variant === "edit") {
           await loadOrder();
+        } else {
+          // Auto-fill from URL params (Table Map → create order)
+          const urlTableId = searchParams.get("tableId");
+          const urlRestaurantId = searchParams.get("restaurantId");
+          if (urlRestaurantId) setRestaurantId(urlRestaurantId);
+          if (urlTableId) setTableId(urlTableId);
         }
       } catch (e) {
         toast.error(toApiFormError(e, "Failed to load order form").message);
@@ -167,6 +179,35 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
       window.dispatchEvent(new Event("orders:refresh"));
     }
   }, [variant, orderId]);
+
+  const handleApplyDiscount = useCallback(async () => {
+    if (!order || !discountCodeInput.trim()) return;
+    setApplyingDiscount(true);
+    try {
+      const updated = await applyDiscountToOrder(order.id, discountCodeInput.trim());
+      setOrder(updated);
+      setDiscountCodeInput("");
+      toast.success(`Endirim tətbiq olundu: -${updated.discountAmount.toFixed(2)} ₼`);
+    } catch (e) {
+      toast.error(toApiFormError(e, "Endirim tətbiq edilmədi").message);
+    } finally {
+      setApplyingDiscount(false);
+    }
+  }, [order, discountCodeInput]);
+
+  const handleRemoveDiscount = useCallback(async () => {
+    if (!order) return;
+    setApplyingDiscount(true);
+    try {
+      const updated = await removeDiscountFromOrder(order.id);
+      setOrder(updated);
+      toast.success("Endirim ləğv edildi.");
+    } catch (e) {
+      toast.error(toApiFormError(e, "Endirim silinmədi").message);
+    } finally {
+      setApplyingDiscount(false);
+    }
+  }, [order]);
 
   const saveMaster = useCallback(async () => {
     if (readOnly) return;
@@ -440,7 +481,54 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
           <div>
             <label className="mb-1 block text-sm">Total Amount</label>
             <Input value={formatCurrency(order?.totalAmount)} readOnly />
+            {order && order.discountAmount > 0 && (
+              <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
+                Endirim ({order.discountCode}): -{order.discountAmount.toFixed(2)} ₼
+              </p>
+            )}
           </div>
+
+          {variant === "edit" && order && !readOnly && !order.isPaid && (
+            <div className="md:col-span-3">
+              <label className="mb-1 block text-sm">Kupon kodu</label>
+              {order.discountCode ? (
+                <div className="flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 dark:border-emerald-800 dark:bg-emerald-950/40">
+                  <Tag className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="font-mono font-semibold text-sm text-emerald-700 dark:text-emerald-300">
+                    {order.discountCode}
+                  </span>
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                    -{order.discountAmount.toFixed(2)} ₼
+                  </span>
+                  <Button
+                    type="button" size="sm" variant="ghost"
+                    className="ml-auto h-6 px-2 text-xs text-destructive hover:text-destructive"
+                    onClick={handleRemoveDiscount}
+                    disabled={applyingDiscount}
+                  >
+                    <XIcon className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={discountCodeInput}
+                    onChange={(e) => setDiscountCodeInput(e.target.value.toUpperCase())}
+                    placeholder="Kupon kodunu daxil edin"
+                    className="font-mono"
+                    onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()}
+                  />
+                  <Button
+                    type="button" variant="outline"
+                    onClick={handleApplyDiscount}
+                    disabled={applyingDiscount || !discountCodeInput.trim()}
+                  >
+                    {applyingDiscount ? "Tətbiq olunur..." : "Tətbiq et"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -9,6 +9,21 @@ export type RestaurantTable = {
   capacity: number;
   isActive: boolean;
   isOccupied: boolean;
+  posX: number;
+  posY: number;
+  width: number;
+  height: number;
+  shape: "square" | "round" | "rectangle";
+  rotation: number;
+};
+
+export type TableLayoutUpdate = {
+  posX: number;
+  posY: number;
+  width: number;
+  height: number;
+  shape: "square" | "round" | "rectangle";
+  rotation: number;
 };
 
 export type RestaurantTableMutationInput = {
@@ -32,6 +47,12 @@ function normalizeRestaurantTable(item: unknown): RestaurantTable | null {
     capacity: Number(raw.capacity ?? raw.Capacity ?? 0),
     isActive: Boolean(raw.isActive ?? raw.IsActive ?? true),
     isOccupied: Boolean(raw.isOccupied ?? raw.IsOccupied ?? false),
+    posX: Number(raw.posX ?? raw.PosX ?? 0),
+    posY: Number(raw.posY ?? raw.PosY ?? 0),
+    width: Number(raw.width ?? raw.Width ?? 80),
+    height: Number(raw.height ?? raw.Height ?? 80),
+    shape: (String(raw.shape ?? raw.Shape ?? "square")) as "square" | "round" | "rectangle",
+    rotation: Number(raw.rotation ?? raw.Rotation ?? 0),
   };
 }
 
@@ -79,5 +100,16 @@ export async function deleteRestaurantTable(id: number): Promise<void> {
     await api.delete(`/RestaurantTables/${id}`);
   } catch (error) {
     throw toApiFormError(error, "Failed to delete restaurant table");
+  }
+}
+
+export async function updateTableLayout(
+  id: number,
+  data: TableLayoutUpdate,
+): Promise<void> {
+  try {
+    await api.put(`/RestaurantTables/${id}/layout`, data);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update table layout");
   }
 }
