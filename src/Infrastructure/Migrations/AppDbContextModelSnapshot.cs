@@ -2559,7 +2559,7 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.MenuItem", "MenuItem")
                         .WithMany("RecipeLines")
                         .HasForeignKey("MenuItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.WarehouseAndStock.StockItem", "StockItem")

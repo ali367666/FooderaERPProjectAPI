@@ -25,7 +25,7 @@ public class MenuItemRecipeLineConfiguration : IEntityTypeConfiguration<MenuItem
         builder.HasOne(x => x.MenuItem)
             .WithMany(x => x.RecipeLines)
             .HasForeignKey(x => x.MenuItemId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.StockItem)
             .WithMany(x => x.RecipeLines)
