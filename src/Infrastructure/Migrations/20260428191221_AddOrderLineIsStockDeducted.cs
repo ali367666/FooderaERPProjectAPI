@@ -48,7 +48,7 @@ namespace Infrastructure.Migrations
                         column: x => x.MenuItemId,
                         principalTable: "MenuItems",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_MenuItemRecipeLines_StockItems_StockItemId",
                         column: x => x.StockItemId,

@@ -25,7 +25,7 @@ public class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
         builder.HasOne(x => x.Table)
             .WithMany()
             .HasForeignKey(x => x.TableId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.ClientSetNull);
 
         builder.HasOne(x => x.ConfirmedByUser)
             .WithMany()

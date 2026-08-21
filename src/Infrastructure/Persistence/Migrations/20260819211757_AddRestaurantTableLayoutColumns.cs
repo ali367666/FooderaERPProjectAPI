@@ -1,15 +1,22 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class AddRestaurantTableLayout : Migration
+    public partial class AddRestaurantTableLayoutColumns : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<int>(
+                name: "Height",
+                table: "RestaurantTables",
+                type: "int",
+                nullable: false,
+                defaultValue: 80);
+
             migrationBuilder.AddColumn<int>(
                 name: "PosX",
                 table: "RestaurantTables",
@@ -25,18 +32,11 @@ namespace Infrastructure.Persistence.Migrations
                 defaultValue: 0);
 
             migrationBuilder.AddColumn<int>(
-                name: "Width",
+                name: "Rotation",
                 table: "RestaurantTables",
                 type: "int",
                 nullable: false,
-                defaultValue: 80);
-
-            migrationBuilder.AddColumn<int>(
-                name: "Height",
-                table: "RestaurantTables",
-                type: "int",
-                nullable: false,
-                defaultValue: 80);
+                defaultValue: 0);
 
             migrationBuilder.AddColumn<string>(
                 name: "Shape",
@@ -47,22 +47,39 @@ namespace Infrastructure.Persistence.Migrations
                 defaultValue: "square");
 
             migrationBuilder.AddColumn<int>(
-                name: "Rotation",
+                name: "Width",
                 table: "RestaurantTables",
                 type: "int",
                 nullable: false,
-                defaultValue: 0);
+                defaultValue: 80);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(name: "PosX", table: "RestaurantTables");
-            migrationBuilder.DropColumn(name: "PosY", table: "RestaurantTables");
-            migrationBuilder.DropColumn(name: "Width", table: "RestaurantTables");
-            migrationBuilder.DropColumn(name: "Height", table: "RestaurantTables");
-            migrationBuilder.DropColumn(name: "Shape", table: "RestaurantTables");
-            migrationBuilder.DropColumn(name: "Rotation", table: "RestaurantTables");
+            migrationBuilder.DropColumn(
+                name: "Height",
+                table: "RestaurantTables");
+
+            migrationBuilder.DropColumn(
+                name: "PosX",
+                table: "RestaurantTables");
+
+            migrationBuilder.DropColumn(
+                name: "PosY",
+                table: "RestaurantTables");
+
+            migrationBuilder.DropColumn(
+                name: "Rotation",
+                table: "RestaurantTables");
+
+            migrationBuilder.DropColumn(
+                name: "Shape",
+                table: "RestaurantTables");
+
+            migrationBuilder.DropColumn(
+                name: "Width",
+                table: "RestaurantTables");
         }
     }
 }
