@@ -115,7 +115,6 @@ public class ApproveWarehouseStockDocumentCommandHandler
                         SourceDocumentNo = document.DocumentNo,
                         MovementDate = now,
                         Quantity = line.Quantity,
-                        WarehouseTransferId = null,
                         Note = "Warehouse stock document approved",
                     },
                     cancellationToken);

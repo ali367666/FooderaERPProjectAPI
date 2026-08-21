@@ -67,7 +67,6 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IRecipeStockDeductionService, RecipeStockDeductionService>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<IStockRequestRepository, StockRequestRepository>();
-        services.AddScoped<IWarehouseTransferRepository, WarehouseTransferRepository>();
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IStockRequestLineRepository, StockRequestLineRepository>();
@@ -85,7 +84,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IStockPurchaseRepository, StockPurchaseRepository>();
         services.AddScoped<IBscInvoiceRepository, BscInvoiceRepository>();
-        services.AddScoped<Infrastructure.Services.BscInvoiceSyncService>();
+        services.AddScoped<BscInvoiceSyncService>();
         services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<IDiscountRepository, DiscountRepository>();

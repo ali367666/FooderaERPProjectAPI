@@ -32,8 +32,5 @@ public class StockMovement : CompanyEntity<int>
 
     public decimal Quantity { get; set; }
 
-    public int? WarehouseTransferId { get; set; }
-    public WarehouseTransfer? WarehouseTransfer { get; set; }
-
     public string? Note { get; set; }
 }

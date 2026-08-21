@@ -54,15 +54,9 @@ public class StockMovementConfiguration : IEntityTypeConfiguration<StockMovement
             .HasForeignKey(x => x.StockItemId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(x => x.WarehouseTransfer)
-            .WithMany()
-            .HasForeignKey(x => x.WarehouseTransferId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         builder.HasIndex(x => new { x.CompanyId, x.WarehouseId });
         builder.HasIndex(x => new { x.CompanyId, x.StockItemId });
         builder.HasIndex(x => new { x.CompanyId, x.WarehouseId, x.StockItemId });
-        builder.HasIndex(x => x.WarehouseTransferId);
         builder.HasIndex(x => x.Type);
         builder.HasIndex(x => x.SourceType);
         builder.HasIndex(x => x.MovementDate);

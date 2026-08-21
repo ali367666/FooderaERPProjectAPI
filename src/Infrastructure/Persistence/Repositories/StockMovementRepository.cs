@@ -24,13 +24,6 @@ public class StockMovementRepository : IStockMovementRepository
         await _context.StockMovements.AddRangeAsync(stockMovements, cancellationToken);
     }
 
-    public async Task<List<StockMovement>> GetByWarehouseTransferIdAsync(int warehouseTransferId, CancellationToken cancellationToken)
-    {
-        return await _context.StockMovements
-            .Where(x => x.WarehouseTransferId == warehouseTransferId)
-            .ToListAsync(cancellationToken);
-    }
-
     public async Task<List<StockMovement>> SearchByCompanyAsync(
         int companyId,
         string? search,

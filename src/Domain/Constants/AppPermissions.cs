@@ -78,16 +78,6 @@ public static class AppPermissions
     public const string RoleView = "Role.View";
     public const string UserRoleManage = "UserRole.Manage";
 
-    public const string WarehouseTransferView = "WarehouseTransfer.View";
-    public const string WarehouseTransferCreate = "WarehouseTransfer.Create";
-    public const string WarehouseTransferUpdate = "WarehouseTransfer.Update";
-    public const string WarehouseTransferDelete = "WarehouseTransfer.Delete";
-    public const string WarehouseTransferApprove = "WarehouseTransfer.Approve";
-    public const string WarehouseTransferReject = "WarehouseTransfer.Reject";
-    public const string WarehouseTransferCancel = "WarehouseTransfer.Cancel";
-    public const string WarehouseTransferSubmit = "WarehouseTransfer.Submit";
-    public const string WarehouseTransferReceive = "WarehouseTransfer.Receive";
-    public const string WarehouseTransferDispatch = "WarehouseTransfer.Dispatch";
 
     public const string MenuItemView = "MenuItem.View";
     public const string MenuItemCreate = "MenuItem.Create";
@@ -103,8 +93,6 @@ public static class AppPermissions
     public const string KitchenMarkReady = "Kitchen.MarkReady";
     public const string KitchenStartPreparing = "Kitchen.StartPreparing";
     public const string KitchenMarkServed = "Kitchen.MarkServed";
-
-
 
 
     public const string AuditLogView = "Permissions.AuditLog.View";
