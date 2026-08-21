@@ -12,6 +12,13 @@ public class UserListItemDto
     public string? CompanyName { get; set; }
     public List<string> Roles { get; set; } = new();
     public int? LinkedEmployeeId { get; set; }
+    public string? Code { get; set; }
+    public string? RfidCardId { get; set; }
+    public bool CanAccessAdminPanel { get; set; }
+    public bool CanAccessFrontOffice { get; set; }
+    public Domain.Enums.EmployeeWorkplaceType WorkplaceType { get; set; }
+    public int? RestaurantId { get; set; }
+    public string? RestaurantName { get; set; }
 }
 
 public class UserDetailDto : UserListItemDto
@@ -27,8 +34,13 @@ public class CreateUserAdminRequest
     public string? PhoneNumber { get; set; }
     public bool IsActive { get; set; } = true;
     public int CompanyId { get; set; }
-    /// <summary>Optional employee to link (sets Employee.UserId after user is created).</summary>
     public int? EmployeeId { get; set; }
+    public string? Code { get; set; }
+    public string? RfidCardId { get; set; }
+    public bool CanAccessAdminPanel { get; set; } = true;
+    public bool CanAccessFrontOffice { get; set; } = false;
+    public Domain.Enums.EmployeeWorkplaceType WorkplaceType { get; set; } = Domain.Enums.EmployeeWorkplaceType.HeadOffice;
+    public int? RestaurantId { get; set; }
 }
 
 public class UpdateUserAdminRequest
@@ -36,12 +48,17 @@ public class UpdateUserAdminRequest
     public string FullName { get; set; } = default!;
     public string UserName { get; set; } = default!;
     public string Email { get; set; } = default!;
-    /// <summary>When set, replaces the password.</summary>
     public string? Password { get; set; }
     public string? PhoneNumber { get; set; }
     public bool IsActive { get; set; } = true;
     public int CompanyId { get; set; }
     public int? EmployeeId { get; set; }
+    public string? Code { get; set; }
+    public string? RfidCardId { get; set; }
+    public bool CanAccessAdminPanel { get; set; } = true;
+    public bool CanAccessFrontOffice { get; set; } = false;
+    public Domain.Enums.EmployeeWorkplaceType WorkplaceType { get; set; } = Domain.Enums.EmployeeWorkplaceType.HeadOffice;
+    public int? RestaurantId { get; set; }
 }
 
 public class RoleListItemDto

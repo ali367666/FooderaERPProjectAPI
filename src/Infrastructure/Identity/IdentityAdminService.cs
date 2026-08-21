@@ -34,7 +34,7 @@ public class IdentityAdminService : IIdentityAdminService
 
     public async Task<List<UserListItemDto>> GetUsersAsync(int? companyIdFilter, CancellationToken cancellationToken = default)
     {
-        var q = _db.Users.AsNoTracking().Include(u => u.Company).AsQueryable();
+        var q = _db.Users.AsNoTracking().Include(u => u.Company).Include(u => u.Restaurant).AsQueryable();
         if (companyIdFilter is > 0)
             q = q.Where(u => u.CompanyId == companyIdFilter);
 
@@ -60,7 +60,14 @@ public class IdentityAdminService : IIdentityAdminService
                 CompanyId = u.CompanyId,
                 CompanyName = u.Company?.Name,
                 Roles = roles,
-                LinkedEmployeeId = emp?.Id
+                LinkedEmployeeId = emp?.Id,
+                Code = u.Code,
+                RfidCardId = u.RfidCardId,
+                CanAccessAdminPanel = u.CanAccessAdminPanel,
+                CanAccessFrontOffice = u.CanAccessFrontOffice,
+                WorkplaceType = u.WorkplaceType,
+                RestaurantId = u.RestaurantId,
+                RestaurantName = u.Restaurant?.Name
             });
         }
 
@@ -71,6 +78,7 @@ public class IdentityAdminService : IIdentityAdminService
     {
         var u = await _db.Users.AsNoTracking()
             .Include(x => x.Company)
+            .Include(x => x.Restaurant)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (u is null) return null;
 
@@ -91,7 +99,14 @@ public class IdentityAdminService : IIdentityAdminService
             CompanyId = u.CompanyId,
             CompanyName = u.Company?.Name,
             Roles = roles,
-            LinkedEmployeeId = emp?.Id
+            LinkedEmployeeId = emp?.Id,
+            Code = u.Code,
+            RfidCardId = u.RfidCardId,
+            CanAccessAdminPanel = u.CanAccessAdminPanel,
+            CanAccessFrontOffice = u.CanAccessFrontOffice,
+            WorkplaceType = u.WorkplaceType,
+            RestaurantId = u.RestaurantId,
+            RestaurantName = u.Restaurant?.Name
         };
     }
 
@@ -125,6 +140,32 @@ public class IdentityAdminService : IIdentityAdminService
             return (false, null, "This username is already in use.",
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["UserName"] = new[] { "This username is already in use." } });
 
+        var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
+        if (code is not null)
+        {
+            if (code.Length != 4 || !code.All(char.IsDigit))
+                return (false, null, "Code must be exactly 4 digits.",
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be exactly 4 digits." } });
+
+            var codeTaken = await _db.Users.AsNoTracking()
+                .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code, cancellationToken);
+            if (codeTaken)
+                return (false, null, "This code is already in use in this company.",
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "This code is already in use." } });
+        }
+
+        if (request.WorkplaceType == EmployeeWorkplaceType.Restaurant)
+        {
+            if (!request.RestaurantId.HasValue)
+                return (false, null, "Restaurant must be selected for a restaurant-scoped user.",
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["RestaurantId"] = new[] { "Restaurant is required." } });
+
+            var restaurantExists = await _db.Restaurants.AsNoTracking()
+                .AnyAsync(r => r.Id == request.RestaurantId.Value && r.CompanyId == request.CompanyId, cancellationToken);
+            if (!restaurantExists)
+                return (false, null, "Restaurant was not found for this company.", null);
+        }
+
         Employee? employee = null;
         if (request.EmployeeId is > 0)
         {
@@ -146,9 +187,13 @@ public class IdentityAdminService : IIdentityAdminService
             PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim(),
             IsActive = request.IsActive,
             CompanyId = request.CompanyId,
-            WorkplaceType = EmployeeWorkplaceType.HeadOffice,
-            RestaurantId = null,
-            EmailConfirmed = true
+            WorkplaceType = request.WorkplaceType,
+            RestaurantId = request.WorkplaceType == EmployeeWorkplaceType.Restaurant ? request.RestaurantId : null,
+            EmailConfirmed = true,
+            Code = code,
+            RfidCardId = string.IsNullOrWhiteSpace(request.RfidCardId) ? null : request.RfidCardId.Trim(),
+            CanAccessAdminPanel = request.CanAccessAdminPanel,
+            CanAccessFrontOffice = request.CanAccessFrontOffice
         };
 
         var res = await _userManager.CreateAsync(user, request.Password);
@@ -203,10 +248,42 @@ public class IdentityAdminService : IIdentityAdminService
             return (false, "This username is already in use by another user.",
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["UserName"] = new[] { "This username is already in use." } });
 
+        var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
+        if (code is not null)
+        {
+            if (code.Length != 4 || !code.All(char.IsDigit))
+                return (false, "Code must be exactly 4 digits.",
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be exactly 4 digits." } });
+
+            var codeTaken = await _db.Users.AsNoTracking()
+                .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code && x.Id != id, cancellationToken);
+            if (codeTaken)
+                return (false, "This code is already in use in this company.",
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "This code is already in use." } });
+        }
+
+        if (request.WorkplaceType == EmployeeWorkplaceType.Restaurant)
+        {
+            if (!request.RestaurantId.HasValue)
+                return (false, "Restaurant must be selected for a restaurant-scoped user.",
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["RestaurantId"] = new[] { "Restaurant is required." } });
+
+            var restaurantExists = await _db.Restaurants.AsNoTracking()
+                .AnyAsync(r => r.Id == request.RestaurantId.Value && r.CompanyId == request.CompanyId, cancellationToken);
+            if (!restaurantExists)
+                return (false, "Restaurant was not found for this company.", null);
+        }
+
         user.FullName = fullName;
         user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim();
         user.IsActive = request.IsActive;
         user.CompanyId = request.CompanyId;
+        user.Code = code;
+        user.RfidCardId = string.IsNullOrWhiteSpace(request.RfidCardId) ? null : request.RfidCardId.Trim();
+        user.CanAccessAdminPanel = request.CanAccessAdminPanel;
+        user.CanAccessFrontOffice = request.CanAccessFrontOffice;
+        user.WorkplaceType = request.WorkplaceType;
+        user.RestaurantId = request.WorkplaceType == EmployeeWorkplaceType.Restaurant ? request.RestaurantId : null;
 
         var unRes = await _userManager.SetUserNameAsync(user, userName);
         if (!unRes.Succeeded)
@@ -439,18 +516,18 @@ public class IdentityAdminService : IIdentityAdminService
     public async Task<List<UserRoleRowDto>> GetUserRoleMappingsAsync(CancellationToken cancellationToken = default)
     {
         return await (from ur in _db.UserRoles
-            join u in _db.Users on ur.UserId equals u.Id
-            join role in _db.Roles on ur.RoleId equals role.Id
-            orderby u.Id, role.Name
-            select new UserRoleRowDto
-            {
-                UserId = u.Id,
-                UserFullName = u.FullName,
-                UserName = u.UserName,
-                Email = u.Email,
-                RoleId = role.Id,
-                RoleName = role.Name ?? ""
-            })
+                      join u in _db.Users on ur.UserId equals u.Id
+                      join role in _db.Roles on ur.RoleId equals role.Id
+                      orderby u.Id, role.Name
+                      select new UserRoleRowDto
+                      {
+                          UserId = u.Id,
+                          UserFullName = u.FullName,
+                          UserName = u.UserName,
+                          Email = u.Email,
+                          RoleId = role.Id,
+                          RoleName = role.Name ?? ""
+                      })
             .ToListAsync(cancellationToken);
     }
 

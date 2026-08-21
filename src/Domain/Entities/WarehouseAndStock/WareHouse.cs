@@ -14,8 +14,8 @@ public class Warehouse : CompanyEntity<int>
     public int? ResponsibleEmployeeId { get; set; }
     public Employee? ResponsibleEmployee { get; set; }
 
-    public int? DriverUserId { get; set; }      // Vehicle anbarı sürücüyə bağlıdır
-    public User? DriverUser { get; set; }       // istəməsən domain-a user bağlamaya bilərsən, sadəcə int saxla
+    public int? DriverUserId { get; set; }     
+    public User? DriverUser { get; set; }     
     public ICollection<WarehouseStockDocument> WarehouseStockDocuments { get; set; } = new List<WarehouseStockDocument>();
 
     public ICollection<WarehouseStock> WarehouseStocks { get; set; } = new List<WarehouseStock>();

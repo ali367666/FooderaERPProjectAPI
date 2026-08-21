@@ -118,4 +118,20 @@ public static class AppPermissions
     public const string DiscountUpdate = "Discount.Update";
     public const string DiscountDelete = "Discount.Delete";
     public const string DiscountApply = "Discount.Apply";
+
+    public const string PosMoveTable = "Pos.MoveTable";
+    public const string PosDeleteOrder = "Pos.DeleteOrder";
+    public const string PosAccessSettings = "Pos.AccessSettings";
+    public const string PosChangePrice = "Pos.ChangePrice";
+    public const string PosZReport = "Pos.ZReport";
+    public const string PosPrintReceipt = "Pos.PrintReceipt";
+    public const string PosOverridePrice = "Pos.OverridePrice";
+    public const string PosChangeDepartment = "Pos.ChangeDepartment";
+    public const string PosRedirectUser = "Pos.RedirectUser";
+    public const string PosEditProductInSale = "Pos.EditProductInSale";
+    public const string PosDeleteProductInSale = "Pos.DeleteProductInSale";
+    public const string PosTableServiceCharge = "Pos.TableServiceCharge";
+    public const string PosDeleteReceipt = "Pos.DeleteReceipt";
+    public const string PosWarehouseAmountChange = "Pos.WarehouseAmountChange";
+    public const string PosPrintOldReceipt = "Pos.PrintOldReceipt";
 }
