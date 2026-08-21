@@ -40,10 +40,6 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     public DbSet<StockRequest> StockRequests { get; set; } = null!;
     public DbSet<StockRequestLine> StockRequestLines { get; set; } = null!;
 
-    // Transfer system
-    public DbSet<WarehouseTransfer> WarehouseTransfers { get; set; } = null!;
-    public DbSet<WarehouseTransferLine> WarehouseTransferLines { get; set; } = null!;
-
     // BSC Invoice sync
     public DbSet<BscInvoiceM> BscInvoiceMs { get; set; } = null!;
     public DbSet<BscInvoiceD> BscInvoiceDs { get; set; } = null!;
