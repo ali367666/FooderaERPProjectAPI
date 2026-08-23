@@ -4,3 +4,99 @@ GET {{API_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# 0a. Admin login (seeded admin — see appsettings.json "Seed" section)
+# Copy the accessToken from the response and paste it into @adminToken below,
+# then use {{adminToken}} as a Bearer token on the requests that need it.
+POST {{API_HostAddress}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "emailOrUserName": "admin@foodera.local",
+  "password": "Admin123!"
+}
+
+###
+
+@adminToken = PASTE_ACCESS_TOKEN_HERE
+
+# 0b. Create a test POS user (waiter) with a 4-digit Code, scoped to the seeded company (id=1, FOODERA001)
+POST {{API_HostAddress}}/api/Users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "fullName": "Test Waiter",
+  "userName": "test.waiter",
+  "email": "test.waiter@foodera.local",
+  "password": "Waiter123!",
+  "isActive": true,
+  "companyId": 1,
+  "code": "0002",
+  "canAccessAdminPanel": false,
+  "canAccessFrontOffice": true,
+  "workplaceType": 1
+}
+
+###
+
+# 0c. Create a test POS user (manager) with an elevated Code (date-prefixed at login time)
+POST {{API_HostAddress}}/api/Users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "fullName": "Test Manager",
+  "userName": "test.manager",
+  "email": "test.manager@foodera.local",
+  "password": "Manager123!",
+  "isActive": true,
+  "companyId": 1,
+  "code": "1234",
+  "canAccessAdminPanel": true,
+  "canAccessFrontOffice": true,
+  "workplaceType": 1
+}
+
+###
+
+# POS terminal setup: resolve CompanyCode -> companyId + restaurant list
+GET {{API_HostAddress}}/api/companies/lookup/YOUR_COMPANY_CODE
+Accept: application/json
+
+###
+
+# POS login: plain staff (Test Waiter from 0b above), 4-digit personal code
+POST {{API_HostAddress}}/api/Auth/pos-login
+Content-Type: application/json
+
+{
+  "companyId": 1,
+  "code": "0002"
+}
+
+###
+
+# POS login: elevated staff (Test Manager from 0c above), ddMM + 4-digit personal code.
+# NOTE: the ddMM prefix must equal TODAY'S date on the server, so replace "DDMM"
+# below with today's day+month (e.g. 23 Aug -> "2308") before sending.
+POST {{API_HostAddress}}/api/Auth/pos-login
+Content-Type: application/json
+
+{
+  "companyId": 1,
+  "code": "DDMM1234"
+}
+
+###
+
+# POS login: RFID card scan (set a RfidCardId on a user via PUT /api/Users/{id} first)
+POST {{API_HostAddress}}/api/Auth/pos-login
+Content-Type: application/json
+
+{
+  "companyId": 1,
+  "rfidCardId": "YOUR_RFID_CARD_ID"
+}
+
+###

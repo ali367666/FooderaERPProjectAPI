@@ -6,6 +6,7 @@ using Application.StockRequests.Commands.Recall;
 using Application.StockRequests.Commands.Reject;
 using Application.StockRequests.Commands.Submit;
 using Application.StockRequests.Commands.Update;
+using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Application.StockRequests.Dtos.Request;
 using Application.StockRequests.Queries.GetAll;
 using Application.StockRequests.Queries.GetById;
@@ -21,11 +22,26 @@ namespace API.Controllers;
 public class StockRequestsController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IMailActionTokenService _mailActionTokenService;
 
-    public StockRequestsController(IMediator mediator)
+    public StockRequestsController(IMediator mediator, IMailActionTokenService mailActionTokenService)
     {
         _mediator = mediator;
+        _mailActionTokenService = mailActionTokenService;
     }
+
+    private static IActionResult InvalidMailLinkResult() => new ContentResult
+    {
+        Content = @"
+<html>
+    <body style='font-family:Arial,sans-serif;padding:30px;'>
+        <h2>Link is invalid or has expired</h2>
+        <p>Please ask for a new approval email.</p>
+    </body>
+</html>",
+        ContentType = "text/html",
+        StatusCode = 400
+    };
 
     [Authorize(Policy = AppPermissions.StockRequestCreate)]
     [HttpPost]
@@ -111,7 +127,7 @@ public class StockRequestsController : ControllerBase
         return Ok(result);
     }
 
-    //[Authorize(Policy = AppPermissions.StockRequestView)]
+    [Authorize(Policy = AppPermissions.StockRequestView)]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -133,8 +149,11 @@ public class StockRequestsController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("{id:int}/approve-from-mail")]
-    public async Task<IActionResult> ApproveFromMail(int id)
+    public async Task<IActionResult> ApproveFromMail(int id, [FromQuery] string? token)
     {
+        if (!_mailActionTokenService.IsValid(id, token))
+            return InvalidMailLinkResult();
+
         var result = await _mediator.Send(new ApproveStockRequestCommand(id));
 
         if (!result.Success)
@@ -159,8 +178,11 @@ public class StockRequestsController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("{id:int}/reject-from-mail")]
-    public async Task<IActionResult> RejectFromMail(int id)
+    public async Task<IActionResult> RejectFromMail(int id, [FromQuery] string? token)
     {
+        if (!_mailActionTokenService.IsValid(id, token))
+            return InvalidMailLinkResult();
+
         var result = await _mediator.Send(new RejectStockRequestCommand(id));
 
         if (!result.Success)

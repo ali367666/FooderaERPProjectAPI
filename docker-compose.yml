@@ -1,4 +1,14 @@
 services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: foodera-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Admin12345"
+    ports:
+      - "1435:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
   minio:
     image: minio/minio
     container_name: foodera-minio
@@ -13,4 +23,5 @@ services:
       - minio_data:/data
 
 volumes:
+  sqlserver_data:
   minio_data:

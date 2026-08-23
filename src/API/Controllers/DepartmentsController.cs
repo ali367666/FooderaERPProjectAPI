@@ -61,17 +61,11 @@ public class DepartmentsController : ControllerBase
 
         return Ok(result);
     }
-    [Authorize]
+    [Authorize(Policy = AppPermissions.DepartmentView)]
     [HttpGet]
     public async Task<ActionResult<BaseResponse<List<DepartmentResponse>>>> GetAll(
         [FromQuery] int? companyId)
     {
-        var hasDepartmentViewPermission = User.Claims.Any(
-            x => x.Type == "Permission" && x.Value == AppPermissions.DepartmentView);
-
-        if (!hasDepartmentViewPermission)
-            return Forbid();
-
         var companyIdFromClaim = User.FindFirst("companyId")?.Value;
         var effectiveCompanyId = companyId;
 

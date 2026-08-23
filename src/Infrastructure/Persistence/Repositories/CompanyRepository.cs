@@ -28,6 +28,14 @@ public class CompanyRepository : ICompanyRepository
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
+    public async Task<Company?> GetByCompanyCodeAsync(string companyCode, CancellationToken cancellationToken)
+    {
+        return await _context.Companies
+            .AsNoTracking()
+            .Include(x => x.Restaurants)
+            .FirstOrDefaultAsync(x => x.CompanyCode == companyCode, cancellationToken);
+    }
+
     public async Task<bool> AnyAsync(Expression<Func<Company, bool>> predicate, CancellationToken cancellationToken)
     {
         return await _context.Companies.AnyAsync(predicate, cancellationToken);

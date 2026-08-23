@@ -46,7 +46,8 @@ public class JwtTokenService : IJwtTokenService
             new Claim("uid", idStr),
             new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
             new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
-            new Claim("companyId", user.CompanyId.ToString())
+            new Claim("companyId", user.CompanyId.ToString()),
+            new Claim("restaurantId", user.RestaurantId?.ToString() ?? string.Empty)
         };
 
         var effectivePermissions = new HashSet<string>(permissions, StringComparer.OrdinalIgnoreCase);

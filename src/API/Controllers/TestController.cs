@@ -1,11 +1,13 @@
 ﻿using Application.Common.Interfaces;
 using Infrastructure.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class TestController : ControllerBase
 {
     private readonly INotificationService _notificationService;

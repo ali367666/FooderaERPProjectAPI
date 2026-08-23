@@ -49,7 +49,14 @@ public static class RolePermissionSeeder
                 AppPermissions.OrdersView, AppPermissions.OrdersCreate, AppPermissions.OrdersUpdate, AppPermissions.OrdersPay,
                 AppPermissions.OrdersServe,
                 AppPermissions.KitchenView, AppPermissions.KitchenMarkReady, AppPermissions.KitchenStartPreparing,
-                AppPermissions.UserView, AppPermissions.RoleView, AppPermissions.UserRoleManage
+                AppPermissions.UserView, AppPermissions.RoleView, AppPermissions.UserRoleManage,
+                AppPermissions.DepartmentView, AppPermissions.PositionView, AppPermissions.EmployeeView,
+                AppPermissions.RestaurantView, AppPermissions.RestaurantTableView,
+                AppPermissions.StockCategoryView, AppPermissions.StockItemView,
+                AppPermissions.WarehouseView, AppPermissions.WarehouseStockView,
+                AppPermissions.StockRequestView, AppPermissions.StockPurchaseView,
+                AppPermissions.ReservationView, AppPermissions.DiscountView, AppPermissions.DiscountApply,
+                AppPermissions.AnalyticsView, AppPermissions.BscInvoiceView
             }
         },
         {
@@ -58,7 +65,8 @@ public static class RolePermissionSeeder
             {
                 AppPermissions.OrdersView, AppPermissions.OrdersCreate, AppPermissions.OrdersAdd,
                 AppPermissions.OrdersServe, AppPermissions.MenuItemView,
-                AppPermissions.RestaurantView, AppPermissions.RestaurantTableView, AppPermissions.EmployeeView
+                AppPermissions.RestaurantView, AppPermissions.RestaurantTableView, AppPermissions.EmployeeView,
+                AppPermissions.ReservationView
             }
         },
         {
@@ -72,7 +80,8 @@ public static class RolePermissionSeeder
             AppRoles.Cashier,
             new List<string>
             {
-                AppPermissions.OrdersView, AppPermissions.OrdersPay, AppPermissions.PaymentCreate
+                AppPermissions.OrdersView, AppPermissions.OrdersPay, AppPermissions.PaymentCreate,
+                AppPermissions.DiscountApply
             }
         },
         {

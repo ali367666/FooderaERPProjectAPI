@@ -1,6 +1,7 @@
 using Application.BscInvoice.Dtos;
 using Application.BscInvoice.Queries.GetAll;
 using Application.Common.Responce;
+using Domain.Constants;
 using Infrastructure.Services;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -21,7 +22,7 @@ public class BscInvoicesController : ControllerBase
         _syncService = syncService;
     }
 
-    [Authorize]
+    [Authorize(Policy = AppPermissions.BscInvoiceView)]
     [HttpGet]
     public async Task<ActionResult<BaseResponse<List<BscInvoiceMResponse>>>> GetAll(
         [FromQuery] DateTime? docDate = null)
@@ -30,7 +31,7 @@ public class BscInvoicesController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize]
+    [Authorize(Policy = AppPermissions.BscInvoiceSync)]
     [HttpPost("sync")]
     public async Task<ActionResult> Sync([FromQuery] DateTime? date = null, CancellationToken cancellationToken = default)
     {

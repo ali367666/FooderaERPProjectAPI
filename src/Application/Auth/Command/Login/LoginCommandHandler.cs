@@ -1,10 +1,9 @@
-﻿using Application.Auth.Dtos.Responce;
-using Application.Common.Interfaces.Abstracts.İnterfaces;
+using Application.Auth.Dtos.Responce;
+using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Responce;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
-using System.Security.Claims;
 
 namespace Application.Auth.Commands.Login;
 
@@ -12,19 +11,16 @@ public sealed class LoginCommandHandler
     : IRequestHandler<LoginCommand, BaseResponse<LoginResponse>>
 {
     private readonly UserManager<Domain.Entities.User> _userManager;
-    private readonly RoleManager<IdentityRole<int>> _roleManager;
-    private readonly IJwtTokenService _jwtTokenService;
+    private readonly IAuthTokenIssuer _authTokenIssuer;
     private readonly ILogger<LoginCommandHandler> _logger;
 
     public LoginCommandHandler(
         UserManager<Domain.Entities.User> userManager,
-        RoleManager<IdentityRole<int>> roleManager,
-        IJwtTokenService jwtTokenService,
+        IAuthTokenIssuer authTokenIssuer,
         ILogger<LoginCommandHandler> logger)
     {
         _userManager = userManager;
-        _roleManager = roleManager;
-        _jwtTokenService = jwtTokenService;
+        _authTokenIssuer = authTokenIssuer;
         _logger = logger;
     }
 
@@ -58,40 +54,7 @@ public sealed class LoginCommandHandler
             return BaseResponse<LoginResponse>.Fail("Email/username or password is incorrect");
         }
 
-        var permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        var userClaims = await _userManager.GetClaimsAsync(user);
-        foreach (var claim in userClaims.Where(x => x.Type == "Permission"))
-        {
-            permissions.Add(claim.Value);
-        }
-
-        var roles = await _userManager.GetRolesAsync(user);
-        _logger.LogInformation("Login roles for user {UserId}: {Roles}", user.Id, string.Join(", ", roles));
-        foreach (var roleName in roles)
-        {
-            var role = await _roleManager.FindByNameAsync(roleName);
-            if (role is null)
-                continue;
-
-            var roleClaims = await _roleManager.GetClaimsAsync(role);
-            foreach (var claim in roleClaims.Where(x => x.Type == "Permission"))
-            {
-                permissions.Add(claim.Value);
-            }
-        }
-
-        _logger.LogInformation(
-            "Collected permission claims for user {UserId}: {Permissions}",
-            user.Id,
-            string.Join(", ", permissions.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)));
-
-        var tokenResponse = await _jwtTokenService.CreateTokenAsync(user, permissions, roles);
-
-        _logger.LogInformation(
-            "JWT permissions for user {UserId}: {Permissions}",
-            user.Id,
-            string.Join(", ", tokenResponse.Permissions));
+        var tokenResponse = await _authTokenIssuer.IssueForUserAsync(user, request.IpAddress, cancellationToken);
 
         _logger.LogInformation("Login successful for user {UserId}", user.Id);
 

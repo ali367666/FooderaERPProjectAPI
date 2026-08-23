@@ -1,5 +1,6 @@
 using Application.Analytics.Dtos;
 using Application.Analytics.Queries;
+using Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +19,7 @@ public class AnalyticsController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize(Policy = AppPermissions.AnalyticsView)]
     [HttpGet("dashboard")]
     public async Task<ActionResult<DashboardAnalyticsResponse>> GetDashboard(
         CancellationToken cancellationToken)
@@ -26,6 +28,7 @@ public class AnalyticsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Policy = AppPermissions.AnalyticsView)]
     [HttpGet("food-cost")]
     public async Task<ActionResult<List<FoodCostResponse>>> GetFoodCost(
         CancellationToken cancellationToken)

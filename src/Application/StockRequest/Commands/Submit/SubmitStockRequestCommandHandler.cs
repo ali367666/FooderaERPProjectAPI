@@ -3,6 +3,7 @@ using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Application.Common.Models;
 using Application.Common.Responce;
 using Domain.Enums;
@@ -21,6 +22,7 @@ public class SubmitStockRequestCommandHandler
     private readonly IEmailService _emailService;
     private readonly INotificationService _notificationService;
     private readonly IAuthenticatedUserAccessor _authenticatedUserAccessor;
+    private readonly IMailActionTokenService _mailActionTokenService;
     private readonly ILogger<SubmitStockRequestCommandHandler> _logger;
 
     public SubmitStockRequestCommandHandler(
@@ -31,6 +33,7 @@ public class SubmitStockRequestCommandHandler
         IEmailService emailService,
         INotificationService notificationService,
         IAuthenticatedUserAccessor authenticatedUserAccessor,
+        IMailActionTokenService mailActionTokenService,
         ILogger<SubmitStockRequestCommandHandler> logger)
     {
         _stockRequestRepository = stockRequestRepository;
@@ -40,6 +43,7 @@ public class SubmitStockRequestCommandHandler
         _emailService = emailService;
         _notificationService = notificationService;
         _authenticatedUserAccessor = authenticatedUserAccessor;
+        _mailActionTokenService = mailActionTokenService;
         _logger = logger;
     }
 
@@ -247,9 +251,10 @@ public class SubmitStockRequestCommandHandler
                 if (!string.IsNullOrWhiteSpace(approverEmail))
                 {
                     var baseUrl = "https://localhost:7145";
+                    var mailToken = _mailActionTokenService.GenerateToken(entity.Id, TimeSpan.FromDays(7));
 
-                    var approveUrl = $"{baseUrl}/api/StockRequests/{entity.Id}/approve-from-mail";
-                    var rejectUrl = $"{baseUrl}/api/StockRequests/{entity.Id}/reject-from-mail";
+                    var approveUrl = $"{baseUrl}/api/StockRequests/{entity.Id}/approve-from-mail?token={Uri.EscapeDataString(mailToken)}";
+                    var rejectUrl = $"{baseUrl}/api/StockRequests/{entity.Id}/reject-from-mail?token={Uri.EscapeDataString(mailToken)}";
 
                     var linesHtml = new StringBuilder();
 

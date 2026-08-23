@@ -26,4 +26,16 @@ public class UserRepository : IUserRepository
         return await _context.Users
             .AnyAsync(x => x.Id == id, cancellationToken);
     }
+
+    public async Task<User?> GetByCompanyAndCodeAsync(int companyId, string code, CancellationToken cancellationToken)
+    {
+        return await _context.Users
+            .FirstOrDefaultAsync(x => x.CompanyId == companyId && x.Code == code, cancellationToken);
+    }
+
+    public async Task<User?> GetByRfidCardIdAsync(string rfidCardId, CancellationToken cancellationToken)
+    {
+        return await _context.Users
+            .FirstOrDefaultAsync(x => x.RfidCardId == rfidCardId, cancellationToken);
+    }
 }
