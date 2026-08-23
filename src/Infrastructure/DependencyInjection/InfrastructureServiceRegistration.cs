@@ -3,6 +3,7 @@ using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Domain.Entities;
 using Infrastructure.Identity;
 using Infrastructure.Options;
@@ -88,6 +89,8 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<IDiscountRepository, DiscountRepository>();
+        services.AddScoped<IAuthTokenIssuer, AuthTokenIssuer>();
+        services.AddScoped<IMailActionTokenService, MailActionTokenService>();
 
         services.AddHttpClient<ICbarExchangeRateService, CbarExchangeRateService>();
 

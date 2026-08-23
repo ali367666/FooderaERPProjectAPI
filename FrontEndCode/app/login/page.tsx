@@ -501,6 +501,13 @@ export default function LoginPage() {
             >
               {isLoading ? "Signing in..." : "Login"}
             </Button>
+
+            <a
+              href="/pos-login"
+              className="block text-center text-sm text-muted-foreground hover:text-foreground hover:underline"
+            >
+              POS terminalı girişi
+            </a>
           </form>
         </div>
       </div>

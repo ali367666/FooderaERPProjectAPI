@@ -5,6 +5,7 @@ public interface ICompanyRepository
 {
     Task<List<Company>> GetAllAsync(CancellationToken cancellationToken);
     Task<Company?> GetByIdAsync(int id, CancellationToken cancellationToken);
+    Task<Company?> GetByCompanyCodeAsync(string companyCode, CancellationToken cancellationToken);
     Task<bool> AnyAsync(Expression<Func<Company, bool>> predicate, CancellationToken cancellationToken);
     Task AddAsync(Company company, CancellationToken cancellationToken);
     void Update(Company company);

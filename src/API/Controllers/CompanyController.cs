@@ -25,6 +25,16 @@ public class CompanyController(IMediator mediator) : BaseController(mediator)
         return response.Success ? Ok(response) : BadRequest(response);
     }
 
+    [AllowAnonymous]
+    [HttpGet("lookup/{companyCode}")]
+    public async Task<IActionResult> LookupByCode(
+        [FromRoute] string companyCode,
+        CancellationToken cancellationToken)
+    {
+        var response = await Mediator.Send(new GetCompanyByCodeQuery(companyCode), cancellationToken);
+        return response.Success ? Ok(response) : NotFound(response);
+    }
+
     [Authorize(Policy = AppPermissions.CompanyView)]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(

@@ -14,6 +14,13 @@ export type AppUser = {
   companyName: string | null;
   roles: string[];
   linkedEmployeeId: number | null;
+  code: string | null;
+  rfidCardId: string | null;
+  canAccessAdminPanel: boolean;
+  canAccessFrontOffice: boolean;
+  /** 1 = HeadOffice, 2 = Restaurant (Domain.Enums.EmployeeWorkplaceType) */
+  workplaceType: number;
+  restaurantId: number | null;
 };
 
 export type AppUserInput = {
@@ -26,6 +33,12 @@ export type AppUserInput = {
   isActive: boolean;
   companyId: number;
   employeeId: number | null;
+  code: string | null;
+  rfidCardId: string | null;
+  canAccessAdminPanel: boolean;
+  canAccessFrontOffice: boolean;
+  workplaceType: number;
+  restaurantId: number | null;
 };
 
 function pick<T>(o: Record<string, unknown>, camel: string, pascal: string): T | undefined {
@@ -53,6 +66,15 @@ function normalizeUser(item: unknown): AppUser | null {
     companyName: (pick<string | null>(raw, "companyName", "CompanyName") ?? null) as string | null,
     roles,
     linkedEmployeeId: le == null || le === 0 ? null : Number(le),
+    code: (pick<string | null>(raw, "code", "Code") ?? null) as string | null,
+    rfidCardId: (pick<string | null>(raw, "rfidCardId", "RfidCardId") ?? null) as string | null,
+    canAccessAdminPanel: Boolean(pick(raw, "canAccessAdminPanel", "CanAccessAdminPanel") ?? true),
+    canAccessFrontOffice: Boolean(pick(raw, "canAccessFrontOffice", "CanAccessFrontOffice") ?? false),
+    workplaceType: Number(pick(raw, "workplaceType", "WorkplaceType") ?? 1),
+    restaurantId: (() => {
+      const r = pick<number | null | undefined>(raw, "restaurantId", "RestaurantId");
+      return r == null || r === 0 ? null : Number(r);
+    })(),
   };
 }
 
@@ -119,6 +141,12 @@ export async function createUser(input: AppUserInput & { password: string }): Pr
       isActive: input.isActive,
       companyId: input.companyId,
       employeeId: input.employeeId,
+      code: input.code?.trim() || null,
+      rfidCardId: input.rfidCardId?.trim() || null,
+      canAccessAdminPanel: input.canAccessAdminPanel,
+      canAccessFrontOffice: input.canAccessFrontOffice,
+      workplaceType: input.workplaceType,
+      restaurantId: input.workplaceType === 2 ? input.restaurantId : null,
     });
     if (response.data && typeof response.data === "object" && (response.data as { success?: boolean }).success === false) {
       const o = response.data as { message?: string; errors?: unknown };
@@ -151,6 +179,12 @@ export async function updateUser(id: number, input: AppUserInput): Promise<void>
       isActive: input.isActive,
       companyId: input.companyId,
       employeeId: input.employeeId,
+      code: input.code?.trim() || null,
+      rfidCardId: input.rfidCardId?.trim() || null,
+      canAccessAdminPanel: input.canAccessAdminPanel,
+      canAccessFrontOffice: input.canAccessFrontOffice,
+      workplaceType: input.workplaceType,
+      restaurantId: input.workplaceType === 2 ? input.restaurantId : null,
     };
     if (input.password && input.password.trim().length > 0) {
       body.password = input.password;

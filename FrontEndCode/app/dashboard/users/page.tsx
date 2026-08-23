@@ -27,6 +27,7 @@ import {
   type AppUser,
 } from "@/lib/services/user-admin-service";
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
+import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
 import { toast } from "sonner";
 
 const selectClass =
@@ -79,9 +80,17 @@ export default function UsersPage() {
   const [isActive, setIsActive] = useState(true);
   const [companyId, setCompanyId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
+  const [code, setCode] = useState("");
+  const [rfidCardId, setRfidCardId] = useState("");
+  const [canAccessAdminPanel, setCanAccessAdminPanel] = useState(true);
+  const [canAccessFrontOffice, setCanAccessFrontOffice] = useState(false);
+  const [workplaceType, setWorkplaceType] = useState("1");
+  const [restaurantId, setRestaurantId] = useState("");
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [empLoading, setEmpLoading] = useState(false);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [restLoading, setRestLoading] = useState(false);
 
   const companyNameById = useMemo(
     () => new Map(companies.map((c) => [c.id, c.name])),
@@ -114,6 +123,7 @@ export default function UsersPage() {
     let c = false;
     (async () => {
       setEmpLoading(true);
+      setRestLoading(true);
       try {
         const em = await getEmployees();
         if (!c) setEmployees(em);
@@ -121,6 +131,14 @@ export default function UsersPage() {
         if (!c) setEmployees([]);
       } finally {
         if (!c) setEmpLoading(false);
+      }
+      try {
+        const rs = await getRestaurants();
+        if (!c) setRestaurants(rs);
+      } catch {
+        if (!c) setRestaurants([]);
+      } finally {
+        if (!c) setRestLoading(false);
       }
     })();
     return () => {
@@ -136,6 +154,11 @@ export default function UsersPage() {
 
   const employeesForCompany = useMemo(() => employees, [employees]);
 
+  const restaurantsForCompany = useMemo(
+    () => restaurants.filter((r) => String(r.companyId) === companyId),
+    [restaurants, companyId],
+  );
+
   const resetForm = () => {
     setEditingId(null);
     setFullName("");
@@ -148,6 +171,12 @@ export default function UsersPage() {
       String(selectedCompanyId ?? companies[0]?.id ?? ""),
     );
     setEmployeeId("");
+    setCode("");
+    setRfidCardId("");
+    setCanAccessAdminPanel(true);
+    setCanAccessFrontOffice(false);
+    setWorkplaceType("1");
+    setRestaurantId("");
     setFieldErrors({});
   };
 
@@ -169,6 +198,12 @@ export default function UsersPage() {
       setIsActive(u.isActive);
       setCompanyId(String(u.companyId));
       setEmployeeId(u.linkedEmployeeId != null ? String(u.linkedEmployeeId) : "");
+      setCode(u.code || "");
+      setRfidCardId(u.rfidCardId || "");
+      setCanAccessAdminPanel(u.canAccessAdminPanel);
+      setCanAccessFrontOffice(u.canAccessFrontOffice);
+      setWorkplaceType(String(u.workplaceType || 1));
+      setRestaurantId(u.restaurantId != null ? String(u.restaurantId) : "");
       setDialogOpen(true);
     } catch (e) {
       toast.error(friendlyError(e, "Could not load user."));
@@ -204,6 +239,14 @@ export default function UsersPage() {
       toast.error("Password is required for a new user.");
       return;
     }
+    if (code.trim() && !/^\d{4}$/.test(code.trim())) {
+      toast.error("Code must be exactly 4 digits.");
+      return;
+    }
+    if (workplaceType === "2" && !restaurantId) {
+      toast.error("Restaurant is required for a restaurant-scoped user.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setFieldErrors({});
@@ -217,6 +260,12 @@ export default function UsersPage() {
         isActive,
         companyId: comp,
         employeeId: Number.isFinite(empN) && empN > 0 ? empN : null,
+        code: code.trim() || null,
+        rfidCardId: rfidCardId.trim() || null,
+        canAccessAdminPanel,
+        canAccessFrontOffice,
+        workplaceType: Number(workplaceType),
+        restaurantId: workplaceType === "2" && restaurantId ? Number(restaurantId) : null,
       };
       if (editingId == null) {
         await createUser({ ...payload, password: password.trim() });
@@ -498,6 +547,40 @@ export default function UsersPage() {
                 ))}
               </select>
             </div>
+            <div>
+              <Label htmlFor="u-workplace">Workplace</Label>
+              <select
+                id="u-workplace"
+                className={selectClass + " mt-1"}
+                value={workplaceType}
+                onChange={(e) => {
+                  setWorkplaceType(e.target.value);
+                  if (e.target.value !== "2") setRestaurantId("");
+                }}
+              >
+                <option value="1">Head office</option>
+                <option value="2">Restaurant</option>
+              </select>
+            </div>
+            {workplaceType === "2" && (
+              <div>
+                <Label htmlFor="u-restaurant">Restaurant</Label>
+                <select
+                  id="u-restaurant"
+                  className={selectClass + " mt-1"}
+                  value={restaurantId}
+                  onChange={(e) => setRestaurantId(e.target.value)}
+                  disabled={restLoading}
+                >
+                  <option value="">{restLoading ? "Loading…" : "Select a restaurant"}</option>
+                  {restaurantsForCompany.map((r) => (
+                    <option key={r.id} value={String(r.id)}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="sm:col-span-2 flex items-center gap-2 pt-1">
               <Checkbox
                 id="u-active"
@@ -506,6 +589,56 @@ export default function UsersPage() {
               />
               <Label htmlFor="u-active" className="text-sm font-normal">
                 Account active
+              </Label>
+            </div>
+            <div>
+              <Label htmlFor="u-code">POS code (4 digits)</Label>
+              <Input
+                id="u-code"
+                className="mt-1"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="e.g. 0002"
+                inputMode="numeric"
+                maxLength={4}
+                autoComplete="off"
+              />
+              {getFieldErrorMessage(fieldErrors, "code") && (
+                <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "code")}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="u-rfid">RFID card id</Label>
+              <Input
+                id="u-rfid"
+                className="mt-1"
+                value={rfidCardId}
+                onChange={(e) => setRfidCardId(e.target.value)}
+                placeholder="Optional"
+                autoComplete="off"
+              />
+              {getFieldErrorMessage(fieldErrors, "rfidCardId") && (
+                <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "rfidCardId")}</p>
+              )}
+            </div>
+            <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+              <Checkbox
+                id="u-front-office"
+                checked={canAccessFrontOffice}
+                onCheckedChange={(v) => setCanAccessFrontOffice(v === true)}
+              />
+              <Label htmlFor="u-front-office" className="text-sm font-normal">
+                Can access POS (front office)
+              </Label>
+            </div>
+            <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+              <Checkbox
+                id="u-admin-panel"
+                checked={canAccessAdminPanel}
+                onCheckedChange={(v) => setCanAccessAdminPanel(v === true)}
+              />
+              <Label htmlFor="u-admin-panel" className="text-sm font-normal">
+                Can access admin panel (elevated POS code: date + code)
               </Label>
             </div>
             <div className="sm:col-span-2">
