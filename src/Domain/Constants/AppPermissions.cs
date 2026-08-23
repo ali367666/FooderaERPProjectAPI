@@ -76,7 +76,15 @@ public static class AppPermissions
     public const string OrdersPay = "Orders.Pay";
     public const string PaymentCreate = "Payment.Create";
     public const string RoleView = "Role.View";
+    public const string RoleCreate = "Role.Create";
+    public const string RoleUpdate = "Role.Update";
+    public const string RoleDelete = "Role.Delete";
     public const string UserRoleManage = "UserRole.Manage";
+
+    public const string AnalyticsView = "Analytics.View";
+
+    public const string BscInvoiceView = "BscInvoice.View";
+    public const string BscInvoiceSync = "BscInvoice.Sync";
 
 
     public const string MenuItemView = "MenuItem.View";

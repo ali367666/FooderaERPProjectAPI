@@ -29,7 +29,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy ="WarehouseCreate" )]
+    [Authorize(Policy = AppPermissions.WarehouseCreate)]
     public async Task<IActionResult> Create([FromBody] CreateWarehouseRequest request)
     {
         var result = await _mediator.Send(new CreateWarehouseCommand(request));

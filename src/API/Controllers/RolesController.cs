@@ -37,7 +37,7 @@ public class RolesController : ControllerBase
         return Ok(BaseResponse<RoleListItemDto>.Ok(role));
     }
 
-    [Authorize(Policy = AppPermissions.UserCreate)]
+    [Authorize(Policy = AppPermissions.RoleCreate)]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateRoleRequest request, CancellationToken cancellationToken)
     {
@@ -47,7 +47,7 @@ public class RolesController : ControllerBase
         return Ok(BaseResponse<int>.Ok(result.RoleId!.Value, "Role created successfully."));
     }
 
-    [Authorize(Policy = AppPermissions.UserUpdate)]
+    [Authorize(Policy = AppPermissions.RoleUpdate)]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update([FromRoute] int id, [FromBody] UpdateRoleRequest request, CancellationToken cancellationToken)
     {
@@ -57,7 +57,7 @@ public class RolesController : ControllerBase
         return Ok(BaseResponse.Ok("Role updated successfully."));
     }
 
-    [Authorize(Policy = AppPermissions.UserDelete)]
+    [Authorize(Policy = AppPermissions.RoleDelete)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete([FromRoute] int id, CancellationToken cancellationToken)
     {
