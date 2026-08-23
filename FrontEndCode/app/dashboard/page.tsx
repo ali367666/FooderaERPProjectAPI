@@ -50,13 +50,6 @@ import {
   StockRequestStatus,
   type StockRequestDto,
 } from '@/lib/services/stock-request-service';
-import {
-  getWarehouseTransfers,
-  approveWarehouseTransfer,
-  rejectWarehouseTransfer,
-  TransferStatus,
-  type WarehouseTransferDto,
-} from '@/lib/services/warehouse-transfer-service';
 import { getOrders, type OrderDto } from '@/lib/services/order-service';
 import {
   type DashboardInventoryAlert,
@@ -134,7 +127,6 @@ export default function DashboardPage() {
           stockCategories,
           stockMovements,
           stockRequests,
-          warehouseTransfers,
           orders,
         ] = await Promise.all([
           getWarehouses(),
@@ -143,7 +135,6 @@ export default function DashboardPage() {
           getAllStockCategoriesForAllCompanies(companyIds),
           searchStockMovementsForAllCompanies(companyIds),
           getStockRequests(),
-          getWarehouseTransfers(),
           getOrders(),
         ]);
 
@@ -156,7 +147,6 @@ export default function DashboardPage() {
           stockCategories,
           stockMovements,
           stockRequests,
-          warehouseTransfers,
           orders,
         });
 
@@ -333,9 +323,6 @@ export default function DashboardPage() {
                   if (approval.type === 'stock_request') {
                     const id = Number(approval.id.split('-').pop());
                     if (Number.isFinite(id)) await approveStockRequest(id);
-                  } else if (approval.type === 'warehouse_transfer') {
-                    const id = Number(approval.id.split('-').pop());
-                    if (Number.isFinite(id)) await approveWarehouseTransfer(id);
                   }
                   setReloadToken((value) => value + 1);
                 }}
@@ -343,9 +330,6 @@ export default function DashboardPage() {
                   if (approval.type === 'stock_request') {
                     const id = Number(approval.id.split('-').pop());
                     if (Number.isFinite(id)) await rejectStockRequest(id);
-                  } else if (approval.type === 'warehouse_transfer') {
-                    const id = Number(approval.id.split('-').pop());
-                    if (Number.isFinite(id)) await rejectWarehouseTransfer(id);
                   }
                   setReloadToken((value) => value + 1);
                 }}
@@ -557,7 +541,6 @@ function buildDashboardData(input: {
   stockCategories: StockCategory[];
   stockMovements: StockMovementRow[];
   stockRequests: StockRequestDto[];
-  warehouseTransfers: WarehouseTransferDto[];
   orders: OrderDto[];
 }): DashboardData {
   const {
@@ -569,7 +552,6 @@ function buildDashboardData(input: {
     stockCategories,
     stockMovements,
     stockRequests,
-    warehouseTransfers,
     orders,
   } = input;
 
@@ -595,10 +577,6 @@ function buildDashboardData(input: {
   const visibleStockRequests = stockRequests.filter((request) => {
     if (isCompanyVisible(request.companyId)) return true;
     return selectedWarehouseIds.has(request.requestingWarehouseId) || selectedWarehouseIds.has(request.supplyingWarehouseId);
-  });
-  const visibleWarehouseTransfers = warehouseTransfers.filter((transfer) => {
-    if (isCompanyVisible(transfer.companyId)) return true;
-    return selectedWarehouseIds.has(transfer.fromWarehouseId) || selectedWarehouseIds.has(transfer.toWarehouseId);
   });
   const visibleOrders = orders.filter((order) => isCompanyVisible(order.companyId));
 
@@ -643,19 +621,6 @@ function buildDashboardData(input: {
         createdAt: request.createdAtUtc ?? new Date().toISOString(),
         items: request.lines.slice(0, 3).map((line) => line.stockItemName).join(', ') || null,
         quantity: request.lines.reduce((sum, line) => sum + line.quantity, 0),
-        actionable: true,
-      })),
-    ...visibleWarehouseTransfers
-      .filter((transfer) => transfer.status === TransferStatus.Pending)
-      .map((transfer) => ({
-        id: `warehouse-transfer-${transfer.id}`,
-        type: 'warehouse_transfer' as const,
-        title: `Warehouse Transfer #${transfer.id}`,
-        createdBy: transfer.fromWarehouseName || 'Warehouse',
-        status: 'pending' as const,
-        createdAt: transfer.transferDate,
-        items: transfer.lines.slice(0, 3).map((line) => line.stockItemName).join(', ') || null,
-        quantity: transfer.lines.reduce((sum, line) => sum + line.quantity, 0),
         actionable: true,
       })),
     ...visibleOrders
@@ -706,20 +671,6 @@ function buildDashboardData(input: {
       user: request.requestingWarehouseName || 'System',
       timestamp: request.createdAtUtc ?? new Date().toISOString(),
       status: request.status === StockRequestStatus.Approved ? 'completed' : 'pending' as const,
-    })),
-    ...visibleWarehouseTransfers.map((transfer) => ({
-      id: `transfer-${transfer.id}`,
-      type: 'transfer' as const,
-      description: `Transfer #${transfer.id} ${formatStatusLabel(String(transfer.status))}`,
-      details: `${transfer.fromWarehouseName} -> ${transfer.toWarehouseName}`,
-      user: transfer.fromWarehouseName || 'System',
-      timestamp: transfer.transferDate,
-      status:
-        transfer.status === TransferStatus.Completed
-          ? 'completed'
-          : transfer.status === TransferStatus.Pending
-            ? 'pending'
-            : 'in_progress' as const,
     })),
   ]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
