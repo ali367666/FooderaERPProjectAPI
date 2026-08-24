@@ -4,16 +4,19 @@ using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Infrastructure.Migrations
+namespace Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260824194740_AddCompanySettings")]
+    partial class AddCompanySettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -367,10 +370,25 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("ModuleAnbar")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("ModuleDataSecimi")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("ModuleFilial")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("ModuleFitnes")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("ModuleMasaBolge")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleOtel")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModulePaket")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleQiymetSor")
                         .HasColumnType("bit");
 
                     b.Property<bool>("ModuleRezervasyon")

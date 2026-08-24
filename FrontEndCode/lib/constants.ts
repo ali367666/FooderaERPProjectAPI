@@ -27,6 +27,7 @@ import {
   Calculator,
   Tag,
   FileSpreadsheet,
+  Settings,
 } from "lucide-react";
 
 export interface NavItem {
@@ -35,6 +36,8 @@ export interface NavItem {
   icon: LucideIcon;
   badge?: string;
   permission?: string;
+  /** Company-level module toggle key (from CompanySettingsBranding) required for this item to show. */
+  module?: "moduleFilial" | "moduleAnbar" | "moduleRezervasyon" | "moduleMasaBolge";
 }
 
 export interface NavGroup {
@@ -102,40 +105,47 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/stock-categories",
         icon: Layers,
         permission: "StockCategory.View",
+        module: "moduleAnbar",
       },
       {
         title: "Stock Items",
         href: "/dashboard/stock-items",
         icon: Boxes,
         permission: "StockItem.View",
+        module: "moduleAnbar",
       },
       {
         title: "Warehouses",
         href: "/dashboard/warehouses",
         icon: Warehouse,
         permission: "Warehouse.View",
+        module: "moduleAnbar",
       },
       {
         title: "Stock entry documents",
         href: "/dashboard/warehouse-stock-documents",
         icon: FileText,
+        module: "moduleAnbar",
       },
       {
         title: "Warehouse stock balances",
         href: "/dashboard/warehouse-stocks",
         icon: ClipboardList,
         permission: "WarehouseStock.View",
+        module: "moduleAnbar",
       },
       {
         title: "Stock movements",
         href: "/dashboard/stock-movements",
         icon: History,
+        module: "moduleAnbar",
       },
       {
         title: "Stock Requests",
         href: "/dashboard/stock-requests",
         icon: Package,
         permission: "StockRequest.View",
+        module: "moduleAnbar",
       },
       {
         title: "Warehouse Transfers",
@@ -147,6 +157,7 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/stock-purchases",
         icon: ShoppingCart,
         permission: "StockPurchase.View",
+        module: "moduleAnbar",
       },
       {
         title: "BSC İnvoice",
@@ -164,12 +175,14 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/table-map",
         icon: LayoutGrid,
         permission: "RestaurantTable.View",
+        module: "moduleMasaBolge",
       },
       {
         title: "Rezervasiyalar",
         href: "/dashboard/reservations",
         icon: CalendarCheck,
         permission: "Reservation.View",
+        module: "moduleRezervasyon",
       },
       {
         title: "Endirimlər",
@@ -182,6 +195,7 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/floor-plan",
         icon: PenTool,
         permission: "RestaurantTable.View",
+        module: "moduleMasaBolge",
       },
       {
         title: "Orders",
@@ -205,12 +219,14 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/restaurants",
         icon: Building2,
         permission: "Restaurant.View",
+        module: "moduleFilial",
       },
       {
         title: "Restaurant Tables",
         href: "/dashboard/restaurant-tables",
         icon: UtensilsCrossed,
         permission: "RestaurantTable.View",
+        module: "moduleMasaBolge",
       },
       {
         title: "Menu Categories",
@@ -235,6 +251,12 @@ export const navGroups: NavGroup[] = [
   {
     title: "SYSTEM",
     items: [
+      {
+        title: "Tənzimləmələr",
+        href: "/dashboard/settings",
+        icon: Settings,
+        permission: "CompanySettings.View",
+      },
       {
         title: "Users",
         href: "/dashboard/users",

@@ -58,6 +58,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAuthenticatedUserAccessor, AuthenticatedUserAccessor>();
         // 🔹 Repository-lər
         services.AddScoped<ICompanyRepository,       CompanyRepository>();
+        services.AddScoped<ICompanySettingsRepository, CompanySettingsRepository>();
         services.AddScoped<IStockCategoryRepository, StockCategoryRepository>();
         services.AddScoped<IWarehouseRepository,     WarehouseRepository>();
         services.AddScoped<IUserRepository,          UserRepository>();
@@ -91,6 +92,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IDiscountRepository, DiscountRepository>();
         services.AddScoped<IAuthTokenIssuer, AuthTokenIssuer>();
         services.AddScoped<IMailActionTokenService, MailActionTokenService>();
+        services.AddScoped<IFileStorageService, MinioFileStorageService>();
 
         services.AddHttpClient<ICbarExchangeRateService, CbarExchangeRateService>();
 

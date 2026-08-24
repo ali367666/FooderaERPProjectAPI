@@ -6,14 +6,20 @@ import { navGroups } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
 import { ChefHat, Menu, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePermissionSet } from "@/hooks/use-auth-permissions";
-import { getStoredAuthUser } from "@/lib/auth-client";
+import { getStoredAuthUser, getStoredToken } from "@/lib/auth-client";
+import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
+import {
+  getCompanySettingsBranding,
+  type CompanySettingsBranding,
+} from "@/lib/services/company-settings-service";
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const permissionSet = usePermissionSet();
+  const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
 
   const isAdmin = useMemo(() => {
     const authUser = getStoredAuthUser();
@@ -21,19 +27,28 @@ export function AppSidebar() {
     return roles.some((r) => r.trim().toLowerCase() === "admin");
   }, [permissionSet]);
 
+  useEffect(() => {
+    const companyId = getCompanyIdFromToken(getStoredToken());
+    if (!companyId) return;
+    getCompanySettingsBranding(companyId)
+      .then(setBranding)
+      .catch(() => setBranding(null));
+  }, []);
+
   const visibleNavGroups = useMemo(
     () =>
       navGroups
         .map((group) => ({
           ...group,
           items: group.items.filter((item) => {
+            if (item.module && branding && branding[item.module] === false) return false;
             if (!item.permission) return true;
             if (isAdmin) return true;
             return permissionSet.has(item.permission);
           }),
         }))
         .filter((group) => group.items.length > 0),
-    [isAdmin, permissionSet],
+    [isAdmin, permissionSet, branding],
   );
 
   return (

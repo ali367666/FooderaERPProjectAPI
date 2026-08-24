@@ -30,6 +30,21 @@ export function getPermissionClaimsFromToken(token: string | null | undefined): 
   }
 }
 
+export function getCompanyIdFromToken(token: string | null | undefined): number | null {
+  if (!token || typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const json = base64UrlToUtf8(parts[1]);
+    const payload = JSON.parse(json) as Record<string, unknown>;
+    const raw = payload.companyId ?? payload.CompanyId;
+    const id = Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getRoleClaimsFromToken(token: string | null | undefined): string[] {
   if (!token || typeof token !== "string") return [];
   const parts = token.split(".");

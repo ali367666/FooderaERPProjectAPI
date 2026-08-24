@@ -7,6 +7,9 @@ public static class AppPermissions
     public const string CompanyUpdate = "Company.Update";
     public const string CompanyDelete = "Company.Delete";
 
+    public const string CompanySettingsView = "CompanySettings.View";
+    public const string CompanySettingsUpdate = "CompanySettings.Update";
+
     public const string UserView = "User.View";
     public const string UserCreate = "User.Create";
     public const string UserUpdate = "User.Update";

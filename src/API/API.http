@@ -100,3 +100,49 @@ Content-Type: application/json
 }
 
 ###
+
+# Company settings: get current company's settings (auto-creates default row on first call)
+GET {{API_HostAddress}}/api/company-settings
+Authorization: Bearer {{adminToken}}
+
+###
+
+# Company settings: update
+PUT {{API_HostAddress}}/api/company-settings
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "openingTime": "09:00:00",
+  "moduleFilial": true,
+  "modulePaket": false,
+  "moduleOtel": false,
+  "moduleAnbar": true,
+  "moduleFitnes": false,
+  "moduleRezervasyon": true,
+  "moduleDataSecimi": false,
+  "moduleMasaBolge": true,
+  "moduleQiymetSor": false,
+  "integrationWolt": false,
+  "integrationBolt": false,
+  "integration189Delivery": false,
+  "alertMilliseconds": 500,
+  "alertRingCount": 3,
+  "alertRingIntervalSeconds": 5,
+  "loginLogoUrl": null,
+  "reportLogoUrl": null,
+  "wallpaperUrl": null,
+  "loginLocation": null,
+  "transparencyLevel": 80,
+  "productColor": "#0b3d2e",
+  "floorLabel": null,
+  "slogan": "Bizi seçdiyiniz üçün təşəkkür edirik",
+  "socialLinks": null,
+  "contactPhoneNumber": "+994501234567",
+  "receiptFontSize": 12,
+  "categoryFontSize": 14,
+  "allowReceiptEditAfterPrint": true,
+  "waiterCanPrintCustomerReceipt": true
+}
+
+###
