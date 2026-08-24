@@ -18,6 +18,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 
     // Core entities
     public DbSet<Company> Companies { get; set; } = null!;
+    public DbSet<CompanySettings> CompanySettings { get; set; } = null!;
     public DbSet<Restaurant> Restaurants { get; set; } = null!;
     public DbSet<Reservation> Reservations { get; set; } = null!;
     public DbSet<Discount> Discounts { get; set; } = null!;

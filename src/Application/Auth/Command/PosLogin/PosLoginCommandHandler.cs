@@ -12,17 +12,20 @@ public sealed class PosLoginCommandHandler
     : IRequestHandler<PosLoginCommand, BaseResponse<LoginResponse>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly ICompanySettingsRepository _companySettingsRepository;
     private readonly UserManager<Domain.Entities.User> _userManager;
     private readonly IAuthTokenIssuer _authTokenIssuer;
     private readonly ILogger<PosLoginCommandHandler> _logger;
 
     public PosLoginCommandHandler(
         IUserRepository userRepository,
+        ICompanySettingsRepository companySettingsRepository,
         UserManager<Domain.Entities.User> userManager,
         IAuthTokenIssuer authTokenIssuer,
         ILogger<PosLoginCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _companySettingsRepository = companySettingsRepository;
         _userManager = userManager;
         _authTokenIssuer = authTokenIssuer;
         _logger = logger;
@@ -31,6 +34,15 @@ public sealed class PosLoginCommandHandler
     public async Task<BaseResponse<LoginResponse>> Handle(PosLoginCommand request, CancellationToken cancellationToken)
     {
         var dto = request.Request;
+
+        var settings = await _companySettingsRepository.GetByCompanyIdAsync(dto.CompanyId, cancellationToken);
+        if (settings?.OpeningTime is { } openingTime && DateTime.Now.TimeOfDay < openingTime)
+        {
+            _logger.LogInformation(
+                "POS login blocked before opening time. CompanyId: {CompanyId}, OpeningTime: {OpeningTime}",
+                dto.CompanyId, openingTime);
+            return BaseResponse<LoginResponse>.Fail($"Restoran hələ açılmayıb. Açılış vaxtı: {openingTime:hh\\:mm}.");
+        }
 
         var user = !string.IsNullOrWhiteSpace(dto.Code)
             ? await HandleCodeLoginAsync(dto.CompanyId, dto.Code, cancellationToken)

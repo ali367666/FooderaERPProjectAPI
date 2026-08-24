@@ -28,6 +28,10 @@ import {
   posLogin,
   type RestaurantLookupItem,
 } from "@/lib/services/pos-auth-service";
+import {
+  getCompanySettingsBranding,
+  type CompanySettingsBranding,
+} from "@/lib/services/company-settings-service";
 
 const MAX_CODE_LENGTH = 8;
 
@@ -36,28 +40,66 @@ export default function PosLoginPage() {
 
   const [terminal, setTerminal] = useState<PosTerminalContext | null>(null);
   const [terminalChecked, setTerminalChecked] = useState(false);
+  const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
 
   useEffect(() => {
     setTerminal(getPosTerminalContext());
     setTerminalChecked(true);
   }, []);
 
+  useEffect(() => {
+    if (!terminal) {
+      setBranding(null);
+      return;
+    }
+    let cancelled = false;
+    getCompanySettingsBranding(terminal.companyId)
+      .then((b) => {
+        if (!cancelled) setBranding(b);
+      })
+      .catch(() => {
+        if (!cancelled) setBranding(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [terminal]);
+
   if (!terminalChecked) return null;
 
+  const wallpaperOpacity =
+    branding?.transparencyLevel != null ? Math.min(Math.max(branding.transparencyLevel, 0), 100) / 100 : 1;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      {terminal ? (
-        <PosLoginView
-          terminal={terminal}
-          onChangeTerminal={() => {
-            clearPosTerminalContext();
-            setTerminal(null);
-          }}
-          onSuccess={() => router.replace("/dashboard")}
+    <div className="relative flex min-h-screen items-center justify-center bg-muted/30 p-4">
+      {branding?.wallpaperUrl && (
+        <div
+          className="pointer-events-none absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${branding.wallpaperUrl})`, opacity: wallpaperOpacity }}
+          aria-hidden
         />
-      ) : (
-        <TerminalSetupView onDone={(ctx) => setTerminal(ctx)} />
       )}
+      <div className="relative z-10 w-full max-w-md">
+        {terminal ? (
+          <PosLoginView
+            terminal={terminal}
+            logoUrl={branding?.loginLogoUrl ?? null}
+            location={branding?.loginLocation ?? null}
+            onChangeTerminal={() => {
+              clearPosTerminalContext();
+              setTerminal(null);
+            }}
+            onSuccess={() => router.replace("/pos")}
+          />
+        ) : (
+          <TerminalSetupView
+            onDone={(ctx) => {
+              savePosTerminalContext(ctx);
+              setTerminal(ctx);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -194,10 +236,14 @@ function TerminalSetupView({
 
 function PosLoginView({
   terminal,
+  logoUrl,
+  location,
   onChangeTerminal,
   onSuccess,
 }: {
   terminal: PosTerminalContext;
+  logoUrl: string | null;
+  location: string | null;
   onChangeTerminal: () => void;
   onSuccess: () => void;
 }) {
@@ -279,13 +325,23 @@ function PosLoginView({
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <ChefHat className="h-6 w-6" />
-        </div>
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoUrl}
+            alt={terminal.companyName}
+            className="mx-auto mb-2 h-12 w-12 rounded-2xl object-contain"
+          />
+        ) : (
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <ChefHat className="h-6 w-6" />
+          </div>
+        )}
         <CardTitle>{terminal.companyName}</CardTitle>
         {terminal.restaurantName && (
           <CardDescription>{terminal.restaurantName}</CardDescription>
         )}
+        {location && <p className="text-xs text-muted-foreground">{location}</p>}
       </CardHeader>
       <CardContent className="space-y-5">
         {error && (
