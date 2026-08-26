@@ -14,4 +14,5 @@ public interface IOrderRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
     Task<Domain.Entities.Order?> GetByIdWithLinesAsync(int id, int companyId, CancellationToken cancellationToken);
     Task<Domain.Entities.Order?> GetByIdWithLinesAsync(int id, CancellationToken cancellationToken);
+    Task<List<Domain.Entities.Order>> GetPaidBetweenAsync(int companyId, int restaurantId, DateTime from, DateTime to, CancellationToken cancellationToken);
 }

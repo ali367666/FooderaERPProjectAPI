@@ -98,8 +98,6 @@ function getEntityRoute(entityName: string, entityId: string | number) {
       return `/dashboard/orders/${entityId}`;
     case "StockRequest":
       return `/dashboard/stock-requests/${entityId}`;
-    case "WarehouseTransfer":
-      return `/dashboard/warehouse-transfers/${entityId}`;
     default:
       return null;
   }

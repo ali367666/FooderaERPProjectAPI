@@ -9,5 +9,8 @@ public class MenuCategory : CompanyEntity<int>
 
     public bool IsActive { get; set; } = true;
 
+    public int? PrinterId { get; set; }
+    public Printer? Printer { get; set; }
+
     public ICollection<MenuItem> MenuItems { get; set; } = new List<MenuItem>();
 }

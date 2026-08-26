@@ -15,6 +15,7 @@ export type RestaurantTable = {
   height: number;
   shape: "square" | "round" | "rectangle";
   rotation: number;
+  sectionId: number | null;
 };
 
 export type TableLayoutUpdate = {
@@ -53,7 +54,19 @@ function normalizeRestaurantTable(item: unknown): RestaurantTable | null {
     height: Number(raw.height ?? raw.Height ?? 80),
     shape: (String(raw.shape ?? raw.Shape ?? "square")) as "square" | "round" | "rectangle",
     rotation: Number(raw.rotation ?? raw.Rotation ?? 0),
+    sectionId: (() => {
+      const v = raw.sectionId ?? raw.SectionId;
+      return v == null ? null : Number(v);
+    })(),
   };
+}
+
+export async function updateTableSection(id: number, sectionId: number | null): Promise<void> {
+  try {
+    await api.put<unknown>(`/RestaurantTables/${id}/section`, null, { params: { sectionId: sectionId ?? undefined } });
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update table section");
+  }
 }
 
 export async function getRestaurantTables(): Promise<RestaurantTable[]> {

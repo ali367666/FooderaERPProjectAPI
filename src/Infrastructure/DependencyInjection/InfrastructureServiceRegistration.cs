@@ -93,6 +93,11 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAuthTokenIssuer, AuthTokenIssuer>();
         services.AddScoped<IMailActionTokenService, MailActionTokenService>();
         services.AddScoped<IFileStorageService, MinioFileStorageService>();
+        services.AddScoped<IRestaurantSectionRepository, RestaurantSectionRepository>();
+        services.AddScoped<IPrinterRepository, PrinterRepository>();
+        services.AddScoped<IPrinterStationTypeRepository, PrinterStationTypeRepository>();
+        services.AddScoped<IShiftRepository, ShiftRepository>();
+        services.AddScoped<INetworkPrinterService, NetworkPrinterService>();
 
         services.AddHttpClient<ICbarExchangeRateService, CbarExchangeRateService>();
 

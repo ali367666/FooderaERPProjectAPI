@@ -13,6 +13,9 @@ public class RestaurantTable : CompanyEntity<int>
     public bool IsActive { get; set; } = true;
     public bool IsOccupied { get; set; } = false;
 
+    public int? SectionId { get; set; }
+    public RestaurantSection? Section { get; set; }
+
     // Floor plan position
     public int PosX { get; set; } = 0;
     public int PosY { get; set; } = 0;

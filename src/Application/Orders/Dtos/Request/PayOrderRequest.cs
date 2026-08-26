@@ -4,4 +4,5 @@ public class PayOrderRequest
 {
     public string PaymentMethod { get; set; } = default!;
     public decimal PaidAmount { get; set; }
+    public decimal? ServiceChargeAmount { get; set; }
 }

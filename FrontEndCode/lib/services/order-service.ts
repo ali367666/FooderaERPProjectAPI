@@ -59,6 +59,7 @@ export type OrderDto = {
   totalAmount: number;
   discountCode: string | null;
   discountAmount: number;
+  serviceChargeAmount: number | null;
   processedByUserId: number | null;
   processedByUserName: string | null;
   processedAt: string | null;
@@ -99,6 +100,7 @@ export type UpdateOrderLinePayload = {
   quantity: number;
   note?: string | null;
   status?: string | null;
+  unitPrice?: number | null;
 };
 
 export function getOrderStatusValue(status: unknown): number {
@@ -205,6 +207,10 @@ function normalizeOrder(raw: unknown): OrderDto | null {
     totalAmount: Number(pick(o, "totalAmount", "TotalAmount") ?? 0),
     discountCode: (pick(o, "discountCode", "DiscountCode") as string | null | undefined) ?? null,
     discountAmount: Number(pick(o, "discountAmount", "DiscountAmount") ?? 0),
+    serviceChargeAmount: (() => {
+      const v = pick<number | null>(o, "serviceChargeAmount", "ServiceChargeAmount");
+      return v == null ? null : Number(v);
+    })(),
     processedByUserId: Number(pick(o, "processedByUserId", "ProcessedByUserId") ?? 0) || null,
     processedByUserName:
       (pick(o, "processedByUserName", "ProcessedByUserName") as string | null | undefined) ?? null,
@@ -350,6 +356,7 @@ export async function updateOrderLine(payload: UpdateOrderLinePayload): Promise<
       quantity: payload.quantity,
       note: payload.note ?? null,
       status: payload.status ?? null,
+      unitPrice: payload.unitPrice ?? null,
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
@@ -405,6 +412,43 @@ export function submitOrder(id: number): Promise<OrderDto> {
   return runWorkflow(id, "submit");
 }
 
+export async function deleteOrder(id: number): Promise<void> {
+  try {
+    const response = await api.delete<unknown>(`/Orders/${id}`);
+    assertApiSuccess(response.data);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to delete order");
+  }
+}
+
+export async function moveOrderTable(id: number, newTableId: number): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/${id}/move-table`, null, {
+      params: { newTableId },
+    });
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid order response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to move table");
+  }
+}
+
+export async function reassignOrderWaiter(id: number, newEmployeeId: number): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/${id}/reassign-waiter`, null, {
+      params: { newEmployeeId },
+    });
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid order response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to reassign waiter");
+  }
+}
+
 export function serveOrder(id: number): Promise<void> {
   return (async () => {
     try {
@@ -421,7 +465,7 @@ export function serveOrder(id: number): Promise<void> {
   })();
 }
 
-export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number }): Promise<OrderDto | null> {
+export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number; serviceChargeAmount?: number | null }): Promise<OrderDto | null> {
   try {
     const response = await api.put<unknown>(`/Orders/${id}/pay`, payload);
     assertApiSuccess(response.data);

@@ -17,7 +17,7 @@ import { ApiFormError } from "@/lib/api-error";
 const MODULE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "moduleFilial", label: "Filial" },
   { key: "moduleAnbar", label: "Anbar" },
-  { key: "moduleRezervasyon", label: "Rezervasyon" },
+  { key: "moduleRezervasyon", label: "Rezervasiya" },
   { key: "moduleMasaBolge", label: "Masa Bölgə" },
 ];
 

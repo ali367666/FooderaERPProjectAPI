@@ -15,4 +15,5 @@ public class RestaurantTableResponse
     public int Height { get; set; }
     public string Shape { get; set; } = "square";
     public int Rotation { get; set; }
+    public int? SectionId { get; set; }
 }

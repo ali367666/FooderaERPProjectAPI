@@ -2,6 +2,7 @@ using Application.Common.Responce;
 using Application.WarehouseStock.Commands.ApproveDocument;
 using Application.WarehouseStock.Commands.CreateDocument;
 using Application.WarehouseStock.Commands.DeleteDocument;
+using Application.WarehouseStock.Commands.PosAdjust;
 using Application.WarehouseStock.Commands.UpdateDocument;
 using Application.WarehouseStock.Dtos.Request;
 using Application.WarehouseStock.Dtos.Response;
@@ -112,6 +113,18 @@ public class WarehouseStockController : ControllerBase
 
         if (!result.Success)
             return NotFound(result);
+
+        return Ok(result);
+    }
+
+    [HttpPost("pos-adjust")]
+    [Authorize(Policy = AppPermissions.PosWarehouseAmountChange)]
+    public async Task<ActionResult<BaseResponse>> PosAdjust([FromBody] PosAdjustWarehouseStockRequest request)
+    {
+        var result = await _mediator.Send(new PosAdjustWarehouseStockCommand(request));
+
+        if (!result.Success)
+            return BadRequest(result);
 
         return Ok(result);
     }

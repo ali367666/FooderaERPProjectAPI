@@ -145,4 +145,15 @@ public static class AppPermissions
     public const string PosDeleteReceipt = "Pos.DeleteReceipt";
     public const string PosWarehouseAmountChange = "Pos.WarehouseAmountChange";
     public const string PosPrintOldReceipt = "Pos.PrintOldReceipt";
+
+    public const string RestaurantSectionView = "RestaurantSection.View";
+    public const string RestaurantSectionCreate = "RestaurantSection.Create";
+    public const string RestaurantSectionUpdate = "RestaurantSection.Update";
+    public const string RestaurantSectionDelete = "RestaurantSection.Delete";
+
+    public const string PrinterView = "Printer.View";
+    public const string PrinterCreate = "Printer.Create";
+    public const string PrinterUpdate = "Printer.Update";
+    public const string PrinterDelete = "Printer.Delete";
+    public const string PrinterPrint = "Printer.Print";
 }

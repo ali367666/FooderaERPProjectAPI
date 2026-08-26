@@ -55,4 +55,9 @@ public class CurrentUserService : ICurrentUserService
             return int.TryParse(companyId, out var parsedCompanyId) ? parsedCompanyId : 0;
         }
     }
+
+    public bool HasPermission(string permission)
+    {
+        return User?.HasClaim("Permission", permission) == true;
+    }
 }

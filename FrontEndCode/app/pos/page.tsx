@@ -10,6 +10,8 @@ import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-termin
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getRestaurantTables, type RestaurantTable } from "@/lib/services/restaurant-table-service";
 import { getOrders, createOrder, type OrderDto, type OrderWorkflowStatus } from "@/lib/services/order-service";
+import { getRestaurantSections, type RestaurantSection } from "@/lib/services/restaurant-section-service";
+import { useHasPermission } from "@/hooks/use-auth-permissions";
 
 type TableWithOrder = RestaurantTable & { activeOrder: OrderDto | null };
 
@@ -54,6 +56,9 @@ export default function PosTablesPage() {
   const [error, setError] = useState<string | null>(null);
   const [creatingTableId, setCreatingTableId] = useState<number | null>(null);
   const [terminal, setTerminal] = useState<PosTerminalContext | null | undefined>(undefined);
+  const [sections, setSections] = useState<RestaurantSection[]>([]);
+  const [activeSectionId, setActiveSectionId] = useState<number | null>(null);
+  const canChangeSection = useHasPermission("Pos.ChangeDepartment");
 
   useEffect(() => {
     setTerminal(getPosTerminalContext());
@@ -88,6 +93,13 @@ export default function PosTablesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!terminal?.restaurantId) return;
+    getRestaurantSections(terminal.restaurantId)
+      .then((s) => setSections(s.filter((x) => x.isActive)))
+      .catch(() => setSections([]));
+  }, [terminal]);
 
   const openTable = async (table: TableWithOrder) => {
     if (table.activeOrder) {
@@ -135,12 +147,45 @@ export default function PosTablesPage() {
         </div>
       )}
 
+      {sections.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveSectionId(null)}
+            disabled={!canChangeSection && activeSectionId !== null}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-sm font-medium",
+              activeSectionId === null ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70",
+            )}
+          >
+            Hamısı
+          </button>
+          {sections.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => canChangeSection && setActiveSectionId(s.id)}
+              disabled={!canChangeSection && activeSectionId !== s.id}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-sm font-medium",
+                activeSectionId === s.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70",
+                !canChangeSection && "cursor-not-allowed opacity-60",
+              )}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {tables.length === 0 && !error && (
         <p className="text-sm text-muted-foreground">Bu filial üçün masa tapılmadı.</p>
       )}
 
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-        {tables.map((table) => {
+        {tables
+          .filter((table) => activeSectionId === null || table.sectionId === activeSectionId)
+          .map((table) => {
           const occupied = table.activeOrder !== null;
           const status = table.activeOrder?.status ?? null;
           const isCreating = creatingTableId === table.id;

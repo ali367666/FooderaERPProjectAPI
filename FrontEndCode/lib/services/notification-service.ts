@@ -125,7 +125,6 @@ export function getNotificationDocumentHref(n: Pick<NotificationDto, "referenceT
   if (id == null || !Number.isFinite(id)) return null;
   const t = (n.referenceType ?? "").toLowerCase().replace(/\s+/g, "");
   if (t.includes("stockrequest")) return `/dashboard/stock-requests/${id}?mode=view`;
-  if (t.includes("warehousetransfer")) return `/dashboard/warehouse-transfers/${id}?mode=view`;
   if (t.includes("warehousestock")) return `/dashboard/warehouse-stock-documents`;
   if (t.includes("order")) return `/dashboard/orders`;
   return null;

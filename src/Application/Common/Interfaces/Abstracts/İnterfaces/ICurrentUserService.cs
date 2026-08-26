@@ -4,4 +4,5 @@ public interface ICurrentUserService
 {
     int UserId { get; }
     int CompanyId { get; }
+    bool HasPermission(string permission);
 }

@@ -21,6 +21,8 @@ export type AppUser = {
   /** 1 = HeadOffice, 2 = Restaurant (Domain.Enums.EmployeeWorkplaceType) */
   workplaceType: number;
   restaurantId: number | null;
+  warehouseId: number | null;
+  warehouseName: string | null;
 };
 
 export type AppUserInput = {
@@ -39,6 +41,8 @@ export type AppUserInput = {
   canAccessFrontOffice: boolean;
   workplaceType: number;
   restaurantId: number | null;
+  warehouseId: number | null;
+  roleIds: number[];
 };
 
 function pick<T>(o: Record<string, unknown>, camel: string, pascal: string): T | undefined {
@@ -75,6 +79,11 @@ function normalizeUser(item: unknown): AppUser | null {
       const r = pick<number | null | undefined>(raw, "restaurantId", "RestaurantId");
       return r == null || r === 0 ? null : Number(r);
     })(),
+    warehouseId: (() => {
+      const w = pick<number | null | undefined>(raw, "warehouseId", "WarehouseId");
+      return w == null || w === 0 ? null : Number(w);
+    })(),
+    warehouseName: (pick<string | null>(raw, "warehouseName", "WarehouseName") ?? null) as string | null,
   };
 }
 
@@ -147,6 +156,8 @@ export async function createUser(input: AppUserInput & { password: string }): Pr
       canAccessFrontOffice: input.canAccessFrontOffice,
       workplaceType: input.workplaceType,
       restaurantId: input.workplaceType === 2 ? input.restaurantId : null,
+      warehouseId: input.warehouseId,
+      roleIds: input.roleIds,
     });
     if (response.data && typeof response.data === "object" && (response.data as { success?: boolean }).success === false) {
       const o = response.data as { message?: string; errors?: unknown };
@@ -185,6 +196,8 @@ export async function updateUser(id: number, input: AppUserInput): Promise<void>
       canAccessFrontOffice: input.canAccessFrontOffice,
       workplaceType: input.workplaceType,
       restaurantId: input.workplaceType === 2 ? input.restaurantId : null,
+      warehouseId: input.warehouseId,
+      roleIds: input.roleIds,
     };
     if (input.password && input.password.trim().length > 0) {
       body.password = input.password;

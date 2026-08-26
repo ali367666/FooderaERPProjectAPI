@@ -652,9 +652,14 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<int?>("PrinterId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId");
+
+                    b.HasIndex("PrinterId");
 
                     b.ToTable("MenuCategories", (string)null);
                 });
@@ -857,6 +862,9 @@ namespace Infrastructure.Migrations
                     b.Property<int>("RestaurantId")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("ServiceChargeAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -1032,6 +1040,65 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Positions", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Printer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("Port")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(9100);
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StationType")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("RestaurantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Printers", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.RefreshToken", b =>
@@ -1215,6 +1282,52 @@ namespace Infrastructure.Migrations
                     b.ToTable("Restaurants");
                 });
 
+            modelBuilder.Entity("Domain.Entities.RestaurantSection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("RestaurantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("RestaurantSections", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.RestaurantTable", b =>
                 {
                     b.Property<int>("Id")
@@ -1279,6 +1392,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(0);
 
+                    b.Property<int?>("SectionId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Shape")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1294,6 +1410,8 @@ namespace Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RestaurantId");
+
+                    b.HasIndex("SectionId");
 
                     b.HasIndex("CompanyId", "Name")
                         .IsUnique();
@@ -1314,6 +1432,70 @@ namespace Infrastructure.Migrations
                     b.HasIndex("PermissionId");
 
                     b.ToTable("RolePermissions", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Shift", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ClosedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("ClosingCashAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsOpen")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("OpenedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("OpenedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OpeningCashAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClosedByUserId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("OpenedByUserId");
+
+                    b.HasIndex("RestaurantId", "IsOpen");
+
+                    b.ToTable("Shifts", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.User", b =>
@@ -1403,6 +1585,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<int?>("WarehouseId")
+                        .HasColumnType("int");
+
                     b.Property<int>("WorkplaceType")
                         .HasColumnType("int");
 
@@ -1423,6 +1608,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("RfidCardId")
                         .IsUnique()
                         .HasFilter("[RfidCardId] IS NOT NULL");
+
+                    b.HasIndex("WarehouseId");
 
                     b.HasIndex("WorkplaceType");
 
@@ -2303,7 +2490,13 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.Printer", "Printer")
+                        .WithMany()
+                        .HasForeignKey("PrinterId");
+
                     b.Navigation("Company");
+
+                    b.Navigation("Printer");
                 });
 
             modelBuilder.Entity("Domain.Entities.MenuItem", b =>
@@ -2438,6 +2631,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("Department");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Printer", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Restaurant", "Restaurant")
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Restaurant");
+                });
+
             modelBuilder.Entity("Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("Domain.Entities.User", "User")
@@ -2492,6 +2704,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("Company");
                 });
 
+            modelBuilder.Entity("Domain.Entities.RestaurantSection", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Restaurant", "Restaurant")
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Restaurant");
+                });
+
             modelBuilder.Entity("Domain.Entities.RestaurantTable", b =>
                 {
                     b.HasOne("Domain.Entities.Company", "Company")
@@ -2506,9 +2737,15 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.RestaurantSection", "Section")
+                        .WithMany("Tables")
+                        .HasForeignKey("SectionId");
+
                     b.Navigation("Company");
 
                     b.Navigation("Restaurant");
+
+                    b.Navigation("Section");
                 });
 
             modelBuilder.Entity("Domain.Entities.RolePermission", b =>
@@ -2530,6 +2767,40 @@ namespace Infrastructure.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Shift", b =>
+                {
+                    b.HasOne("Domain.Entities.User", "ClosedByUser")
+                        .WithMany()
+                        .HasForeignKey("ClosedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.User", "OpenedByUser")
+                        .WithMany()
+                        .HasForeignKey("OpenedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Restaurant", "Restaurant")
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ClosedByUser");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("OpenedByUser");
+
+                    b.Navigation("Restaurant");
+                });
+
             modelBuilder.Entity("Domain.Entities.User", b =>
                 {
                     b.HasOne("Domain.Entities.Company", "Company")
@@ -2543,9 +2814,15 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("RestaurantId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId");
+
                     b.Navigation("Company");
 
                     b.Navigation("Restaurant");
+
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("Domain.Entities.Warehouse", b =>
@@ -2950,6 +3227,11 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.Position", b =>
                 {
                     b.Navigation("Employees");
+                });
+
+            modelBuilder.Entity("Domain.Entities.RestaurantSection", b =>
+                {
+                    b.Navigation("Tables");
                 });
 
             modelBuilder.Entity("Domain.Entities.RestaurantTable", b =>

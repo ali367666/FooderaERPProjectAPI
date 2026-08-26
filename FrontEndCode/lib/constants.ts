@@ -6,7 +6,6 @@ import {
   LayoutGrid,
   PenTool,
   Package,
-  Truck,
   ShoppingCart,
   UtensilsCrossed,
   Wine,
@@ -28,6 +27,8 @@ import {
   Tag,
   FileSpreadsheet,
   Settings,
+  Printer as PrinterIcon,
+  LayoutTemplate,
 } from "lucide-react";
 
 export interface NavItem {
@@ -146,11 +147,6 @@ export const navGroups: NavGroup[] = [
         icon: Package,
         permission: "StockRequest.View",
         module: "moduleAnbar",
-      },
-      {
-        title: "Warehouse Transfers",
-        href: "/dashboard/warehouse-transfers",
-        icon: Truck,
       },
       {
         title: "Stock Purchases",
@@ -280,6 +276,18 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/role-permissions",
         icon: ShieldCheck,
         permission: "UserRole.Manage",
+      },
+      {
+        title: "Printerlər",
+        href: "/dashboard/printers",
+        icon: PrinterIcon,
+        permission: "Printer.View",
+      },
+      {
+        title: "Restoran Bölmələri",
+        href: "/dashboard/restaurant-sections",
+        icon: LayoutTemplate,
+        permission: "RestaurantSection.View",
       },
       {
         title: "Notifications",

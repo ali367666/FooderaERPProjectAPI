@@ -45,6 +45,19 @@ public class OrderRepository : IOrderRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<Order>> GetPaidBetweenAsync(int companyId, int restaurantId, DateTime from, DateTime to, CancellationToken cancellationToken)
+    {
+        return await _context.Orders
+            .Include(x => x.Lines)
+            .Where(x => x.CompanyId == companyId
+                && x.RestaurantId == restaurantId
+                && x.IsPaid
+                && x.PaidAt != null
+                && x.PaidAt >= from
+                && x.PaidAt <= to)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> HasOpenOrderForTableAsync(int tableId, int companyId, CancellationToken cancellationToken)
     {
         return await _context.Orders.AnyAsync(x =>

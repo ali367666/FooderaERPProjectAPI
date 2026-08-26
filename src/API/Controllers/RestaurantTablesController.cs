@@ -1,4 +1,5 @@
 using Application.RestaurantTable.Commands.UpdateLayout;
+using Application.RestaurantTable.Commands.UpdateSection;
 using Application.RestaurantTable.Dtos.Request;
 using Application.RestaurantTables.Commands.Create;
 using Application.RestaurantTables.Commands.Delete;
@@ -86,6 +87,17 @@ public class RestaurantTablesController : ControllerBase
     {
         var command = new UpdateTableLayoutCommand { Id = id, Request = request };
         var response = await _mediator.Send(command, cancellationToken);
+        return Ok(response);
+    }
+
+    [Authorize(Policy = AppPermissions.RestaurantSectionUpdate)]
+    [HttpPut("{id}/section")]
+    public async Task<ActionResult<RestaurantTableResponse>> UpdateSection(
+        int id,
+        [FromQuery] int? sectionId,
+        CancellationToken cancellationToken)
+    {
+        var response = await _mediator.Send(new UpdateTableSectionCommand(id, sectionId), cancellationToken);
         return Ok(response);
     }
 }

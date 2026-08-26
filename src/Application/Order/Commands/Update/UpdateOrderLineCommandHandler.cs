@@ -119,7 +119,9 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             line.Status = parsedStatus;
         }
 
-        line.UnitPrice = line.MenuItem.Price;
+        line.UnitPrice = request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
+            ? request.Request.UnitPrice.Value
+            : line.MenuItem.Price;
         line.LineTotal = line.UnitPrice * line.Quantity;
         var subtotal = order.Lines
             .Where(x => x.Status != OrderLineStatus.Cancelled)

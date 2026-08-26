@@ -28,6 +28,8 @@ import {
 } from "@/lib/services/user-admin-service";
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
+import { getRoles, type AppRole } from "@/lib/services/role-service";
+import { getWarehouses, type Warehouse } from "@/lib/services/warehouse-service";
 import { toast } from "sonner";
 
 const selectClass =
@@ -86,11 +88,18 @@ export default function UsersPage() {
   const [canAccessFrontOffice, setCanAccessFrontOffice] = useState(false);
   const [workplaceType, setWorkplaceType] = useState("1");
   const [restaurantId, setRestaurantId] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
+  const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
+  const [pendingRoleNames, setPendingRoleNames] = useState<string[] | null>(null);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [empLoading, setEmpLoading] = useState(false);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [restLoading, setRestLoading] = useState(false);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [warehousesLoading, setWarehousesLoading] = useState(false);
+  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
 
   const companyNameById = useMemo(
     () => new Map(companies.map((c) => [c.id, c.name])),
@@ -140,11 +149,36 @@ export default function UsersPage() {
       } finally {
         if (!c) setRestLoading(false);
       }
+      setWarehousesLoading(true);
+      try {
+        const wh = await getWarehouses();
+        if (!c) setWarehouses(wh);
+      } catch {
+        if (!c) setWarehouses([]);
+      } finally {
+        if (!c) setWarehousesLoading(false);
+      }
+      setRolesLoading(true);
+      try {
+        const rl = await getRoles();
+        if (!c) setRoles(rl);
+      } catch {
+        if (!c) setRoles([]);
+      } finally {
+        if (!c) setRolesLoading(false);
+      }
     })();
     return () => {
       c = true;
     };
   }, [dialogOpen]);
+
+  useEffect(() => {
+    if (!pendingRoleNames || roles.length === 0) return;
+    const ids = roles.filter((r) => pendingRoleNames.includes(r.name)).map((r) => r.id);
+    setSelectedRoleIds(ids);
+    setPendingRoleNames(null);
+  }, [roles, pendingRoleNames]);
 
   const companiesForForm = useMemo(
     () =>
@@ -157,6 +191,11 @@ export default function UsersPage() {
   const restaurantsForCompany = useMemo(
     () => restaurants.filter((r) => String(r.companyId) === companyId),
     [restaurants, companyId],
+  );
+
+  const warehousesForCompany = useMemo(
+    () => warehouses.filter((w) => String(w.companyId) === companyId),
+    [warehouses, companyId],
   );
 
   const resetForm = () => {
@@ -177,6 +216,9 @@ export default function UsersPage() {
     setCanAccessFrontOffice(false);
     setWorkplaceType("1");
     setRestaurantId("");
+    setWarehouseId("");
+    setSelectedRoleIds([]);
+    setPendingRoleNames(null);
     setFieldErrors({});
   };
 
@@ -204,6 +246,8 @@ export default function UsersPage() {
       setCanAccessFrontOffice(u.canAccessFrontOffice);
       setWorkplaceType(String(u.workplaceType || 1));
       setRestaurantId(u.restaurantId != null ? String(u.restaurantId) : "");
+      setWarehouseId(u.warehouseId != null ? String(u.warehouseId) : "");
+      setPendingRoleNames(u.roles);
       setDialogOpen(true);
     } catch (e) {
       toast.error(friendlyError(e, "Could not load user."));
@@ -266,6 +310,8 @@ export default function UsersPage() {
         canAccessFrontOffice,
         workplaceType: Number(workplaceType),
         restaurantId: workplaceType === "2" && restaurantId ? Number(restaurantId) : null,
+        warehouseId: warehouseId ? Number(warehouseId) : null,
+        roleIds: selectedRoleIds,
       };
       if (editingId == null) {
         await createUser({ ...payload, password: password.trim() });
@@ -660,6 +706,45 @@ export default function UsersPage() {
                     </option>
                   ))}
               </select>
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="u-warehouse">Anbar (depo)</Label>
+              <select
+                id="u-warehouse"
+                className={selectClass + " mt-1"}
+                value={warehouseId}
+                onChange={(e) => setWarehouseId(e.target.value)}
+                disabled={warehousesLoading}
+              >
+                <option value="">{warehousesLoading ? "Loading…" : "Yoxdur"}</option>
+                {warehousesForCompany.map((w) => (
+                  <option key={w.id} value={String(w.id)}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Rollar</Label>
+              <div className="mt-1 grid grid-cols-1 gap-2 rounded-md border border-input p-3 sm:grid-cols-2">
+                {rolesLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+                {!rolesLoading && roles.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Rol tapılmadı.</p>
+                )}
+                {roles.map((r) => (
+                  <label key={r.id} className="flex items-center gap-2 text-sm font-normal">
+                    <Checkbox
+                      checked={selectedRoleIds.includes(r.id)}
+                      onCheckedChange={(v) =>
+                        setSelectedRoleIds((prev) =>
+                          v === true ? [...prev, r.id] : prev.filter((id) => id !== r.id),
+                        )
+                      }
+                    />
+                    {r.name}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 
