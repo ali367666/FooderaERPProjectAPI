@@ -38,4 +38,15 @@ public class UserRepository : IUserRepository
         return await _context.Users
             .FirstOrDefaultAsync(x => x.RfidCardId == rfidCardId, cancellationToken);
     }
+
+    public async Task<List<User>> GetAllByWarehouseIdAsync(int warehouseId, CancellationToken cancellationToken)
+    {
+        return await _context.Users
+            .Where(x => x.WarehouseId == warehouseId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public void Update(User user) => _context.Users.Update(user);
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken) => _context.SaveChangesAsync(cancellationToken);
 }

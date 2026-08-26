@@ -33,6 +33,7 @@ public class Order : CompanyEntity<int>
     public Discount? Discount { get; set; }
     public string? DiscountCode { get; set; }
     public decimal DiscountAmount { get; set; } = 0;
+    public decimal? ServiceChargeAmount { get; set; }
 
     public DateTime OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }

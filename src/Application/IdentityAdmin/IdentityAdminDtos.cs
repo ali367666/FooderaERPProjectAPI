@@ -19,6 +19,8 @@ public class UserListItemDto
     public Domain.Enums.EmployeeWorkplaceType WorkplaceType { get; set; }
     public int? RestaurantId { get; set; }
     public string? RestaurantName { get; set; }
+    public int? WarehouseId { get; set; }
+    public string? WarehouseName { get; set; }
 }
 
 public class UserDetailDto : UserListItemDto
@@ -41,6 +43,8 @@ public class CreateUserAdminRequest
     public bool CanAccessFrontOffice { get; set; } = false;
     public Domain.Enums.EmployeeWorkplaceType WorkplaceType { get; set; } = Domain.Enums.EmployeeWorkplaceType.HeadOffice;
     public int? RestaurantId { get; set; }
+    public int? WarehouseId { get; set; }
+    public List<int>? RoleIds { get; set; }
 }
 
 public class UpdateUserAdminRequest
@@ -59,6 +63,8 @@ public class UpdateUserAdminRequest
     public bool CanAccessFrontOffice { get; set; } = false;
     public Domain.Enums.EmployeeWorkplaceType WorkplaceType { get; set; } = Domain.Enums.EmployeeWorkplaceType.HeadOffice;
     public int? RestaurantId { get; set; }
+    public int? WarehouseId { get; set; }
+    public List<int>? RoleIds { get; set; }
 }
 
 public class RoleListItemDto

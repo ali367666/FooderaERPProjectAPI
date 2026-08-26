@@ -1,4 +1,5 @@
 using Application.Common.Exceptions;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Orders.Dtos;
@@ -12,13 +13,16 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
 {
     private readonly IOrderRepository _orderRepository;
     private readonly IRecipeStockDeductionService _recipeStockDeductionService;
+    private readonly ICurrentUserService _currentUserService;
 
     public PayOrderCommandHandler(
         IOrderRepository orderRepository,
-        IRecipeStockDeductionService recipeStockDeductionService)
+        IRecipeStockDeductionService recipeStockDeductionService,
+        ICurrentUserService currentUserService)
     {
         _orderRepository = orderRepository;
         _recipeStockDeductionService = recipeStockDeductionService;
+        _currentUserService = currentUserService;
     }
 
     public async Task<OrderResponse> Handle(PayOrderCommand request, CancellationToken cancellationToken)
@@ -44,7 +48,10 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             .Sum(x => x.LineTotal);
 
         // Discount (if any) was locked in by ApplyDiscountToOrderCommand before payment
-        var totalAmount = Math.Max(0, subtotal - order.DiscountAmount);
+        var serviceCharge = request.Request.ServiceChargeAmount is > 0 && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosTableServiceCharge)
+            ? request.Request.ServiceChargeAmount.Value
+            : (decimal?)null;
+        var totalAmount = Math.Max(0, subtotal - order.DiscountAmount + (serviceCharge ?? 0));
 
         if (request.Request.PaidAmount < totalAmount)
             throw new BadRequestException("Paid amount cannot be less than total amount.");
@@ -60,6 +67,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         }
 
         order.TotalAmount = totalAmount;
+        order.ServiceChargeAmount = serviceCharge;
         order.IsPaid = true;
         order.PaidAt = DateTime.UtcNow;
         order.PaymentMethod = paymentMethod;
@@ -95,6 +103,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             TotalAmount = order.TotalAmount,
             DiscountCode = order.DiscountCode,
             DiscountAmount = order.DiscountAmount,
+            ServiceChargeAmount = order.ServiceChargeAmount,
             IsPaid = order.IsPaid,
             PaidAt = order.PaidAt,
             PaymentMethod = order.PaymentMethod?.ToString(),

@@ -35,6 +35,12 @@ public static class RolePermissionSeeder
         (AppPermissions.RestaurantTableView, "View Restaurant Tables", "RestaurantTable", "View"),
         (AppPermissions.EmployeeView, "View Employees", "Employee", "View"),
         (AppPermissions.AuditLogView, "View Audit Logs", "AuditLog", "View"),
+        (AppPermissions.PosEditProductInSale, "Edit Product In Sale", "Pos", "EditProductInSale"),
+        (AppPermissions.PosDeleteProductInSale, "Delete Product In Sale", "Pos", "DeleteProductInSale"),
+        (AppPermissions.PosDeleteOrder, "Delete Order (POS)", "Pos", "DeleteOrder"),
+        (AppPermissions.PosDeleteReceipt, "Delete Receipt (POS)", "Pos", "DeleteReceipt"),
+        (AppPermissions.RestaurantSectionView, "View Restaurant Sections", "RestaurantSection", "View"),
+        (AppPermissions.PrinterView, "View Printers", "Printer", "View"),
     ];
 
     public static readonly Dictionary<string, List<string>> Permissions = new()
@@ -56,7 +62,18 @@ public static class RolePermissionSeeder
                 AppPermissions.WarehouseView, AppPermissions.WarehouseStockView,
                 AppPermissions.StockRequestView, AppPermissions.StockPurchaseView,
                 AppPermissions.ReservationView, AppPermissions.DiscountView, AppPermissions.DiscountApply,
-                AppPermissions.AnalyticsView, AppPermissions.BscInvoiceView
+                AppPermissions.AnalyticsView, AppPermissions.BscInvoiceView,
+                AppPermissions.PosDeleteOrder, AppPermissions.PosDeleteReceipt,
+                AppPermissions.PosEditProductInSale, AppPermissions.PosDeleteProductInSale,
+                AppPermissions.PosMoveTable, AppPermissions.PosRedirectUser, AppPermissions.PosChangePrice,
+                AppPermissions.PosOverridePrice, AppPermissions.PosTableServiceCharge,
+                AppPermissions.PosWarehouseAmountChange, AppPermissions.PosZReport,
+                AppPermissions.PosAccessSettings, AppPermissions.PosPrintOldReceipt, AppPermissions.PosChangeDepartment,
+                AppPermissions.PosPrintReceipt,
+                AppPermissions.RestaurantSectionView, AppPermissions.RestaurantSectionCreate,
+                AppPermissions.RestaurantSectionUpdate, AppPermissions.RestaurantSectionDelete,
+                AppPermissions.PrinterView, AppPermissions.PrinterCreate, AppPermissions.PrinterUpdate,
+                AppPermissions.PrinterDelete, AppPermissions.PrinterPrint
             }
         },
         {
@@ -66,7 +83,9 @@ public static class RolePermissionSeeder
                 AppPermissions.OrdersView, AppPermissions.OrdersCreate, AppPermissions.OrdersAdd,
                 AppPermissions.OrdersServe, AppPermissions.MenuItemView,
                 AppPermissions.RestaurantView, AppPermissions.RestaurantTableView, AppPermissions.EmployeeView,
-                AppPermissions.ReservationView
+                AppPermissions.ReservationView,
+                AppPermissions.PosEditProductInSale, AppPermissions.PosDeleteProductInSale,
+                AppPermissions.PosPrintReceipt, AppPermissions.PrinterPrint
             }
         },
         {
@@ -81,7 +100,8 @@ public static class RolePermissionSeeder
             new List<string>
             {
                 AppPermissions.OrdersView, AppPermissions.OrdersPay, AppPermissions.PaymentCreate,
-                AppPermissions.DiscountApply
+                AppPermissions.DiscountApply, AppPermissions.PosPrintReceipt, AppPermissions.PrinterPrint,
+                AppPermissions.PosZReport
             }
         },
         {

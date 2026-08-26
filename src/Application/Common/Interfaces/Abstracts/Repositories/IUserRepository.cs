@@ -9,4 +9,10 @@ public interface IUserRepository
     Task<User?> GetByCompanyAndCodeAsync(int companyId, string code, CancellationToken cancellationToken);
 
     Task<User?> GetByRfidCardIdAsync(string rfidCardId, CancellationToken cancellationToken);
+
+    Task<List<User>> GetAllByWarehouseIdAsync(int warehouseId, CancellationToken cancellationToken);
+
+    void Update(User user);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
 }

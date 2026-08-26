@@ -79,6 +79,7 @@ public class UpdateMenuCategoryCommandHandler
             ? null
             : request.Request.Description.Trim();
         entity.IsActive = request.Request.IsActive;
+        entity.PrinterId = request.Request.PrinterId;
 
         _menuCategoryRepository.Update(entity);
         await _menuCategoryRepository.SaveChangesAsync(cancellationToken);

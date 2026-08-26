@@ -36,5 +36,10 @@ public class RestaurantTableConfiguration : IEntityTypeConfiguration<RestaurantT
 
         builder.HasIndex(x => new { x.CompanyId, x.Name })
             .IsUnique();
+
+        builder.HasOne(x => x.Section)
+            .WithMany(x => x.Tables)
+            .HasForeignKey(x => x.SectionId)
+            .OnDelete(DeleteBehavior.ClientSetNull);
     }
 }

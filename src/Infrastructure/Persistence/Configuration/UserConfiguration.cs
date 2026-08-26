@@ -37,8 +37,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                .HasForeignKey(x => x.RestaurantId)
                .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(x => x.Warehouse)
+               .WithMany()
+               .HasForeignKey(x => x.WarehouseId)
+               .OnDelete(DeleteBehavior.ClientSetNull);
+
         builder.HasIndex(x => x.CompanyId);
         builder.HasIndex(x => x.RestaurantId);
+        builder.HasIndex(x => x.WarehouseId);
         builder.HasIndex(x => x.WorkplaceType);
 
         builder.HasIndex(x => new { x.CompanyId, x.Code })

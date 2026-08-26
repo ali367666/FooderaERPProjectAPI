@@ -14,6 +14,8 @@ using Application.Orders.Commands.Delete;
 using Application.Orders.Commands.Start;
 using Application.Orders.Commands.Submit;
 using Application.Orders.Commands.Update;
+using Application.Orders.Commands.MoveTable;
+using Application.Orders.Commands.ReassignWaiter;
 using Application.Orders.Dtos;
 using Application.Orders.Queries.GetAll;
 using Application.Orders.Queries.GetById;
@@ -53,7 +55,7 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = AppPermissions.OrdersDelete)]
+    [Authorize(Policy = AppPermissions.PosDeleteReceipt)]
     [HttpDelete("{id:int}")]
     public async Task<ActionResult<string>> Delete(int id)
     {
@@ -67,14 +69,14 @@ public class OrdersController : ControllerBase
         var result = await _mediator.Send(new AddOrderLineCommand(request));
         return Ok(result);
     }
-    [Authorize(Policy = AppPermissions.OrdersUpdate)]
+    [Authorize(Policy = AppPermissions.PosEditProductInSale)]
     [HttpPut("lines")]
     public async Task<ActionResult<OrderResponse>> UpdateLine([FromBody] UpdateOrderLineRequest request)
     {
         var result = await _mediator.Send(new UpdateOrderLineCommand(request));
         return Ok(result);
     }
-    [Authorize(Policy = AppPermissions.OrdersDelete)]
+    [Authorize(Policy = AppPermissions.PosDeleteProductInSale)]
     [HttpDelete("lines/{id}")]
     public async Task<ActionResult<OrderResponse>> DeleteLine(int id)
     {
@@ -120,7 +122,7 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = AppPermissions.OrdersUpdate)]
+    [Authorize(Policy = AppPermissions.PosDeleteOrder)]
     [HttpPost("{id:int}/cancel")]
     public async Task<ActionResult<OrderResponse>> Cancel(int id)
     {
@@ -165,6 +167,22 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<OrderResponse>> RemoveDiscount(int id)
     {
         var result = await _mediator.Send(new RemoveDiscountFromOrderCommand { OrderId = id });
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.PosMoveTable)]
+    [HttpPut("{id:int}/move-table")]
+    public async Task<ActionResult<OrderResponse>> MoveTable(int id, [FromQuery] int newTableId)
+    {
+        var result = await _mediator.Send(new MoveOrderTableCommand(id, newTableId));
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.PosRedirectUser)]
+    [HttpPut("{id:int}/reassign-waiter")]
+    public async Task<ActionResult<OrderResponse>> ReassignWaiter(int id, [FromQuery] int newEmployeeId)
+    {
+        var result = await _mediator.Send(new ReassignOrderWaiterCommand(id, newEmployeeId));
         return Ok(result);
     }
 }

@@ -6,4 +6,5 @@ public class UpdateOrderLineRequest
     public int Quantity { get; set; }
     public string? Note { get; set; }
     public string? Status { get; set; }
+    public decimal? UnitPrice { get; set; }
 }

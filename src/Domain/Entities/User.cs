@@ -13,6 +13,8 @@ public class User : IdentityUser<int>
     public Company Company { get; set; } = default!;
     public int? RestaurantId { get; set; }
     public Restaurant? Restaurant { get; set; }
+    public int? WarehouseId { get; set; }
+    public Warehouse? Warehouse { get; set; }
     public bool IsActive { get; set; } = true;
     public string? Code { get; set; }
 

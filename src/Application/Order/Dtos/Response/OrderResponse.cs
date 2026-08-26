@@ -21,6 +21,7 @@ public class OrderResponse
     public decimal TotalAmount { get; set; }
     public string? DiscountCode { get; set; }
     public decimal DiscountAmount { get; set; }
+    public decimal? ServiceChargeAmount { get; set; }
     public bool IsPaid { get; set; }
     public DateTime? PaidAt { get; set; }
     public string? PaymentMethod { get; set; }

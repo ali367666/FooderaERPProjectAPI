@@ -3,6 +3,7 @@
 import AuthGuard from "@/components/auth-guard";
 import { AppSidebar } from "@/components/app-sidebar";
 import { DashboardCompanyToolbar } from "@/components/dashboard-company-toolbar";
+import { DashboardPermissionGuard } from "@/components/dashboard-permission-guard";
 import { Toaster } from "@/components/ui/sonner";
 import { SelectedCompanyProvider } from "@/contexts/selected-company-context";
 
@@ -19,7 +20,7 @@ export default function DashboardLayout({
           <main className="lg:pl-64 min-h-screen p-6">
             <DashboardCompanyToolbar />
             <Toaster richColors closeButton position="top-center" />
-            {children}
+            <DashboardPermissionGuard>{children}</DashboardPermissionGuard>
           </main>
         </div>
       </SelectedCompanyProvider>

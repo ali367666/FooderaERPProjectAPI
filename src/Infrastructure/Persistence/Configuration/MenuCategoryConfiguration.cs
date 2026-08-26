@@ -26,5 +26,10 @@ public class MenuCategoryConfiguration : IEntityTypeConfiguration<MenuCategory>
             .WithOne(x => x.MenuCategory)
             .HasForeignKey(x => x.MenuCategoryId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.Printer)
+            .WithMany()
+            .HasForeignKey(x => x.PrinterId)
+            .OnDelete(DeleteBehavior.ClientSetNull);
     }
 }

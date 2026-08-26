@@ -10,15 +10,18 @@ namespace Application.Warehouse.Commands.Delete;
 public class DeleteWarehouseCommandHandler : IRequestHandler<DeleteWarehouseCommand, BaseResponse>
 {
     private readonly IWarehouseRepository _warehouseRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<DeleteWarehouseCommandHandler> _logger;
 
     public DeleteWarehouseCommandHandler(
         IWarehouseRepository warehouseRepository,
+        IUserRepository userRepository,
         IAuditLogService auditLogService,
         ILogger<DeleteWarehouseCommandHandler> logger)
     {
         _warehouseRepository = warehouseRepository;
+        _userRepository = userRepository;
         _auditLogService = auditLogService;
         _logger = logger;
     }
@@ -54,6 +57,15 @@ public class DeleteWarehouseCommandHandler : IRequestHandler<DeleteWarehouseComm
         var oldCompanyId = warehouse.CompanyId;
         var oldRestaurantId = warehouse.RestaurantId;
         var oldDriverUserId = warehouse.DriverUserId;
+
+        var linkedUsers = await _userRepository.GetAllByWarehouseIdAsync(warehouse.Id, cancellationToken);
+        foreach (var user in linkedUsers)
+        {
+            user.WarehouseId = null;
+            _userRepository.Update(user);
+        }
+        if (linkedUsers.Count > 0)
+            await _userRepository.SaveChangesAsync(cancellationToken);
 
         _warehouseRepository.Delete(warehouse);
         await _warehouseRepository.SaveChangesAsync(cancellationToken);

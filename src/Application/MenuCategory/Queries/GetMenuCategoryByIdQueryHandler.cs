@@ -30,7 +30,8 @@ public class GetMenuCategoryByIdQueryHandler
             Id = entity.Id,
             Name = entity.Name,
             Description = entity.Description,
-            IsActive = entity.IsActive
+            IsActive = entity.IsActive,
+            PrinterId = entity.PrinterId
         };
     }
 }

@@ -34,7 +34,7 @@ public class IdentityAdminService : IIdentityAdminService
 
     public async Task<List<UserListItemDto>> GetUsersAsync(int? companyIdFilter, CancellationToken cancellationToken = default)
     {
-        var q = _db.Users.AsNoTracking().Include(u => u.Company).Include(u => u.Restaurant).AsQueryable();
+        var q = _db.Users.AsNoTracking().Include(u => u.Company).Include(u => u.Restaurant).Include(u => u.Warehouse).AsQueryable();
         if (companyIdFilter is > 0)
             q = q.Where(u => u.CompanyId == companyIdFilter);
 
@@ -67,7 +67,9 @@ public class IdentityAdminService : IIdentityAdminService
                 CanAccessFrontOffice = u.CanAccessFrontOffice,
                 WorkplaceType = u.WorkplaceType,
                 RestaurantId = u.RestaurantId,
-                RestaurantName = u.Restaurant?.Name
+                RestaurantName = u.Restaurant?.Name,
+                WarehouseId = u.WarehouseId,
+                WarehouseName = u.Warehouse?.Name
             });
         }
 
@@ -79,6 +81,7 @@ public class IdentityAdminService : IIdentityAdminService
         var u = await _db.Users.AsNoTracking()
             .Include(x => x.Company)
             .Include(x => x.Restaurant)
+            .Include(x => x.Warehouse)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (u is null) return null;
 
@@ -106,7 +109,9 @@ public class IdentityAdminService : IIdentityAdminService
             CanAccessFrontOffice = u.CanAccessFrontOffice,
             WorkplaceType = u.WorkplaceType,
             RestaurantId = u.RestaurantId,
-            RestaurantName = u.Restaurant?.Name
+            RestaurantName = u.Restaurant?.Name,
+            WarehouseId = u.WarehouseId,
+            WarehouseName = u.Warehouse?.Name
         };
     }
 
@@ -179,6 +184,14 @@ public class IdentityAdminService : IIdentityAdminService
                 return (false, null, "That employee is already linked to a user account.", null);
         }
 
+        if (request.WarehouseId is > 0)
+        {
+            var warehouseExists = await _db.Warehouses.AsNoTracking()
+                .AnyAsync(w => w.Id == request.WarehouseId.Value && w.CompanyId == request.CompanyId, cancellationToken);
+            if (!warehouseExists)
+                return (false, null, "Warehouse was not found for this company.", null);
+        }
+
         var user = new User
         {
             UserName = userName,
@@ -189,6 +202,7 @@ public class IdentityAdminService : IIdentityAdminService
             CompanyId = request.CompanyId,
             WorkplaceType = request.WorkplaceType,
             RestaurantId = request.WorkplaceType == EmployeeWorkplaceType.Restaurant ? request.RestaurantId : null,
+            WarehouseId = request.WarehouseId is > 0 ? request.WarehouseId : null,
             EmailConfirmed = true,
             Code = code,
             RfidCardId = string.IsNullOrWhiteSpace(request.RfidCardId) ? null : request.RfidCardId.Trim(),
@@ -216,6 +230,17 @@ public class IdentityAdminService : IIdentityAdminService
         if (await _roleManager.RoleExistsAsync(roleName))
         {
             await _userManager.AddToRoleAsync(user, roleName);
+        }
+
+        if (request.RoleIds is { Count: > 0 })
+        {
+            foreach (var roleId in request.RoleIds.Distinct())
+            {
+                var role = await _roleManager.FindByIdAsync(roleId.ToString());
+                if (role?.Name is null) continue;
+                if (!await _userManager.IsInRoleAsync(user, role.Name))
+                    await _userManager.AddToRoleAsync(user, role.Name);
+            }
         }
 
         return (true, user.Id, null, null);
@@ -274,6 +299,14 @@ public class IdentityAdminService : IIdentityAdminService
                 return (false, "Restaurant was not found for this company.", null);
         }
 
+        if (request.WarehouseId is > 0)
+        {
+            var warehouseExists = await _db.Warehouses.AsNoTracking()
+                .AnyAsync(w => w.Id == request.WarehouseId.Value && w.CompanyId == request.CompanyId, cancellationToken);
+            if (!warehouseExists)
+                return (false, "Warehouse was not found for this company.", null);
+        }
+
         user.FullName = fullName;
         user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim();
         user.IsActive = request.IsActive;
@@ -284,6 +317,7 @@ public class IdentityAdminService : IIdentityAdminService
         user.CanAccessFrontOffice = request.CanAccessFrontOffice;
         user.WorkplaceType = request.WorkplaceType;
         user.RestaurantId = request.WorkplaceType == EmployeeWorkplaceType.Restaurant ? request.RestaurantId : null;
+        user.WarehouseId = request.WarehouseId is > 0 ? request.WarehouseId : null;
 
         var unRes = await _userManager.SetUserNameAsync(user, userName);
         if (!unRes.Succeeded)
@@ -347,6 +381,23 @@ public class IdentityAdminService : IIdentityAdminService
         }
 
         await _employeeRepository.SaveChangesAsync(cancellationToken);
+
+        if (request.RoleIds is not null)
+        {
+            var currentRoleNames = (await _userManager.GetRolesAsync(user)).ToList();
+            var targetRoles = await _roleManager.Roles
+                .Where(r => request.RoleIds.Contains(r.Id))
+                .ToListAsync(cancellationToken);
+            var targetRoleNames = targetRoles.Select(r => r.Name!).ToList();
+
+            var toRemove = currentRoleNames.Except(targetRoleNames, StringComparer.OrdinalIgnoreCase).ToList();
+            var toAdd = targetRoleNames.Except(currentRoleNames, StringComparer.OrdinalIgnoreCase).ToList();
+
+            if (toRemove.Count > 0)
+                await _userManager.RemoveFromRolesAsync(user, toRemove);
+            if (toAdd.Count > 0)
+                await _userManager.AddToRolesAsync(user, toAdd);
+        }
 
         return (true, null, null);
     }

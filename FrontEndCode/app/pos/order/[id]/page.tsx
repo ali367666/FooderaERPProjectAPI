@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Minus, Plus, Printer, Receipt, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Minus, Pencil, Plus, Printer, Receipt, Trash2, UserCog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,14 +23,22 @@ import {
   deleteOrderLine,
   payOrder,
   getOrderReceipt,
+  cancelOrder,
+  moveOrderTable,
+  reassignOrderWaiter,
   type OrderDto,
+  type OrderLineDto,
   type OrderReceiptDto,
   type PaymentMethod,
 } from "@/lib/services/order-service";
 import { getMenuCategories, type MenuCategory } from "@/lib/services/menu-category-service";
 import { getMenuItems, type MenuItem } from "@/lib/services/menu-item-service";
+import { getRestaurantTables, type RestaurantTable } from "@/lib/services/restaurant-table-service";
+import { getEmployees, type Employee } from "@/lib/services/employee-service";
+import { getPrinters, printToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
 import { getStoredAuthUser } from "@/lib/auth-client";
+import { useHasPermission } from "@/hooks/use-auth-permissions";
 import {
   getCompanySettingsBranding,
   type CompanySettingsBranding,
@@ -39,6 +47,12 @@ import {
 function isWaiterRole(): boolean {
   const roles = getStoredAuthUser()?.roles ?? [];
   return roles.some((r) => r.trim().toLowerCase() === "waiter");
+}
+
+function formatEmployeeName(e: Employee): string {
+  const n = e.fullName?.trim();
+  if (n) return n;
+  return `${e.firstName} ${e.lastName}`.trim() || `Employee #${e.id}`;
 }
 
 export default function PosOrderPage() {
@@ -58,6 +72,26 @@ export default function PosOrderPage() {
   const [paidAmountInput, setPaidAmountInput] = useState("");
   const [receipt, setReceipt] = useState<OrderReceiptDto | null>(null);
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
+  const [serviceChargeInput, setServiceChargeInput] = useState("");
+
+  const [moveTableOpen, setMoveTableOpen] = useState(false);
+  const [availableTables, setAvailableTables] = useState<RestaurantTable[]>([]);
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [employeesList, setEmployeesList] = useState<Employee[]>([]);
+  const [priceEditingLineId, setPriceEditingLineId] = useState<number | null>(null);
+  const [priceInput, setPriceInput] = useState("");
+
+  const canEditProduct = useHasPermission("Pos.EditProductInSale");
+  const canDeleteProduct = useHasPermission("Pos.DeleteProductInSale");
+  const canDeleteOrder = useHasPermission("Pos.DeleteOrder");
+  const canMoveTable = useHasPermission("Pos.MoveTable");
+  const canRedirectUser = useHasPermission("Pos.RedirectUser");
+  const canChangePrice = useHasPermission("Pos.ChangePrice");
+  const canTableServiceCharge = useHasPermission("Pos.TableServiceCharge");
+  const canPrint = useHasPermission("Printer.Print");
+
+  const [printers, setPrinters] = useState<PrinterProfile[]>([]);
+  const [printingId, setPrintingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,7 +123,51 @@ export default function PosOrderPage() {
     getCompanySettingsBranding(terminal.companyId)
       .then(setBranding)
       .catch(() => setBranding(null));
+    if (terminal.restaurantId) {
+      getPrinters(terminal.restaurantId)
+        .then((p) => setPrinters(p.filter((x) => x.isActive)))
+        .catch(() => setPrinters([]));
+    }
   }, []);
+
+  const printerGroups = useMemo(() => {
+    const itemById = new Map(items.map((i) => [i.id, i]));
+    const categoryById = new Map(categories.map((c) => [c.id, c]));
+    const groups = new Map<number, { printer: PrinterProfile; lines: OrderLineDto[] }>();
+    for (const line of order?.lines ?? []) {
+      const item = itemById.get(line.menuItemId);
+      const category = item ? categoryById.get(item.menuCategoryId) : undefined;
+      const printerId = category?.printerId;
+      if (!printerId) continue;
+      const printer = printers.find((p) => p.id === printerId);
+      if (!printer) continue;
+      const existing = groups.get(printerId);
+      if (existing) {
+        existing.lines.push(line);
+      } else {
+        groups.set(printerId, { printer, lines: [line] });
+      }
+    }
+    return Array.from(groups.values());
+  }, [order, items, categories, printers]);
+
+  const handlePrintGroup = async (printer: PrinterProfile, lines: OrderLineDto[]) => {
+    setPrintingId(printer.id);
+    try {
+      const content = [
+        printer.stationTypeName,
+        order?.tableName ?? "",
+        "------------------------",
+        ...lines.map((l) => `${l.quantity} x ${l.menuItemName}${l.note ? ` (${l.note})` : ""}`),
+      ].join("\n");
+      await printToPrinter(printer.id, content);
+      toast.success(`${printer.name} çapı göndərildi`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Printerə qoşulmaq mümkün olmadı");
+    } finally {
+      setPrintingId(null);
+    }
+  };
 
   const itemsInCategory = useMemo(
     () => items.filter((i) => i.menuCategoryId === activeCategoryId),
@@ -144,16 +222,19 @@ export default function PosOrderPage() {
   const openPayDialog = () => {
     if (!order || order.lines.length === 0) return;
     setPaymentMethod("Cash");
+    setServiceChargeInput("");
     setPaidAmountInput(order.totalAmount.toFixed(2));
     setPayOpen(true);
   };
 
+  const serviceCharge = canTableServiceCharge ? Number(serviceChargeInput) || 0 : 0;
   const paidAmount = Number(paidAmountInput) || 0;
-  const changeAmount = paymentMethod === "Cash" ? Math.max(0, paidAmount - (order?.totalAmount ?? 0)) : 0;
+  const totalWithService = (order?.totalAmount ?? 0) + serviceCharge;
+  const changeAmount = paymentMethod === "Cash" ? Math.max(0, paidAmount - totalWithService) : 0;
 
   const handleConfirmPayment = async () => {
     if (!order) return;
-    if (paymentMethod === "Cash" && paidAmount < order.totalAmount) {
+    if (paymentMethod === "Cash" && paidAmount < totalWithService) {
       toast.error("Ödənilən məbləğ cəmdən az ola bilməz");
       return;
     }
@@ -161,13 +242,104 @@ export default function PosOrderPage() {
     try {
       await payOrder(order.id, {
         paymentMethod,
-        paidAmount: paymentMethod === "Cash" ? paidAmount : order.totalAmount,
+        paidAmount: paymentMethod === "Cash" ? paidAmount : totalWithService,
+        serviceChargeAmount: canTableServiceCharge && serviceCharge > 0 ? serviceCharge : null,
       });
       const r = await getOrderReceipt(order.id);
       setReceipt(r);
       setPayOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ödəniş uğursuz oldu");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!order || busy) return;
+    if (!window.confirm("Sifarişi ləğv etmək istədiyinizə əminsiniz?")) return;
+    setBusy(true);
+    try {
+      await cancelOrder(order.id);
+      toast.success("Sifariş ləğv edildi");
+      router.replace("/pos");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sifariş ləğv edilmədi");
+      setBusy(false);
+    }
+  };
+
+  const openMoveTableDialog = async () => {
+    if (!order) return;
+    setMoveTableOpen(true);
+    try {
+      const tables = await getRestaurantTables();
+      setAvailableTables(
+        tables.filter((t) => t.restaurantId === order.restaurantId && t.isActive && !t.isOccupied),
+      );
+    } catch {
+      setAvailableTables([]);
+    }
+  };
+
+  const handleMoveTable = async (newTableId: number) => {
+    if (!order || busy) return;
+    setBusy(true);
+    try {
+      const updated = await moveOrderTable(order.id, newTableId);
+      setOrder(updated);
+      toast.success("Masa dəyişdirildi");
+      setMoveTableOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Masa dəyişdirilmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openReassignDialog = async () => {
+    setReassignOpen(true);
+    try {
+      const emp = await getEmployees();
+      setEmployeesList(emp);
+    } catch {
+      setEmployeesList([]);
+    }
+  };
+
+  const handleReassignWaiter = async (newEmployeeId: number) => {
+    if (!order || busy) return;
+    setBusy(true);
+    try {
+      const updated = await reassignOrderWaiter(order.id, newEmployeeId);
+      setOrder(updated);
+      toast.success("Ofisiant dəyişdirildi");
+      setReassignOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Ofisiant dəyişdirilmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startPriceEdit = (lineId: number, currentPrice: number) => {
+    setPriceEditingLineId(lineId);
+    setPriceInput(currentPrice.toFixed(2));
+  };
+
+  const handleSavePrice = async (lineId: number, quantity: number) => {
+    const newPrice = Number(priceInput);
+    if (!Number.isFinite(newPrice) || newPrice < 0) {
+      toast.error("Qiymət düzgün deyil");
+      return;
+    }
+    setBusy(true);
+    try {
+      const updated = await updateOrderLine({ id: lineId, quantity, unitPrice: newPrice });
+      setOrder(updated);
+      setPriceEditingLineId(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Qiymət dəyişdirilmədi");
     } finally {
       setBusy(false);
     }
@@ -200,6 +372,26 @@ export default function PosOrderPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="font-semibold">{order.tableName}</span>
+          <div className="ml-auto flex items-center gap-1">
+            {!isPaid && canMoveTable && (
+              <Button variant="outline" size="sm" onClick={() => void openMoveTableDialog()} disabled={busy}>
+                <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
+                Masanı dəyiş
+              </Button>
+            )}
+            {!isPaid && canRedirectUser && (
+              <Button variant="outline" size="sm" onClick={() => void openReassignDialog()} disabled={busy}>
+                <UserCog className="mr-1 h-3.5 w-3.5" />
+                Ofisiantı dəyiş
+              </Button>
+            )}
+            {!isPaid && canDeleteOrder && (
+              <Button variant="outline" size="sm" className="text-destructive" onClick={() => void handleDeleteOrder()} disabled={busy}>
+                <X className="mr-1 h-3.5 w-3.5" />
+                Sifarişi ləğv et
+              </Button>
+            )}
+          </div>
         </div>
         <div className="flex gap-2 overflow-x-auto border-b bg-background px-3 py-2">
           {categories.map((cat) => (
@@ -253,19 +445,21 @@ export default function PosOrderPage() {
               <div key={line.id} className="rounded-lg border p-2">
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-sm font-medium">{line.menuItemName}</span>
-                  <button
-                    type="button"
-                    onClick={() => void handleRemoveLine(line.id)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {canDeleteProduct && (
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveLine(line.id)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
                 <div className="mt-1 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      disabled={busy}
+                      disabled={busy || !canEditProduct}
                       onClick={() => void handleQuantityChange(line.id, line.quantity, -1)}
                       className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
                     >
@@ -274,19 +468,62 @@ export default function PosOrderPage() {
                     <span className="w-6 text-center text-sm font-semibold">{line.quantity}</span>
                     <button
                       type="button"
-                      disabled={busy}
+                      disabled={busy || !canEditProduct}
                       onClick={() => void handleQuantityChange(line.id, line.quantity, 1)}
                       className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
                     >
                       <Plus className="h-3 w-3" />
                     </button>
                   </div>
-                  <span className="text-sm font-semibold">{line.lineTotal.toFixed(2)} ₼</span>
+                  {priceEditingLineId === line.id ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        autoFocus
+                        value={priceInput}
+                        onChange={(e) => setPriceInput(e.target.value)}
+                        className="h-7 w-20 text-right text-sm"
+                      />
+                      <Button size="sm" className="h-7 px-2" disabled={busy} onClick={() => void handleSavePrice(line.id, line.quantity)}>
+                        OK
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      {canChangePrice && (
+                        <button
+                          type="button"
+                          onClick={() => startPriceEdit(line.id, line.unitPrice)}
+                          className="text-muted-foreground hover:text-primary"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      )}
+                      <span className="text-sm font-semibold">{line.lineTotal.toFixed(2)} ₼</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
+        {canPrint && printerGroups.length > 0 && !isPaid && (
+          <div className="flex flex-wrap gap-2 border-t p-3">
+            {printerGroups.map(({ printer, lines }) => (
+              <Button
+                key={printer.id}
+                size="sm"
+                variant="outline"
+                disabled={printingId === printer.id}
+                onClick={() => void handlePrintGroup(printer, lines)}
+              >
+                <Printer className="mr-1 h-3.5 w-3.5" />
+                {printer.name}-ə göndər ({lines.length})
+              </Button>
+            ))}
+          </div>
+        )}
         <div className="border-t p-3">
           <div className="mb-3 flex items-center justify-between text-lg font-bold">
             <span>Cəm</span>
@@ -318,9 +555,27 @@ export default function PosOrderPage() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Ödəniş</DialogTitle>
-            <DialogDescription>Cəm: {order.totalAmount.toFixed(2)} ₼</DialogDescription>
+            <DialogDescription>Cəm: {totalWithService.toFixed(2)} ₼</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            {canTableServiceCharge && (
+              <div className="space-y-1">
+                <Label htmlFor="service-charge">Servis haqqı (opsional)</Label>
+                <Input
+                  id="service-charge"
+                  type="number"
+                  step="0.01"
+                  value={serviceChargeInput}
+                  onChange={(e) => {
+                    setServiceChargeInput(e.target.value);
+                    if (paymentMethod === "Card") {
+                      setPaidAmountInput((order.totalAmount + (Number(e.target.value) || 0)).toFixed(2));
+                    }
+                  }}
+                  placeholder="0.00"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
@@ -334,7 +589,7 @@ export default function PosOrderPage() {
                 variant={paymentMethod === "Card" ? "default" : "outline"}
                 onClick={() => {
                   setPaymentMethod("Card");
-                  setPaidAmountInput(order.totalAmount.toFixed(2));
+                  setPaidAmountInput(totalWithService.toFixed(2));
                 }}
               >
                 Kart
@@ -414,6 +669,12 @@ export default function PosOrderPage() {
                 className="mt-2 border-t pt-2 font-semibold"
                 style={branding?.productColor ? { color: branding.productColor } : undefined}
               >
+                {(order.serviceChargeAmount ?? 0) > 0 && (
+                  <div className="flex justify-between font-normal text-muted-foreground">
+                    <span>Servis haqqı</span>
+                    <span>{(order.serviceChargeAmount ?? 0).toFixed(2)} ₼</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span>Cəm</span>
                   <span>{receipt?.totalAmount.toFixed(2)} ₼</span>
@@ -461,6 +722,52 @@ export default function PosOrderPage() {
               Bağla
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move table dialog */}
+      <Dialog open={moveTableOpen} onOpenChange={setMoveTableOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Masanı dəyiş</DialogTitle>
+            <DialogDescription>Boş masalardan birini seçin.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-2">
+            {availableTables.map((t) => (
+              <Button key={t.id} variant="outline" disabled={busy} onClick={() => void handleMoveTable(t.id)}>
+                {t.name}
+              </Button>
+            ))}
+            {availableTables.length === 0 && (
+              <p className="col-span-3 py-4 text-center text-sm text-muted-foreground">Boş masa yoxdur</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reassign waiter dialog */}
+      <Dialog open={reassignOpen} onOpenChange={setReassignOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ofisiantı dəyiş</DialogTitle>
+            <DialogDescription>Yeni ofisiantı seçin.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-64 space-y-1 overflow-y-auto">
+            {employeesList.map((e) => (
+              <button
+                key={e.id}
+                type="button"
+                disabled={busy}
+                onClick={() => void handleReassignWaiter(e.id)}
+                className="flex w-full items-center rounded-md border px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
+              >
+                {formatEmployeeName(e)}
+              </button>
+            ))}
+            {employeesList.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">İşçi tapılmadı</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
