@@ -45,6 +45,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 ContactPhoneNumber = settings.ContactPhoneNumber,
                 ReceiptFontSize = settings.ReceiptFontSize,
                 CategoryFontSize = settings.CategoryFontSize,
+                ReceiptRestaurantNameFontSize = settings.ReceiptRestaurantNameFontSize,
                 AllowReceiptEditAfterPrint = settings.AllowReceiptEditAfterPrint,
                 WaiterCanPrintCustomerReceipt = settings.WaiterCanPrintCustomerReceipt,
                 AlertMilliseconds = settings.AlertMilliseconds,
@@ -54,7 +55,22 @@ public class GetCompanySettingsBrandingQueryHandler
                 ModuleFilial = settings.ModuleFilial,
                 ModuleAnbar = settings.ModuleAnbar,
                 ModuleRezervasyon = settings.ModuleRezervasyon,
-                ModuleMasaBolge = settings.ModuleMasaBolge
+                ModuleMasaBolge = settings.ModuleMasaBolge,
+                ModulePaket = settings.ModulePaket,
+                ModuleOtel = settings.ModuleOtel,
+                ModuleFitnes = settings.ModuleFitnes,
+                ModuleDataSecimi = settings.ModuleDataSecimi,
+                ModuleQiymetSor = settings.ModuleQiymetSor,
+                PrintAutoOnPayment = settings.PrintAutoOnPayment,
+                PrintShowPreview = settings.PrintShowPreview,
+                PrintGroupQuantities = settings.PrintGroupQuantities,
+                ReceiptShowTime = settings.ReceiptShowTime,
+                ReceiptShowWaiterName = settings.ReceiptShowWaiterName,
+                ReceiptShowTableName = settings.ReceiptShowTableName,
+                ReceiptShowOrderNumber = settings.ReceiptShowOrderNumber,
+                ReceiptShowPaymentMethod = settings.ReceiptShowPaymentMethod,
+                AskGuestCountOnOpen = settings.AskGuestCountOnOpen,
+                DefaultVatPercent = settings.DefaultVatPercent
             };
 
         return BaseResponse<CompanySettingsBrandingResponse>.Ok(response);

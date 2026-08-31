@@ -11,6 +11,11 @@ public class CompanySettings : CompanyEntity<int>
     public bool ModuleAnbar { get; set; } = true;
     public bool ModuleRezervasyon { get; set; } = true;
     public bool ModuleMasaBolge { get; set; } = true;
+    public bool ModulePaket { get; set; }
+    public bool ModuleOtel { get; set; }
+    public bool ModuleFitnes { get; set; }
+    public bool ModuleDataSecimi { get; set; }
+    public bool ModuleQiymetSor { get; set; }
 
     public bool IntegrationWolt { get; set; }
     public bool IntegrationBolt { get; set; }
@@ -34,6 +39,23 @@ public class CompanySettings : CompanyEntity<int>
     public string? ContactPhoneNumber { get; set; }
     public int? ReceiptFontSize { get; set; }
     public int? CategoryFontSize { get; set; }
+    public int? ReceiptRestaurantNameFontSize { get; set; }
     public bool AllowReceiptEditAfterPrint { get; set; } = true;
     public bool WaiterCanPrintCustomerReceipt { get; set; } = true;
+
+    // Çap paneli
+    public bool PrintAutoOnPayment { get; set; }
+    public bool PrintShowPreview { get; set; } = true;
+    public bool PrintGroupQuantities { get; set; } = true;
+    public bool ReceiptShowTime { get; set; } = true;
+    public bool ReceiptShowWaiterName { get; set; } = true;
+    public bool ReceiptShowTableName { get; set; } = true;
+    public bool ReceiptShowOrderNumber { get; set; } = true;
+    public bool ReceiptShowPaymentMethod { get; set; } = true;
+
+    // POS-1 paneli
+    public bool AskGuestCountOnOpen { get; set; }
+
+    // ƏDV
+    public decimal? DefaultVatPercent { get; set; }
 }

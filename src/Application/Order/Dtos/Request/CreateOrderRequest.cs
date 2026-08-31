@@ -6,4 +6,5 @@ public class CreateOrderRequest
     public int TableId { get; set; }
     public int WaiterId { get; set; }
     public string? Note { get; set; }
+    public int? GuestCount { get; set; }
 }

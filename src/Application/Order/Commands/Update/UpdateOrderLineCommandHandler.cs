@@ -281,6 +281,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
                 : null,
             Status = updatedOrder.Status.ToString(),
             Note = updatedOrder.Note,
+            GuestCount = updatedOrder.GuestCount,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,

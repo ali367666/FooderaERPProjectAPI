@@ -240,6 +240,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
                 : null,
             Status = updatedOrder.Status.ToString(),
             Note = updatedOrder.Note,
+            GuestCount = updatedOrder.GuestCount,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,

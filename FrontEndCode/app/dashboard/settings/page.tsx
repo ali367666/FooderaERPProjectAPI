@@ -19,6 +19,11 @@ const MODULE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> =
   { key: "moduleAnbar", label: "Anbar" },
   { key: "moduleRezervasyon", label: "Rezervasiya" },
   { key: "moduleMasaBolge", label: "Masa Bölgə" },
+  { key: "modulePaket", label: "Paket" },
+  { key: "moduleOtel", label: "Otel" },
+  { key: "moduleFitnes", label: "Fitnes" },
+  { key: "moduleDataSecimi", label: "Data Seçimi" },
+  { key: "moduleQiymetSor", label: "Qiymət Sor" },
 ];
 
 const INTEGRATION_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
@@ -43,6 +48,11 @@ const DEFAULTS: CompanySettingsInput = {
   moduleAnbar: false,
   moduleRezervasyon: false,
   moduleMasaBolge: false,
+  modulePaket: false,
+  moduleOtel: false,
+  moduleFitnes: false,
+  moduleDataSecimi: false,
+  moduleQiymetSor: false,
   integrationWolt: false,
   integrationBolt: false,
   integration189Delivery: false,
@@ -62,9 +72,34 @@ const DEFAULTS: CompanySettingsInput = {
   contactPhoneNumber: null,
   receiptFontSize: null,
   categoryFontSize: null,
+  receiptRestaurantNameFontSize: null,
   allowReceiptEditAfterPrint: true,
   waiterCanPrintCustomerReceipt: true,
+  printAutoOnPayment: false,
+  printShowPreview: true,
+  printGroupQuantities: true,
+  receiptShowTime: true,
+  receiptShowWaiterName: true,
+  receiptShowTableName: true,
+  receiptShowOrderNumber: true,
+  receiptShowPaymentMethod: true,
+  askGuestCountOnOpen: false,
+  defaultVatPercent: null,
 };
+
+const PRINT_TOGGLE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
+  { key: "printAutoOnPayment", label: "Ödəniş bitəndə qəbz avtomatik çap olunsun" },
+  { key: "printShowPreview", label: "Çapdan əvvəl önizləmə göstər" },
+  { key: "printGroupQuantities", label: "Qəbzdə eyni məhsulun miqdarını qruplaşdır" },
+];
+
+const RECEIPT_FIELD_TOGGLES: Array<{ key: keyof CompanySettingsInput; label: string }> = [
+  { key: "receiptShowTime", label: "Vaxt" },
+  { key: "receiptShowWaiterName", label: "Ofisiant adı" },
+  { key: "receiptShowTableName", label: "Masa adı" },
+  { key: "receiptShowOrderNumber", label: "Sifariş nömrəsi" },
+  { key: "receiptShowPaymentMethod", label: "Ödəniş üsulu" },
+];
 
 export default function SettingsPage() {
   const [form, setForm] = useState<CompanySettingsInput>(DEFAULTS);
@@ -289,6 +324,12 @@ export default function SettingsPage() {
             <Label>Kateqoriya şrift ölçüsü</Label>
             <div className="mt-1">{numberField("categoryFontSize", form.categoryFontSize)}</div>
           </div>
+          <div>
+            <Label>Restoran adı şrift ölçüsü (qəbzdə)</Label>
+            <div className="mt-1">
+              {numberField("receiptRestaurantNameFontSize", form.receiptRestaurantNameFontSize)}
+            </div>
+          </div>
         </div>
 
         <div className="space-y-2 pt-2">
@@ -312,6 +353,75 @@ export default function SettingsPage() {
               Ofisiant müştəri qəbzini çıxara bilsin
             </Label>
           </div>
+        </div>
+      </section>
+
+      {/* Çap paneli */}
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">Çap paneli</h2>
+
+        <div className="space-y-2">
+          {PRINT_TOGGLE_FIELDS.map((f) => (
+            <div key={f.key} className="flex items-center gap-2">
+              <Checkbox
+                id={f.key}
+                checked={Boolean(form[f.key])}
+                onCheckedChange={(v) => update(f.key, (v === true) as never)}
+              />
+              <Label htmlFor={f.key} className="text-sm font-normal">
+                {f.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <Label className="mb-2 block">Qəbzdə görünsün</Label>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Bu sahələrdən hansını müştəri qəbzində göstərmək istəmirsinizsə, işarəni götürün.
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {RECEIPT_FIELD_TOGGLES.map((f) => (
+              <div key={f.key} className="flex items-center gap-2">
+                <Checkbox
+                  id={f.key}
+                  checked={Boolean(form[f.key])}
+                  onCheckedChange={(v) => update(f.key, (v === true) as never)}
+                />
+                <Label htmlFor={f.key} className="text-sm font-normal">
+                  {f.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* POS-1 paneli */}
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">POS-1 paneli</h2>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="askGuestCountOnOpen"
+            checked={form.askGuestCountOnOpen}
+            onCheckedChange={(v) => update("askGuestCountOnOpen", v === true)}
+          />
+          <Label htmlFor="askGuestCountOnOpen" className="text-sm font-normal">
+            Masa açılanda qonaq (kişi) sayını soruş
+          </Label>
+        </div>
+      </section>
+
+      {/* ƏDV */}
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">ƏDV</h2>
+        <div>
+          <Label>Ümumi ƏDV faizi (%)</Label>
+          <p className="mb-1 mt-0.5 text-xs text-muted-foreground">
+            Məhsulun özündə ƏDV faizi ayrıca göstərilməyibsə, bu dəyər istifadə olunur. Qiymətlərə ƏDV daxil hesab
+            edilir, qəbzdə ayrıca sətir kimi göstərilir.
+          </p>
+          <div className="mt-1 max-w-[160px]">{numberField("defaultVatPercent", form.defaultVatPercent)}</div>
         </div>
       </section>
 

@@ -16,6 +16,7 @@ public class OrderResponse
     public DateTime? ProcessedAt { get; set; }
     public string Status { get; set; } = default!;
     public string? Note { get; set; }
+    public int? GuestCount { get; set; }
     public DateTime OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
     public decimal TotalAmount { get; set; }

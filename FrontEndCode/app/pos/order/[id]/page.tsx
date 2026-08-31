@@ -32,7 +32,7 @@ import {
   type PaymentMethod,
 } from "@/lib/services/order-service";
 import { getMenuCategories, type MenuCategory } from "@/lib/services/menu-category-service";
-import { getMenuItems, type MenuItem } from "@/lib/services/menu-item-service";
+import { getMenuItems, getMenuItemAvailability, type MenuItem } from "@/lib/services/menu-item-service";
 import { getRestaurantTables, type RestaurantTable } from "@/lib/services/restaurant-table-service";
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
 import { getPrinters, printToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
@@ -95,6 +95,15 @@ export default function PosOrderPage() {
 
   const [printers, setPrinters] = useState<PrinterProfile[]>([]);
   const [printingId, setPrintingId] = useState<number | null>(null);
+  const [outOfStockIds, setOutOfStockIds] = useState<Set<number>>(new Set());
+
+  const loadAvailability = useCallback(async (restaurantId: number) => {
+    try {
+      setOutOfStockIds(await getMenuItemAvailability(restaurantId));
+    } catch {
+      setOutOfStockIds(new Set());
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -132,8 +141,9 @@ export default function PosOrderPage() {
       getPrinters(terminal.restaurantId)
         .then((p) => setPrinters(p.filter((x) => x.isActive)))
         .catch(() => setPrinters([]));
+      void loadAvailability(terminal.restaurantId);
     }
-  }, []);
+  }, [loadAvailability]);
 
   const orderedLines = useMemo(() => {
     const lines = order?.lines ?? [];
@@ -218,11 +228,12 @@ export default function PosOrderPage() {
   }, [items, ownItems, activeSubCategoryId]);
 
   const handleAddItem = async (menuItemId: number) => {
-    if (!order || busy) return;
+    if (!order || busy || outOfStockIds.has(menuItemId)) return;
     setBusy(true);
     try {
       const updated = await addOrderLine({ orderId: order.id, menuItemId, quantity: 1 });
       setOrder(updated);
+      void loadAvailability(order.restaurantId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Məhsul əlavə olunmadı");
     } finally {
@@ -270,12 +281,21 @@ export default function PosOrderPage() {
     setPayOpen(true);
   };
 
+  const maybeAutoPrint = (isFromPayment: boolean) => {
+    const shouldAutoPrint =
+      (isFromPayment && branding?.printAutoOnPayment === true) || branding?.printShowPreview === false;
+    if (shouldAutoPrint) {
+      setTimeout(() => window.print(), 150);
+    }
+  };
+
   const handlePrintBill = async () => {
     if (!order || order.lines.length === 0) return;
     setBusy(true);
     try {
       const r = await getOrderReceipt(order.id);
       setReceipt(r);
+      maybeAutoPrint(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Qəbz alına bilmədi");
     } finally {
@@ -304,6 +324,7 @@ export default function PosOrderPage() {
       const r = await getOrderReceipt(order.id);
       setReceipt(r);
       setPayOpen(false);
+      maybeAutoPrint(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ödəniş uğursuz oldu");
     } finally {
@@ -500,18 +521,29 @@ export default function PosOrderPage() {
           )}
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {itemsInCategory.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                disabled={busy}
-                onClick={() => void handleAddItem(item.id)}
-                className="flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50"
-              >
-                <span className="text-sm font-semibold leading-tight">{item.name}</span>
-                <span className="text-xs text-muted-foreground">{item.price.toFixed(2)} ₼</span>
-              </button>
-            ))}
+            {itemsInCategory.map((item) => {
+              const isOutOfStock = outOfStockIds.has(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={busy || isOutOfStock}
+                  onClick={() => void handleAddItem(item.id)}
+                  className={cn(
+                    "relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50",
+                    isOutOfStock && "bg-muted grayscale",
+                  )}
+                >
+                  {isOutOfStock && (
+                    <span className="absolute right-1 top-1 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
+                      Bitib
+                    </span>
+                  )}
+                  <span className="text-sm font-semibold leading-tight">{item.name}</span>
+                  <span className="text-xs text-muted-foreground">{item.price.toFixed(2)} ₼</span>
+                </button>
+              );
+            })}
             {itemsInCategory.length === 0 && subCategoriesWithItems.length === 0 && (
               <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
                 Bu kateqoriyada məhsul yoxdur
@@ -760,17 +792,37 @@ export default function PosOrderPage() {
                   className="mx-auto mb-1 h-12 w-auto object-contain"
                 />
               )}
-              <DialogTitle
-                className="flex items-center gap-2"
-                style={branding?.productColor ? { color: branding.productColor } : undefined}
+              <p
+                className="text-center font-bold uppercase tracking-wide"
+                style={{
+                  fontSize: branding?.receiptRestaurantNameFontSize
+                    ? `${branding.receiptRestaurantNameFontSize}px`
+                    : "18px",
+                  color: branding?.productColor || undefined,
+                }}
               >
-                <Receipt className="h-5 w-5" />
-                Qəbz #{receipt?.receiptNumber}
-              </DialogTitle>
-              <DialogDescription>
-                {receipt?.restaurantName} — {receipt?.tableName}
-                {branding?.floorLabel && ` — ${branding.floorLabel}`}
-              </DialogDescription>
+                {receipt?.restaurantName}
+              </p>
+              <DialogTitle className="sr-only">Qəbz</DialogTitle>
+              {(branding?.receiptShowTableName !== false && receipt?.tableName) || branding?.floorLabel ? (
+                <DialogDescription className="text-center">
+                  {branding?.receiptShowTableName !== false && receipt?.tableName}
+                  {branding?.floorLabel &&
+                    (branding?.receiptShowTableName !== false && receipt?.tableName
+                      ? ` — ${branding.floorLabel}`
+                      : branding.floorLabel)}
+                </DialogDescription>
+              ) : null}
+              {receipt && (
+                <div className="space-y-0.5 text-xs text-muted-foreground">
+                  {branding?.receiptShowOrderNumber !== false && <p>Sifariş: {receipt.orderNumber}</p>}
+                  {branding?.receiptShowWaiterName !== false && <p>Ofisiant: {receipt.waiterName}</p>}
+                  {branding?.receiptShowTime !== false && (
+                    <p>Vaxt: {new Date(receipt.paidAt ?? receipt.openedAt).toLocaleString("az-AZ")}</p>
+                  )}
+                  {branding?.receiptShowPaymentMethod !== false && <p>Ödəniş: {receipt.paymentMethod}</p>}
+                </div>
+              )}
             </DialogHeader>
             <div className="space-y-1 text-sm">
               {receipt?.lines.map((line, i) => (
@@ -795,6 +847,12 @@ export default function PosOrderPage() {
                   <span>Cəm</span>
                   <span>{receipt?.totalAmount.toFixed(2)} ₼</span>
                 </div>
+                {receipt && receipt.vatAmount > 0 && (
+                  <div className="flex justify-between font-normal text-muted-foreground">
+                    <span>ƏDV daxildir</span>
+                    <span>{receipt.vatAmount.toFixed(2)} ₼</span>
+                  </div>
+                )}
                 {receipt && receipt.paymentMethod === "Cash" && (
                   <>
                     <div className="flex justify-between font-normal text-muted-foreground">

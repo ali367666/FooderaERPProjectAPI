@@ -45,6 +45,11 @@ public class UpdateCompanySettingsCommandHandler
         settings.ModuleAnbar = dto.ModuleAnbar;
         settings.ModuleRezervasyon = dto.ModuleRezervasyon;
         settings.ModuleMasaBolge = dto.ModuleMasaBolge;
+        settings.ModulePaket = dto.ModulePaket;
+        settings.ModuleOtel = dto.ModuleOtel;
+        settings.ModuleFitnes = dto.ModuleFitnes;
+        settings.ModuleDataSecimi = dto.ModuleDataSecimi;
+        settings.ModuleQiymetSor = dto.ModuleQiymetSor;
 
         settings.IntegrationWolt = dto.IntegrationWolt;
         settings.IntegrationBolt = dto.IntegrationBolt;
@@ -67,8 +72,20 @@ public class UpdateCompanySettingsCommandHandler
         settings.ContactPhoneNumber = dto.ContactPhoneNumber?.Trim();
         settings.ReceiptFontSize = dto.ReceiptFontSize;
         settings.CategoryFontSize = dto.CategoryFontSize;
+        settings.ReceiptRestaurantNameFontSize = dto.ReceiptRestaurantNameFontSize;
         settings.AllowReceiptEditAfterPrint = dto.AllowReceiptEditAfterPrint;
         settings.WaiterCanPrintCustomerReceipt = dto.WaiterCanPrintCustomerReceipt;
+
+        settings.PrintAutoOnPayment = dto.PrintAutoOnPayment;
+        settings.PrintShowPreview = dto.PrintShowPreview;
+        settings.PrintGroupQuantities = dto.PrintGroupQuantities;
+        settings.ReceiptShowTime = dto.ReceiptShowTime;
+        settings.ReceiptShowWaiterName = dto.ReceiptShowWaiterName;
+        settings.ReceiptShowTableName = dto.ReceiptShowTableName;
+        settings.ReceiptShowOrderNumber = dto.ReceiptShowOrderNumber;
+        settings.ReceiptShowPaymentMethod = dto.ReceiptShowPaymentMethod;
+        settings.AskGuestCountOnOpen = dto.AskGuestCountOnOpen;
+        settings.DefaultVatPercent = dto.DefaultVatPercent;
 
         await _repository.SaveChangesAsync(cancellationToken);
 

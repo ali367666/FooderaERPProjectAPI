@@ -4,16 +4,19 @@ using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Infrastructure.Migrations
+namespace Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831221752_Add_PrintPanelSettings")]
+    partial class Add_PrintPanelSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -321,9 +324,6 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("AllowReceiptEditAfterPrint")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("AskGuestCountOnOpen")
-                        .HasColumnType("bit");
-
                     b.Property<int?>("CategoryFontSize")
                         .HasColumnType("int");
 
@@ -339,9 +339,6 @@ namespace Infrastructure.Migrations
 
                     b.Property<int?>("CreatedByUserId")
                         .HasColumnType("int");
-
-                    b.Property<decimal?>("DefaultVatPercent")
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("FloorLabel")
                         .HasMaxLength(100)
@@ -414,9 +411,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.Property<int?>("ReceiptFontSize")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ReceiptRestaurantNameFontSize")
                         .HasColumnType("int");
 
                     b.Property<bool>("ReceiptShowOrderNumber")
@@ -1129,9 +1123,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("DiscountId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("GuestCount")
                         .HasColumnType("int");
 
                     b.Property<bool>("IsPaid")

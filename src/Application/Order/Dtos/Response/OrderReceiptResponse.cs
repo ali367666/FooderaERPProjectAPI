@@ -13,6 +13,7 @@ public class OrderReceiptResponse
     public decimal TotalAmount { get; set; }
     public decimal PaidAmount { get; set; }
     public decimal ChangeAmount { get; set; }
+    public decimal VatAmount { get; set; }
     public List<OrderReceiptLineResponse> Lines { get; set; } = new();
 }
 
@@ -22,4 +23,5 @@ public class OrderReceiptLineResponse
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal VatAmount { get; set; }
 }

@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
@@ -77,6 +86,8 @@ export default function PosTablesPage() {
   const [now, setNow] = useState(() => new Date());
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
   const alertedTableIds = useRef<Set<number>>(new Set());
+  const [guestCountTable, setGuestCountTable] = useState<TableWithOrder | null>(null);
+  const [guestCountInput, setGuestCountInput] = useState("");
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
@@ -146,13 +157,7 @@ export default function PosTablesPage() {
       .catch(() => setSections([]));
   }, [terminal]);
 
-  const openTable = async (table: TableWithOrder) => {
-    if (table.activeOrder) {
-      router.push(`/pos/order/${table.activeOrder.id}`);
-      return;
-    }
-    if (!terminal) return;
-
+  const createOrderForTable = async (table: TableWithOrder, guestCount?: number) => {
     setCreatingTableId(table.id);
     try {
       const waiterId = await getCurrentEmployeeId();
@@ -164,6 +169,7 @@ export default function PosTablesPage() {
         restaurantId: table.restaurantId,
         tableId: table.id,
         waiterId,
+        guestCount: guestCount ?? null,
       });
       router.push(`/pos/order/${order.id}`);
     } catch (err) {
@@ -171,6 +177,31 @@ export default function PosTablesPage() {
     } finally {
       setCreatingTableId(null);
     }
+  };
+
+  const openTable = async (table: TableWithOrder) => {
+    if (table.activeOrder) {
+      router.push(`/pos/order/${table.activeOrder.id}`);
+      return;
+    }
+    if (!terminal) return;
+
+    if (branding?.askGuestCountOnOpen) {
+      setGuestCountInput("");
+      setGuestCountTable(table);
+      return;
+    }
+
+    void createOrderForTable(table);
+  };
+
+  const handleConfirmGuestCount = () => {
+    if (!guestCountTable) return;
+    const parsed = Number(guestCountInput);
+    const guestCount = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+    const table = guestCountTable;
+    setGuestCountTable(null);
+    void createOrderForTable(table, guestCount);
   };
 
   if (loading) {
@@ -271,6 +302,9 @@ export default function PosTablesPage() {
                   {order?.waiterName && (
                     <span className="max-w-full truncate text-[11px] text-white/80">{order.waiterName}</span>
                   )}
+                  {order?.guestCount != null && (
+                    <span className="text-[11px] text-white/80">{order.guestCount} nəfər</span>
+                  )}
                   <span className="text-[11px] text-white/80">{formatElapsed(order!.openedAt, now.getTime())}</span>
                   <span className="text-xs font-semibold text-white">{order!.totalAmount.toFixed(2)} ₼</span>
                   {order?.note && (
@@ -286,6 +320,34 @@ export default function PosTablesPage() {
           );
         })}
       </div>
+
+      <Dialog open={guestCountTable !== null} onOpenChange={(open) => !open && setGuestCountTable(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Neçə nəfərsiniz?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="guest-count-input">Qonaq sayı</Label>
+            <Input
+              id="guest-count-input"
+              type="number"
+              min={1}
+              autoFocus
+              value={guestCountInput}
+              onChange={(e) => setGuestCountInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleConfirmGuestCount();
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGuestCountTable(null)}>
+              Ləğv et
+            </Button>
+            <Button onClick={handleConfirmGuestCount}>Təsdiqlə</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -68,6 +68,7 @@ public class RemoveDiscountFromOrderCommandHandler : IRequestHandler<RemoveDisco
             ProcessedAt = order.ProcessedAt,
             Status = order.Status.ToString(),
             Note = order.Note,
+            GuestCount = order.GuestCount,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = order.TotalAmount,
