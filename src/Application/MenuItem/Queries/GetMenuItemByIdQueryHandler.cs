@@ -2,6 +2,7 @@
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.MenuItems.Dtos;
+using Application.MenuItems.Queries.GetAll;
 using MediatR;
 
 namespace Application.MenuItems.Queries.GetById;
@@ -35,17 +36,6 @@ public class GetMenuItemByIdQueryHandler
         if (entity is null)
             throw new NotFoundException("Menu məhsulu tapılmadı.");
 
-        return new MenuItemResponse
-        {
-            Id = entity.Id,
-            Name = entity.Name,
-            Description = entity.Description,
-            Price = entity.Price,
-            Portion = entity.Portion,
-            IsActive = entity.IsActive,
-            MenuCategoryId = entity.MenuCategoryId,
-            MenuCategoryName = entity.MenuCategory.Name,
-            PreparationType = entity.PreparationType
-        };
+        return GetAllMenuItemsQueryHandler.Map(entity);
     }
 }

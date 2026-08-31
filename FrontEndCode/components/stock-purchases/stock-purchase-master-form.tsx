@@ -19,6 +19,7 @@ import {
   type PurchaseCurrencyValue,
 } from "@/lib/services/stock-purchase-service";
 import { getWarehouses } from "@/lib/services/warehouse-service";
+import { getCounterparties } from "@/lib/services/counterparty-service";
 import { getStockItemsForAllCompanies } from "@/lib/services/stock-item-service";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { toApiFormError } from "@/lib/api-error";
@@ -41,7 +42,7 @@ type Props = {
 
 export function StockPurchaseMasterForm({ companyId, initial, readOnly, onSave, onCancel }: Props) {
   const { companies } = useSelectedCompany();
-  const [supplierName, setSupplierName] = useState(initial?.supplierName ?? "");
+  const [counterpartyId, setCounterpartyId] = useState<number | "">(initial?.counterpartyId ?? "");
   const [isImport, setIsImport] = useState(initial?.isImport ?? false);
   const [currency, setCurrency] = useState<PurchaseCurrencyValue>(initial?.currency ?? PurchaseCurrency.AZN);
   const [exchangeRate, setExchangeRate] = useState(String(initial?.exchangeRate ?? 1));
@@ -61,6 +62,7 @@ export function StockPurchaseMasterForm({ companyId, initial, readOnly, onSave, 
   );
 
   const [warehouses, setWarehouses] = useState<{ id: number; name: string }[]>([]);
+  const [counterparties, setCounterparties] = useState<{ id: number; name: string }[]>([]);
   const [stockItems, setStockItems] = useState<{ id: number; name: string }[]>([]);
   const [fetchingRate, setFetchingRate] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -73,12 +75,14 @@ export function StockPurchaseMasterForm({ companyId, initial, readOnly, onSave, 
         const allCompanyIds = companies.length > 0
           ? companies.map((c) => c.id)
           : [companyId];
-        const [wh, si] = await Promise.all([
+        const [wh, si, cp] = await Promise.all([
           getWarehouses(),
           getStockItemsForAllCompanies(allCompanyIds),
+          getCounterparties(),
         ]);
         setWarehouses(wh);
         setStockItems(si);
+        setCounterparties(cp);
       } catch {
         toast.error("Anbar / məhsul siyahısı yüklənmədi.");
       }
@@ -149,7 +153,7 @@ export function StockPurchaseMasterForm({ companyId, initial, readOnly, onSave, 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs: string[] = [];
-    if (!supplierName.trim()) errs.push("Supplier adı tələb olunur.");
+    if (!counterpartyId) errs.push("Konturagent seçilməlidir.");
     if (!warehouseId) errs.push("Anbar seçilməlidir.");
     if (lines.length === 0) errs.push("Ən azı bir sətir əlavə edin.");
     for (const l of lines) {
@@ -162,8 +166,7 @@ export function StockPurchaseMasterForm({ companyId, initial, readOnly, onSave, 
     setSaving(true);
     try {
       const payload = {
-        companyId,
-        supplierName: supplierName.trim(),
+        counterpartyId: Number(counterpartyId),
         isImport,
         currency,
         exchangeRate: parseFloat(exchangeRate),
@@ -198,8 +201,15 @@ export function StockPurchaseMasterForm({ companyId, initial, readOnly, onSave, 
       {/* Header fields */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
-          <Label>Supplier Name *</Label>
-          <Input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} disabled={readOnly} placeholder="Supplier adı" />
+          <Label>Konturagent *</Label>
+          <Select value={String(counterpartyId)} onValueChange={(v) => setCounterpartyId(Number(v))} disabled={readOnly}>
+            <SelectTrigger><SelectValue placeholder="Konturagent seçin" /></SelectTrigger>
+            <SelectContent>
+              {counterparties.map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-1.5">

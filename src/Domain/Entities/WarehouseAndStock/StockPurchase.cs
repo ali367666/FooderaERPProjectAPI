@@ -7,7 +7,8 @@ public class StockPurchase : CompanyEntity<int>
 {
     public string DocumentNo { get; set; } = default!;
 
-    public string SupplierName { get; set; } = default!;
+    public int CounterpartyId { get; set; }
+    public Counterparty Counterparty { get; set; } = default!;
 
     public bool IsImport { get; set; }
 

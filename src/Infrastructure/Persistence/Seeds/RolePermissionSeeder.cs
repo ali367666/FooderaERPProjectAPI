@@ -58,6 +58,7 @@ public static class RolePermissionSeeder
                 AppPermissions.UserView, AppPermissions.RoleView, AppPermissions.UserRoleManage,
                 AppPermissions.DepartmentView, AppPermissions.PositionView, AppPermissions.EmployeeView,
                 AppPermissions.RestaurantView, AppPermissions.RestaurantTableView,
+                AppPermissions.CounterpartyView, AppPermissions.CounterpartyCreate, AppPermissions.CounterpartyUpdate,
                 AppPermissions.StockCategoryView, AppPermissions.StockItemView,
                 AppPermissions.WarehouseView, AppPermissions.WarehouseStockView,
                 AppPermissions.StockRequestView, AppPermissions.StockPurchaseView,
@@ -81,7 +82,7 @@ public static class RolePermissionSeeder
             new List<string>
             {
                 AppPermissions.OrdersView, AppPermissions.OrdersCreate, AppPermissions.OrdersAdd,
-                AppPermissions.OrdersServe, AppPermissions.MenuItemView,
+                AppPermissions.OrdersServe, AppPermissions.MenuItemView, AppPermissions.MenuCategoryView,
                 AppPermissions.RestaurantView, AppPermissions.RestaurantTableView, AppPermissions.EmployeeView,
                 AppPermissions.ReservationView,
                 AppPermissions.PosEditProductInSale, AppPermissions.PosDeleteProductInSale,

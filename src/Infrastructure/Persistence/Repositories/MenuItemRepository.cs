@@ -23,6 +23,10 @@ public class MenuItemRepository : IMenuItemRepository
     {
         return await _context.MenuItems
             .Include(x => x.MenuCategory)
+            .Include(x => x.ItemType)
+            .Include(x => x.StockItem)
+            .Include(x => x.SetComponents)
+                .ThenInclude(x => x.ComponentMenuItem)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
@@ -30,6 +34,8 @@ public class MenuItemRepository : IMenuItemRepository
     {
         return await _context.MenuItems
             .Include(x => x.MenuCategory)
+            .Include(x => x.ItemType)
+            .Include(x => x.StockItem)
             .Where(x => x.CompanyId == companyId)
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
@@ -45,6 +51,11 @@ public class MenuItemRepository : IMenuItemRepository
                 x.MenuCategoryId == categoryId &&
                 x.Name.ToLower() == name,
                 cancellationToken);
+    }
+
+    public async Task<bool> ExistsByItemTypeIdAsync(int itemTypeId, CancellationToken cancellationToken)
+    {
+        return await _context.MenuItems.AnyAsync(x => x.ItemTypeId == itemTypeId, cancellationToken);
     }
 
     public void Update(MenuItem menuItem)

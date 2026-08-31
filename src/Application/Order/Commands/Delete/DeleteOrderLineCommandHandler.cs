@@ -14,6 +14,7 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
 {
     private readonly IOrderLineRepository _orderLineRepository;
     private readonly IOrderRepository _orderRepository;
+    private readonly IRecipeStockDeductionService _recipeStockDeductionService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<DeleteOrderLineCommandHandler> _logger;
@@ -21,12 +22,14 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
     public DeleteOrderLineCommandHandler(
         IOrderLineRepository orderLineRepository,
         IOrderRepository orderRepository,
+        IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<DeleteOrderLineCommandHandler> logger)
     {
         _orderLineRepository = orderLineRepository;
         _orderRepository = orderRepository;
+        _recipeStockDeductionService = recipeStockDeductionService;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -106,6 +109,16 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
             if (order.TotalAmount < 0)
                 order.TotalAmount = 0;
         }
+
+        var childLines = order.Lines.Where(x => x.ParentLineId == line.Id).ToList();
+        foreach (var childLine in childLines)
+        {
+            await _recipeStockDeductionService.RestoreForOrderLineAsync(childLine, cancellationToken);
+            _orderLineRepository.Delete(childLine);
+            order.Lines.Remove(childLine);
+        }
+
+        await _recipeStockDeductionService.RestoreForOrderLineAsync(line, cancellationToken);
 
         _orderRepository.Update(order);
         _orderLineRepository.Delete(line);
@@ -198,7 +211,7 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
             TotalAmount = updatedOrder.TotalAmount,
             DiscountCode = updatedOrder.DiscountCode,
             DiscountAmount = updatedOrder.DiscountAmount,
-            Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
+            Lines = updatedOrder.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,
@@ -207,7 +220,8 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
                 Note = x.Note,
-                Status = x.Status.ToString()
+                Status = x.Status.ToString(),
+                ParentLineId = x.ParentLineId
             }).ToList()
         };
     }

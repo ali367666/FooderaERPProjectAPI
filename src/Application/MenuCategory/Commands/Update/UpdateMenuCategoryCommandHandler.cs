@@ -78,8 +78,12 @@ public class UpdateMenuCategoryCommandHandler
         entity.Description = string.IsNullOrWhiteSpace(request.Request.Description)
             ? null
             : request.Request.Description.Trim();
+        if (request.Request.ParentCategoryId == request.Id)
+            throw new BadRequestException("Kateqoriya öz-özünün alt-kateqoriyası ola bilməz.");
+
         entity.IsActive = request.Request.IsActive;
         entity.PrinterId = request.Request.PrinterId;
+        entity.ParentCategoryId = request.Request.ParentCategoryId;
 
         _menuCategoryRepository.Update(entity);
         await _menuCategoryRepository.SaveChangesAsync(cancellationToken);

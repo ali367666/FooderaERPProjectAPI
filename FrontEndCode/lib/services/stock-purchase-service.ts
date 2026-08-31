@@ -47,7 +47,8 @@ export type StockPurchaseDto = {
   id: number;
   documentNo: string;
   companyId: number;
-  supplierName: string;
+  counterpartyId: number;
+  counterpartyName: string;
   isImport: boolean;
   currency: PurchaseCurrencyValue;
   currencyCode: string;
@@ -64,8 +65,7 @@ export type StockPurchaseDto = {
 };
 
 export type CreateStockPurchasePayload = {
-  companyId: number;
-  supplierName: string;
+  counterpartyId: number;
   isImport: boolean;
   currency: PurchaseCurrencyValue;
   exchangeRate: number;
@@ -76,7 +76,7 @@ export type CreateStockPurchasePayload = {
 };
 
 export type UpdateStockPurchasePayload = {
-  supplierName: string;
+  counterpartyId: number;
   isImport: boolean;
   currency: PurchaseCurrencyValue;
   exchangeRate: number;

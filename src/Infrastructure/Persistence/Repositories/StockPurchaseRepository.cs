@@ -17,6 +17,7 @@ public class StockPurchaseRepository : IStockPurchaseRepository
     public async Task<List<StockPurchase>> GetAllAsync(CancellationToken cancellationToken = default)
         => await _context.StockPurchases
             .Include(p => p.Warehouse)
+            .Include(p => p.Counterparty)
             .Include(p => p.Lines)
                 .ThenInclude(l => l.StockItem)
             .OrderByDescending(p => p.Id)
@@ -25,6 +26,7 @@ public class StockPurchaseRepository : IStockPurchaseRepository
     public async Task<StockPurchase?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         => await _context.StockPurchases
             .Include(p => p.Warehouse)
+            .Include(p => p.Counterparty)
             .Include(p => p.Lines)
                 .ThenInclude(l => l.StockItem)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);

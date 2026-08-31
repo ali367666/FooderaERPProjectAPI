@@ -30,7 +30,9 @@ public class GetAllMenuCategoriesQueryHandler
             Name = x.Name,
             Description = x.Description,
             IsActive = x.IsActive,
-            PrinterId = x.PrinterId
+            PrinterId = x.PrinterId,
+            ParentCategoryId = x.ParentCategoryId,
+            ParentCategoryName = x.ParentCategory?.Name
         }).ToList();
     }
 }

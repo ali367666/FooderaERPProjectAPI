@@ -4,6 +4,8 @@ using Application.MenuItems.Commands.Update;
 using Application.MenuItems.Dtos;
 using Application.MenuItems.Queries.GetAll;
 using Application.MenuItems.Queries.GetById;
+using Application.MenuItems.Queries.GetSetComponents;
+using Application.MenuItems.Queries.GetStockInfo;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -83,6 +85,32 @@ public class MenuItemsController : ControllerBase
     {
         var result = await _mediator.Send(
             new GetAllMenuItemsQuery(),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.MenuItemView)]
+    [HttpGet("{id}/set-components")]
+    public async Task<ActionResult<List<SetComponentResponse>>> GetSetComponents(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new GetMenuItemSetComponentsQuery(id),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.MenuItemView)]
+    [HttpGet("{id}/stock-info")]
+    public async Task<ActionResult<MenuItemStockInfoResponse>> GetStockInfo(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new GetMenuItemStockInfoQuery(id),
             cancellationToken);
 
         return Ok(result);

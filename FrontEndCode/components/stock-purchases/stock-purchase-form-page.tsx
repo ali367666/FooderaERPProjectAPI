@@ -65,7 +65,7 @@ export function StockPurchaseFormPage({ id, mode }: Props) {
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {mode === "view" && purchase && (
           <p className="text-muted-foreground text-sm mt-1">
-            Supplier: {purchase.supplierName} · {purchase.warehouseName} · {purchase.currencyCode}
+            Konturagent: {purchase.counterpartyName} · {purchase.warehouseName} · {purchase.currencyCode}
           </p>
         )}
       </div>

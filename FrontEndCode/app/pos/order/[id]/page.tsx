@@ -64,6 +64,7 @@ export default function PosOrderPage() {
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
+  const [activeSubCategoryId, setActiveSubCategoryId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -89,6 +90,8 @@ export default function PosOrderPage() {
   const canChangePrice = useHasPermission("Pos.ChangePrice");
   const canTableServiceCharge = useHasPermission("Pos.TableServiceCharge");
   const canPrint = useHasPermission("Printer.Print");
+  const canPay = useHasPermission("Orders.Pay");
+  const canPrintBill = useHasPermission("Pos.PrintReceipt");
 
   const [printers, setPrinters] = useState<PrinterProfile[]>([]);
   const [printingId, setPrintingId] = useState<number | null>(null);
@@ -104,7 +107,9 @@ export default function PosOrderPage() {
       setOrder(o);
       setCategories(cats.filter((c) => c.isActive));
       setItems(mi.filter((i) => i.isActive));
-      setActiveCategoryId((prev) => prev ?? cats.find((c) => c.isActive)?.id ?? null);
+      setActiveCategoryId(
+        (prev) => prev ?? cats.find((c) => c.isActive && c.parentCategoryId == null)?.id ?? null,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sifariş yüklənə bilmədi");
       router.replace("/pos");
@@ -129,6 +134,25 @@ export default function PosOrderPage() {
         .catch(() => setPrinters([]));
     }
   }, []);
+
+  const orderedLines = useMemo(() => {
+    const lines = order?.lines ?? [];
+    const childrenByParent = new Map<number, OrderLineDto[]>();
+    for (const line of lines) {
+      if (line.parentLineId == null) continue;
+      const siblings = childrenByParent.get(line.parentLineId) ?? [];
+      siblings.push(line);
+      childrenByParent.set(line.parentLineId, siblings);
+    }
+    const result: OrderLineDto[] = [];
+    for (const line of lines) {
+      if (line.parentLineId != null) continue;
+      result.push(line);
+      const children = childrenByParent.get(line.id);
+      if (children) result.push(...children);
+    }
+    return result;
+  }, [order]);
 
   const printerGroups = useMemo(() => {
     const itemById = new Map(items.map((i) => [i.id, i]));
@@ -169,10 +193,29 @@ export default function PosOrderPage() {
     }
   };
 
-  const itemsInCategory = useMemo(
-    () => items.filter((i) => i.menuCategoryId === activeCategoryId),
+  const topLevelCategories = useMemo(
+    () => categories.filter((c) => c.parentCategoryId == null),
+    [categories],
+  );
+
+  const subCategoriesWithItems = useMemo(() => {
+    if (activeCategoryId == null) return [];
+    return categories
+      .filter((c) => c.parentCategoryId === activeCategoryId)
+      .filter((c) => items.some((i) => i.menuCategoryId === c.id));
+  }, [categories, items, activeCategoryId]);
+
+  const ownItems = useMemo(
+    () => (activeCategoryId == null ? [] : items.filter((i) => i.menuCategoryId === activeCategoryId)),
     [items, activeCategoryId],
   );
+
+  const itemsInCategory = useMemo(() => {
+    if (activeSubCategoryId != null) {
+      return items.filter((i) => i.menuCategoryId === activeSubCategoryId);
+    }
+    return ownItems;
+  }, [items, ownItems, activeSubCategoryId]);
 
   const handleAddItem = async (menuItemId: number) => {
     if (!order || busy) return;
@@ -225,6 +268,19 @@ export default function PosOrderPage() {
     setServiceChargeInput("");
     setPaidAmountInput(order.totalAmount.toFixed(2));
     setPayOpen(true);
+  };
+
+  const handlePrintBill = async () => {
+    if (!order || order.lines.length === 0) return;
+    setBusy(true);
+    try {
+      const r = await getOrderReceipt(order.id);
+      setReceipt(r);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Qəbz alına bilmədi");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const serviceCharge = canTableServiceCharge ? Number(serviceChargeInput) || 0 : 0;
@@ -394,11 +450,14 @@ export default function PosOrderPage() {
           </div>
         </div>
         <div className="flex gap-2 overflow-x-auto border-b bg-background px-3 py-2">
-          {categories.map((cat) => (
+          {topLevelCategories.map((cat) => (
             <button
               key={cat.id}
               type="button"
-              onClick={() => setActiveCategoryId(cat.id)}
+              onClick={() => {
+                setActiveCategoryId(cat.id);
+                setActiveSubCategoryId(null);
+              }}
               style={branding?.categoryFontSize ? { fontSize: `${branding.categoryFontSize}px` } : undefined}
               className={cn(
                 "shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors",
@@ -412,6 +471,33 @@ export default function PosOrderPage() {
           ))}
         </div>
         <div className="flex-1 overflow-y-auto p-3">
+          {activeSubCategoryId != null && (
+            <button
+              type="button"
+              onClick={() => setActiveSubCategoryId(null)}
+              className="mb-3 flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {categories.find((c) => c.id === activeSubCategoryId)?.name}
+            </button>
+          )}
+
+          {activeSubCategoryId == null && subCategoriesWithItems.length > 0 && (
+            <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {subCategoriesWithItems.map((sub) => (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setActiveSubCategoryId(sub.id)}
+                  className="flex h-24 flex-col items-center justify-center gap-1 rounded-xl border-2 border-primary/30 bg-primary/5 p-2 text-center shadow-sm transition-transform active:scale-95 hover:bg-primary/10"
+                >
+                  <span className="text-sm font-semibold leading-tight text-foreground">{sub.name}</span>
+                  <span className="text-xs text-muted-foreground">Bölmə</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {itemsInCategory.map((item) => (
               <button
@@ -425,7 +511,7 @@ export default function PosOrderPage() {
                 <span className="text-xs text-muted-foreground">{item.price.toFixed(2)} ₼</span>
               </button>
             ))}
-            {itemsInCategory.length === 0 && (
+            {itemsInCategory.length === 0 && subCategoriesWithItems.length === 0 && (
               <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
                 Bu kateqoriyada məhsul yoxdur
               </p>
@@ -441,71 +527,82 @@ export default function PosOrderPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">Sifariş boşdur</p>
           )}
           <div className="space-y-2">
-            {order.lines.map((line) => (
-              <div key={line.id} className="rounded-lg border p-2">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-sm font-medium">{line.menuItemName}</span>
-                  {canDeleteProduct && (
-                    <button
-                      type="button"
-                      onClick={() => void handleRemoveLine(line.id)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                <div className="mt-1 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={busy || !canEditProduct}
-                      onClick={() => void handleQuantityChange(line.id, line.quantity, -1)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
-                    >
-                      <Minus className="h-3 w-3" />
-                    </button>
-                    <span className="w-6 text-center text-sm font-semibold">{line.quantity}</span>
-                    <button
-                      type="button"
-                      disabled={busy || !canEditProduct}
-                      onClick={() => void handleQuantityChange(line.id, line.quantity, 1)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </button>
+            {orderedLines.map((line) => {
+              const isChild = line.parentLineId != null;
+              if (isChild) {
+                return (
+                  <div key={line.id} className="ml-4 flex items-center justify-between gap-2 border-l-2 pl-2 text-sm text-muted-foreground">
+                    <span>↳ {line.menuItemName}</span>
+                    <span>x{line.quantity}</span>
                   </div>
-                  {priceEditingLineId === line.id ? (
-                    <div className="flex items-center gap-1">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        autoFocus
-                        value={priceInput}
-                        onChange={(e) => setPriceInput(e.target.value)}
-                        className="h-7 w-20 text-right text-sm"
-                      />
-                      <Button size="sm" className="h-7 px-2" disabled={busy} onClick={() => void handleSavePrice(line.id, line.quantity)}>
-                        OK
-                      </Button>
+                );
+              }
+              return (
+                <div key={line.id} className="rounded-lg border p-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-medium">{line.menuItemName}</span>
+                    {canDeleteProduct && (
+                      <button
+                        type="button"
+                        onClick={() => void handleRemoveLine(line.id)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={busy || !canEditProduct}
+                        onClick={() => void handleQuantityChange(line.id, line.quantity, -1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-6 text-center text-sm font-semibold">{line.quantity}</span>
+                      <button
+                        type="button"
+                        disabled={busy || !canEditProduct}
+                        onClick={() => void handleQuantityChange(line.id, line.quantity, 1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      {canChangePrice && (
-                        <button
-                          type="button"
-                          onClick={() => startPriceEdit(line.id, line.unitPrice)}
-                          className="text-muted-foreground hover:text-primary"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                      )}
-                      <span className="text-sm font-semibold">{line.lineTotal.toFixed(2)} ₼</span>
-                    </div>
-                  )}
+                    {priceEditingLineId === line.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          autoFocus
+                          value={priceInput}
+                          onChange={(e) => setPriceInput(e.target.value)}
+                          className="h-7 w-20 text-right text-sm"
+                        />
+                        <Button size="sm" className="h-7 px-2" disabled={busy} onClick={() => void handleSavePrice(line.id, line.quantity)}>
+                          OK
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        {canChangePrice && (
+                          <button
+                            type="button"
+                            onClick={() => startPriceEdit(line.id, line.unitPrice)}
+                            className="text-muted-foreground hover:text-primary"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                        <span className="text-sm font-semibold">{line.lineTotal.toFixed(2)} ₼</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         {canPrint && printerGroups.length > 0 && !isPaid && (
@@ -539,13 +636,28 @@ export default function PosOrderPage() {
               </Button>
             </div>
           ) : (
-            <Button
-              className="h-12 w-full text-base font-semibold"
-              disabled={order.lines.length === 0 || busy}
-              onClick={openPayDialog}
-            >
-              Ödə
-            </Button>
+            <div className="space-y-2">
+              {canPrintBill && (
+                <Button
+                  variant="outline"
+                  className="h-12 w-full text-base font-semibold"
+                  disabled={order.lines.length === 0 || busy}
+                  onClick={() => void handlePrintBill()}
+                >
+                  <Receipt className="mr-2 h-4 w-4" />
+                  Qəbz çap et
+                </Button>
+              )}
+              {canPay && (
+                <Button
+                  className="h-12 w-full text-base font-semibold"
+                  disabled={order.lines.length === 0 || busy}
+                  onClick={openPayDialog}
+                >
+                  Ödə
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>

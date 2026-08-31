@@ -70,7 +70,8 @@ public class CreateMenuCategoryCommandHandler
             Description = string.IsNullOrWhiteSpace(request.Request.Description)
                 ? null
                 : request.Request.Description.Trim(),
-            IsActive = true
+            IsActive = true,
+            ParentCategoryId = request.Request.ParentCategoryId
         };
 
         await _menuCategoryRepository.AddAsync(entity, cancellationToken);

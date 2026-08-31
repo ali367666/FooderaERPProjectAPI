@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -12,15 +13,18 @@ public class CreateStockPurchaseCommandHandler
     : IRequestHandler<CreateStockPurchaseCommand, BaseResponse<int>>
 {
     private readonly IStockPurchaseRepository _purchaseRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<CreateStockPurchaseCommandHandler> _logger;
 
     public CreateStockPurchaseCommandHandler(
         IStockPurchaseRepository purchaseRepository,
+        ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<CreateStockPurchaseCommandHandler> logger)
     {
         _purchaseRepository = purchaseRepository;
+        _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
     }
@@ -30,6 +34,10 @@ public class CreateStockPurchaseCommandHandler
         CancellationToken cancellationToken)
     {
         var dto = request.Request;
+        var companyId = _currentUserService.CompanyId;
+
+        if (companyId == 0)
+            return new BaseResponse<int> { Success = false, Message = "CompanyId tapılmadı." };
 
         if (dto.Lines is null || !dto.Lines.Any())
             return new BaseResponse<int> { Success = false, Message = "Alış ən azı bir sətir içərməlidir." };
@@ -45,9 +53,9 @@ public class CreateStockPurchaseCommandHandler
 
         var purchase = new Domain.Entities.WarehouseAndStock.StockPurchase
         {
-            CompanyId = dto.CompanyId,
+            CompanyId = companyId,
             DocumentNo = Guid.NewGuid().ToString("N"),
-            SupplierName = dto.SupplierName,
+            CounterpartyId = dto.CounterpartyId,
             IsImport = dto.IsImport,
             Currency = dto.Currency,
             ExchangeRate = dto.ExchangeRate,
@@ -78,7 +86,7 @@ public class CreateStockPurchaseCommandHandler
                 EntityName = "StockPurchase",
                 EntityId = purchase.Id.ToString(),
                 ActionType = "Create",
-                Message = $"StockPurchase yaradıldı. Id: {purchase.Id}, Supplier: {purchase.SupplierName}, Currency: {purchase.Currency}, Rate: {purchase.ExchangeRate}",
+                Message = $"StockPurchase yaradıldı. Id: {purchase.Id}, CounterpartyId: {purchase.CounterpartyId}, Currency: {purchase.Currency}, Rate: {purchase.ExchangeRate}",
                 IsSuccess = true
             }, cancellationToken);
         }

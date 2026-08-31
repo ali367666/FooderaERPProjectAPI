@@ -4,6 +4,7 @@ using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
+using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -14,6 +15,8 @@ public class UpdateMenuItemCommandHandler
 {
     private readonly IMenuItemRepository _menuItemRepository;
     private readonly IMenuCategoryRepository _menuCategoryRepository;
+    private readonly IMenuItemTypeRepository _menuItemTypeRepository;
+    private readonly IMenuItemSetComponentRepository _setComponentRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateMenuItemCommandHandler> _logger;
@@ -21,12 +24,16 @@ public class UpdateMenuItemCommandHandler
     public UpdateMenuItemCommandHandler(
         IMenuItemRepository menuItemRepository,
         IMenuCategoryRepository menuCategoryRepository,
+        IMenuItemTypeRepository menuItemTypeRepository,
+        IMenuItemSetComponentRepository setComponentRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<UpdateMenuItemCommandHandler> logger)
     {
         _menuItemRepository = menuItemRepository;
         _menuCategoryRepository = menuCategoryRepository;
+        _menuItemTypeRepository = menuItemTypeRepository;
+        _setComponentRepository = setComponentRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -123,8 +130,69 @@ public class UpdateMenuItemCommandHandler
         entity.PreparationType = request.Request.PreparationType;
         entity.IsActive = request.Request.IsActive;
 
+        var itemType = await _menuItemTypeRepository.GetByIdAsync(
+            request.Request.ItemTypeId,
+            companyId,
+            cancellationToken);
+
+        if (itemType is null)
+        {
+            _logger.LogWarning(
+                "MenuItem update olunmadı. ItemType tapılmadı. ItemTypeId: {ItemTypeId}, CompanyId: {CompanyId}",
+                request.Request.ItemTypeId,
+                companyId);
+
+            throw new NotFoundException("Məhsul növü tapılmadı.");
+        }
+
+        entity.ItemTypeId = itemType.Id;
+        entity.UnitId = request.Request.UnitId;
+        entity.VatPercent = request.Request.VatPercent;
+        entity.Barcode = string.IsNullOrWhiteSpace(request.Request.Barcode) ? null : request.Request.Barcode.Trim();
+        if (request.Request.ResetWeightCode)
+            entity.WeightCode = $"{companyId}-{entity.Id:D6}-{DateTime.UtcNow:HHmmss}";
+
+        entity.StationPrice = request.Request.StationPrice;
+        entity.PurchasePrice = request.Request.PurchasePrice;
+        entity.PackagePrice = request.Request.PackagePrice;
+        entity.SpecialPrice1 = request.Request.SpecialPrice1;
+        entity.SpecialPrice2 = request.Request.SpecialPrice2;
+        entity.SpecialPrice3 = request.Request.SpecialPrice3;
+        entity.SpecialPrice4 = request.Request.SpecialPrice4;
+        entity.SpecialPrice5 = request.Request.SpecialPrice5;
+
+        entity.HideFromPosSearch = request.Request.HideFromPosSearch;
+        entity.HideBarcode = request.Request.HideBarcode;
+        entity.ExcludeFromDiscount = request.Request.ExcludeFromDiscount;
+        entity.SkipTaxCalculation = request.Request.SkipTaxCalculation;
+        entity.IsTimeBased = request.Request.IsTimeBased;
+        entity.AllowQuantityPromptOverride = request.Request.AllowQuantityPromptOverride;
+        entity.PrinterId = request.Request.PrinterId;
+        entity.IsSet = request.Request.IsSet;
+        entity.StockItemId = request.Request.StockItemId;
+
         _menuItemRepository.Update(entity);
         await _menuItemRepository.SaveChangesAsync(cancellationToken);
+
+        // SET tərkibini tam yenidən yaz (sadə diff: köhnələri sil, yenilərini əlavə et)
+        var existingComponents = await _setComponentRepository.GetBySetMenuItemIdAsync(entity.Id, cancellationToken);
+        if (existingComponents.Count > 0)
+            _setComponentRepository.RemoveRange(existingComponents);
+
+        if (entity.IsSet && request.Request.SetComponents.Count > 0)
+        {
+            foreach (var c in request.Request.SetComponents)
+            {
+                await _setComponentRepository.AddAsync(new Domain.Entities.MenuItemSetComponent
+                {
+                    SetMenuItemId = entity.Id,
+                    ComponentMenuItemId = c.ComponentMenuItemId,
+                    Quantity = c.Quantity < 1 ? 1 : c.Quantity
+                }, cancellationToken);
+            }
+        }
+
+        await _setComponentRepository.SaveChangesAsync(cancellationToken);
 
         var newValues = JsonSerializer.Serialize(new
         {

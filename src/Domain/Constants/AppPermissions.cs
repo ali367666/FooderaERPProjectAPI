@@ -156,4 +156,9 @@ public static class AppPermissions
     public const string PrinterUpdate = "Printer.Update";
     public const string PrinterDelete = "Printer.Delete";
     public const string PrinterPrint = "Printer.Print";
+
+    public const string CounterpartyView = "Counterparty.View";
+    public const string CounterpartyCreate = "Counterparty.Create";
+    public const string CounterpartyUpdate = "Counterparty.Update";
+    public const string CounterpartyDelete = "Counterparty.Delete";
 }

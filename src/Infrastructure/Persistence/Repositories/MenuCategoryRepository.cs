@@ -22,12 +22,14 @@ public class MenuCategoryRepository : IMenuCategoryRepository
     public async Task<MenuCategory?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken)
     {
         return await _context.MenuCategories
+            .Include(x => x.ParentCategory)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
     public async Task<List<MenuCategory>> GetAllAsync(int companyId, CancellationToken cancellationToken)
     {
         return await _context.MenuCategories
+            .Include(x => x.ParentCategory)
             .Where(x => x.CompanyId == companyId)
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);

@@ -161,6 +161,13 @@ export const navGroups: NavGroup[] = [
         icon: FileSpreadsheet,
         permission: "BscInvoice.View",
       },
+      {
+        title: "Konturagentlər",
+        href: "/dashboard/counterparties",
+        icon: Building2,
+        permission: "Counterparty.View",
+        module: "moduleAnbar",
+      },
     ],
   },
   {

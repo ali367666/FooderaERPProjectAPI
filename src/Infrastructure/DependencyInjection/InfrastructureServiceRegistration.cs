@@ -96,6 +96,10 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IRestaurantSectionRepository, RestaurantSectionRepository>();
         services.AddScoped<IPrinterRepository, PrinterRepository>();
         services.AddScoped<IPrinterStationTypeRepository, PrinterStationTypeRepository>();
+        services.AddScoped<ICounterpartyRepository, CounterpartyRepository>();
+        services.AddScoped<ICounterpartyCategoryRepository, CounterpartyCategoryRepository>();
+        services.AddScoped<IMenuItemTypeRepository, MenuItemTypeRepository>();
+        services.AddScoped<IMenuItemSetComponentRepository, MenuItemSetComponentRepository>();
         services.AddScoped<IShiftRepository, ShiftRepository>();
         services.AddScoped<INetworkPrinterService, NetworkPrinterService>();
 
