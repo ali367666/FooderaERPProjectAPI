@@ -93,7 +93,8 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
                 LineTotal = x.LineTotal,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
-                Status = x.Status.ToString()
+                Status = x.Status.ToString(),
+                ParentLineId = x.ParentLineId
             }).ToList()
         };
     }

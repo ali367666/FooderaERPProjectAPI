@@ -4,6 +4,7 @@ using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Orders.Dtos;
+using Domain.Entities;
 using Domain.Enums;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
 {
     private readonly IOrderLineRepository _orderLineRepository;
     private readonly IOrderRepository _orderRepository;
+    private readonly IRecipeStockDeductionService _recipeStockDeductionService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateOrderLineCommandHandler> _logger;
@@ -21,12 +23,14 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
     public UpdateOrderLineCommandHandler(
         IOrderLineRepository orderLineRepository,
         IOrderRepository orderRepository,
+        IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<UpdateOrderLineCommandHandler> logger)
     {
         _orderLineRepository = orderLineRepository;
         _orderRepository = orderRepository;
+        _recipeStockDeductionService = recipeStockDeductionService;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -99,7 +103,16 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             order.TotalAmount
         });
 
-        line.Quantity = request.Request.Quantity;
+        var previousQuantity = line.Quantity;
+        var newQuantity = request.Request.Quantity;
+        var quantityChanged = newQuantity != previousQuantity;
+
+        if (quantityChanged && line.IsStockDeducted)
+        {
+            await _recipeStockDeductionService.RestoreForOrderLineAsync(line, cancellationToken);
+        }
+
+        line.Quantity = newQuantity;
         line.Note = string.IsNullOrWhiteSpace(request.Request.Note)
             ? null
             : request.Request.Note.Trim();
@@ -123,6 +136,44 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             ? request.Request.UnitPrice.Value
             : line.MenuItem.Price;
         line.LineTotal = line.UnitPrice * line.Quantity;
+
+        if (quantityChanged)
+        {
+            await _recipeStockDeductionService.DeductForOrderLineAsync(line, cancellationToken);
+        }
+
+        if (line.MenuItem.IsSet && line.MenuItem.SetComponents.Count > 0)
+        {
+            var oldChildren = order.Lines.Where(x => x.ParentLineId == line.Id).ToList();
+            foreach (var oldChild in oldChildren)
+            {
+                await _recipeStockDeductionService.RestoreForOrderLineAsync(oldChild, cancellationToken);
+                _orderLineRepository.Delete(oldChild);
+                order.Lines.Remove(oldChild);
+            }
+
+            foreach (var component in line.MenuItem.SetComponents)
+            {
+                var childLine = new OrderLine
+                {
+                    OrderId = order.Id,
+                    MenuItemId = component.ComponentMenuItemId,
+                    Quantity = component.Quantity * line.Quantity,
+                    UnitPrice = 0,
+                    LineTotal = 0,
+                    PreparationType = component.ComponentMenuItem.PreparationType,
+                    Status = component.ComponentMenuItem.PreparationType == PreparationType.None
+                        ? OrderLineStatus.Ready
+                        : OrderLineStatus.Pending,
+                    CompanyId = companyId,
+                    ParentLine = line
+                };
+                await _orderLineRepository.AddAsync(childLine, cancellationToken);
+                order.Lines.Add(childLine);
+                await _recipeStockDeductionService.DeductForOrderLineAsync(childLine, cancellationToken);
+            }
+        }
+
         var subtotal = order.Lines
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.Id == line.Id ? line.LineTotal : x.LineTotal);
@@ -234,7 +285,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             TotalAmount = updatedOrder.TotalAmount,
             DiscountCode = updatedOrder.DiscountCode,
             DiscountAmount = updatedOrder.DiscountAmount,
-            Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
+            Lines = updatedOrder.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,
@@ -245,7 +296,8 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
                 LineTotal = x.LineTotal,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
-                Status = x.Status.ToString()
+                Status = x.Status.ToString(),
+                ParentLineId = x.ParentLineId
             }).ToList()
         };
     }

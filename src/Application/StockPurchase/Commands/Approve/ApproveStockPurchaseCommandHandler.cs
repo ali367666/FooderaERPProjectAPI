@@ -36,13 +36,12 @@ public class ApproveStockPurchaseCommandHandler
                 purchase.CompanyId,
                 purchase.WarehouseId,
                 line.StockItemId,
-                unitId: 0,
+                unitId: (int)line.StockItem.Unit,
                 createdByUserId: null,
                 utcNow: DateTime.UtcNow,
                 cancellationToken);
 
             stock.Quantity += line.Quantity;
-            _warehouseStockRepository.Update(stock);
         }
 
         purchase.Status = StockPurchaseStatus.Completed;

@@ -43,7 +43,6 @@ public class PosAdjustWarehouseStockCommandHandler : IRequestHandler<PosAdjustWa
         }
 
         row.Quantity = dto.NewQuantity;
-        _warehouseStockRepository.Update(row);
         await _warehouseStockRepository.SaveChangesAsync(cancellationToken);
 
         try

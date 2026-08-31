@@ -4,8 +4,7 @@ namespace Application.StockPurchase.Dtos.Request;
 
 public class CreateStockPurchaseRequest
 {
-    public int CompanyId { get; set; }
-    public string SupplierName { get; set; } = default!;
+    public int CounterpartyId { get; set; }
     public bool IsImport { get; set; }
     public PurchaseCurrency Currency { get; set; } = PurchaseCurrency.AZN;
     public decimal ExchangeRate { get; set; } = 1m;

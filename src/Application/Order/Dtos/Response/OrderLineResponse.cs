@@ -14,4 +14,5 @@ public class OrderLineResponse
     public string? Note { get; set; }
     public PreparationType PreparationType { get; set; }
     public string Status { get; set; } = default!;
+    public int? ParentLineId { get; set; }
 }

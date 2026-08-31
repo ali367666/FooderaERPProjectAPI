@@ -378,9 +378,9 @@ export function WarehouseStockDocumentFormPage({ variant }: { variant: Variant }
                   <td className="px-2 py-1.5">
                     <select
                       value={line.unitId}
-                      onChange={(e) => setLineField(line.key, { unitId: e.target.value })}
-                      className={selectClass}
-                      disabled={isApproved}
+                      className={`${selectClass} bg-muted text-muted-foreground`}
+                      disabled
+                      title="Vahid seçilmiş məhsulun özündən avtomatik gəlir"
                     >
                       {UNIT_OPTIONS.map((u) => (
                         <option key={u} value={String(u)}>

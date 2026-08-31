@@ -15,6 +15,7 @@ export type OrderLineDto = {
   preparationType: string;
   status: string;
   note: string | null;
+  parentLineId: number | null;
 };
 
 export type PaymentMethod = "Cash" | "Card";
@@ -184,6 +185,10 @@ function normalizeOrder(raw: unknown): OrderDto | null {
             preparationType: String(pick(l, "preparationType", "PreparationType") ?? ""),
             status: String(pick(l, "status", "Status") ?? ""),
             note: (pick(l, "note", "Note") as string | null | undefined) ?? null,
+            parentLineId: (() => {
+              const v = pick<number | null>(l, "parentLineId", "ParentLineId");
+              return v == null ? null : Number(v);
+            })(),
           } satisfies OrderLineDto;
         })
         .filter((line): line is OrderLineDto => line !== null)

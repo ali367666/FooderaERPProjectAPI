@@ -25,6 +25,8 @@ public class OrderLineRepository : IOrderLineRepository
         return await _context.OrderLines
             .Include(x => x.Order)
             .Include(x => x.MenuItem)
+                .ThenInclude(x => x.SetComponents)
+                    .ThenInclude(x => x.ComponentMenuItem)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 

@@ -19,4 +19,7 @@ public class OrderLine : CompanyEntity<int>
     public bool IsStockDeducted { get; set; }
 
     public OrderLineStatus Status { get; set; } = OrderLineStatus.Pending;
+
+    public int? ParentLineId { get; set; }
+    public OrderLine? ParentLine { get; set; }
 }

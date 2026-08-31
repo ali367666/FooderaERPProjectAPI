@@ -57,7 +57,7 @@ type ListRow = {
   numericId: number;
   documentNo: string;
   companyId: number;
-  supplierName: string;
+  counterpartyName: string;
   isImport: boolean;
   currencyCode: string;
   exchangeRate: number;
@@ -108,7 +108,7 @@ export function StockPurchaseListPage() {
         numericId: r.id,
         documentNo: r.documentNo,
         companyId: r.companyId,
-        supplierName: r.supplierName,
+        counterpartyName: r.counterpartyName,
         isImport: r.isImport,
         currencyCode: r.currencyCode,
         exchangeRate: r.exchangeRate,
@@ -186,7 +186,7 @@ export function StockPurchaseListPage() {
             const searched = filtered.filter((row) => {
               const q = search.trim().toLowerCase();
               if (!q) return true;
-              return [row.documentNo, row.supplierName, row.warehouseName, row.note]
+              return [row.documentNo, row.counterpartyName, row.warehouseName, row.note]
                 .join(" ").toLowerCase().includes(q);
             });
             const sorted = [...searched].sort((a, b) =>
@@ -271,7 +271,7 @@ export function StockPurchaseListPage() {
                         <th className="w-[1%] py-2 px-3 font-medium" aria-label="Select" />
                         <th className="text-left py-2 px-3 font-medium">Document</th>
                         <th className="text-left py-2 px-3 font-medium">Date</th>
-                        <th className="text-left py-2 px-3 font-medium">Supplier</th>
+                        <th className="text-left py-2 px-3 font-medium">Konturagent</th>
                         <th className="text-left py-2 px-3 font-medium">Source</th>
                         <th className="text-left py-2 px-3 font-medium">Currency</th>
                         <th className="text-right py-2 px-3 font-medium">Exchange Rate</th>
@@ -311,7 +311,7 @@ export function StockPurchaseListPage() {
                               </td>
                               <td className="py-2 px-3 font-mono text-xs">{row.documentNo}</td>
                               <td className="py-2 px-3 text-muted-foreground">{row.purchaseDateLabel}</td>
-                              <td className="py-2 px-3">{row.supplierName}</td>
+                              <td className="py-2 px-3">{row.counterpartyName}</td>
                               <td className="py-2 px-3">
                                 <Badge variant={row.isImport ? "default" : "secondary"}>
                                   {row.isImport ? "Import" : "Local"}

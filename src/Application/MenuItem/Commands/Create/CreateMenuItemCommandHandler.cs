@@ -14,6 +14,7 @@ public class CreateMenuItemCommandHandler
 {
     private readonly IMenuItemRepository _menuItemRepository;
     private readonly IMenuCategoryRepository _menuCategoryRepository;
+    private readonly IMenuItemTypeRepository _menuItemTypeRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<CreateMenuItemCommandHandler> _logger;
@@ -21,12 +22,14 @@ public class CreateMenuItemCommandHandler
     public CreateMenuItemCommandHandler(
         IMenuItemRepository menuItemRepository,
         IMenuCategoryRepository menuCategoryRepository,
+        IMenuItemTypeRepository menuItemTypeRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<CreateMenuItemCommandHandler> logger)
     {
         _menuItemRepository = menuItemRepository;
         _menuCategoryRepository = menuCategoryRepository;
+        _menuItemTypeRepository = menuItemTypeRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -82,6 +85,21 @@ public class CreateMenuItemCommandHandler
             throw new BadRequestException("Bu adda menu məhsulu artıq mövcuddur.");
         }
 
+        var itemType = await _menuItemTypeRepository.GetByIdAsync(
+            request.Request.ItemTypeId,
+            companyId,
+            cancellationToken);
+
+        if (itemType is null)
+        {
+            _logger.LogWarning(
+                "MenuItem yaradılmadı. ItemType tapılmadı. ItemTypeId: {ItemTypeId}, CompanyId: {CompanyId}",
+                request.Request.ItemTypeId,
+                companyId);
+
+            throw new NotFoundException("Məhsul növü tapılmadı.");
+        }
+
         var entity = new MenuItem
         {
             Name = normalizedName,
@@ -95,10 +113,35 @@ public class CreateMenuItemCommandHandler
             MenuCategoryId = request.Request.MenuCategoryId,
             PreparationType = request.Request.PreparationType,
             IsActive = true,
-            CompanyId = companyId
+            CompanyId = companyId,
+            ItemTypeId = itemType.Id,
+            UnitId = request.Request.UnitId,
+            VatPercent = request.Request.VatPercent,
+            Barcode = string.IsNullOrWhiteSpace(request.Request.Barcode) ? null : request.Request.Barcode.Trim(),
+            StationPrice = request.Request.StationPrice,
+            PurchasePrice = request.Request.PurchasePrice,
+            PackagePrice = request.Request.PackagePrice,
+            SpecialPrice1 = request.Request.SpecialPrice1,
+            SpecialPrice2 = request.Request.SpecialPrice2,
+            SpecialPrice3 = request.Request.SpecialPrice3,
+            SpecialPrice4 = request.Request.SpecialPrice4,
+            SpecialPrice5 = request.Request.SpecialPrice5,
+            HideFromPosSearch = request.Request.HideFromPosSearch,
+            HideBarcode = request.Request.HideBarcode,
+            ExcludeFromDiscount = request.Request.ExcludeFromDiscount,
+            SkipTaxCalculation = request.Request.SkipTaxCalculation,
+            IsTimeBased = request.Request.IsTimeBased,
+            AllowQuantityPromptOverride = request.Request.AllowQuantityPromptOverride,
+            PrinterId = request.Request.PrinterId,
+            IsSet = request.Request.IsSet,
+            StockItemId = request.Request.StockItemId
         };
 
         await _menuItemRepository.AddAsync(entity, cancellationToken);
+        await _menuItemRepository.SaveChangesAsync(cancellationToken);
+
+        entity.WeightCode = $"{companyId}-{entity.Id:D6}";
+        _menuItemRepository.Update(entity);
         await _menuItemRepository.SaveChangesAsync(cancellationToken);
 
         try

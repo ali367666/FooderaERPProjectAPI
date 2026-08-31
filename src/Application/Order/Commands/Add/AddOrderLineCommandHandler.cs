@@ -113,6 +113,31 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         order.Lines.Add(orderLine);
         await _recipeStockDeductionService.DeductForOrderLineAsync(orderLine, cancellationToken);
 
+        if (menuItem.IsSet && menuItem.SetComponents.Count > 0)
+        {
+            foreach (var component in menuItem.SetComponents)
+            {
+                var childQuantity = component.Quantity * request.Request.Quantity;
+                var childLine = new OrderLine
+                {
+                    OrderId = order.Id,
+                    MenuItemId = component.ComponentMenuItemId,
+                    Quantity = childQuantity,
+                    UnitPrice = 0,
+                    LineTotal = 0,
+                    PreparationType = component.ComponentMenuItem.PreparationType,
+                    Status = component.ComponentMenuItem.PreparationType == PreparationType.None
+                        ? OrderLineStatus.Ready
+                        : OrderLineStatus.Pending,
+                    CompanyId = companyId,
+                    ParentLine = orderLine
+                };
+                await _orderLineRepository.AddAsync(childLine, cancellationToken);
+                order.Lines.Add(childLine);
+                await _recipeStockDeductionService.DeductForOrderLineAsync(childLine, cancellationToken);
+            }
+        }
+
         var subtotal = order.Lines
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.LineTotal);
@@ -219,7 +244,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             TotalAmount = updatedOrder.TotalAmount,
             DiscountCode = updatedOrder.DiscountCode,
             DiscountAmount = updatedOrder.DiscountAmount,
-            Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
+            Lines = updatedOrder.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,
@@ -230,7 +255,8 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
                 LineTotal = x.LineTotal,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
-                Status = x.Status.ToString()
+                Status = x.Status.ToString(),
+                ParentLineId = x.ParentLineId
             }).ToList()
         };
     }

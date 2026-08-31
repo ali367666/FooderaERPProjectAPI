@@ -62,16 +62,12 @@ public class CreateWarehouseStockDocumentCommandHandler
             return BaseResponse<int>.Fail("Duplicate stock items are not allowed on the same document.");
         }
 
+        var stockItemsById = new Dictionary<int, Domain.Entities.WarehouseAndStock.StockItem>();
         foreach (var line in req.Lines)
         {
             if (line.Quantity <= 0)
             {
                 return BaseResponse<int>.Fail("Each line must have quantity greater than zero.");
-            }
-
-            if (!Enum.IsDefined(typeof(UnitOfMeasure), line.UnitId))
-            {
-                return BaseResponse<int>.Fail("Invalid unit of measure.");
             }
 
             var item = await _stockItemRepository.GetByIdAsync(line.StockItemId, cancellationToken);
@@ -84,6 +80,8 @@ public class CreateWarehouseStockDocumentCommandHandler
             {
                 return BaseResponse<int>.Fail("Warehouse and stock items must belong to the same company.");
             }
+
+            stockItemsById[line.StockItemId] = item;
         }
 
         var tempDocNo = Guid.NewGuid().ToString("N");
@@ -98,7 +96,7 @@ public class CreateWarehouseStockDocumentCommandHandler
                 CompanyId = warehouse.CompanyId,
                 StockItemId = l.StockItemId,
                 Quantity = l.Quantity,
-                UnitId = l.UnitId
+                UnitId = (int)stockItemsById[l.StockItemId].Unit
             }).ToList()
         };
 

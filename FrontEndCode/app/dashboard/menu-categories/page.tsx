@@ -31,6 +31,7 @@ type MenuCategoryRow = {
   description: string;
   isActive: boolean;
   statusLabel: string;
+  parentCategoryName: string;
 };
 
 const selectClass =
@@ -47,6 +48,7 @@ export default function MenuCategoriesPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [parentCategoryId, setParentCategoryId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
@@ -76,6 +78,7 @@ export default function MenuCategoriesPage() {
         description: c.description?.trim() || "-",
         isActive: c.isActive,
         statusLabel: c.isActive ? "Active" : "Inactive",
+        parentCategoryName: c.parentCategoryName || "-",
       })),
     [categories],
   );
@@ -131,6 +134,7 @@ export default function MenuCategoriesPage() {
   const columns = [
     { key: "categoryId" as const, label: "ID" },
     { key: "name" as const, label: "Category Name" },
+    { key: "parentCategoryName" as const, label: "Parent Category" },
     { key: "description" as const, label: "Description" },
     {
       key: "statusLabel" as const,
@@ -153,6 +157,7 @@ export default function MenuCategoriesPage() {
     setName("");
     setDescription("");
     setIsActive(true);
+    setParentCategoryId(null);
     setEditingId(null);
     setFieldErrors({});
     setIsEditMode(false);
@@ -171,6 +176,7 @@ export default function MenuCategoriesPage() {
       setName(c.name || "");
       setDescription(c.description || "");
       setIsActive(c.isActive);
+      setParentCategoryId(c.parentCategoryId);
       setFieldErrors({});
       setIsEditMode(true);
       setIsDialogOpen(true);
@@ -215,6 +221,7 @@ export default function MenuCategoriesPage() {
             name: trimmedName,
             description: description.trim() || null,
             isActive,
+            parentCategoryId,
           },
           selectedCompanyId ?? undefined,
         );
@@ -222,6 +229,7 @@ export default function MenuCategoriesPage() {
         await createMenuCategory({
           name: trimmedName,
           description: description.trim() || null,
+          parentCategoryId,
         });
       }
 
@@ -327,6 +335,24 @@ export default function MenuCategoriesPage() {
                 </select>
               </div>
             )}
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Parent Category</label>
+              <select
+                value={parentCategoryId != null ? String(parentCategoryId) : ""}
+                onChange={(e) => setParentCategoryId(e.target.value ? Number(e.target.value) : null)}
+                className={selectClass}
+              >
+                <option value="">None (top-level category)</option>
+                {categories
+                  .filter((c) => c.id !== editingId)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
 
             <div className="flex justify-end gap-3">
               <Button

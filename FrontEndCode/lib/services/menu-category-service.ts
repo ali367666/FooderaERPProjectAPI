@@ -42,11 +42,14 @@ export type MenuCategory = {
   description: string | null;
   isActive: boolean;
   printerId: number | null;
+  parentCategoryId: number | null;
+  parentCategoryName: string | null;
 };
 
 export type MenuCategoryCreateInput = {
   name: string;
   description?: string | null;
+  parentCategoryId?: number | null;
 };
 
 export type MenuCategoryUpdateInput = {
@@ -54,6 +57,7 @@ export type MenuCategoryUpdateInput = {
   description?: string | null;
   isActive: boolean;
   printerId?: number | null;
+  parentCategoryId?: number | null;
 };
 
 function normalizeMenuCategory(item: unknown): MenuCategory | null {
@@ -74,6 +78,14 @@ function normalizeMenuCategory(item: unknown): MenuCategory | null {
       const v = raw.printerId ?? raw.PrinterId;
       return v == null ? null : Number(v);
     })(),
+    parentCategoryId: (() => {
+      const v = raw.parentCategoryId ?? raw.ParentCategoryId;
+      return v == null ? null : Number(v);
+    })(),
+    parentCategoryName:
+      (raw.parentCategoryName ?? raw.ParentCategoryName) != null
+        ? String(raw.parentCategoryName ?? raw.ParentCategoryName)
+        : null,
   };
 }
 
@@ -111,6 +123,7 @@ export async function createMenuCategory(data: MenuCategoryCreateInput): Promise
     await api.post("/MenuCategories", {
       name: data.name.trim(),
       description: data.description?.trim() || null,
+      parentCategoryId: data.parentCategoryId ?? null,
     });
   } catch (error) {
     throw toApiFormError(error, "Failed to create menu category");
@@ -132,6 +145,7 @@ export async function updateMenuCategory(
         description: data.description?.trim() || null,
         isActive: data.isActive,
         printerId: data.printerId ?? null,
+        parentCategoryId: data.parentCategoryId ?? null,
       },
       { params: { companyId: resolvedCompanyId } },
     );

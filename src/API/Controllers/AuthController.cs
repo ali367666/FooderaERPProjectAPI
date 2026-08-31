@@ -1,5 +1,6 @@
 ﻿using Application.Auth.Commands.Login;
 using Application.Auth.Commands.PosLogin;
+using Application.Auth.Commands.RefreshToken;
 using Application.Auth.Dtos;
 using Application.Auth.Dtos.Requests;
 using MediatR;
@@ -38,6 +39,20 @@ public sealed class AuthController : ControllerBase
     public async Task<IActionResult> PosLogin([FromBody] PosLoginRequest request)
     {
         var command = new PosLoginCommand
+        {
+            Request = request,
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+        };
+
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [HttpPost("refresh-token")]
+    [AllowAnonymous]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+    {
+        var command = new RefreshTokenCommand
         {
             Request = request,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()

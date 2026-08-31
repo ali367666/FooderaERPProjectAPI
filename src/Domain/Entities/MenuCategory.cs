@@ -12,5 +12,9 @@ public class MenuCategory : CompanyEntity<int>
     public int? PrinterId { get; set; }
     public Printer? Printer { get; set; }
 
+    public int? ParentCategoryId { get; set; }
+    public MenuCategory? ParentCategory { get; set; }
+    public ICollection<MenuCategory> SubCategories { get; set; } = new List<MenuCategory>();
+
     public ICollection<MenuItem> MenuItems { get; set; } = new List<MenuItem>();
 }

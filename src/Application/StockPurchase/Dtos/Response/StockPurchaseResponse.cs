@@ -7,7 +7,8 @@ public class StockPurchaseResponse
     public int Id { get; set; }
     public string DocumentNo { get; set; } = default!;
     public int CompanyId { get; set; }
-    public string SupplierName { get; set; } = default!;
+    public int CounterpartyId { get; set; }
+    public string CounterpartyName { get; set; } = default!;
     public bool IsImport { get; set; }
     public PurchaseCurrency Currency { get; set; }
     public string CurrencyCode { get; set; } = default!;

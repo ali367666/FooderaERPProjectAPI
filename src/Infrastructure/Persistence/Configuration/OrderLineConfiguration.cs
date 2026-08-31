@@ -43,5 +43,10 @@ public class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
 
         builder.Property(x => x.LineTotal)
               .HasColumnType("decimal(18,2)");
+
+        builder.HasOne(x => x.ParentLine)
+            .WithMany()
+            .HasForeignKey(x => x.ParentLineId)
+            .OnDelete(DeleteBehavior.ClientSetNull);
     }
 }

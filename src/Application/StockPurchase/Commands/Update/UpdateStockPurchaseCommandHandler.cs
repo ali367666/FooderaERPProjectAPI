@@ -41,7 +41,7 @@ public class UpdateStockPurchaseCommandHandler
         if (dto.ExchangeRate <= 0)
             return new BaseResponse { Success = false, Message = "Məzənnə 0-dan böyük olmalıdır." };
 
-        purchase.SupplierName = dto.SupplierName;
+        purchase.CounterpartyId = dto.CounterpartyId;
         purchase.IsImport = dto.IsImport;
         purchase.Currency = dto.Currency;
         purchase.ExchangeRate = dto.ExchangeRate;

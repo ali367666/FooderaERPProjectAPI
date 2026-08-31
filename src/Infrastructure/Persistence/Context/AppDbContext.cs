@@ -22,6 +22,10 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     public DbSet<RestaurantSection> RestaurantSections { get; set; } = null!;
     public DbSet<Printer> Printers { get; set; } = null!;
     public DbSet<PrinterStationType> PrinterStationTypes { get; set; } = null!;
+    public DbSet<Counterparty> Counterparties { get; set; } = null!;
+    public DbSet<CounterpartyCategory> CounterpartyCategories { get; set; } = null!;
+    public DbSet<MenuItemType> MenuItemTypes { get; set; } = null!;
+    public DbSet<MenuItemSetComponent> MenuItemSetComponents { get; set; } = null!;
     public DbSet<Shift> Shifts { get; set; } = null!;
     public DbSet<Restaurant> Restaurants { get; set; } = null!;
     public DbSet<Reservation> Reservations { get; set; } = null!;
