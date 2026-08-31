@@ -53,6 +53,7 @@ public class UpdateCompanySettingsCommandHandler
         settings.AlertMilliseconds = dto.AlertMilliseconds;
         settings.AlertRingCount = dto.AlertRingCount;
         settings.AlertRingIntervalSeconds = dto.AlertRingIntervalSeconds;
+        settings.TableTimeWarningMinutes = dto.TableTimeWarningMinutes;
 
         settings.LoginLogoUrl = dto.LoginLogoUrl?.Trim();
         settings.ReportLogoUrl = dto.ReportLogoUrl?.Trim();

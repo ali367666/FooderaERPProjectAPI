@@ -209,11 +209,12 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, Ord
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = Math.Max(0, updatedOrder.Lines
+                .DistinctBy(x => x.Id)
                 .Where(x => x.Status != OrderLineStatus.Cancelled)
                 .Sum(x => x.UnitPrice * x.Quantity) - updatedOrder.DiscountAmount),
             DiscountCode = updatedOrder.DiscountCode,
             DiscountAmount = updatedOrder.DiscountAmount,
-            Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
+            Lines = updatedOrder.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,

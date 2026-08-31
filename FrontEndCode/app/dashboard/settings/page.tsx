@@ -49,6 +49,7 @@ const DEFAULTS: CompanySettingsInput = {
   alertMilliseconds: null,
   alertRingCount: null,
   alertRingIntervalSeconds: null,
+  tableTimeWarningMinutes: null,
   loginLogoUrl: null,
   reportLogoUrl: null,
   wallpaperUrl: null,
@@ -191,6 +192,10 @@ export default function SettingsPage() {
           <div>
             <Label>Xəbərdarlıq zəng aralığı (san)</Label>
             <div className="mt-1">{numberField("alertRingIntervalSeconds", form.alertRingIntervalSeconds)}</div>
+          </div>
+          <div>
+            <Label>Masa vaxt xəbərdarlığı (dəqiqə)</Label>
+            <div className="mt-1">{numberField("tableTimeWarningMinutes", form.tableTimeWarningMinutes)}</div>
           </div>
         </div>
 

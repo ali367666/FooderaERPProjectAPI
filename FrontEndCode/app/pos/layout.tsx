@@ -88,6 +88,12 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
   const [zReportResult, setZReportResult] = useState<ZReport | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shiftBusy, setShiftBusy] = useState(false);
+  const [clockNow, setClockNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setClockNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!terminal?.restaurantId) return;
@@ -143,7 +149,10 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
             <ChefHat className="h-5 w-5 text-primary" />
             <span>{terminal?.restaurantName ?? terminal?.companyName ?? "POS"}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <span className="tabular-nums text-sm font-semibold text-muted-foreground">
+              {clockNow.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
             <button
               type="button"
               onClick={() => setShiftDialogOpen(true)}

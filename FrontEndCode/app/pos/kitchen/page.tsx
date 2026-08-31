@@ -12,6 +12,7 @@ import {
   getCompanySettingsBranding,
   type CompanySettingsBranding,
 } from "@/lib/services/company-settings-service";
+import { playPosAlert } from "@/lib/pos-sound-alert";
 import {
   getKitchenOrders,
   startPreparingKitchenLine,
@@ -21,36 +22,6 @@ import {
 } from "@/lib/services/kitchen-service";
 
 const POLL_INTERVAL_MS = 8000;
-
-function playAlert(branding: CompanySettingsBranding | null) {
-  const toneMs = branding?.alertMilliseconds ?? 400;
-  const ringCount = branding?.alertRingCount ?? 1;
-  const ringIntervalSeconds = branding?.alertRingIntervalSeconds ?? 1;
-
-  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioCtx) return;
-  const ctx = new AudioCtx();
-
-  const ringGapMs = Math.max(ringIntervalSeconds * 1000, toneMs + 50);
-
-  for (let i = 0; i < Math.max(ringCount, 1); i++) {
-    const startAt = ctx.currentTime + (i * ringGapMs) / 1000;
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.value = 880;
-    gain.gain.setValueAtTime(0.0001, startAt);
-    gain.gain.exponentialRampToValueAtTime(0.3, startAt + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startAt + toneMs / 1000);
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.start(startAt);
-    oscillator.stop(startAt + toneMs / 1000 + 0.05);
-  }
-
-  const totalMs = Math.max(ringCount, 1) * ringGapMs + 200;
-  setTimeout(() => void ctx.close(), totalMs);
-}
 
 function statusLabel(status: KitchenLineStatus): string {
   switch (status) {
@@ -65,6 +36,16 @@ function statusLabel(status: KitchenLineStatus): string {
     default:
       return status;
   }
+}
+
+function formatElapsed(createdAt: string, now: number): string {
+  const created = new Date(createdAt).getTime();
+  if (!Number.isFinite(created)) return "";
+  const minutes = Math.max(0, Math.floor((now - created) / 60000));
+  if (minutes < 60) return `${minutes} dəq`;
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  return `${hours} saat ${remMinutes} dəq`;
 }
 
 function statusBadgeClass(status: KitchenLineStatus): string {
@@ -89,8 +70,14 @@ export default function PosKitchenPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyLineId, setBusyLineId] = useState<number | null>(null);
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const seenPendingIds = useRef<Set<number> | null>(null);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const canManage = useHasPermission("Kitchen.StartPreparing") || useHasPermission("Kitchen.MarkReady");
   const canStart = useHasPermission("Kitchen.StartPreparing");
@@ -123,7 +110,7 @@ export default function PosKitchenPage() {
       }
       if (seenPendingIds.current !== null) {
         const hasNewPending = [...pendingIds].some((id) => !seenPendingIds.current!.has(id));
-        if (hasNewPending) playAlert(branding);
+        if (hasNewPending) playPosAlert(branding);
       }
       seenPendingIds.current = pendingIds;
     } catch (err) {
@@ -198,7 +185,7 @@ export default function PosKitchenPage() {
               <span className="font-bold">{group.tableName ?? group.orderNumber}</span>
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                {new Date(group.createdAt).toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit" })}
+                {formatElapsed(group.createdAt, now)}
               </span>
             </div>
             <div className="space-y-2">

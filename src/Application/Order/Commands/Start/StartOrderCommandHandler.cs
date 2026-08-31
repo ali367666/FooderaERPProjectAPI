@@ -70,11 +70,12 @@ public class StartOrderCommandHandler : IRequestHandler<StartOrderCommand, Order
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = Math.Max(0, order.Lines
+                .DistinctBy(x => x.Id)
                 .Where(x => x.Status != OrderLineStatus.Cancelled)
                 .Sum(x => x.UnitPrice * x.Quantity) - order.DiscountAmount),
             DiscountCode = order.DiscountCode,
             DiscountAmount = order.DiscountAmount,
-            Lines = order.Lines.Select(x => new OrderLineResponse
+            Lines = order.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,

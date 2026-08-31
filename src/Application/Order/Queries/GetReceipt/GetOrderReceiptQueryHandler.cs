@@ -30,6 +30,7 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
             line.LineTotal = line.UnitPrice * line.Quantity;
 
         var totalAmount = order.Lines
+            .DistinctBy(x => x.Id)
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.LineTotal);
 
@@ -47,6 +48,7 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
             PaidAmount = order.PaidAmount,
             ChangeAmount = order.ChangeAmount,
             Lines = order.Lines
+                .DistinctBy(x => x.Id)
                 .Where(x => x.Status != OrderLineStatus.Cancelled)
                 .Select(x => new OrderReceiptLineResponse
                 {

@@ -18,6 +18,7 @@ export type CompanySettings = {
   alertMilliseconds: number | null;
   alertRingCount: number | null;
   alertRingIntervalSeconds: number | null;
+  tableTimeWarningMinutes: number | null;
 
   loginLogoUrl: string | null;
   reportLogoUrl: string | null;
@@ -83,6 +84,7 @@ function normalize(item: unknown): CompanySettings | null {
     alertMilliseconds: numOrNull("alertMilliseconds", "AlertMilliseconds"),
     alertRingCount: numOrNull("alertRingCount", "AlertRingCount"),
     alertRingIntervalSeconds: numOrNull("alertRingIntervalSeconds", "AlertRingIntervalSeconds"),
+    tableTimeWarningMinutes: numOrNull("tableTimeWarningMinutes", "TableTimeWarningMinutes"),
 
     loginLogoUrl: strOrNull("loginLogoUrl", "LoginLogoUrl"),
     reportLogoUrl: strOrNull("reportLogoUrl", "ReportLogoUrl"),
@@ -149,6 +151,7 @@ export type CompanySettingsBranding = {
   alertMilliseconds: number | null;
   alertRingCount: number | null;
   alertRingIntervalSeconds: number | null;
+  tableTimeWarningMinutes: number | null;
   moduleFilial: boolean;
   moduleAnbar: boolean;
   moduleRezervasyon: boolean;
@@ -187,6 +190,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     alertMilliseconds: numOrNull("alertMilliseconds", "AlertMilliseconds"),
     alertRingCount: numOrNull("alertRingCount", "AlertRingCount"),
     alertRingIntervalSeconds: numOrNull("alertRingIntervalSeconds", "AlertRingIntervalSeconds"),
+    tableTimeWarningMinutes: numOrNull("tableTimeWarningMinutes", "TableTimeWarningMinutes"),
     moduleFilial: bool("moduleFilial", "ModuleFilial", true),
     moduleAnbar: bool("moduleAnbar", "ModuleAnbar", true),
     moduleRezervasyon: bool("moduleRezervasyon", "ModuleRezervasyon", true),

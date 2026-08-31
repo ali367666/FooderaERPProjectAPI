@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { RefreshCw, Users } from "lucide-react";
@@ -12,6 +12,11 @@ import { getRestaurantTables, type RestaurantTable } from "@/lib/services/restau
 import { getOrders, createOrder, type OrderDto, type OrderWorkflowStatus } from "@/lib/services/order-service";
 import { getRestaurantSections, type RestaurantSection } from "@/lib/services/restaurant-section-service";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
+import {
+  getCompanySettingsBranding,
+  type CompanySettingsBranding,
+} from "@/lib/services/company-settings-service";
+import { playPosAlert } from "@/lib/pos-sound-alert";
 
 type TableWithOrder = RestaurantTable & { activeOrder: OrderDto | null };
 
@@ -49,6 +54,16 @@ function statusLabel(status: OrderWorkflowStatus): string {
   }
 }
 
+function formatElapsed(openedAt: string, now: number): string {
+  const opened = new Date(openedAt).getTime();
+  if (!Number.isFinite(opened)) return "";
+  const minutes = Math.max(0, Math.floor((now - opened) / 60000));
+  if (minutes < 60) return `${minutes} dəq`;
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  return `${hours} saat ${remMinutes} dəq`;
+}
+
 export default function PosTablesPage() {
   const router = useRouter();
   const [tables, setTables] = useState<TableWithOrder[]>([]);
@@ -59,10 +74,40 @@ export default function PosTablesPage() {
   const [sections, setSections] = useState<RestaurantSection[]>([]);
   const [activeSectionId, setActiveSectionId] = useState<number | null>(null);
   const canChangeSection = useHasPermission("Pos.ChangeDepartment");
+  const [now, setNow] = useState(() => new Date());
+  const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
+  const alertedTableIds = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     setTerminal(getPosTerminalContext());
   }, []);
+
+  useEffect(() => {
+    if (!terminal?.companyId) return;
+    getCompanySettingsBranding(terminal.companyId)
+      .then(setBranding)
+      .catch(() => setBranding(null));
+  }, [terminal]);
+
+  const warningMinutes = branding?.tableTimeWarningMinutes ?? 45;
+
+  useEffect(() => {
+    const stillOverdueIds = new Set<number>();
+    for (const table of tables) {
+      const order = table.activeOrder;
+      if (!order) continue;
+      const elapsedMinutes = Math.floor((now.getTime() - new Date(order.openedAt).getTime()) / 60000);
+      if (elapsedMinutes >= warningMinutes) stillOverdueIds.add(table.id);
+    }
+    const newlyOverdue = [...stillOverdueIds].some((id) => !alertedTableIds.current.has(id));
+    if (newlyOverdue) playPosAlert(branding);
+    alertedTableIds.current = stillOverdueIds;
+  }, [tables, now, warningMinutes, branding]);
 
   const load = useCallback(async () => {
     if (terminal === undefined) return;
@@ -190,6 +235,10 @@ export default function PosTablesPage() {
           const status = table.activeOrder?.status ?? null;
           const isCreating = creatingTableId === table.id;
 
+          const order = table.activeOrder;
+          const elapsedMinutes = order ? Math.floor((now.getTime() - new Date(order.openedAt).getTime()) / 60000) : 0;
+          const isOverdue = occupied && elapsedMinutes >= warningMinutes;
+
           return (
             <button
               key={table.id}
@@ -197,12 +246,13 @@ export default function PosTablesPage() {
               onClick={() => void openTable(table)}
               disabled={!table.isActive || isCreating}
               className={cn(
-                "relative flex h-28 flex-col items-center justify-center gap-1 rounded-xl border-2 transition-all",
+                "relative flex h-32 flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1.5 transition-all",
                 "select-none active:scale-95",
                 occupied
                   ? "border-transparent text-white shadow-md " + statusBg(status)
                   : "border-border bg-card text-card-foreground hover:border-primary/40",
                 !table.isActive && "cursor-not-allowed opacity-40",
+                isOverdue && "ring-2 ring-red-500 ring-offset-1",
               )}
             >
               <span className="text-lg font-bold leading-none">{table.name}</span>
@@ -216,7 +266,17 @@ export default function PosTablesPage() {
                 {table.capacity}
               </span>
               {occupied ? (
-                <span className="mt-1 text-xs font-medium text-white/90">{statusLabel(status!)}</span>
+                <>
+                  <span className="text-xs font-medium text-white/90">{statusLabel(status!)}</span>
+                  {order?.waiterName && (
+                    <span className="max-w-full truncate text-[11px] text-white/80">{order.waiterName}</span>
+                  )}
+                  <span className="text-[11px] text-white/80">{formatElapsed(order!.openedAt, now.getTime())}</span>
+                  <span className="text-xs font-semibold text-white">{order!.totalAmount.toFixed(2)} ₼</span>
+                  {order?.note && (
+                    <span className="max-w-full truncate text-[10px] italic text-white/70">{order.note}</span>
+                  )}
+                </>
               ) : (
                 <span className="mt-0.5 text-xs text-muted-foreground">
                   {isCreating ? "..." : "Boş"}

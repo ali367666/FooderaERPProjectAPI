@@ -28,8 +28,9 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
         if (order is null)
             throw new Exception("Order not found.");
 
-        if (order.Status != OrderStatus.InPreparation)
-            throw new Exception("Only in-progress orders can be cancelled.");
+        if (order.Status is OrderStatus.InPreparation or OrderStatus.Ready or OrderStatus.Served
+            or OrderStatus.Paid or OrderStatus.Cancelled)
+            throw new Exception("Yalnız hələ hazırlanmağa başlamayan sifarişlər ləğv edilə bilər.");
 
         if (order.ProcessedByUserId.HasValue && order.ProcessedByUserId != userId)
             throw new Exception("Only the assigned processor can cancel this order.");
@@ -67,11 +68,12 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = Math.Max(0, order.Lines
+                .DistinctBy(x => x.Id)
                 .Where(x => x.Status != OrderLineStatus.Cancelled)
                 .Sum(x => x.UnitPrice * x.Quantity) - order.DiscountAmount),
             DiscountCode = order.DiscountCode,
             DiscountAmount = order.DiscountAmount,
-            Lines = order.Lines.Select(x => new OrderLineResponse
+            Lines = order.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,
