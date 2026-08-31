@@ -25,6 +25,7 @@ export type OrderReceiptLineDto = {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  vatAmount: number;
 };
 
 export type OrderReceiptDto = {
@@ -40,6 +41,7 @@ export type OrderReceiptDto = {
   totalAmount: number;
   paidAmount: number;
   changeAmount: number;
+  vatAmount: number;
 };
 
 export type OrderDto = {
@@ -55,6 +57,7 @@ export type OrderDto = {
   statusRaw: string;
   status: OrderWorkflowStatus;
   note: string | null;
+  guestCount: number | null;
   openedAt: string;
   closedAt: string | null;
   totalAmount: number;
@@ -78,6 +81,7 @@ export type CreateOrderPayload = {
   tableId: number;
   waiterId: number;
   note?: string | null;
+  guestCount?: number | null;
 };
 
 export type AddOrderLinePayload = {
@@ -207,6 +211,10 @@ function normalizeOrder(raw: unknown): OrderDto | null {
     statusRaw,
     status: normalizeOrderStatus(statusRaw),
     note: (pick(o, "note", "Note") as string | null | undefined) ?? null,
+    guestCount: (() => {
+      const v = pick<number | null>(o, "guestCount", "GuestCount");
+      return v === null || v === undefined ? null : Number(v);
+    })(),
     openedAt: String(pick(o, "openedAt", "OpenedAt") ?? ""),
     closedAt: (pick(o, "closedAt", "ClosedAt") as string | null | undefined) ?? null,
     totalAmount: Number(pick(o, "totalAmount", "TotalAmount") ?? 0),
@@ -253,6 +261,7 @@ function normalizeReceipt(raw: unknown): OrderReceiptDto | null {
               quantity: Number(pick(l, "quantity", "Quantity") ?? 0),
               unitPrice: Number(pick(l, "unitPrice", "UnitPrice") ?? 0),
               lineTotal: Number(pick(l, "lineTotal", "LineTotal") ?? 0),
+              vatAmount: Number(pick(l, "vatAmount", "VatAmount") ?? 0),
             } satisfies OrderReceiptLineDto;
           })
           .filter((x): x is OrderReceiptLineDto => x !== null)
@@ -260,6 +269,7 @@ function normalizeReceipt(raw: unknown): OrderReceiptDto | null {
     totalAmount: Number(pick(o, "totalAmount", "TotalAmount") ?? 0),
     paidAmount: Number(pick(o, "paidAmount", "PaidAmount") ?? 0),
     changeAmount: Number(pick(o, "changeAmount", "ChangeAmount") ?? 0),
+    vatAmount: Number(pick(o, "vatAmount", "VatAmount") ?? 0),
   };
 }
 
@@ -296,6 +306,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<OrderDto
       tableId: payload.tableId,
       waiterId: payload.waiterId,
       note: payload.note ?? null,
+      guestCount: payload.guestCount ?? null,
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));

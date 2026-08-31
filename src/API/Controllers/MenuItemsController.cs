@@ -3,6 +3,7 @@ using Application.MenuItems.Commands.Delete;
 using Application.MenuItems.Commands.Update;
 using Application.MenuItems.Dtos;
 using Application.MenuItems.Queries.GetAll;
+using Application.MenuItems.Queries.GetAvailability;
 using Application.MenuItems.Queries.GetById;
 using Application.MenuItems.Queries.GetSetComponents;
 using Application.MenuItems.Queries.GetStockInfo;
@@ -98,6 +99,19 @@ public class MenuItemsController : ControllerBase
     {
         var result = await _mediator.Send(
             new GetMenuItemSetComponentsQuery(id),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.MenuItemView)]
+    [HttpGet("availability")]
+    public async Task<ActionResult<MenuItemAvailabilityResponse>> GetAvailability(
+        [FromQuery] int restaurantId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new GetMenuItemAvailabilityQuery(restaurantId),
             cancellationToken);
 
         return Ok(result);

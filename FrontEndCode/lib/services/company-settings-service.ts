@@ -10,6 +10,11 @@ export type CompanySettings = {
   moduleAnbar: boolean;
   moduleRezervasyon: boolean;
   moduleMasaBolge: boolean;
+  modulePaket: boolean;
+  moduleOtel: boolean;
+  moduleFitnes: boolean;
+  moduleDataSecimi: boolean;
+  moduleQiymetSor: boolean;
 
   integrationWolt: boolean;
   integrationBolt: boolean;
@@ -32,8 +37,21 @@ export type CompanySettings = {
   contactPhoneNumber: string | null;
   receiptFontSize: number | null;
   categoryFontSize: number | null;
+  receiptRestaurantNameFontSize: number | null;
   allowReceiptEditAfterPrint: boolean;
   waiterCanPrintCustomerReceipt: boolean;
+
+  printAutoOnPayment: boolean;
+  printShowPreview: boolean;
+  printGroupQuantities: boolean;
+  receiptShowTime: boolean;
+  receiptShowWaiterName: boolean;
+  receiptShowTableName: boolean;
+  receiptShowOrderNumber: boolean;
+  receiptShowPaymentMethod: boolean;
+
+  askGuestCountOnOpen: boolean;
+  defaultVatPercent: number | null;
 };
 
 export type CompanySettingsInput = Omit<CompanySettings, "id" | "companyId">;
@@ -76,6 +94,11 @@ function normalize(item: unknown): CompanySettings | null {
     moduleAnbar: bool("moduleAnbar", "ModuleAnbar"),
     moduleRezervasyon: bool("moduleRezervasyon", "ModuleRezervasyon"),
     moduleMasaBolge: bool("moduleMasaBolge", "ModuleMasaBolge"),
+    modulePaket: bool("modulePaket", "ModulePaket"),
+    moduleOtel: bool("moduleOtel", "ModuleOtel"),
+    moduleFitnes: bool("moduleFitnes", "ModuleFitnes"),
+    moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
+    moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
 
     integrationWolt: bool("integrationWolt", "IntegrationWolt"),
     integrationBolt: bool("integrationBolt", "IntegrationBolt"),
@@ -98,8 +121,20 @@ function normalize(item: unknown): CompanySettings | null {
     contactPhoneNumber: strOrNull("contactPhoneNumber", "ContactPhoneNumber"),
     receiptFontSize: numOrNull("receiptFontSize", "ReceiptFontSize"),
     categoryFontSize: numOrNull("categoryFontSize", "CategoryFontSize"),
+    receiptRestaurantNameFontSize: numOrNull("receiptRestaurantNameFontSize", "ReceiptRestaurantNameFontSize"),
     allowReceiptEditAfterPrint: bool("allowReceiptEditAfterPrint", "AllowReceiptEditAfterPrint", true),
     waiterCanPrintCustomerReceipt: bool("waiterCanPrintCustomerReceipt", "WaiterCanPrintCustomerReceipt", true),
+
+    printAutoOnPayment: bool("printAutoOnPayment", "PrintAutoOnPayment"),
+    printShowPreview: bool("printShowPreview", "PrintShowPreview", true),
+    printGroupQuantities: bool("printGroupQuantities", "PrintGroupQuantities", true),
+    receiptShowTime: bool("receiptShowTime", "ReceiptShowTime", true),
+    receiptShowWaiterName: bool("receiptShowWaiterName", "ReceiptShowWaiterName", true),
+    receiptShowTableName: bool("receiptShowTableName", "ReceiptShowTableName", true),
+    receiptShowOrderNumber: bool("receiptShowOrderNumber", "ReceiptShowOrderNumber", true),
+    receiptShowPaymentMethod: bool("receiptShowPaymentMethod", "ReceiptShowPaymentMethod", true),
+    askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
+    defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
   };
 }
 
@@ -146,6 +181,7 @@ export type CompanySettingsBranding = {
   contactPhoneNumber: string | null;
   receiptFontSize: number | null;
   categoryFontSize: number | null;
+  receiptRestaurantNameFontSize: number | null;
   allowReceiptEditAfterPrint: boolean;
   waiterCanPrintCustomerReceipt: boolean;
   alertMilliseconds: number | null;
@@ -156,6 +192,21 @@ export type CompanySettingsBranding = {
   moduleAnbar: boolean;
   moduleRezervasyon: boolean;
   moduleMasaBolge: boolean;
+  modulePaket: boolean;
+  moduleOtel: boolean;
+  moduleFitnes: boolean;
+  moduleDataSecimi: boolean;
+  moduleQiymetSor: boolean;
+  printAutoOnPayment: boolean;
+  printShowPreview: boolean;
+  printGroupQuantities: boolean;
+  receiptShowTime: boolean;
+  receiptShowWaiterName: boolean;
+  receiptShowTableName: boolean;
+  receiptShowOrderNumber: boolean;
+  receiptShowPaymentMethod: boolean;
+  askGuestCountOnOpen: boolean;
+  defaultVatPercent: number | null;
 };
 
 function normalizeBranding(item: unknown): CompanySettingsBranding {
@@ -185,6 +236,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     contactPhoneNumber: strOrNull("contactPhoneNumber", "ContactPhoneNumber"),
     receiptFontSize: numOrNull("receiptFontSize", "ReceiptFontSize"),
     categoryFontSize: numOrNull("categoryFontSize", "CategoryFontSize"),
+    receiptRestaurantNameFontSize: numOrNull("receiptRestaurantNameFontSize", "ReceiptRestaurantNameFontSize"),
     allowReceiptEditAfterPrint: bool("allowReceiptEditAfterPrint", "AllowReceiptEditAfterPrint", true),
     waiterCanPrintCustomerReceipt: bool("waiterCanPrintCustomerReceipt", "WaiterCanPrintCustomerReceipt", true),
     alertMilliseconds: numOrNull("alertMilliseconds", "AlertMilliseconds"),
@@ -195,6 +247,21 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     moduleAnbar: bool("moduleAnbar", "ModuleAnbar", true),
     moduleRezervasyon: bool("moduleRezervasyon", "ModuleRezervasyon", true),
     moduleMasaBolge: bool("moduleMasaBolge", "ModuleMasaBolge", true),
+    modulePaket: bool("modulePaket", "ModulePaket"),
+    moduleOtel: bool("moduleOtel", "ModuleOtel"),
+    moduleFitnes: bool("moduleFitnes", "ModuleFitnes"),
+    moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
+    moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
+    printAutoOnPayment: bool("printAutoOnPayment", "PrintAutoOnPayment"),
+    printShowPreview: bool("printShowPreview", "PrintShowPreview", true),
+    printGroupQuantities: bool("printGroupQuantities", "PrintGroupQuantities", true),
+    receiptShowTime: bool("receiptShowTime", "ReceiptShowTime", true),
+    receiptShowWaiterName: bool("receiptShowWaiterName", "ReceiptShowWaiterName", true),
+    receiptShowTableName: bool("receiptShowTableName", "ReceiptShowTableName", true),
+    receiptShowOrderNumber: bool("receiptShowOrderNumber", "ReceiptShowOrderNumber", true),
+    receiptShowPaymentMethod: bool("receiptShowPaymentMethod", "ReceiptShowPaymentMethod", true),
+    askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
+    defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
   };
 }
 

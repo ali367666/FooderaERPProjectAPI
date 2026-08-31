@@ -21,6 +21,7 @@ public class Order : CompanyEntity<int>
     public OrderStatus Status { get; set; } = OrderStatus.Open;
 
     public string? Note { get; set; }
+    public int? GuestCount { get; set; }
     public decimal TotalAmount { get; set; }
     public bool IsPaid { get; set; }
     public DateTime? PaidAt { get; set; }

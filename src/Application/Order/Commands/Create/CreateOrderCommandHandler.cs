@@ -103,6 +103,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             Note = string.IsNullOrWhiteSpace(request.Request.Note)
                 ? null
                 : request.Request.Note.Trim(),
+            GuestCount = request.Request.GuestCount,
             OpenedAt = DateTime.UtcNow,
             TotalAmount = 0
         };
@@ -157,6 +158,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             ProcessedAt = order.ProcessedAt,
             Status = order.Status.ToString(),
             Note = order.Note,
+            GuestCount = order.GuestCount,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = 0,

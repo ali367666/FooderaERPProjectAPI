@@ -19,6 +19,7 @@ public class CompanySettingsConfiguration : IEntityTypeConfiguration<CompanySett
         builder.Property(x => x.Slogan).HasMaxLength(300);
         builder.Property(x => x.SocialLinks).HasMaxLength(1000);
         builder.Property(x => x.ContactPhoneNumber).HasMaxLength(30);
+        builder.Property(x => x.DefaultVatPercent).HasColumnType("decimal(5,2)");
 
         builder.HasOne(x => x.Company)
                .WithMany()

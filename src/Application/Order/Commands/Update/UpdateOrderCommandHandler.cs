@@ -206,6 +206,7 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, Ord
             ProcessedAt = updatedOrder.ProcessedAt,
             Status = updatedOrder.Status.ToString(),
             Note = updatedOrder.Note,
+            GuestCount = updatedOrder.GuestCount,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = Math.Max(0, updatedOrder.Lines

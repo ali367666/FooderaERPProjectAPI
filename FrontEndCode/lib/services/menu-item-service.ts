@@ -325,6 +325,17 @@ function normalizeWarehouseQuantityLine(item: unknown): WarehouseQuantityLine | 
   };
 }
 
+export async function getMenuItemAvailability(restaurantId: number): Promise<Set<number>> {
+  try {
+    const response = await api.get<unknown>("/MenuItems/availability", { params: { restaurantId } });
+    const raw = (response.data ?? {}) as Record<string, unknown>;
+    const ids = raw.outOfStockMenuItemIds ?? raw.OutOfStockMenuItemIds;
+    return new Set(Array.isArray(ids) ? ids.map(Number).filter(Number.isFinite) : []);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to fetch menu item availability");
+  }
+}
+
 export async function getMenuItemStockInfo(menuItemId: number): Promise<MenuItemStockInfo> {
   try {
     const response = await api.get<unknown>(`/MenuItems/${menuItemId}/stock-info`);

@@ -81,6 +81,7 @@ public class ReassignOrderWaiterCommandHandler : IRequestHandler<ReassignOrderWa
             WaiterName = updatedOrder.Waiter != null ? $"{updatedOrder.Waiter.FirstName} {updatedOrder.Waiter.LastName}" : null,
             Status = updatedOrder.Status.ToString(),
             Note = updatedOrder.Note,
+            GuestCount = updatedOrder.GuestCount,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,
