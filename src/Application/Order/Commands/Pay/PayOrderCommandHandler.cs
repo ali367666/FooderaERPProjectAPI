@@ -44,6 +44,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             line.LineTotal = line.UnitPrice * line.Quantity;
 
         var subtotal = order.Lines
+            .DistinctBy(x => x.Id)
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.LineTotal);
 
@@ -110,7 +111,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             PaidAmount = order.PaidAmount,
             ChangeAmount = order.ChangeAmount,
             ReceiptNumber = order.ReceiptNumber,
-            Lines = order.Lines.Select(x => new OrderLineResponse
+            Lines = order.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,

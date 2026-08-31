@@ -20,6 +20,7 @@ public class CompanySettingsBrandingResponse
     public int? AlertMilliseconds { get; set; }
     public int? AlertRingCount { get; set; }
     public int? AlertRingIntervalSeconds { get; set; }
+    public int? TableTimeWarningMinutes { get; set; }
 
     public bool ModuleFilial { get; set; }
     public bool ModuleAnbar { get; set; }

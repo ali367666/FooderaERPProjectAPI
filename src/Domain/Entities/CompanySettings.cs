@@ -19,6 +19,7 @@ public class CompanySettings : CompanyEntity<int>
     public int? AlertMilliseconds { get; set; }
     public int? AlertRingCount { get; set; }
     public int? AlertRingIntervalSeconds { get; set; }
+    public int? TableTimeWarningMinutes { get; set; }
 
     // Qəbz
     public string? LoginLogoUrl { get; set; }

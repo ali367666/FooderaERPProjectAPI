@@ -16,6 +16,7 @@ public class UpdateCompanySettingsRequest
     public int? AlertMilliseconds { get; set; }
     public int? AlertRingCount { get; set; }
     public int? AlertRingIntervalSeconds { get; set; }
+    public int? TableTimeWarningMinutes { get; set; }
 
     public string? LoginLogoUrl { get; set; }
     public string? ReportLogoUrl { get; set; }

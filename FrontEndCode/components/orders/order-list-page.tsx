@@ -24,9 +24,7 @@ import { formatCurrency } from "@/lib/format-currency";
 export function OrderListPage() {
   const router = useRouter();
   const permissions = usePermissionSet();
-  console.log("Current user permissions:", Array.from(permissions));
-  console.log("Can create order:", hasPermission("Permissions.Orders.Create", permissions));
-  const canCreateOrder = hasPermission("Permissions.Orders.Create", permissions);
+  const canCreateOrder = hasPermission("Orders.Create", permissions);
   const [orders, setOrders] = useState<OrderDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +109,8 @@ export function OrderListPage() {
   const canServeSelected = !!selectedOrder && !selectedIsPaid && selectedStatusValue === 3;
   const canPaySelected =
     !!selectedOrder && !selectedIsPaid && (selectedStatusValue === 3 || selectedStatusValue === 4);
-  const canCancelSelected = !!selectedOrder && !selectedIsPaid && !selectedIsCancelled;
+  const canCancelSelected =
+    !!selectedOrder && (selectedStatusValue === 0 || selectedStatusValue === 1);
   const canPrintSelected = !!selectedOrder && selectedIsPaid;
 
   const printReceipt = useCallback(async () => {

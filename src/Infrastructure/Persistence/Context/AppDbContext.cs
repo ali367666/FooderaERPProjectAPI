@@ -4,12 +4,25 @@ using Domain.Entities.WarehouseAndStock;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Persistence.Configurations;
 
 namespace Infrastructure.Persistence.Context;
 
 public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 {
+    // SQL Server's datetime2 has no timezone concept, so EF Core loses DateTimeKind on read.
+    // All persisted timestamps in this app are written with DateTime.UtcNow, so we re-tag them
+    // as Utc on the way out — otherwise System.Text.Json omits the "Z" suffix and clients in
+    // non-UTC timezones (e.g. Azerbaijan, UTC+4) misinterpret the value as local time.
+    private static readonly ValueConverter<DateTime, DateTime> UtcDateTimeConverter = new(
+        v => v,
+        v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+    private static readonly ValueConverter<DateTime?, DateTime?> UtcNullableDateTimeConverter = new(
+        v => v,
+        v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
+
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
     {
@@ -75,5 +88,20 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime))
+                {
+                    property.SetValueConverter(UtcDateTimeConverter);
+                }
+                else if (property.ClrType == typeof(DateTime?))
+                {
+                    property.SetValueConverter(UtcNullableDateTimeConverter);
+                }
+            }
+        }
     }
 }

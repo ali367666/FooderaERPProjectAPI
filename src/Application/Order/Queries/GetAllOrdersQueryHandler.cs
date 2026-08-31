@@ -39,6 +39,7 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
             }
 
             var subtotal = order.Lines
+                .DistinctBy(x => x.Id)
                 .Where(x => x.Status != OrderLineStatus.Cancelled)
                 .Sum(x => x.LineTotal);
             var expectedOrderTotal = order.IsPaid ? order.TotalAmount : Math.Max(0, subtotal - order.DiscountAmount);
@@ -80,7 +81,7 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
             PaidAmount = order.PaidAmount,
             ChangeAmount = order.ChangeAmount,
             ReceiptNumber = order.ReceiptNumber,
-            Lines = order.Lines.Select(x => new OrderLineResponse
+            Lines = order.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,

@@ -82,6 +82,16 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
             throw new Exception("Bu sifarişin line-ı silinə bilməz.");
         }
 
+        if (line.Status is OrderLineStatus.InPreparation or OrderLineStatus.Ready or OrderLineStatus.Served)
+        {
+            _logger.LogWarning(
+                "OrderLine silinmədi. Məhsul artıq hazırlanmağa başlayıb. OrderLineId: {OrderLineId}, Status: {Status}",
+                line.Id,
+                line.Status);
+
+            throw new Exception("Bu məhsul artıq hazırlanmağa başlayıb, sifarişdən çıxarıla bilməz.");
+        }
+
         var oldOrderLineValues = JsonSerializer.Serialize(new
         {
             line.Id,

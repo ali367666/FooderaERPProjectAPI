@@ -175,6 +175,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         }
 
         var subtotal = order.Lines
+            .DistinctBy(x => x.Id)
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.Id == line.Id ? line.LineTotal : x.LineTotal);
         order.TotalAmount = Math.Max(0, subtotal - order.DiscountAmount);

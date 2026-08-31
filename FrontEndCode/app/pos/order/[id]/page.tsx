@@ -406,6 +406,7 @@ export default function PosOrderPage() {
   }
 
   const isPaid = order.status === "paid";
+  const canCancelOrderStatus = order.status === "draft" || order.status === "open";
   const editingLocked = isPaid && branding?.allowReceiptEditAfterPrint !== true;
 
   if (editingLocked) {
@@ -441,7 +442,7 @@ export default function PosOrderPage() {
                 Ofisiantı dəyiş
               </Button>
             )}
-            {!isPaid && canDeleteOrder && (
+            {canCancelOrderStatus && canDeleteOrder && (
               <Button variant="outline" size="sm" className="text-destructive" onClick={() => void handleDeleteOrder()} disabled={busy}>
                 <X className="mr-1 h-3.5 w-3.5" />
                 Sifarişi ləğv et
@@ -541,15 +542,18 @@ export default function PosOrderPage() {
                 <div key={line.id} className="rounded-lg border p-2">
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-medium">{line.menuItemName}</span>
-                    {canDeleteProduct && (
-                      <button
-                        type="button"
-                        onClick={() => void handleRemoveLine(line.id)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    {canDeleteProduct &&
+                      line.status !== "InPreparation" &&
+                      line.status !== "Ready" &&
+                      line.status !== "Served" && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRemoveLine(line.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                   </div>
                   <div className="mt-1 flex items-center justify-between">
                     <div className="flex items-center gap-2">
