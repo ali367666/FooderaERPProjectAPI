@@ -134,7 +134,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
 
         line.UnitPrice = request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
             ? request.Request.UnitPrice.Value
-            : line.MenuItem.Price;
+            : line.MenuItem.StationPrice ?? line.MenuItem.Price;
         line.LineTotal = line.UnitPrice * line.Quantity;
 
         if (quantityChanged)

@@ -4,16 +4,19 @@ using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Infrastructure.Migrations
+namespace Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902214512_Add_PrinterIsPrimary")]
+    partial class Add_PrinterIsPrimary
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -404,9 +407,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("PrintGroupQuantities")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("PrintKitchenOnPayment")
                         .HasColumnType("bit");
 
                     b.Property<bool>("PrintShowPreview")
@@ -805,11 +805,16 @@ namespace Infrastructure.Migrations
                     b.Property<int?>("ParentCategoryId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("PrinterId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId");
 
                     b.HasIndex("ParentCategoryId");
+
+                    b.HasIndex("PrinterId");
 
                     b.ToTable("MenuCategories", (string)null);
                 });
@@ -2901,9 +2906,15 @@ namespace Infrastructure.Migrations
                         .WithMany("SubCategories")
                         .HasForeignKey("ParentCategoryId");
 
+                    b.HasOne("Domain.Entities.Printer", "Printer")
+                        .WithMany()
+                        .HasForeignKey("PrinterId");
+
                     b.Navigation("Company");
 
                     b.Navigation("ParentCategory");
+
+                    b.Navigation("Printer");
                 });
 
             modelBuilder.Entity("Domain.Entities.MenuItem", b =>

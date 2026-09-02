@@ -47,8 +47,10 @@ import {
   getMenuCategories,
   type MenuCategory,
 } from "@/lib/services/menu-category-service";
+import { getRestaurants } from "@/lib/services/restaurant-service";
+import { getPrinters, type Printer } from "@/lib/services/printer-service";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
-import { usePermissionSet } from "@/hooks/use-auth-permissions";
+import { usePermissionSet, useHasPermission } from "@/hooks/use-auth-permissions";
 import { AppPermissions } from "@/lib/app-permissions";
 
 type MenuItemRow = {
@@ -89,10 +91,12 @@ export default function MenuItemsPage() {
   const canCreate = permissions.has(AppPermissions.MenuItemCreate);
   const canUpdate = permissions.has(AppPermissions.MenuItemUpdate);
   const canDelete = permissions.has(AppPermissions.MenuItemDelete);
+  const canOverridePrice = useHasPermission("Pos.OverridePrice");
 
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [printerOptions, setPrinterOptions] = useState<(Printer & { restaurantName: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,6 +148,7 @@ export default function MenuItemsPage() {
   const [skipTaxCalculation, setSkipTaxCalculation] = useState(false);
   const [isTimeBased, setIsTimeBased] = useState(false);
   const [allowQuantityPromptOverride, setAllowQuantityPromptOverride] = useState(false);
+  const [printerId, setPrinterId] = useState("");
 
   // SET (bundle)
   const [isSet, setIsSet] = useState(false);
@@ -170,6 +175,20 @@ export default function MenuItemsPage() {
       setItems(itemData);
       setCategories(categoryData);
       setStockItems(stockItemData);
+
+      try {
+        const restaurants = await getRestaurants();
+        const perRestaurant = await Promise.all(
+          restaurants.map((r) =>
+            getPrinters(r.id)
+              .then((list) => list.map((p) => ({ ...p, restaurantName: r.name })))
+              .catch(() => []),
+          ),
+        );
+        setPrinterOptions(perRestaurant.flat());
+      } catch {
+        setPrinterOptions([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load menu items.");
     } finally {
@@ -423,6 +442,7 @@ export default function MenuItemsPage() {
     setSkipTaxCalculation(false);
     setIsTimeBased(false);
     setAllowQuantityPromptOverride(false);
+    setPrinterId("");
 
     setIsSet(false);
     setSetComponents([]);
@@ -479,6 +499,7 @@ export default function MenuItemsPage() {
       setSkipTaxCalculation(item.skipTaxCalculation);
       setIsTimeBased(item.isTimeBased);
       setAllowQuantityPromptOverride(item.allowQuantityPromptOverride);
+      setPrinterId(item.printerId ? String(item.printerId) : "");
 
       setIsSet(item.isSet);
       if (item.isSet) {
@@ -640,6 +661,7 @@ export default function MenuItemsPage() {
       skipTaxCalculation,
       isTimeBased,
       allowQuantityPromptOverride,
+      printerId: printerId ? Number(printerId) : null,
 
       isSet,
 
@@ -953,10 +975,22 @@ export default function MenuItemsPage() {
             </TabsContent>
 
             <TabsContent value="prices" className="space-y-4 pt-2">
+              {isEditMode && !canOverridePrice && (
+                <p className="text-xs text-muted-foreground">
+                  Qalıcı qiymətə müdaxilə icazəniz olmadığı üçün bu sahələr yalnız oxuna bilər.
+                </p>
+              )}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-foreground">Price (satış)</label>
-                  <Input type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    disabled={isEditMode && !canOverridePrice}
+                  />
                   {getFieldErrorMessage(fieldErrors, "price") && (
                     <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "price")}</p>
                   )}
@@ -970,6 +1004,7 @@ export default function MenuItemsPage() {
                     value={stationPrice}
                     onChange={(e) => setStationPrice(e.target.value)}
                     placeholder="Optional"
+                    disabled={isEditMode && !canOverridePrice}
                   />
                 </div>
                 <div>
@@ -981,6 +1016,7 @@ export default function MenuItemsPage() {
                     value={purchasePrice}
                     onChange={(e) => setPurchasePrice(e.target.value)}
                     placeholder="Optional"
+                    disabled={isEditMode && !canOverridePrice}
                   />
                 </div>
                 <div>
@@ -992,27 +1028,28 @@ export default function MenuItemsPage() {
                     value={packagePrice}
                     onChange={(e) => setPackagePrice(e.target.value)}
                     placeholder="Optional"
+                    disabled={isEditMode && !canOverridePrice}
                   />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-foreground">Özəl qiymət 1</label>
-                  <Input type="number" min={0} step="0.01" value={specialPrice1} onChange={(e) => setSpecialPrice1(e.target.value)} placeholder="Optional" />
+                  <Input type="number" min={0} step="0.01" value={specialPrice1} onChange={(e) => setSpecialPrice1(e.target.value)} placeholder="Optional" disabled={isEditMode && !canOverridePrice} />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-foreground">Özəl qiymət 2</label>
-                  <Input type="number" min={0} step="0.01" value={specialPrice2} onChange={(e) => setSpecialPrice2(e.target.value)} placeholder="Optional" />
+                  <Input type="number" min={0} step="0.01" value={specialPrice2} onChange={(e) => setSpecialPrice2(e.target.value)} placeholder="Optional" disabled={isEditMode && !canOverridePrice} />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-foreground">Özəl qiymət 3</label>
-                  <Input type="number" min={0} step="0.01" value={specialPrice3} onChange={(e) => setSpecialPrice3(e.target.value)} placeholder="Optional" />
+                  <Input type="number" min={0} step="0.01" value={specialPrice3} onChange={(e) => setSpecialPrice3(e.target.value)} placeholder="Optional" disabled={isEditMode && !canOverridePrice} />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-foreground">Özəl qiymət 4</label>
-                  <Input type="number" min={0} step="0.01" value={specialPrice4} onChange={(e) => setSpecialPrice4(e.target.value)} placeholder="Optional" />
+                  <Input type="number" min={0} step="0.01" value={specialPrice4} onChange={(e) => setSpecialPrice4(e.target.value)} placeholder="Optional" disabled={isEditMode && !canOverridePrice} />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-foreground">Özəl qiymət 5</label>
-                  <Input type="number" min={0} step="0.01" value={specialPrice5} onChange={(e) => setSpecialPrice5(e.target.value)} placeholder="Optional" />
+                  <Input type="number" min={0} step="0.01" value={specialPrice5} onChange={(e) => setSpecialPrice5(e.target.value)} placeholder="Optional" disabled={isEditMode && !canOverridePrice} />
                 </div>
               </div>
             </TabsContent>
@@ -1045,6 +1082,27 @@ export default function MenuItemsPage() {
                 />
                 Satışda miqdar soruşulsun
               </label>
+
+              <div className="pt-2">
+                <label className="mb-2 block text-sm font-medium text-foreground">
+                  Printer (hardan çıxarılsın)
+                </label>
+                <select value={printerId} onChange={(e) => setPrinterId(e.target.value)} className={selectClass}>
+                  <option value="">Printer seçilməyib</option>
+                  {printerOptions.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {printerOptions.some((x) => x.id !== p.id && x.restaurantName !== p.restaurantName)
+                        ? `${p.name} (${p.restaurantName})`
+                        : p.name}
+                    </option>
+                  ))}
+                </select>
+                {printerOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Hələ printer yoxdur — əvvəlcə "Printerlər" bölümündən əlavə edin.
+                  </p>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="set" className="space-y-4 pt-2">

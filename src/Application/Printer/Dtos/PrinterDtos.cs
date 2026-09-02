@@ -10,6 +10,7 @@ public class PrinterResponse
     public string IpAddress { get; set; } = default!;
     public int Port { get; set; }
     public bool IsActive { get; set; }
+    public bool IsPrimary { get; set; }
 }
 
 public class CreatePrinterRequest
@@ -20,6 +21,7 @@ public class CreatePrinterRequest
     public string IpAddress { get; set; } = default!;
     public int Port { get; set; } = 9100;
     public bool IsActive { get; set; } = true;
+    public bool IsPrimary { get; set; }
 }
 
 public class UpdatePrinterRequest
@@ -30,6 +32,7 @@ public class UpdatePrinterRequest
     public string IpAddress { get; set; } = default!;
     public int Port { get; set; } = 9100;
     public bool IsActive { get; set; } = true;
+    public bool IsPrimary { get; set; }
 }
 
 public class PrintRequest

@@ -76,6 +76,7 @@ const DEFAULTS: CompanySettingsInput = {
   allowReceiptEditAfterPrint: true,
   waiterCanPrintCustomerReceipt: true,
   printAutoOnPayment: false,
+  printKitchenOnPayment: false,
   printShowPreview: true,
   printGroupQuantities: true,
   receiptShowTime: true,
@@ -89,6 +90,7 @@ const DEFAULTS: CompanySettingsInput = {
 
 const PRINT_TOGGLE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "printAutoOnPayment", label: "Ödəniş bitəndə qəbz avtomatik çap olunsun" },
+  { key: "printKitchenOnPayment", label: "Ödənişdə mətbəx çapı avtomatik göndərilsin" },
   { key: "printShowPreview", label: "Çapdan əvvəl önizləmə göstər" },
   { key: "printGroupQuantities", label: "Qəbzdə eyni məhsulun miqdarını qruplaşdır" },
 ];

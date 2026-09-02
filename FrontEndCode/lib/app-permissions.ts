@@ -27,7 +27,6 @@ export const AppPermissions = {
   KitchenView: "Kitchen.View",
   KitchenStartPreparing: "Kitchen.StartPreparing",
   KitchenMarkReady: "Kitchen.MarkReady",
-  KitchenMarkServed: "Kitchen.MarkServed",
   OrdersPay: "Orders.Pay",
   RoleView: "Role.View",
   UserRoleManage: "UserRole.Manage",

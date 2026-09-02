@@ -45,6 +45,7 @@ public class CompanySettings : CompanyEntity<int>
 
     // Çap paneli
     public bool PrintAutoOnPayment { get; set; }
+    public bool PrintKitchenOnPayment { get; set; }
     public bool PrintShowPreview { get; set; } = true;
     public bool PrintGroupQuantities { get; set; } = true;
     public bool ReceiptShowTime { get; set; } = true;

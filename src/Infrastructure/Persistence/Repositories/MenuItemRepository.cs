@@ -25,6 +25,7 @@ public class MenuItemRepository : IMenuItemRepository
             .Include(x => x.MenuCategory)
             .Include(x => x.ItemType)
             .Include(x => x.StockItem)
+            .Include(x => x.Printer)
             .Include(x => x.SetComponents)
                 .ThenInclude(x => x.ComponentMenuItem)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
@@ -36,6 +37,7 @@ public class MenuItemRepository : IMenuItemRepository
             .Include(x => x.MenuCategory)
             .Include(x => x.ItemType)
             .Include(x => x.StockItem)
+            .Include(x => x.Printer)
             .Where(x => x.CompanyId == companyId)
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);

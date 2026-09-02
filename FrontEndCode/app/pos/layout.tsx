@@ -141,9 +141,19 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
     router.replace("/pos-login");
   };
 
+  const wallpaperOpacity =
+    branding?.transparencyLevel != null ? Math.min(Math.max(branding.transparencyLevel, 0), 100) / 100 : 1;
+
   return (
     <PosAuthGuard>
-      <div className="flex min-h-screen flex-col bg-muted/30">
+      <div className={cn("flex min-h-screen flex-col", !branding?.wallpaperUrl && "bg-muted/30")}>
+        {branding?.wallpaperUrl && (
+          <div
+            className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
+            style={{ backgroundImage: `url(${branding.wallpaperUrl})`, opacity: wallpaperOpacity }}
+            aria-hidden
+          />
+        )}
         <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
           <div className="flex items-center gap-2 font-semibold">
             <ChefHat className="h-5 w-5 text-primary" />

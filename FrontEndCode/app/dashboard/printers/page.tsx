@@ -32,7 +32,6 @@ import {
   updatePrinterStationType,
   type PrinterStationType,
 } from "@/lib/services/printer-station-type-service";
-import { getMenuCategories, updateMenuCategory, type MenuCategory } from "@/lib/services/menu-category-service";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background";
@@ -44,6 +43,7 @@ type PrinterRow = {
   stationLabel: string;
   address: string;
   isActive: boolean;
+  isPrimary: boolean;
 };
 
 export default function PrintersPage() {
@@ -68,9 +68,7 @@ export default function PrintersPage() {
   const [ipAddress, setIpAddress] = useState("");
   const [port, setPort] = useState("9100");
   const [isActive, setIsActive] = useState(true);
-  const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
-  const [initialCategoryIds, setInitialCategoryIds] = useState<number[]>([]);
+  const [isPrimary, setIsPrimary] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -185,8 +183,7 @@ export default function PrintersPage() {
     setIpAddress("");
     setPort("9100");
     setIsActive(true);
-    setSelectedCategoryIds([]);
-    setInitialCategoryIds([]);
+    setIsPrimary(false);
   };
 
   const handleAdd = () => {
@@ -203,15 +200,7 @@ export default function PrintersPage() {
     setIpAddress(target.ipAddress);
     setPort(String(target.port));
     setIsActive(target.isActive);
-    try {
-      const cats = await getMenuCategories();
-      setMenuCategories(cats);
-      const assigned = cats.filter((c) => c.printerId === target.id).map((c) => c.id);
-      setSelectedCategoryIds(assigned);
-      setInitialCategoryIds(assigned);
-    } catch {
-      setMenuCategories([]);
-    }
+    setIsPrimary(target.isPrimary);
     setDialogOpen(true);
   };
 
@@ -263,26 +252,12 @@ export default function PrintersPage() {
     }
     setSaving(true);
     try {
-      const payload = { restaurantId: rid, name: name.trim(), stationTypeId: stationId, ipAddress: ipAddress.trim(), port: portNum, isActive };
+      const payload = { restaurantId: rid, name: name.trim(), stationTypeId: stationId, ipAddress: ipAddress.trim(), port: portNum, isActive, isPrimary };
       if (editingId == null) {
         await createPrinter(payload);
         toast.success("Printer əlavə edildi.");
       } else {
         await updatePrinter(editingId, payload);
-        const added = selectedCategoryIds.filter((id) => !initialCategoryIds.includes(id));
-        const removed = initialCategoryIds.filter((id) => !selectedCategoryIds.includes(id));
-        await Promise.all([
-          ...added.map((id) => {
-            const cat = menuCategories.find((c) => c.id === id);
-            if (!cat) return Promise.resolve();
-            return updateMenuCategory(id, { name: cat.name, description: cat.description, isActive: cat.isActive, printerId: editingId });
-          }),
-          ...removed.map((id) => {
-            const cat = menuCategories.find((c) => c.id === id);
-            if (!cat) return Promise.resolve();
-            return updateMenuCategory(id, { name: cat.name, description: cat.description, isActive: cat.isActive, printerId: null });
-          }),
-        ]);
         toast.success("Printer yeniləndi.");
       }
       setDialogOpen(false);
@@ -304,13 +279,25 @@ export default function PrintersPage() {
         stationLabel: p.stationTypeName,
         address: `${p.ipAddress}:${p.port}`,
         isActive: p.isActive,
+        isPrimary: p.isPrimary,
       })),
     [printers],
   );
 
   const columns = [
     { key: "printerId" as const, label: "ID" },
-    { key: "name" as const, label: "Ad" },
+    {
+      key: "name" as const,
+      label: "Ad",
+      render: (v: string, row: PrinterRow) => (
+        <span className="flex items-center gap-1.5">
+          {v}
+          {row.isPrimary && (
+            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Əsas</Badge>
+          )}
+        </span>
+      ),
+    },
     { key: "stationLabel" as const, label: "Stansiya" },
     { key: "address" as const, label: "IP:Port" },
     {
@@ -490,27 +477,16 @@ export default function PrintersPage() {
                   Aktiv
                 </Label>
               </div>
-              {editingId != null && (
-                <div>
-                  <Label>Bu printerə göndərilən kateqoriyalar</Label>
-                  <div className="mt-1 grid max-h-40 grid-cols-2 gap-2 overflow-y-auto rounded-md border border-input p-3">
-                    {menuCategories.map((c) => (
-                      <label key={c.id} className="flex items-center gap-2 text-sm font-normal">
-                        <Checkbox
-                          checked={selectedCategoryIds.includes(c.id)}
-                          onCheckedChange={(v) =>
-                            setSelectedCategoryIds((prev) =>
-                              v === true ? [...prev, c.id] : prev.filter((id) => id !== c.id),
-                            )
-                          }
-                        />
-                        {c.name}
-                      </label>
-                    ))}
-                    {menuCategories.length === 0 && <p className="text-sm text-muted-foreground">Kateqoriya tapılmadı.</p>}
-                  </div>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <Checkbox id="pr-primary" checked={isPrimary} onCheckedChange={(v) => setIsPrimary(v === true)} />
+                <Label htmlFor="pr-primary" className="text-sm font-normal">
+                  Əsas (Kassa) printer — sifariş ekranında ilk sırada göstərilir və avtomatik çapda istifadə olunur
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Hansı məhsulların bu printerə çap olunacağını "Menu məhsulları" bölümündə hər məhsulun öz
+                formasından təyin edin.
+              </p>
             </div>
 
             <div className="mt-4 flex justify-end gap-2">

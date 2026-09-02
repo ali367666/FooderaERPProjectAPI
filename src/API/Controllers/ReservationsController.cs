@@ -47,7 +47,6 @@ public class ReservationsController : ControllerBase
     }
 
     [HttpPost("{id}/status")]
-    [Authorize(Policy = AppPermissions.ReservationConfirm)]
     public async Task<ActionResult<ReservationResponse>> ChangeStatus(
         int id, [FromQuery] string action, CancellationToken ct)
     {

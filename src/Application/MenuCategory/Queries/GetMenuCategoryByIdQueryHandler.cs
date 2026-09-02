@@ -31,7 +31,6 @@ public class GetMenuCategoryByIdQueryHandler
             Name = entity.Name,
             Description = entity.Description,
             IsActive = entity.IsActive,
-            PrinterId = entity.PrinterId,
             ParentCategoryId = entity.ParentCategoryId,
             ParentCategoryName = entity.ParentCategory?.Name
         };

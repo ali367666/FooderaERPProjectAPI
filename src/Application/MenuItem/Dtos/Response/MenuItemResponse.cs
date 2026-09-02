@@ -38,6 +38,7 @@ public class MenuItemResponse
     public bool IsTimeBased { get; set; }
     public bool AllowQuantityPromptOverride { get; set; }
     public int? PrinterId { get; set; }
+    public string? PrinterName { get; set; }
 
     public bool IsSet { get; set; }
 

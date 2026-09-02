@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
+import { useHasPermission } from "@/hooks/use-auth-permissions";
 import {
   getReservations,
   changeReservationStatus,
@@ -61,6 +62,7 @@ export default function PosReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const canCancel = useHasPermission("Reservation.Cancel");
 
   useEffect(() => {
     setTerminal(getPosTerminalContext());
@@ -155,14 +157,16 @@ export default function PosReservationsPage() {
                     <Button size="sm" disabled={busy} onClick={() => void handleAction(r.id, "confirm")}>
                       Təsdiqlə
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => void handleAction(r.id, "cancel")}
-                    >
-                      Ləğv et
-                    </Button>
+                    {canCancel && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void handleAction(r.id, "cancel")}
+                      >
+                        Ləğv et
+                      </Button>
+                    )}
                   </>
                 )}
                 {r.status === "Confirmed" && (

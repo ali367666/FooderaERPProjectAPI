@@ -42,6 +42,7 @@ export type CompanySettings = {
   waiterCanPrintCustomerReceipt: boolean;
 
   printAutoOnPayment: boolean;
+  printKitchenOnPayment: boolean;
   printShowPreview: boolean;
   printGroupQuantities: boolean;
   receiptShowTime: boolean;
@@ -126,6 +127,7 @@ function normalize(item: unknown): CompanySettings | null {
     waiterCanPrintCustomerReceipt: bool("waiterCanPrintCustomerReceipt", "WaiterCanPrintCustomerReceipt", true),
 
     printAutoOnPayment: bool("printAutoOnPayment", "PrintAutoOnPayment"),
+    printKitchenOnPayment: bool("printKitchenOnPayment", "PrintKitchenOnPayment"),
     printShowPreview: bool("printShowPreview", "PrintShowPreview", true),
     printGroupQuantities: bool("printGroupQuantities", "PrintGroupQuantities", true),
     receiptShowTime: bool("receiptShowTime", "ReceiptShowTime", true),
@@ -198,6 +200,7 @@ export type CompanySettingsBranding = {
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
   printAutoOnPayment: boolean;
+  printKitchenOnPayment: boolean;
   printShowPreview: boolean;
   printGroupQuantities: boolean;
   receiptShowTime: boolean;
@@ -253,6 +256,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
     moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
     printAutoOnPayment: bool("printAutoOnPayment", "PrintAutoOnPayment"),
+    printKitchenOnPayment: bool("printKitchenOnPayment", "PrintKitchenOnPayment"),
     printShowPreview: bool("printShowPreview", "PrintShowPreview", true),
     printGroupQuantities: bool("printGroupQuantities", "PrintGroupQuantities", true),
     receiptShowTime: bool("receiptShowTime", "ReceiptShowTime", true),

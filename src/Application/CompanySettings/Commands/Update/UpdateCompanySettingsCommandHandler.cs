@@ -77,6 +77,7 @@ public class UpdateCompanySettingsCommandHandler
         settings.WaiterCanPrintCustomerReceipt = dto.WaiterCanPrintCustomerReceipt;
 
         settings.PrintAutoOnPayment = dto.PrintAutoOnPayment;
+        settings.PrintKitchenOnPayment = dto.PrintKitchenOnPayment;
         settings.PrintShowPreview = dto.PrintShowPreview;
         settings.PrintGroupQuantities = dto.PrintGroupQuantities;
         settings.ReceiptShowTime = dto.ReceiptShowTime;
