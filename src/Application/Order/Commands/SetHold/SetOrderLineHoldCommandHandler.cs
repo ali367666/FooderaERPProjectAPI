@@ -79,6 +79,7 @@ public class SetOrderLineHoldCommandHandler : IRequestHandler<SetOrderLineHoldCo
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
+                KitchenPrintedAt = x.KitchenPrintedAt,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString(),

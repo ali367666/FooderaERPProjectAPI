@@ -68,6 +68,8 @@ public class StartOrderCommandHandler : IRequestHandler<StartOrderCommand, Order
             Status = order.Status.ToString(),
             Note = order.Note,
             GuestCount = order.GuestCount,
+            CounterpartyId = order.CounterpartyId,
+            CounterpartyName = order.Counterparty?.Name,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = Math.Max(0, order.Lines
@@ -85,6 +87,7 @@ public class StartOrderCommandHandler : IRequestHandler<StartOrderCommand, Order
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
+                KitchenPrintedAt = x.KitchenPrintedAt,
                 Note = x.Note,
                 Status = x.Status.ToString()
             }).ToList()

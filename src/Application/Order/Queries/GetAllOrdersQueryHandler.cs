@@ -71,6 +71,8 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
             Status = order.Status.ToString(),
             Note = order.Note,
             GuestCount = order.GuestCount,
+            CounterpartyId = order.CounterpartyId,
+            CounterpartyName = order.Counterparty?.Name,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = order.TotalAmount,
@@ -92,6 +94,7 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
+                KitchenPrintedAt = x.KitchenPrintedAt,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString()

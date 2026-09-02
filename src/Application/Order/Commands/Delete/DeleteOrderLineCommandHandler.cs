@@ -217,6 +217,8 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
             Status = updatedOrder.Status.ToString(),
             Note = updatedOrder.Note,
             GuestCount = updatedOrder.GuestCount,
+            CounterpartyId = updatedOrder.CounterpartyId,
+            CounterpartyName = updatedOrder.Counterparty?.Name,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,
@@ -231,6 +233,7 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
+                KitchenPrintedAt = x.KitchenPrintedAt,
                 Note = x.Note,
                 Status = x.Status.ToString(),
                 ParentLineId = x.ParentLineId

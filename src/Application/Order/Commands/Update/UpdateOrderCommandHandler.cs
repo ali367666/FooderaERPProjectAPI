@@ -207,6 +207,8 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, Ord
             Status = updatedOrder.Status.ToString(),
             Note = updatedOrder.Note,
             GuestCount = updatedOrder.GuestCount,
+            CounterpartyId = updatedOrder.CounterpartyId,
+            CounterpartyName = updatedOrder.Counterparty?.Name,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = Math.Max(0, updatedOrder.Lines
@@ -224,6 +226,7 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, Ord
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
+                KitchenPrintedAt = x.KitchenPrintedAt,
                 Note = x.Note,
                 Status = x.Status.ToString()
             }).ToList()

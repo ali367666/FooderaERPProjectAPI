@@ -17,6 +17,7 @@ export type OrderLineDto = {
   note: string | null;
   parentLineId: number | null;
   holdUntilUtc: string | null;
+  kitchenPrintedAt: string | null;
 };
 
 export type PaymentMethod = "Cash" | "Card";
@@ -59,6 +60,8 @@ export type OrderDto = {
   status: OrderWorkflowStatus;
   note: string | null;
   guestCount: number | null;
+  counterpartyId: number | null;
+  counterpartyName: string | null;
   openedAt: string;
   closedAt: string | null;
   totalAmount: number;
@@ -196,6 +199,7 @@ function normalizeOrder(raw: unknown): OrderDto | null {
               return v == null ? null : Number(v);
             })(),
             holdUntilUtc: (pick(l, "holdUntilUtc", "HoldUntilUtc") as string | null | undefined) ?? null,
+            kitchenPrintedAt: (pick(l, "kitchenPrintedAt", "KitchenPrintedAt") as string | null | undefined) ?? null,
           } satisfies OrderLineDto;
         })
         .filter((line): line is OrderLineDto => line !== null)
@@ -218,6 +222,11 @@ function normalizeOrder(raw: unknown): OrderDto | null {
       const v = pick<number | null>(o, "guestCount", "GuestCount");
       return v === null || v === undefined ? null : Number(v);
     })(),
+    counterpartyId: (() => {
+      const v = pick<number | null>(o, "counterpartyId", "CounterpartyId");
+      return v === null || v === undefined ? null : Number(v);
+    })(),
+    counterpartyName: (pick(o, "counterpartyName", "CounterpartyName") as string | null | undefined) ?? null,
     openedAt: String(pick(o, "openedAt", "OpenedAt") ?? ""),
     closedAt: (pick(o, "closedAt", "ClosedAt") as string | null | undefined) ?? null,
     totalAmount: Number(pick(o, "totalAmount", "TotalAmount") ?? 0),
@@ -384,6 +393,33 @@ export async function updateOrderLine(payload: UpdateOrderLinePayload): Promise<
     return row;
   } catch (error) {
     throw toApiFormError(error, "Failed to update order line");
+  }
+}
+
+export async function setOrderCounterparty(id: number, counterpartyId: number | null): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/${id}/counterparty`, null, {
+      params: { counterpartyId: counterpartyId ?? undefined },
+    });
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid set counterparty response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to set customer");
+  }
+}
+
+export async function printKitchenTicket(id: number, printerId: number): Promise<number> {
+  try {
+    const response = await api.post<unknown>(`/Orders/${id}/print-kitchen`, null, {
+      params: { printerId },
+    });
+    const data = unwrapData<unknown>(response.data);
+    const count = Number(data ?? response.data);
+    return Number.isFinite(count) ? count : 0;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to print kitchen ticket");
   }
 }
 

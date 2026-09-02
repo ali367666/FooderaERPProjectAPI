@@ -48,6 +48,8 @@ public class ServeOrderCommandHandler : IRequestHandler<ServeOrderCommand, Order
             Status = order.Status.ToString(),
             Note = order.Note,
             GuestCount = order.GuestCount,
+            CounterpartyId = order.CounterpartyId,
+            CounterpartyName = order.Counterparty?.Name,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = order.TotalAmount,
@@ -69,6 +71,7 @@ public class ServeOrderCommandHandler : IRequestHandler<ServeOrderCommand, Order
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
+                KitchenPrintedAt = x.KitchenPrintedAt,
                 PreparationType = x.PreparationType,
                 Status = x.Status.ToString(),
                 Note = x.Note

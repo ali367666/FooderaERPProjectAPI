@@ -22,6 +22,8 @@ public class Order : CompanyEntity<int>
 
     public string? Note { get; set; }
     public int? GuestCount { get; set; }
+    public int? CounterpartyId { get; set; }
+    public Counterparty? Counterparty { get; set; }
     public decimal TotalAmount { get; set; }
     public bool IsPaid { get; set; }
     public DateTime? PaidAt { get; set; }
