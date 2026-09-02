@@ -40,11 +40,16 @@ public static class IdentitySeeder
         }
         await dbContext.SaveChangesAsync();
 
+        // Default permission sets below are applied ONLY the first time a role is created.
+        // Once a role exists, its permissions are owned entirely by the /dashboard/role-permissions
+        // UI (UpdateRolePermissionsAsync) — re-applying the hardcoded list on every startup would
+        // silently undo any permission an admin revoked through that screen.
         var roles = RolePermissionSeeder.Permissions.Keys.ToArray();
 
         foreach (var roleName in roles)
         {
             var role = await roleManager.FindByNameAsync(roleName);
+            var isNewRole = role is null;
 
             if (role is null)
             {
@@ -52,11 +57,8 @@ public static class IdentitySeeder
                 await roleManager.CreateAsync(role);
             }
 
-            var existingClaims = await roleManager.GetClaimsAsync(role);
-            var existingRolePermissionIds = await dbContext.RolePermissions
-                .Where(x => x.RoleId == role.Id)
-                .Select(x => x.PermissionId)
-                .ToListAsync();
+            if (!isNewRole)
+                continue;
 
             if (RolePermissionSeeder.Permissions.TryGetValue(roleName, out var permissions))
             {
@@ -64,14 +66,7 @@ public static class IdentitySeeder
                     .Where(x => permissions.Contains(x.Name))
                     .ToListAsync();
 
-                var expectedIds = permissionRows.Select(x => x.Id).ToHashSet();
-                var staleMappings = await dbContext.RolePermissions
-                    .Where(x => x.RoleId == role.Id && !expectedIds.Contains(x.PermissionId))
-                    .ToListAsync();
-                if (staleMappings.Count > 0)
-                    dbContext.RolePermissions.RemoveRange(staleMappings);
-
-                foreach (var row in permissionRows.Where(x => !existingRolePermissionIds.Contains(x.Id)))
+                foreach (var row in permissionRows)
                 {
                     dbContext.RolePermissions.Add(new RolePermission
                     {
@@ -82,15 +77,9 @@ public static class IdentitySeeder
 
                 foreach (var permission in permissions)
                 {
-                    var exists = existingClaims.Any(c =>
-                        c.Type == "Permission" && c.Value == permission);
-
-                    if (!exists)
-                    {
-                        await roleManager.AddClaimAsync(
-                            role,
-                            new Claim("Permission", permission));
-                    }
+                    await roleManager.AddClaimAsync(
+                        role,
+                        new Claim("Permission", permission));
                 }
             }
         }

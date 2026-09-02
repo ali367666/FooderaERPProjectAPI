@@ -159,6 +159,8 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             Status = order.Status.ToString(),
             Note = order.Note,
             GuestCount = order.GuestCount,
+            CounterpartyId = order.CounterpartyId,
+            CounterpartyName = order.Counterparty?.Name,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = 0,

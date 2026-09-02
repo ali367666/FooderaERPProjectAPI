@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Clock, Minus, Pencil, Plus, Printer, Receipt, Trash2, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Clock, Minus, Pencil, Plus, Printer, Receipt, Trash2, User, UserCog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,11 +28,14 @@ import {
   discardEmptyOrder,
   moveOrderTable,
   reassignOrderWaiter,
+  setOrderCounterparty,
+  printKitchenTicket,
   type OrderDto,
   type OrderLineDto,
   type OrderReceiptDto,
   type PaymentMethod,
 } from "@/lib/services/order-service";
+import { getCounterparties, type Counterparty } from "@/lib/services/counterparty-service";
 import { getMenuCategories, type MenuCategory } from "@/lib/services/menu-category-service";
 import { getMenuItems, getMenuItemAvailability, type MenuItem } from "@/lib/services/menu-item-service";
 import { getRestaurantTables, type RestaurantTable } from "@/lib/services/restaurant-table-service";
@@ -86,6 +89,10 @@ export default function PosOrderPage() {
   const [holdLineId, setHoldLineId] = useState<number | null>(null);
   const [holdMinutesInput, setHoldMinutesInput] = useState("");
   const [now, setNow] = useState(() => Date.now());
+  const [counterpartyDialogOpen, setCounterpartyDialogOpen] = useState(false);
+  const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
+  const [counterpartySearch, setCounterpartySearch] = useState("");
+  const [counterpartyBusy, setCounterpartyBusy] = useState(false);
 
   const canEditProduct = useHasPermission("Pos.EditProductInSale");
   const canDeleteProduct = useHasPermission("Pos.DeleteProductInSale");
@@ -206,6 +213,7 @@ export default function PosOrderPage() {
     const categoryById = new Map(categories.map((c) => [c.id, c]));
     const groups = new Map<number, { printer: PrinterProfile; lines: OrderLineDto[] }>();
     for (const line of order?.lines ?? []) {
+      if (line.status === "Cancelled" || line.kitchenPrintedAt != null) continue;
       const item = itemById.get(line.menuItemId);
       const category = item ? categoryById.get(item.menuCategoryId) : undefined;
       const printerId = category?.printerId;
@@ -222,17 +230,53 @@ export default function PosOrderPage() {
     return Array.from(groups.values());
   }, [order, items, categories, printers]);
 
-  const handlePrintGroup = async (printer: PrinterProfile, lines: OrderLineDto[]) => {
+  const handlePrintGroup = async (printer: PrinterProfile) => {
+    if (!order) return;
     setPrintingId(printer.id);
     try {
-      const content = [
-        printer.stationTypeName,
-        order?.tableName ?? "",
-        "------------------------",
-        ...lines.map((l) => `${l.quantity} x ${l.menuItemName}${l.note ? ` (${l.note})` : ""}`),
-      ].join("\n");
-      await printToPrinter(printer.id, content);
-      toast.success(`${printer.name} çapı göndərildi`);
+      const count = await printKitchenTicket(order.id, printer.id);
+      toast.success(count > 0 ? `${printer.name}-ə ${count} məhsul göndərildi` : "Yeni məhsul yoxdur");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Printerə qoşulmaq mümkün olmadı");
+    } finally {
+      setPrintingId(null);
+    }
+  };
+
+  const buildReceiptContent = () => {
+    if (!receipt) return "";
+    const lines: string[] = [];
+    lines.push((order?.restaurantName ?? receipt.restaurantName ?? "").toUpperCase());
+    lines.push("");
+    if (branding?.receiptShowOrderNumber !== false) lines.push(`Sifariş: ${receipt.orderNumber}`);
+    if (branding?.receiptShowTableName !== false) lines.push(`Masa: ${receipt.tableName}`);
+    if (branding?.receiptShowWaiterName !== false) lines.push(`Ofisiant: ${receipt.waiterName}`);
+    if (branding?.receiptShowTime !== false) {
+      lines.push(`Vaxt: ${new Date(receipt.paidAt ?? receipt.openedAt).toLocaleString("az-AZ")}`);
+    }
+    if (branding?.receiptShowPaymentMethod !== false) lines.push(`Ödəniş: ${receipt.paymentMethod}`);
+    lines.push("-".repeat(32));
+    for (const line of receipt.lines) {
+      lines.push(`${line.quantity} x ${line.menuItemName}`.padEnd(24) + `${line.lineTotal.toFixed(2)} ₼`);
+    }
+    lines.push("-".repeat(32));
+    lines.push(`Cəm: ${receipt.totalAmount.toFixed(2)} ₼`);
+    if (receipt.vatAmount > 0) lines.push(`ƏDV daxildir: ${receipt.vatAmount.toFixed(2)} ₼`);
+    if (receipt.paymentMethod === "Cash") {
+      lines.push(`Alınan: ${receipt.paidAmount.toFixed(2)} ₼`);
+      lines.push(`Qalıq: ${receipt.changeAmount.toFixed(2)} ₼`);
+    }
+    if (branding?.slogan) lines.push(branding.slogan);
+    if (branding?.contactPhoneNumber) lines.push(branding.contactPhoneNumber);
+    return lines.join("\n");
+  };
+
+  const handlePrintReceiptToPrinter = async (printer: PrinterProfile) => {
+    setPrintingId(printer.id);
+    try {
+      await printToPrinter(printer.id, buildReceiptContent());
+      toast.success(`${printer.name}-ə göndərildi`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Printerə qoşulmaq mümkün olmadı");
     } finally {
@@ -447,6 +491,38 @@ export default function PosOrderPage() {
     }
   };
 
+  const openCounterpartyDialog = async () => {
+    setCounterpartySearch("");
+    setCounterpartyDialogOpen(true);
+    if (counterparties.length > 0) return;
+    try {
+      const list = await getCounterparties();
+      setCounterparties(list.filter((c) => c.isActive));
+    } catch {
+      setCounterparties([]);
+    }
+  };
+
+  const handleSelectCounterparty = async (counterpartyId: number | null) => {
+    if (!order) return;
+    setCounterpartyBusy(true);
+    try {
+      const updated = await setOrderCounterparty(order.id, counterpartyId);
+      setOrder(updated);
+      setCounterpartyDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Müştəri təyin edilmədi");
+    } finally {
+      setCounterpartyBusy(false);
+    }
+  };
+
+  const filteredCounterparties = useMemo(() => {
+    const term = counterpartySearch.trim().toLowerCase();
+    if (!term) return counterparties;
+    return counterparties.filter((c) => c.name.toLowerCase().includes(term));
+  }, [counterparties, counterpartySearch]);
+
   const startPriceEdit = (lineId: number, currentPrice: number) => {
     setPriceEditingLineId(lineId);
     setPriceInput(currentPrice.toFixed(2));
@@ -498,7 +574,19 @@ export default function PosOrderPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="font-semibold">{order.tableName}</span>
+          {order.counterpartyName && (
+            <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              <User className="h-3 w-3" />
+              {order.counterpartyName}
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-1">
+            {!isPaid && (
+              <Button variant="outline" size="sm" onClick={() => void openCounterpartyDialog()} disabled={busy}>
+                <User className="mr-1 h-3.5 w-3.5" />
+                Müştəri seç
+              </Button>
+            )}
             {!isPaid && canMoveTable && (
               <Button variant="outline" size="sm" onClick={() => void openMoveTableDialog()} disabled={busy}>
                 <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
@@ -725,7 +813,7 @@ export default function PosOrderPage() {
                 size="sm"
                 variant="outline"
                 disabled={printingId === printer.id}
-                onClick={() => void handlePrintGroup(printer, lines)}
+                onClick={() => void handlePrintGroup(printer)}
               >
                 <Printer className="mr-1 h-3.5 w-3.5" />
                 {printer.name}-ə göndər ({lines.length})
@@ -962,6 +1050,19 @@ export default function PosOrderPage() {
                 Qəbzi çap et
               </Button>
             )}
+            {canPrintReceipt &&
+              printers.map((printer) => (
+                <Button
+                  key={printer.id}
+                  variant="outline"
+                  className="w-full"
+                  disabled={printingId === printer.id}
+                  onClick={() => void handlePrintReceiptToPrinter(printer)}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  {printer.name}-ə göndər
+                </Button>
+              ))}
             <Button
               className="w-full"
               onClick={() => {
@@ -1016,6 +1117,51 @@ export default function PosOrderPage() {
             ))}
             {employeesList.length === 0 && (
               <p className="py-4 text-center text-sm text-muted-foreground">İşçi tapılmadı</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={counterpartyDialogOpen} onOpenChange={setCounterpartyDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Müştəri seç</DialogTitle>
+            <DialogDescription>Bu sifarişə müştəri bağlayın.</DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Axtar..."
+            autoFocus
+            value={counterpartySearch}
+            onChange={(e) => setCounterpartySearch(e.target.value)}
+          />
+          <div className="max-h-64 space-y-1 overflow-y-auto">
+            {order.counterpartyId != null && (
+              <button
+                type="button"
+                disabled={counterpartyBusy}
+                onClick={() => void handleSelectCounterparty(null)}
+                className="flex w-full items-center rounded-md border px-3 py-2 text-left text-sm text-destructive hover:bg-muted disabled:opacity-50"
+              >
+                Müştərini götür
+              </button>
+            )}
+            {filteredCounterparties.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                disabled={counterpartyBusy}
+                onClick={() => void handleSelectCounterparty(c.id)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50",
+                  order.counterpartyId === c.id && "border-primary bg-primary/5",
+                )}
+              >
+                <span>{c.name}</span>
+                <span className="text-xs text-muted-foreground">{c.categoryName}</span>
+              </button>
+            ))}
+            {filteredCounterparties.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">Kontragent tapılmadı</p>
             )}
           </div>
         </DialogContent>

@@ -13,6 +13,8 @@ using Application.OrderLines.Commands.Update;
 using Application.Orders.Commands.Create;
 using Application.Orders.Commands.Delete;
 using Application.Orders.Commands.DiscardEmpty;
+using Application.Orders.Commands.SetCounterparty;
+using Application.Orders.Commands.PrintKitchenTicket;
 using Application.Orders.Commands.Start;
 using Application.Orders.Commands.Submit;
 using Application.Orders.Commands.Update;
@@ -62,6 +64,22 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<string>> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteOrderCommand(id));
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.PosEditProductInSale)]
+    [HttpPut("{id:int}/counterparty")]
+    public async Task<ActionResult<OrderResponse>> SetCounterparty(int id, [FromQuery] int? counterpartyId)
+    {
+        var result = await _mediator.Send(new SetOrderCounterpartyCommand(id, counterpartyId));
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.PrinterPrint)]
+    [HttpPost("{id:int}/print-kitchen")]
+    public async Task<ActionResult<int>> PrintKitchenTicket(int id, [FromQuery] int printerId)
+    {
+        var result = await _mediator.Send(new PrintKitchenTicketCommand(id, printerId));
         return Ok(result);
     }
 

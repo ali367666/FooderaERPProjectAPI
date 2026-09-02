@@ -12,6 +12,7 @@ public class OrderLineResponse
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
     public DateTime? HoldUntilUtc { get; set; }
+    public DateTime? KitchenPrintedAt { get; set; }
     public string? Note { get; set; }
     public PreparationType PreparationType { get; set; }
     public string Status { get; set; } = default!;
