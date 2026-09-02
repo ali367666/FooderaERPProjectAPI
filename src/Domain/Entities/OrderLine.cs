@@ -17,6 +17,7 @@ public class OrderLine : CompanyEntity<int>
     public PreparationType PreparationType { get; set; }
     public string? Note { get; set; }
     public bool IsStockDeducted { get; set; }
+    public DateTime? HoldUntilUtc { get; set; }
 
     public OrderLineStatus Status { get; set; } = OrderLineStatus.Pending;
 

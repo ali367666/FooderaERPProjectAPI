@@ -89,6 +89,7 @@ public class RemoveDiscountFromOrderCommandHandler : IRequestHandler<RemoveDisco
                 Quantity = x.Quantity,
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
+                HoldUntilUtc = x.HoldUntilUtc,
                 PreparationType = x.PreparationType,
                 Status = x.Status.ToString(),
                 Note = x.Note,

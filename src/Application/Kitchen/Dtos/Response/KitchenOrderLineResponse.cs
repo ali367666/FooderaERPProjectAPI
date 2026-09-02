@@ -15,6 +15,7 @@ public class KitchenOrderLineResponse
     public string MenuItemName { get; set; } = default!;
     public int Quantity { get; set; }
     public string? Note { get; set; }
+    public DateTime? HoldUntilUtc { get; set; }
     public OrderStatus OrderStatus { get; set; }
     public OrderLineStatus KitchenStatus { get; set; }
     public DateTime CreatedAt { get; set; }

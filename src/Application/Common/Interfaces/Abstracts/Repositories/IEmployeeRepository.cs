@@ -13,6 +13,7 @@ public interface IEmployeeRepository
         string? positionName,
         CancellationToken cancellationToken);
     Task<bool> ExistsByUserIdAsync(int userId, CancellationToken cancellationToken);
+    Task<Employee?> GetByUserIdAsync(int userId, int companyId, CancellationToken cancellationToken);
     void Update(Employee employee);
     void Delete(Employee employee);
     Task SaveChangesAsync(CancellationToken cancellationToken);

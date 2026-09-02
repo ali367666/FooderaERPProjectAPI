@@ -12,6 +12,7 @@ import {
   type PermissionDto,
 } from "@/lib/services/role-permission-service";
 import { toApiFormError } from "@/lib/api-error";
+import { translatePermissionLabel, translateModuleLabel } from "@/lib/permission-translations";
 
 export default function RolePermissionsPage() {
   const [roles, setRoles] = useState<AppRole[]>([]);
@@ -32,7 +33,7 @@ export default function RolePermissionsPage() {
         setSelectedRoleId(roleRows[0].id);
       }
     } catch (e) {
-      toast.error(toApiFormError(e, "Failed to load role permission page").message);
+      toast.error(toApiFormError(e, "Səhifə yüklənə bilmədi").message);
     } finally {
       setLoading(false);
     }
@@ -48,7 +49,7 @@ export default function RolePermissionsPage() {
       const ids = await getRolePermissionIds(selectedRoleId);
       setSelectedPermissionIds(new Set(ids));
     } catch (e) {
-      toast.error(toApiFormError(e, "Failed to load role permissions").message);
+      toast.error(toApiFormError(e, "Rolun icazələri yüklənə bilmədi").message);
     } finally {
       setRolePermissionsLoading(false);
     }
@@ -69,7 +70,9 @@ export default function RolePermissionsPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(permission);
     }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return Array.from(map.entries()).sort((a, b) =>
+      translateModuleLabel(a[0]).localeCompare(translateModuleLabel(b[0]), "az"),
+    );
   }, [permissions]);
 
   const togglePermission = (permissionId: number) => {
@@ -83,35 +86,35 @@ export default function RolePermissionsPage() {
 
   const save = async () => {
     if (!selectedRoleId) {
-      toast.error("Please select role.");
+      toast.error("Zəhmət olmasa rol seçin.");
       return;
     }
     try {
       setSaving(true);
       await updateRolePermissions(selectedRoleId, Array.from(selectedPermissionIds));
-      toast.success("Role permissions updated.");
+      toast.success("Rolun icazələri yeniləndi.");
       await loadRolePermissions();
     } catch (e) {
-      toast.error(toApiFormError(e, "Failed to update role permissions").message);
+      toast.error(toApiFormError(e, "İcazələr yenilənə bilmədi").message);
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading role permissions...</div>;
+    return <div className="p-6 text-sm text-muted-foreground">Yüklənir...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Role Permissions</h1>
-        <p className="text-muted-foreground mt-1">User → Role → Permissions configuration</p>
+        <h1 className="text-3xl font-bold">Rol İcazələri</h1>
+        <p className="text-muted-foreground mt-1">Hər rolun hansı əməliyyatları edə biləcəyini idarə edin</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Select Role</CardTitle>
+          <CardTitle>Rol seçin</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <select
@@ -119,7 +122,7 @@ export default function RolePermissionsPage() {
             value={selectedRoleId ?? ""}
             onChange={(e) => setSelectedRoleId(Number(e.target.value) || null)}
           >
-            <option value="">Select role</option>
+            <option value="">Rol seçin</option>
             {roles.map((role) => (
               <option key={role.id} value={role.id}>
                 {role.name}
@@ -127,32 +130,32 @@ export default function RolePermissionsPage() {
             ))}
           </select>
           <Button onClick={() => void save()} disabled={saving || rolePermissionsLoading || !selectedRoleId}>
-            {saving ? "Saving..." : "Save Permissions"}
+            {saving ? "Saxlanılır..." : "İcazələri saxla"}
           </Button>
         </CardContent>
       </Card>
 
       {rolePermissionsLoading ? (
-        <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading assigned permissions...</div>
+        <div className="rounded-md border p-4 text-sm text-muted-foreground">Rolun icazələri yüklənir...</div>
       ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle>Permissions</CardTitle>
+          <CardTitle>İcazələr</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           {!selectedRoleId
-            ? "Select a role to view and assign permissions."
+            ? "İcazələrə baxmaq və təyin etmək üçün yuxarıdan rol seçin."
             : permissions.length === 0
-              ? "No permissions found. Please seed permissions in backend."
-              : "Check or uncheck permissions by module, then save."}
+              ? "Heç bir icazə tapılmadı."
+              : "Modula görə icazələri seçin/silin, sonra saxlayın."}
         </CardContent>
       </Card>
 
       {selectedRoleId && grouped.map(([moduleName, modulePermissions]) => (
         <Card key={moduleName}>
           <CardHeader>
-            <CardTitle>{moduleName}</CardTitle>
+            <CardTitle>{translateModuleLabel(moduleName)}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
@@ -163,7 +166,12 @@ export default function RolePermissionsPage() {
                     checked={selectedPermissionIds.has(permission.id)}
                     onChange={() => togglePermission(permission.id)}
                   />
-                  <span>{permission.displayName || `${permission.module}.${permission.action}`}</span>
+                  <span>
+                    {translatePermissionLabel(
+                      permission.name,
+                      permission.displayName || `${permission.module}.${permission.action}`,
+                    )}
+                  </span>
                 </label>
               ))}
             </div>

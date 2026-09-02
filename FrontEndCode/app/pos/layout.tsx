@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ChefHat,
-  LogOut,
+  Lock,
   CalendarCheck,
   ChefHat as KitchenIcon,
   LayoutGrid,
@@ -176,10 +176,10 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted"
+              title="Hesabı kilidlə"
+              className="flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted"
             >
-              <LogOut className="h-4 w-4" />
-              Çıxış
+              <Lock className="h-6 w-6" />
             </button>
           </div>
         </header>

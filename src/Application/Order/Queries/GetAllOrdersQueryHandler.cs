@@ -91,6 +91,7 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
                 Quantity = x.Quantity,
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
+                HoldUntilUtc = x.HoldUntilUtc,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString()

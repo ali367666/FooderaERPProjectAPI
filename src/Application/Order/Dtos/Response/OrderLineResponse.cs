@@ -11,6 +11,7 @@ public class OrderLineResponse
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
+    public DateTime? HoldUntilUtc { get; set; }
     public string? Note { get; set; }
     public PreparationType PreparationType { get; set; }
     public string Status { get; set; } = default!;

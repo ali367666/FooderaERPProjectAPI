@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { RefreshCw, Users } from "lucide-react";
+import { Lock, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,11 +83,17 @@ export default function PosTablesPage() {
   const [sections, setSections] = useState<RestaurantSection[]>([]);
   const [activeSectionId, setActiveSectionId] = useState<number | null>(null);
   const canChangeSection = useHasPermission("Pos.ChangeDepartment");
+  const canViewAllTables = useHasPermission("Pos.RedirectUser");
   const [now, setNow] = useState(() => new Date());
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
   const alertedTableIds = useRef<Set<number>>(new Set());
   const [guestCountTable, setGuestCountTable] = useState<TableWithOrder | null>(null);
   const [guestCountInput, setGuestCountInput] = useState("");
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<number | null>(null);
+
+  useEffect(() => {
+    void getCurrentEmployeeId().then(setCurrentEmployeeId);
+  }, []);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
@@ -181,6 +187,10 @@ export default function PosTablesPage() {
 
   const openTable = async (table: TableWithOrder) => {
     if (table.activeOrder) {
+      if (!canViewAllTables && currentEmployeeId != null && table.activeOrder.waiterId !== currentEmployeeId) {
+        toast.error("Bu masa başqa ofisiantə aiddir, baxa bilməzsiniz.");
+        return;
+      }
       router.push(`/pos/order/${table.activeOrder.id}`);
       return;
     }
@@ -269,6 +279,8 @@ export default function PosTablesPage() {
           const order = table.activeOrder;
           const elapsedMinutes = order ? Math.floor((now.getTime() - new Date(order.openedAt).getTime()) / 60000) : 0;
           const isOverdue = occupied && elapsedMinutes >= warningMinutes;
+          const isOtherWaiterTable =
+            occupied && !canViewAllTables && currentEmployeeId != null && order!.waiterId !== currentEmployeeId;
 
           return (
             <button
@@ -284,8 +296,12 @@ export default function PosTablesPage() {
                   : "border-border bg-card text-card-foreground hover:border-primary/40",
                 !table.isActive && "cursor-not-allowed opacity-40",
                 isOverdue && "ring-2 ring-red-500 ring-offset-1",
+                isOtherWaiterTable && "opacity-60",
               )}
             >
+              {isOtherWaiterTable && (
+                <Lock className="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-white/90" />
+              )}
               <span className="text-lg font-bold leading-none">{table.name}</span>
               <span
                 className={cn(

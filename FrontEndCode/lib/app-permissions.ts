@@ -15,7 +15,6 @@ export const AppPermissions = {
   OrdersCreate: "Orders.Create",
   OrdersAdd: "Orders.Add",
   OrdersUpdate: "Orders.Update",
-  OrdersDelete: "Orders.Delete",
   OrdersServe: "Orders.Serve",
   StockRequestView: "StockRequest.View",
   StockRequestCreate: "StockRequest.Create",
@@ -39,7 +38,6 @@ export const PERMISSIONS = {
   OrdersCreate: "Orders.Create",
   OrdersAdd: "Orders.Add",
   OrdersUpdate: "Orders.Update",
-  OrdersDelete: "Orders.Delete",
   OrdersPay: "Orders.Pay",
 } as const;
 

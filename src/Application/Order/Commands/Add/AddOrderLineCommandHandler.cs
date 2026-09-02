@@ -106,7 +106,10 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             Status = menuItem.PreparationType == PreparationType.None
                 ? OrderLineStatus.Ready
                 : OrderLineStatus.Pending,
-            CompanyId = companyId
+            CompanyId = companyId,
+            HoldUntilUtc = request.Request.HoldMinutes is > 0
+                ? DateTime.UtcNow.AddMinutes(request.Request.HoldMinutes.Value)
+                : null
         };
 
         await _orderLineRepository.AddAsync(orderLine, cancellationToken);
@@ -255,6 +258,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
                 Quantity = x.Quantity,
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
+                HoldUntilUtc = x.HoldUntilUtc,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString(),
