@@ -137,6 +137,7 @@ public class ApplyDiscountToOrderCommandHandler : IRequestHandler<ApplyDiscountT
                 Quantity = x.Quantity,
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
+                HoldUntilUtc = x.HoldUntilUtc,
                 PreparationType = x.PreparationType,
                 Status = x.Status.ToString(),
                 Note = x.Note,

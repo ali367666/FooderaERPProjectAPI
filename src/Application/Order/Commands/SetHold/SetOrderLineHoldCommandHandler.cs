@@ -4,66 +4,69 @@ using Application.Orders.Dtos;
 using Domain.Enums;
 using MediatR;
 
-namespace Application.Orders.Commands.Submit;
+namespace Application.OrderLines.Commands.SetHold;
 
-public class SubmitOrderCommandHandler : IRequestHandler<SubmitOrderCommand, OrderResponse>
+public class SetOrderLineHoldCommandHandler : IRequestHandler<SetOrderLineHoldCommand, OrderResponse>
 {
+    private readonly IOrderLineRepository _orderLineRepository;
     private readonly IOrderRepository _orderRepository;
     private readonly ICurrentUserService _currentUserService;
 
-    public SubmitOrderCommandHandler(
+    public SetOrderLineHoldCommandHandler(
+        IOrderLineRepository orderLineRepository,
         IOrderRepository orderRepository,
         ICurrentUserService currentUserService)
     {
+        _orderLineRepository = orderLineRepository;
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
     }
 
-    public async Task<OrderResponse> Handle(SubmitOrderCommand request, CancellationToken cancellationToken)
+    public async Task<OrderResponse> Handle(SetOrderLineHoldCommand request, CancellationToken cancellationToken)
     {
         var companyId = _currentUserService.CompanyId;
 
-        var order = await _orderRepository.GetByIdAsync(request.OrderId, companyId, cancellationToken);
+        var line = await _orderLineRepository.GetByIdAsync(request.OrderLineId, companyId, cancellationToken);
+        if (line is null)
+            throw new Exception("Order line tapılmadı.");
+
+        var order = await _orderRepository.GetByIdAsync(line.OrderId, companyId, cancellationToken);
         if (order is null)
-            throw new Exception("Order not found.");
+            throw new Exception("Sifariş tapılmadı.");
 
-        if (order.Status != OrderStatus.Draft)
-            throw new Exception("Only draft orders can be submitted.");
+        if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Cancelled)
+            throw new Exception("Bu sifarişin line-ı dəyişdirilə bilməz.");
 
-        if (order.Lines.Count == 0)
-            throw new Exception("Add at least one order line before submitting.");
+        line.HoldUntilUtc = request.HoldMinutes is > 0
+            ? DateTime.UtcNow.AddMinutes(request.HoldMinutes.Value)
+            : null;
 
-        order.Status = OrderStatus.Open;
-        _orderRepository.Update(order);
+        _orderLineRepository.Update(line);
         await _orderRepository.SaveChangesAsync(cancellationToken);
 
         var updatedOrder = await _orderRepository.GetByIdAsync(order.Id, companyId, cancellationToken);
         if (updatedOrder is null)
-            throw new Exception("Updated order not found.");
+            throw new Exception("Yenilənmiş sifariş tapılmadı.");
 
         return new OrderResponse
         {
             Id = updatedOrder.Id,
+            CompanyId = updatedOrder.CompanyId,
             OrderNumber = updatedOrder.OrderNumber,
             RestaurantId = updatedOrder.RestaurantId,
+            RestaurantName = updatedOrder.Restaurant?.Name,
             TableId = updatedOrder.TableId,
             TableName = updatedOrder.Table?.Name,
             WaiterId = updatedOrder.WaiterId,
             WaiterName = updatedOrder.Waiter != null
                 ? $"{updatedOrder.Waiter.FirstName} {updatedOrder.Waiter.LastName}"
                 : null,
-            ProcessedByUserId = updatedOrder.ProcessedByUserId,
-            ProcessedByUserName = updatedOrder.ProcessedByUser?.FullName,
-            ProcessedAt = updatedOrder.ProcessedAt,
             Status = updatedOrder.Status.ToString(),
             Note = updatedOrder.Note,
             GuestCount = updatedOrder.GuestCount,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
-            TotalAmount = Math.Max(0, updatedOrder.Lines
-                .DistinctBy(x => x.Id)
-                .Where(x => x.Status != OrderLineStatus.Cancelled)
-                .Sum(x => x.UnitPrice * x.Quantity) - updatedOrder.DiscountAmount),
+            TotalAmount = updatedOrder.TotalAmount,
             DiscountCode = updatedOrder.DiscountCode,
             DiscountAmount = updatedOrder.DiscountAmount,
             Lines = updatedOrder.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
@@ -71,12 +74,15 @@ public class SubmitOrderCommandHandler : IRequestHandler<SubmitOrderCommand, Ord
                 Id = x.Id,
                 MenuItemId = x.MenuItemId,
                 MenuItemName = x.MenuItem.Name,
+                MenuItemType = x.MenuItem.PreparationType.ToString(),
                 Quantity = x.Quantity,
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
+                PreparationType = x.PreparationType,
                 Note = x.Note,
-                Status = x.Status.ToString()
+                Status = x.Status.ToString(),
+                ParentLineId = x.ParentLineId
             }).ToList()
         };
     }

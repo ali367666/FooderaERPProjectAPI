@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Minus, Pencil, Plus, Printer, Receipt, Trash2, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Clock, Minus, Pencil, Plus, Printer, Receipt, Trash2, UserCog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,10 +20,12 @@ import {
   getOrderById,
   addOrderLine,
   updateOrderLine,
+  setOrderLineHold,
   deleteOrderLine,
   payOrder,
   getOrderReceipt,
   cancelOrder,
+  discardEmptyOrder,
   moveOrderTable,
   reassignOrderWaiter,
   type OrderDto,
@@ -81,6 +83,9 @@ export default function PosOrderPage() {
   const [employeesList, setEmployeesList] = useState<Employee[]>([]);
   const [priceEditingLineId, setPriceEditingLineId] = useState<number | null>(null);
   const [priceInput, setPriceInput] = useState("");
+  const [holdLineId, setHoldLineId] = useState<number | null>(null);
+  const [holdMinutesInput, setHoldMinutesInput] = useState("");
+  const [now, setNow] = useState(() => Date.now());
 
   const canEditProduct = useHasPermission("Pos.EditProductInSale");
   const canDeleteProduct = useHasPermission("Pos.DeleteProductInSale");
@@ -130,6 +135,38 @@ export default function PosOrderPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const openHoldDialog = (line: OrderLineDto) => {
+    const remainingMs = line.holdUntilUtc ? new Date(line.holdUntilUtc).getTime() - now : 0;
+    const remainingMinutes = remainingMs > 0 ? Math.ceil(remainingMs / 60000) : 0;
+    setHoldMinutesInput(remainingMinutes > 0 ? String(remainingMinutes) : "");
+    setHoldLineId(line.id);
+  };
+
+  const submitHold = async (lineId: number, minutes: number | null) => {
+    setHoldLineId(null);
+    setBusy(true);
+    try {
+      const updated = await setOrderLineHold(lineId, minutes);
+      setOrder(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gözlətmə təyin edilmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmHold = async () => {
+    if (holdLineId == null) return;
+    const parsed = Number(holdMinutesInput);
+    const minutes = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+    await submitHold(holdLineId, minutes);
+  };
 
   useEffect(() => {
     const terminal = getPosTerminalContext();
@@ -289,6 +326,17 @@ export default function PosOrderPage() {
     }
   };
 
+  const handleBack = async () => {
+    if (order && order.lines.length === 0 && order.status === "draft") {
+      try {
+        await discardEmptyOrder(order.id);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Boş sifariş ləğv edilmədi");
+      }
+    }
+    router.push("/pos");
+  };
+
   const handlePrintBill = async () => {
     if (!order || order.lines.length === 0) return;
     setBusy(true);
@@ -446,7 +494,7 @@ export default function PosOrderPage() {
       {/* Menu */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
-          <Button variant="ghost" size="icon-sm" onClick={() => router.push("/pos")}>
+          <Button variant="ghost" size="icon-sm" onClick={() => void handleBack()}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <span className="font-semibold">{order.tableName}</span>
@@ -570,23 +618,51 @@ export default function PosOrderPage() {
                   </div>
                 );
               }
+              const isHeld = line.holdUntilUtc != null && new Date(line.holdUntilUtc).getTime() > now;
+              const holdRemainingMinutes = isHeld
+                ? Math.ceil((new Date(line.holdUntilUtc!).getTime() - now) / 60000)
+                : 0;
               return (
                 <div key={line.id} className="rounded-lg border p-2">
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-medium">{line.menuItemName}</span>
-                    {canDeleteProduct &&
-                      line.status !== "InPreparation" &&
-                      line.status !== "Ready" &&
-                      line.status !== "Served" && (
-                        <button
-                          type="button"
-                          onClick={() => void handleRemoveLine(line.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                    <div className="flex items-center gap-2">
+                      {canEditProduct &&
+                        line.status !== "InPreparation" &&
+                        line.status !== "Ready" &&
+                        line.status !== "Served" && (
+                          <button
+                            type="button"
+                            onClick={() => openHoldDialog(line)}
+                            className={cn(
+                              "text-muted-foreground hover:text-foreground",
+                              isHeld && "text-amber-600 hover:text-amber-700",
+                            )}
+                            title="Gözlət"
+                          >
+                            <Clock className="h-4 w-4" />
+                          </button>
+                        )}
+                      {canDeleteProduct &&
+                        line.status !== "InPreparation" &&
+                        line.status !== "Ready" &&
+                        line.status !== "Served" && (
+                          <button
+                            type="button"
+                            onClick={() => void handleRemoveLine(line.id)}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                    </div>
                   </div>
+                  {isHeld && (
+                    <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
+                      <Clock className="h-3 w-3" />
+                      Gözlədə — {holdRemainingMinutes} dəq sonra
+                    </p>
+                  )}
                   <div className="mt-1 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <button
@@ -942,6 +1018,45 @@ export default function PosOrderPage() {
               <p className="py-4 text-center text-sm text-muted-foreground">İşçi tapılmadı</p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={holdLineId !== null} onOpenChange={(open) => !open && setHoldLineId(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Gözlət</DialogTitle>
+            <DialogDescription>Neçə dəqiqə sonra mətbəxə göndərilsin?</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="hold-minutes-input">Dəqiqə</Label>
+            <Input
+              id="hold-minutes-input"
+              type="number"
+              min={1}
+              autoFocus
+              placeholder="məs. 20"
+              value={holdMinutesInput}
+              onChange={(e) => setHoldMinutesInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleConfirmHold();
+              }}
+            />
+          </div>
+          <DialogFooter>
+            {holdLineId != null && orderedLines.find((l) => l.id === holdLineId)?.holdUntilUtc && (
+              <Button
+                variant="ghost"
+                className="mr-auto text-muted-foreground"
+                onClick={() => void submitHold(holdLineId, null)}
+              >
+                Gözlətməni ləğv et
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setHoldLineId(null)}>
+              Bağla
+            </Button>
+            <Button onClick={() => void handleConfirmHold()}>Təsdiqlə</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

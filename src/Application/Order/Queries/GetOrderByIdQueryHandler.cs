@@ -9,13 +9,16 @@ namespace Application.Orders.Queries.GetById;
 public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, OrderResponse>
 {
     private readonly IOrderRepository _orderRepository;
+    private readonly IEmployeeRepository _employeeRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public GetOrderByIdQueryHandler(
         IOrderRepository orderRepository,
+        IEmployeeRepository employeeRepository,
         ICurrentUserService currentUserService)
     {
         _orderRepository = orderRepository;
+        _employeeRepository = employeeRepository;
         _currentUserService = currentUserService;
     }
 
@@ -26,6 +29,15 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
         var order = await _orderRepository.GetByIdAsync(request.Id, companyId, cancellationToken);
         if (order is null)
             throw new Exception("Sifariş tapılmadı.");
+
+        if (!_currentUserService.HasPermission(Domain.Constants.AppPermissions.PosRedirectUser))
+        {
+            var currentEmployee = await _employeeRepository.GetByUserIdAsync(
+                _currentUserService.UserId, companyId, cancellationToken);
+
+            if (currentEmployee is null || order.WaiterId != currentEmployee.Id)
+                throw new Exception("Bu sifariş başqa ofisiantə aiddir, baxa bilməzsiniz.");
+        }
 
         var hasLegacyLineTotals = false;
         foreach (var line in order.Lines)
@@ -93,6 +105,7 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
                 Quantity = x.Quantity,
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
+                HoldUntilUtc = x.HoldUntilUtc,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString(),

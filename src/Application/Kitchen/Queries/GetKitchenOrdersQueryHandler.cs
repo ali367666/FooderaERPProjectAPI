@@ -41,6 +41,7 @@ public class GetKitchenOrdersQueryHandler : IRequestHandler<GetKitchenOrdersQuer
                 MenuItemName = x.MenuItem.Name,
                 Quantity = x.Quantity,
                 Note = x.Note,
+                HoldUntilUtc = x.HoldUntilUtc,
                 OrderStatus = x.Order.Status,
                 KitchenStatus = x.Status,
                 CreatedAt = x.CreatedAtUtc

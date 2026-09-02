@@ -8,9 +8,11 @@ using Application.Orders.Dtos.Request;
 using Application.Orders.Commands.Cancel;
 using Application.Orders.Commands.Complete;
 using Application.OrderLines.Commands.Delete;
+using Application.OrderLines.Commands.SetHold;
 using Application.OrderLines.Commands.Update;
 using Application.Orders.Commands.Create;
 using Application.Orders.Commands.Delete;
+using Application.Orders.Commands.DiscardEmpty;
 using Application.Orders.Commands.Start;
 using Application.Orders.Commands.Submit;
 using Application.Orders.Commands.Update;
@@ -62,6 +64,14 @@ public class OrdersController : ControllerBase
         var result = await _mediator.Send(new DeleteOrderCommand(id));
         return Ok(result);
     }
+
+    [Authorize(Policy = AppPermissions.OrdersCreate)]
+    [HttpPost("{id:int}/discard-empty")]
+    public async Task<IActionResult> DiscardEmpty(int id)
+    {
+        await _mediator.Send(new DiscardEmptyOrderCommand(id));
+        return NoContent();
+    }
     [Authorize(Policy = AppPermissions.OrdersAdd)]
     [HttpPost("lines")]
     public async Task<ActionResult<OrderResponse>> AddLine([FromBody] AddOrderLineRequest request)
@@ -74,6 +84,13 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<OrderResponse>> UpdateLine([FromBody] UpdateOrderLineRequest request)
     {
         var result = await _mediator.Send(new UpdateOrderLineCommand(request));
+        return Ok(result);
+    }
+    [Authorize(Policy = AppPermissions.PosEditProductInSale)]
+    [HttpPut("lines/{id:int}/hold")]
+    public async Task<ActionResult<OrderResponse>> SetLineHold(int id, [FromQuery] int? holdMinutes)
+    {
+        var result = await _mediator.Send(new SetOrderLineHoldCommand(id, holdMinutes));
         return Ok(result);
     }
     [Authorize(Policy = AppPermissions.PosDeleteProductInSale)]

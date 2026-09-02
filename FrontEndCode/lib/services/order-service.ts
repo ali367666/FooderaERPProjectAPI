@@ -16,6 +16,7 @@ export type OrderLineDto = {
   status: string;
   note: string | null;
   parentLineId: number | null;
+  holdUntilUtc: string | null;
 };
 
 export type PaymentMethod = "Cash" | "Card";
@@ -89,6 +90,7 @@ export type AddOrderLinePayload = {
   menuItemId: number;
   quantity: number;
   note?: string | null;
+  holdMinutes?: number | null;
 };
 
 export type UpdateOrderPayload = {
@@ -193,6 +195,7 @@ function normalizeOrder(raw: unknown): OrderDto | null {
               const v = pick<number | null>(l, "parentLineId", "ParentLineId");
               return v == null ? null : Number(v);
             })(),
+            holdUntilUtc: (pick(l, "holdUntilUtc", "HoldUntilUtc") as string | null | undefined) ?? null,
           } satisfies OrderLineDto;
         })
         .filter((line): line is OrderLineDto => line !== null)
@@ -355,6 +358,7 @@ export async function addOrderLine(payload: AddOrderLinePayload): Promise<OrderD
       menuItemId: payload.menuItemId,
       quantity: payload.quantity,
       note: payload.note ?? null,
+      holdMinutes: payload.holdMinutes ?? null,
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
@@ -380,6 +384,28 @@ export async function updateOrderLine(payload: UpdateOrderLinePayload): Promise<
     return row;
   } catch (error) {
     throw toApiFormError(error, "Failed to update order line");
+  }
+}
+
+export async function discardEmptyOrder(id: number): Promise<void> {
+  try {
+    await api.post(`/Orders/${id}/discard-empty`);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to discard order");
+  }
+}
+
+export async function setOrderLineHold(id: number, holdMinutes: number | null): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/lines/${id}/hold`, null, {
+      params: { holdMinutes: holdMinutes ?? undefined },
+    });
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid set hold response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to set hold");
   }
 }
 

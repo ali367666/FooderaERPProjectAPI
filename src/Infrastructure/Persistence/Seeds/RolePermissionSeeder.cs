@@ -18,7 +18,6 @@ public static class RolePermissionSeeder
         (AppPermissions.OrdersCreate, "Create Order", "Order", "Create"),
         (AppPermissions.OrdersAdd, "Add Order Line", "Order", "Add"),
         (AppPermissions.OrdersUpdate, "Update Order", "Order", "Update"),
-        (AppPermissions.OrdersDelete, "Delete Order", "Order", "Delete"),
         (AppPermissions.OrdersServe, "Serve Order", "Order", "Serve"),
         (AppPermissions.OrdersPay, "Create Payment", "Payment", "Create"),
         (AppPermissions.PaymentCreate, "Create Payment", "Payment", "Create"),

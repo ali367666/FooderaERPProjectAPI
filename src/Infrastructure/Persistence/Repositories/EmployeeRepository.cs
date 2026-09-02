@@ -72,6 +72,12 @@ public class EmployeeRepository : IEmployeeRepository
             .AnyAsync(x => x.UserId == userId, cancellationToken);
     }
 
+    public async Task<Employee?> GetByUserIdAsync(int userId, int companyId, CancellationToken cancellationToken)
+    {
+        return await _context.Employees
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.CompanyId == companyId, cancellationToken);
+    }
+
     public void Update(Employee employee)
     {
         _context.Employees.Update(employee);

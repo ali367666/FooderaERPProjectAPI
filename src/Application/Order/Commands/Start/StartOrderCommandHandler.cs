@@ -84,6 +84,7 @@ public class StartOrderCommandHandler : IRequestHandler<StartOrderCommand, Order
                 Quantity = x.Quantity,
                 UnitPrice = x.UnitPrice,
                 LineTotal = x.LineTotal,
+                HoldUntilUtc = x.HoldUntilUtc,
                 Note = x.Note,
                 Status = x.Status.ToString()
             }).ToList()

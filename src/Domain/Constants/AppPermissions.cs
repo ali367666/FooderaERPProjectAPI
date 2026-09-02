@@ -73,7 +73,6 @@ public static class AppPermissions
     public const string OrdersView = "Orders.View";
     public const string OrdersCreate = "Orders.Create";
     public const string OrdersUpdate = "Orders.Update";
-    public const string OrdersDelete = "Orders.Delete";
     public const string OrdersAdd    = "Orders.Add";
     public const string OrdersServe = "Orders.Serve";
     public const string OrdersPay = "Orders.Pay";

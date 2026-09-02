@@ -200,6 +200,12 @@ export default function PosKitchenPage() {
                     </Badge>
                   </div>
                   {line.note && <p className="mt-1 text-xs italic text-muted-foreground">{line.note}</p>}
+                  {line.holdUntilUtc && new Date(line.holdUntilUtc).getTime() > now && (
+                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-600">
+                      <Clock className="h-3 w-3" />
+                      Gözlədə — {Math.ceil((new Date(line.holdUntilUtc).getTime() - now) / 60000)} dəq sonra
+                    </p>
+                  )}
                   {canManage && (
                     <div className="mt-2 flex gap-2">
                       {line.kitchenStatus === "Pending" && canStart && (

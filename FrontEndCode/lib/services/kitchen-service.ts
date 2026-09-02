@@ -18,6 +18,7 @@ export type KitchenLineDto = {
   orderStatus: string;
   kitchenStatus: KitchenLineStatus;
   createdAt: string;
+  holdUntilUtc: string | null;
 };
 
 export type KitchenOrderGroupDto = {
@@ -84,6 +85,7 @@ function normalizeLine(raw: unknown): KitchenLineDto | null {
         o.Status,
     ),
     createdAt: String(o.createdAt ?? o.CreatedAt ?? o.openedAt ?? o.OpenedAt ?? ""),
+    holdUntilUtc: (o.holdUntilUtc ?? o.HoldUntilUtc ?? null) as string | null,
   };
 }
 
