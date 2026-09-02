@@ -42,7 +42,10 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
 
         var linesToPrint = order.Lines
             .DistinctBy(x => x.Id)
-            .Where(x => x.Status != OrderLineStatus.Cancelled && x.KitchenPrintedAt == null)
+            .Where(x =>
+                x.Status != OrderLineStatus.Cancelled
+                && x.KitchenPrintedAt == null
+                && x.MenuItem.PrinterId == request.PrinterId)
             .OrderBy(x => x.Id)
             .ToList();
 

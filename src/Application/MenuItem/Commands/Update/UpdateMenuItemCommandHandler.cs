@@ -122,7 +122,6 @@ public class UpdateMenuItemCommandHandler
         entity.Description = string.IsNullOrWhiteSpace(request.Request.Description)
             ? null
             : request.Request.Description.Trim();
-        entity.Price = request.Request.Price;
         entity.Portion = string.IsNullOrWhiteSpace(request.Request.Portion)
             ? null
             : request.Request.Portion.Trim();
@@ -152,14 +151,18 @@ public class UpdateMenuItemCommandHandler
         if (request.Request.ResetWeightCode)
             entity.WeightCode = $"{companyId}-{entity.Id:D6}-{DateTime.UtcNow:HHmmss}";
 
-        entity.StationPrice = request.Request.StationPrice;
-        entity.PurchasePrice = request.Request.PurchasePrice;
-        entity.PackagePrice = request.Request.PackagePrice;
-        entity.SpecialPrice1 = request.Request.SpecialPrice1;
-        entity.SpecialPrice2 = request.Request.SpecialPrice2;
-        entity.SpecialPrice3 = request.Request.SpecialPrice3;
-        entity.SpecialPrice4 = request.Request.SpecialPrice4;
-        entity.SpecialPrice5 = request.Request.SpecialPrice5;
+        if (_currentUserService.HasPermission(Domain.Constants.AppPermissions.PosOverridePrice))
+        {
+            entity.Price = request.Request.Price;
+            entity.StationPrice = request.Request.StationPrice;
+            entity.PurchasePrice = request.Request.PurchasePrice;
+            entity.PackagePrice = request.Request.PackagePrice;
+            entity.SpecialPrice1 = request.Request.SpecialPrice1;
+            entity.SpecialPrice2 = request.Request.SpecialPrice2;
+            entity.SpecialPrice3 = request.Request.SpecialPrice3;
+            entity.SpecialPrice4 = request.Request.SpecialPrice4;
+            entity.SpecialPrice5 = request.Request.SpecialPrice5;
+        }
 
         entity.HideFromPosSearch = request.Request.HideFromPosSearch;
         entity.HideBarcode = request.Request.HideBarcode;

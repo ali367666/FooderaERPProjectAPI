@@ -43,7 +43,6 @@ const PERMISSION_LABELS: Record<string, string> = {
   "StockRequest.Delete": "Anbar sorğusunu sil",
   "StockRequest.Approve": "Anbar sorğusunu təsdiqlə",
   "StockRequest.Reject": "Anbar sorğusunu rədd et",
-  "StockRequest.Cancel": "Anbar sorğusunu ləğv et",
   "StockRequest.Submit": "Anbar sorğusunu göndər",
   "StockRequest.Recall": "Anbar sorğusunu geri çağır",
 
@@ -100,7 +99,6 @@ const PERMISSION_LABELS: Record<string, string> = {
   "Kitchen.View": "Mətbəx ekranına bax",
   "Kitchen.MarkReady": "Məhsulu hazır kimi qeyd et",
   "Kitchen.StartPreparing": "Hazırlamağa başla",
-  "Kitchen.MarkServed": "Təqdim edildi kimi qeyd et",
 
   "Permissions.AuditLog.View": "Audit qeydlərinə bax",
 

@@ -13,4 +13,5 @@ public class Printer : CompanyEntity<int>
     public string IpAddress { get; set; } = default!;
     public int Port { get; set; } = 9100;
     public bool IsActive { get; set; } = true;
+    public bool IsPrimary { get; set; }
 }

@@ -11,6 +11,7 @@ export type Printer = {
   ipAddress: string;
   port: number;
   isActive: boolean;
+  isPrimary: boolean;
 };
 
 function pick<T>(o: Record<string, unknown>, camel: string, pascal: string): T | undefined {
@@ -49,6 +50,7 @@ function normalize(item: unknown): Printer | null {
     ipAddress: String(pick(raw, "ipAddress", "IpAddress") ?? ""),
     port: Number(pick(raw, "port", "Port") ?? 9100),
     isActive: Boolean(pick(raw, "isActive", "IsActive") ?? true),
+    isPrimary: Boolean(pick(raw, "isPrimary", "IsPrimary") ?? false),
   };
 }
 
@@ -59,6 +61,7 @@ export type PrinterInput = {
   ipAddress: string;
   port: number;
   isActive: boolean;
+  isPrimary: boolean;
 };
 
 export async function getPrinters(restaurantId: number): Promise<Printer[]> {

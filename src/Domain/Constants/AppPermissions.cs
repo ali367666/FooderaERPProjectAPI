@@ -46,7 +46,6 @@ public static class AppPermissions
     public const string StockRequestDelete = "StockRequest.Delete";
     public const string StockRequestApprove = "StockRequest.Approve";
     public const string StockRequestReject = "StockRequest.Reject";
-    public const string StockRequestCancel = "StockRequest.Cancel";
     public const string StockRequestSubmit = "StockRequest.Submit";
     public const string StockRequestRecall = "StockRequest.Recall";
 
@@ -102,7 +101,6 @@ public static class AppPermissions
     public const string KitchenView = "Kitchen.View";
     public const string KitchenMarkReady = "Kitchen.MarkReady";
     public const string KitchenStartPreparing = "Kitchen.StartPreparing";
-    public const string KitchenMarkServed = "Kitchen.MarkServed";
 
 
     public const string AuditLogView = "Permissions.AuditLog.View";

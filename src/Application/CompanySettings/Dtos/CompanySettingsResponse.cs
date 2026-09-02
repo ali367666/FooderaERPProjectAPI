@@ -43,6 +43,7 @@ public class CompanySettingsResponse
     public bool WaiterCanPrintCustomerReceipt { get; set; }
 
     public bool PrintAutoOnPayment { get; set; }
+    public bool PrintKitchenOnPayment { get; set; }
     public bool PrintShowPreview { get; set; }
     public bool PrintGroupQuantities { get; set; }
     public bool ReceiptShowTime { get; set; }

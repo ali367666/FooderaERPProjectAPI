@@ -64,6 +64,7 @@ public class GetAllMenuItemsQueryHandler
         IsTimeBased = entity.IsTimeBased,
         AllowQuantityPromptOverride = entity.AllowQuantityPromptOverride,
         PrinterId = entity.PrinterId,
+        PrinterName = entity.Printer?.Name,
         IsSet = entity.IsSet,
         StockItemId = entity.StockItemId,
         StockItemName = entity.StockItem?.Name

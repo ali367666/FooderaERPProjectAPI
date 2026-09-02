@@ -41,7 +41,6 @@ export type MenuCategory = {
   name: string;
   description: string | null;
   isActive: boolean;
-  printerId: number | null;
   parentCategoryId: number | null;
   parentCategoryName: string | null;
 };
@@ -56,7 +55,6 @@ export type MenuCategoryUpdateInput = {
   name: string;
   description?: string | null;
   isActive: boolean;
-  printerId?: number | null;
   parentCategoryId?: number | null;
 };
 
@@ -74,10 +72,6 @@ function normalizeMenuCategory(item: unknown): MenuCategory | null {
         ? null
         : String(raw.description ?? raw.Description ?? "") || null,
     isActive: Boolean(raw.isActive ?? raw.IsActive ?? true),
-    printerId: (() => {
-      const v = raw.printerId ?? raw.PrinterId;
-      return v == null ? null : Number(v);
-    })(),
     parentCategoryId: (() => {
       const v = raw.parentCategoryId ?? raw.ParentCategoryId;
       return v == null ? null : Number(v);
@@ -144,7 +138,6 @@ export async function updateMenuCategory(
         name: data.name.trim(),
         description: data.description?.trim() || null,
         isActive: data.isActive,
-        printerId: data.printerId ?? null,
         parentCategoryId: data.parentCategoryId ?? null,
       },
       { params: { companyId: resolvedCompanyId } },

@@ -20,10 +20,18 @@ public class ChangeReservationStatusCommandHandler
 
     public async Task<ReservationResponse> Handle(ChangeReservationStatusCommand request, CancellationToken cancellationToken)
     {
+        var action = request.Action.ToLower();
+
+        var requiredPermission = action == "cancel"
+            ? Domain.Constants.AppPermissions.ReservationCancel
+            : Domain.Constants.AppPermissions.ReservationConfirm;
+        if (!_currentUser.HasPermission(requiredPermission))
+            throw new Exception("Bu əməliyyat üçün icazəniz yoxdur.");
+
         var r = await _repo.GetByIdAsync(request.Id, _currentUser.CompanyId, cancellationToken)
             ?? throw new Exception("Rezervasiya tapılmadı.");
 
-        r.Status = request.Action.ToLower() switch
+        r.Status = action switch
         {
             "confirm" => ReservationStatus.Confirmed,
             "seat"    => ReservationStatus.Seated,
@@ -33,7 +41,7 @@ public class ChangeReservationStatusCommandHandler
             _ => throw new Exception($"Naməlum əməliyyat: {request.Action}"),
         };
 
-        if (request.Action.ToLower() == "confirm")
+        if (action == "confirm")
         {
             r.ConfirmedByUserId = _currentUser.UserId;
             r.ConfirmedAt = DateTime.UtcNow;

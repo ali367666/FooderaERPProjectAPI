@@ -62,6 +62,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 ModuleDataSecimi = settings.ModuleDataSecimi,
                 ModuleQiymetSor = settings.ModuleQiymetSor,
                 PrintAutoOnPayment = settings.PrintAutoOnPayment,
+                PrintKitchenOnPayment = settings.PrintKitchenOnPayment,
                 PrintShowPreview = settings.PrintShowPreview,
                 PrintGroupQuantities = settings.PrintGroupQuantities,
                 ReceiptShowTime = settings.ReceiptShowTime,

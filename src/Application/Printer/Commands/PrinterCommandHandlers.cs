@@ -35,6 +35,16 @@ public class CreatePrinterCommandHandler : IRequestHandler<CreatePrinterCommand,
         if (stationType is null)
             throw new Exception("Stansiya tapılmadı.");
 
+        if (dto.IsPrimary)
+        {
+            var currentPrimary = await _repository.GetPrimaryAsync(companyId, dto.RestaurantId, null, cancellationToken);
+            if (currentPrimary is not null)
+            {
+                currentPrimary.IsPrimary = false;
+                _repository.Update(currentPrimary);
+            }
+        }
+
         var printer = new Domain.Entities.Printer
         {
             CompanyId = companyId,
@@ -43,7 +53,8 @@ public class CreatePrinterCommandHandler : IRequestHandler<CreatePrinterCommand,
             StationTypeId = stationType.Id,
             IpAddress = dto.IpAddress.Trim(),
             Port = dto.Port,
-            IsActive = dto.IsActive
+            IsActive = dto.IsActive,
+            IsPrimary = dto.IsPrimary
         };
 
         await _repository.AddAsync(printer, cancellationToken);
@@ -62,7 +73,8 @@ public class CreatePrinterCommandHandler : IRequestHandler<CreatePrinterCommand,
         StationTypeName = p.StationType?.Name ?? "",
         IpAddress = p.IpAddress,
         Port = p.Port,
-        IsActive = p.IsActive
+        IsActive = p.IsActive,
+        IsPrimary = p.IsPrimary
     };
 }
 
@@ -99,11 +111,22 @@ public class UpdatePrinterCommandHandler : IRequestHandler<UpdatePrinterCommand,
         if (stationType is null)
             throw new Exception("Stansiya tapılmadı.");
 
+        if (dto.IsPrimary && !printer.IsPrimary)
+        {
+            var currentPrimary = await _repository.GetPrimaryAsync(companyId, printer.RestaurantId, printer.Id, cancellationToken);
+            if (currentPrimary is not null)
+            {
+                currentPrimary.IsPrimary = false;
+                _repository.Update(currentPrimary);
+            }
+        }
+
         printer.Name = name;
         printer.StationTypeId = stationType.Id;
         printer.IpAddress = dto.IpAddress.Trim();
         printer.Port = dto.Port;
         printer.IsActive = dto.IsActive;
+        printer.IsPrimary = dto.IsPrimary;
 
         _repository.Update(printer);
         await _repository.SaveChangesAsync(cancellationToken);
@@ -116,16 +139,16 @@ public class UpdatePrinterCommandHandler : IRequestHandler<UpdatePrinterCommand,
 public class DeletePrinterCommandHandler : IRequestHandler<DeletePrinterCommand>
 {
     private readonly IPrinterRepository _repository;
-    private readonly IMenuCategoryRepository _menuCategoryRepository;
+    private readonly IMenuItemRepository _menuItemRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public DeletePrinterCommandHandler(
         IPrinterRepository repository,
-        IMenuCategoryRepository menuCategoryRepository,
+        IMenuItemRepository menuItemRepository,
         ICurrentUserService currentUserService)
     {
         _repository = repository;
-        _menuCategoryRepository = menuCategoryRepository;
+        _menuItemRepository = menuItemRepository;
         _currentUserService = currentUserService;
     }
 
@@ -136,16 +159,16 @@ public class DeletePrinterCommandHandler : IRequestHandler<DeletePrinterCommand>
         if (printer is null)
             throw new Exception("Printer tapılmadı.");
 
-        var linkedCategories = (await _menuCategoryRepository.GetAllAsync(companyId, cancellationToken))
-            .Where(c => c.PrinterId == printer.Id)
+        var linkedItems = (await _menuItemRepository.GetAllAsync(companyId, cancellationToken))
+            .Where(x => x.PrinterId == printer.Id)
             .ToList();
-        foreach (var category in linkedCategories)
+        foreach (var item in linkedItems)
         {
-            category.PrinterId = null;
-            _menuCategoryRepository.Update(category);
+            item.PrinterId = null;
+            _menuItemRepository.Update(item);
         }
-        if (linkedCategories.Count > 0)
-            await _menuCategoryRepository.SaveChangesAsync(cancellationToken);
+        if (linkedItems.Count > 0)
+            await _menuItemRepository.SaveChangesAsync(cancellationToken);
 
         _repository.Delete(printer);
         await _repository.SaveChangesAsync(cancellationToken);

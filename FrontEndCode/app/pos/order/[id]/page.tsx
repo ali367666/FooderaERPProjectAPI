@@ -33,6 +33,7 @@ import {
   type OrderDto,
   type OrderLineDto,
   type OrderReceiptDto,
+  type OrderReceiptLineDto,
   type PaymentMethod,
 } from "@/lib/services/order-service";
 import { getCounterparties, type Counterparty } from "@/lib/services/counterparty-service";
@@ -58,6 +59,25 @@ function formatEmployeeName(e: Employee): string {
   const n = e.fullName?.trim();
   if (n) return n;
   return `${e.firstName} ${e.lastName}`.trim() || `Employee #${e.id}`;
+}
+
+function groupReceiptLines(lines: OrderReceiptLineDto[], group: boolean): OrderReceiptLineDto[] {
+  if (!group) return lines;
+  const grouped: OrderReceiptLineDto[] = [];
+  const indexByKey = new Map<string, number>();
+  for (const line of lines) {
+    const key = `${line.menuItemName}__${line.unitPrice}`;
+    const existingIndex = indexByKey.get(key);
+    if (existingIndex === undefined) {
+      indexByKey.set(key, grouped.length);
+      grouped.push({ ...line });
+    } else {
+      grouped[existingIndex].quantity += line.quantity;
+      grouped[existingIndex].lineTotal += line.lineTotal;
+      grouped[existingIndex].vatAmount += line.vatAmount;
+    }
+  }
+  return grouped;
 }
 
 export default function PosOrderPage() {
@@ -210,13 +230,11 @@ export default function PosOrderPage() {
 
   const printerGroups = useMemo(() => {
     const itemById = new Map(items.map((i) => [i.id, i]));
-    const categoryById = new Map(categories.map((c) => [c.id, c]));
     const groups = new Map<number, { printer: PrinterProfile; lines: OrderLineDto[] }>();
     for (const line of order?.lines ?? []) {
       if (line.status === "Cancelled" || line.kitchenPrintedAt != null) continue;
       const item = itemById.get(line.menuItemId);
-      const category = item ? categoryById.get(item.menuCategoryId) : undefined;
-      const printerId = category?.printerId;
+      const printerId = item?.printerId;
       if (!printerId) continue;
       const printer = printers.find((p) => p.id === printerId);
       if (!printer) continue;
@@ -228,7 +246,7 @@ export default function PosOrderPage() {
       }
     }
     return Array.from(groups.values());
-  }, [order, items, categories, printers]);
+  }, [order, items, printers]);
 
   const handlePrintGroup = async (printer: PrinterProfile) => {
     if (!order) return;
@@ -244,38 +262,43 @@ export default function PosOrderPage() {
     }
   };
 
-  const buildReceiptContent = () => {
-    if (!receipt) return "";
+  const groupedReceiptLines = useMemo<OrderReceiptLineDto[]>(
+    () => groupReceiptLines(receipt?.lines ?? [], branding?.printGroupQuantities !== false),
+    [receipt, branding?.printGroupQuantities],
+  );
+
+  const buildReceiptContent = (r: OrderReceiptDto | null = receipt) => {
+    if (!r) return "";
     const lines: string[] = [];
-    lines.push((order?.restaurantName ?? receipt.restaurantName ?? "").toUpperCase());
+    lines.push((order?.restaurantName ?? r.restaurantName ?? "").toUpperCase());
     lines.push("");
-    if (branding?.receiptShowOrderNumber !== false) lines.push(`Sifariş: ${receipt.orderNumber}`);
-    if (branding?.receiptShowTableName !== false) lines.push(`Masa: ${receipt.tableName}`);
-    if (branding?.receiptShowWaiterName !== false) lines.push(`Ofisiant: ${receipt.waiterName}`);
+    if (branding?.receiptShowOrderNumber !== false) lines.push(`Sifariş: ${r.orderNumber}`);
+    if (branding?.receiptShowTableName !== false) lines.push(`Masa: ${r.tableName}`);
+    if (branding?.receiptShowWaiterName !== false) lines.push(`Ofisiant: ${r.waiterName}`);
     if (branding?.receiptShowTime !== false) {
-      lines.push(`Vaxt: ${new Date(receipt.paidAt ?? receipt.openedAt).toLocaleString("az-AZ")}`);
+      lines.push(`Vaxt: ${new Date(r.paidAt ?? r.openedAt).toLocaleString("az-AZ")}`);
     }
-    if (branding?.receiptShowPaymentMethod !== false) lines.push(`Ödəniş: ${receipt.paymentMethod}`);
+    if (branding?.receiptShowPaymentMethod !== false) lines.push(`Ödəniş: ${r.paymentMethod}`);
     lines.push("-".repeat(32));
-    for (const line of receipt.lines) {
+    for (const line of groupReceiptLines(r.lines, branding?.printGroupQuantities !== false)) {
       lines.push(`${line.quantity} x ${line.menuItemName}`.padEnd(24) + `${line.lineTotal.toFixed(2)} ₼`);
     }
     lines.push("-".repeat(32));
-    lines.push(`Cəm: ${receipt.totalAmount.toFixed(2)} ₼`);
-    if (receipt.vatAmount > 0) lines.push(`ƏDV daxildir: ${receipt.vatAmount.toFixed(2)} ₼`);
-    if (receipt.paymentMethod === "Cash") {
-      lines.push(`Alınan: ${receipt.paidAmount.toFixed(2)} ₼`);
-      lines.push(`Qalıq: ${receipt.changeAmount.toFixed(2)} ₼`);
+    lines.push(`Cəm: ${r.totalAmount.toFixed(2)} ₼`);
+    if (r.vatAmount > 0) lines.push(`ƏDV daxildir: ${r.vatAmount.toFixed(2)} ₼`);
+    if (r.paymentMethod === "Cash") {
+      lines.push(`Alınan: ${r.paidAmount.toFixed(2)} ₼`);
+      lines.push(`Qalıq: ${r.changeAmount.toFixed(2)} ₼`);
     }
     if (branding?.slogan) lines.push(branding.slogan);
     if (branding?.contactPhoneNumber) lines.push(branding.contactPhoneNumber);
     return lines.join("\n");
   };
 
-  const handlePrintReceiptToPrinter = async (printer: PrinterProfile) => {
+  const handlePrintReceiptToPrinter = async (printer: PrinterProfile, r?: OrderReceiptDto) => {
     setPrintingId(printer.id);
     try {
-      await printToPrinter(printer.id, buildReceiptContent());
+      await printToPrinter(printer.id, buildReceiptContent(r ?? receipt));
       toast.success(`${printer.name}-ə göndərildi`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Printerə qoşulmaq mümkün olmadı");
@@ -283,6 +306,11 @@ export default function PosOrderPage() {
       setPrintingId(null);
     }
   };
+
+  const sortedPrinters = useMemo(
+    () => [...printers].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)),
+    [printers],
+  );
 
   const topLevelCategories = useMemo(
     () => categories.filter((c) => c.parentCategoryId == null),
@@ -417,6 +445,24 @@ export default function PosOrderPage() {
       setReceipt(r);
       setPayOpen(false);
       maybeAutoPrint(true);
+      if (branding?.printAutoOnPayment === true) {
+        const primaryPrinter = printers.find((p) => p.isPrimary);
+        if (primaryPrinter) void handlePrintReceiptToPrinter(primaryPrinter, r);
+      }
+      if (branding?.printKitchenOnPayment === true && printerGroups.length > 0) {
+        for (const group of printerGroups) {
+          try {
+            await printKitchenTicket(order.id, group.printer.id);
+          } catch (err) {
+            toast.error(
+              err instanceof Error
+                ? `${group.printer.name}: ${err.message}`
+                : `${group.printer.name}-ə mətbəx çapı göndərilmədi`,
+            );
+          }
+        }
+        await load();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ödəniş uğursuz oldu");
     } finally {
@@ -676,7 +722,9 @@ export default function PosOrderPage() {
                     </span>
                   )}
                   <span className="text-sm font-semibold leading-tight">{item.name}</span>
-                  <span className="text-xs text-muted-foreground">{item.price.toFixed(2)} ₼</span>
+                  <span className="text-xs text-muted-foreground">
+                    {(item.stationPrice ?? item.price).toFixed(2)} ₼
+                  </span>
                 </button>
               );
             })}
@@ -989,7 +1037,7 @@ export default function PosOrderPage() {
               )}
             </DialogHeader>
             <div className="space-y-1 text-sm">
-              {receipt?.lines.map((line, i) => (
+              {groupedReceiptLines.map((line, i) => (
                 <div key={i} className="flex justify-between">
                   <span>
                     {line.quantity} × {line.menuItemName}
@@ -1051,16 +1099,17 @@ export default function PosOrderPage() {
               </Button>
             )}
             {canPrintReceipt &&
-              printers.map((printer) => (
+              sortedPrinters.map((printer) => (
                 <Button
                   key={printer.id}
-                  variant="outline"
+                  variant={printer.isPrimary ? "default" : "outline"}
                   className="w-full"
                   disabled={printingId === printer.id}
                   onClick={() => void handlePrintReceiptToPrinter(printer)}
                 >
                   <Printer className="mr-2 h-4 w-4" />
                   {printer.name}-ə göndər
+                  {printer.isPrimary && " (əsas)"}
                 </Button>
               ))}
             <Button

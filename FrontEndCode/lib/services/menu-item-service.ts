@@ -55,6 +55,7 @@ export type MenuItem = {
   isTimeBased: boolean;
   allowQuantityPromptOverride: boolean;
   printerId: number | null;
+  printerName: string | null;
 
   isSet: boolean;
 
@@ -101,6 +102,7 @@ export type MenuItemCreateInput = {
   skipTaxCalculation: boolean;
   isTimeBased: boolean;
   allowQuantityPromptOverride: boolean;
+  printerId?: number | null;
 
   isSet: boolean;
 
@@ -187,6 +189,7 @@ function normalizeMenuItem(item: unknown): MenuItem | null {
       raw.allowQuantityPromptOverride ?? raw.AllowQuantityPromptOverride ?? false,
     ),
     printerId: nullableNumber(raw.printerId ?? raw.PrinterId),
+    printerName: (raw.printerName ?? raw.PrinterName) != null ? String(raw.printerName ?? raw.PrinterName) : null,
 
     isSet: Boolean(raw.isSet ?? raw.IsSet ?? false),
 
@@ -272,6 +275,7 @@ function buildBasePayload(data: MenuItemCreateInput) {
     skipTaxCalculation: data.skipTaxCalculation,
     isTimeBased: data.isTimeBased,
     allowQuantityPromptOverride: data.allowQuantityPromptOverride,
+    printerId: data.printerId ?? null,
 
     isSet: data.isSet,
 

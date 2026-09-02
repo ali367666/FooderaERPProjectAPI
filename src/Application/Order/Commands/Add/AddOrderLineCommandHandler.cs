@@ -94,13 +94,15 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             order.TotalAmount
         });
 
+        var effectivePrice = menuItem.StationPrice ?? menuItem.Price;
+
         var orderLine = new OrderLine
         {
             OrderId = order.Id,
             MenuItemId = menuItem.Id,
             Quantity = request.Request.Quantity,
-            UnitPrice = menuItem.Price,
-            LineTotal = menuItem.Price * request.Request.Quantity,
+            UnitPrice = effectivePrice,
+            LineTotal = effectivePrice * request.Request.Quantity,
             Note = request.Request.Note,
             PreparationType = menuItem.PreparationType,
             Status = menuItem.PreparationType == PreparationType.None
