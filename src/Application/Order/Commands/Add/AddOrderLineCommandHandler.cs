@@ -95,14 +95,15 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         });
 
         var effectivePrice = menuItem.StationPrice ?? menuItem.Price;
+        var quantity = menuItem.IsTimeBased ? 1 : request.Request.Quantity;
 
         var orderLine = new OrderLine
         {
             OrderId = order.Id,
             MenuItemId = menuItem.Id,
-            Quantity = request.Request.Quantity,
+            Quantity = quantity,
             UnitPrice = effectivePrice,
-            LineTotal = effectivePrice * request.Request.Quantity,
+            LineTotal = menuItem.IsTimeBased ? 0 : effectivePrice * quantity,
             Note = request.Request.Note,
             PreparationType = menuItem.PreparationType,
             Status = menuItem.PreparationType == PreparationType.None
@@ -264,6 +265,9 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
                 KitchenPrintedAt = x.KitchenPrintedAt,
+                TimeBasedStartedAt = x.TimeBasedStartedAt,
+                TimeBasedStoppedAt = x.TimeBasedStoppedAt,
+                IsTimeBased = x.MenuItem.IsTimeBased,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString(),

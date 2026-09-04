@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -94,6 +94,15 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
     const id = window.setInterval(() => setClockNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, []);
+
+  const isBeforeOpening = useMemo(() => {
+    if (!branding?.openingTime) return false;
+    const parts = branding.openingTime.split(":").map(Number);
+    if (parts.length < 2 || parts.some((n) => Number.isNaN(n))) return false;
+    const openingMinutes = parts[0] * 60 + parts[1];
+    const nowMinutes = clockNow.getHours() * 60 + clockNow.getMinutes();
+    return nowMinutes < openingMinutes;
+  }, [branding?.openingTime, clockNow]);
 
   useEffect(() => {
     if (!terminal?.restaurantId) return;
@@ -193,31 +202,43 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </header>
-        {showTabs && (
-          <nav className="flex shrink-0 gap-1 border-b bg-background px-3 py-2">
-            {TABS.filter((tab) => {
-              if (tab.module && branding && branding[tab.module] === false) return false;
-              return !tab.permission || permissionMap[tab.permission];
-            }).map((tab) => {
-              const active = pathname === tab.href;
-              const Icon = tab.icon;
-              return (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </nav>
+        {isBeforeOpening ? (
+          <main className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+            <Lock className="h-10 w-10 text-muted-foreground" />
+            <h2 className="text-xl font-semibold">Restoran hələ bağlıdır</h2>
+            <p className="text-muted-foreground">
+              Açılış saatı: {branding?.openingTime?.slice(0, 5)}. Sistem həmin saatdan aktiv olacaq.
+            </p>
+          </main>
+        ) : (
+          <>
+            {showTabs && (
+              <nav className="flex shrink-0 gap-1 border-b bg-background px-3 py-2">
+                {TABS.filter((tab) => {
+                  if (tab.module && branding && branding[tab.module] === false) return false;
+                  return !tab.permission || permissionMap[tab.permission];
+                }).map((tab) => {
+                  const active = pathname === tab.href;
+                  const Icon = tab.icon;
+                  return (
+                    <Link
+                      key={tab.href}
+                      href={tab.href}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            )}
+            <main className="flex-1 overflow-auto">{children}</main>
+          </>
         )}
-        <main className="flex-1 overflow-auto">{children}</main>
       </div>
 
       {/* Shift open/close dialog */}

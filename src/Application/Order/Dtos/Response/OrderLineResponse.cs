@@ -13,6 +13,9 @@ public class OrderLineResponse
     public decimal LineTotal { get; set; }
     public DateTime? HoldUntilUtc { get; set; }
     public DateTime? KitchenPrintedAt { get; set; }
+    public DateTime? TimeBasedStartedAt { get; set; }
+    public DateTime? TimeBasedStoppedAt { get; set; }
+    public bool IsTimeBased { get; set; }
     public string? Note { get; set; }
     public PreparationType PreparationType { get; set; }
     public string Status { get; set; } = default!;

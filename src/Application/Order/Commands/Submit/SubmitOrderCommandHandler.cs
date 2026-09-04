@@ -78,6 +78,9 @@ public class SubmitOrderCommandHandler : IRequestHandler<SubmitOrderCommand, Ord
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
                 KitchenPrintedAt = x.KitchenPrintedAt,
+                TimeBasedStartedAt = x.TimeBasedStartedAt,
+                TimeBasedStoppedAt = x.TimeBasedStoppedAt,
+                IsTimeBased = x.MenuItem.IsTimeBased,
                 Note = x.Note,
                 Status = x.Status.ToString()
             }).ToList()

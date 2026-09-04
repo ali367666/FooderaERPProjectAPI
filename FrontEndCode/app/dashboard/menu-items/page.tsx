@@ -49,6 +49,7 @@ import {
 } from "@/lib/services/menu-category-service";
 import { getRestaurants } from "@/lib/services/restaurant-service";
 import { getPrinters, type Printer } from "@/lib/services/printer-service";
+import { BarcodeSvg } from "@/components/barcode-svg";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { usePermissionSet, useHasPermission } from "@/hooks/use-auth-permissions";
 import { AppPermissions } from "@/lib/app-permissions";
@@ -949,6 +950,18 @@ export default function MenuItemsPage() {
                   </div>
                 )}
 
+                {isEditMode && (barcode.trim() || weightCode) && (
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-sm font-medium text-foreground">Barkod</label>
+                    <div className="flex items-center gap-3 rounded-md border p-3">
+                      <BarcodeSvg value={barcode.trim() || weightCode || ""} height={45} />
+                      <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+                        Etiketi çap et
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {isEditMode && (
                   <div>
                     <label className="mb-2 block text-sm font-medium text-foreground">Status</label>
@@ -1323,6 +1336,22 @@ export default function MenuItemsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <div id="menu-item-label-print" className="hidden flex-col items-center gap-1 p-4 text-center">
+        <span className="text-sm font-semibold">{name}</span>
+        <span className="text-xs">{formatPrice(Number(price) || 0)} ₼</span>
+        <BarcodeSvg value={barcode.trim() || weightCode || ""} height={45} />
+      </div>
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #menu-item-label-print, #menu-item-label-print * { visibility: visible; }
+          #menu-item-label-print {
+            display: flex !important;
+            position: fixed; top: 0; left: 0; width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }

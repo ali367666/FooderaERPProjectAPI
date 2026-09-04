@@ -95,6 +95,9 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
                 KitchenPrintedAt = x.KitchenPrintedAt,
+                TimeBasedStartedAt = x.TimeBasedStartedAt,
+                TimeBasedStoppedAt = x.TimeBasedStoppedAt,
+                IsTimeBased = x.MenuItem.IsTimeBased,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString()
