@@ -75,7 +75,9 @@ public static class RolePermissionSeeder
                 AppPermissions.PrinterView, AppPermissions.PrinterCreate, AppPermissions.PrinterUpdate,
                 AppPermissions.PrinterDelete, AppPermissions.PrinterPrint,
                 AppPermissions.FiscalDeviceView, AppPermissions.FiscalDeviceCreate,
-                AppPermissions.FiscalDeviceUpdate, AppPermissions.FiscalDeviceDelete
+                AppPermissions.FiscalDeviceUpdate, AppPermissions.FiscalDeviceDelete,
+                AppPermissions.ScaleDeviceView, AppPermissions.ScaleDeviceCreate,
+                AppPermissions.ScaleDeviceUpdate, AppPermissions.ScaleDeviceDelete
             }
         },
         {

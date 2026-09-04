@@ -163,4 +163,9 @@ public static class AppPermissions
     public const string FiscalDeviceCreate = "FiscalDevice.Create";
     public const string FiscalDeviceUpdate = "FiscalDevice.Update";
     public const string FiscalDeviceDelete = "FiscalDevice.Delete";
+
+    public const string ScaleDeviceView = "ScaleDevice.View";
+    public const string ScaleDeviceCreate = "ScaleDevice.Create";
+    public const string ScaleDeviceUpdate = "ScaleDevice.Update";
+    public const string ScaleDeviceDelete = "ScaleDevice.Delete";
 }

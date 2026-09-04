@@ -97,6 +97,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IPrinterRepository, PrinterRepository>();
         services.AddScoped<IPrinterStationTypeRepository, PrinterStationTypeRepository>();
         services.AddScoped<IFiscalDeviceRepository, FiscalDeviceRepository>();
+        services.AddScoped<IScaleDeviceRepository, ScaleDeviceRepository>();
         services.AddScoped<ICounterpartyRepository, CounterpartyRepository>();
         services.AddScoped<ICounterpartyCategoryRepository, CounterpartyCategoryRepository>();
         services.AddScoped<IMenuItemTypeRepository, MenuItemTypeRepository>();
