@@ -105,6 +105,10 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
             TotalAmount = updatedOrder.TotalAmount,
             DiscountCode = updatedOrder.DiscountCode,
             DiscountAmount = updatedOrder.DiscountAmount,
+            TableHourlyRate = updatedOrder.Table?.HourlyRate,
+            TableRentalStartedAt = updatedOrder.TableRentalStartedAt,
+            TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
+            TableRentalAmount = updatedOrder.TableRentalAmount,
             Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
             {
                 Id = x.Id,

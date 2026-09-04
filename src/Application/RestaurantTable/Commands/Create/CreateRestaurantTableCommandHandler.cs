@@ -82,7 +82,9 @@ public class CreateRestaurantTableCommandHandler
             Name = trimmedName,
             Capacity = dto.Capacity,
             IsActive = true,
-            IsOccupied = false
+            IsOccupied = false,
+            HourlyRate = dto.HourlyRate,
+            Type = dto.Type
         };
 
         await _restaurantTableRepository.AddAsync(table, cancellationToken);
@@ -133,7 +135,9 @@ public class CreateRestaurantTableCommandHandler
             Width = table.Width,
             Height = table.Height,
             Shape = table.Shape,
-            Rotation = table.Rotation
+            Rotation = table.Rotation,
+            HourlyRate = table.HourlyRate,
+            Type = table.Type
         };
     }
 }

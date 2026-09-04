@@ -78,6 +78,10 @@ public class SetOrderCounterpartyCommandHandler : IRequestHandler<SetOrderCounte
             TotalAmount = updatedOrder.TotalAmount,
             DiscountCode = updatedOrder.DiscountCode,
             DiscountAmount = updatedOrder.DiscountAmount,
+            TableHourlyRate = updatedOrder.Table?.HourlyRate,
+            TableRentalStartedAt = updatedOrder.TableRentalStartedAt,
+            TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
+            TableRentalAmount = updatedOrder.TableRentalAmount,
             Lines = updatedOrder.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,

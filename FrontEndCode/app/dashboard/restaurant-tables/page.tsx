@@ -18,6 +18,7 @@ import {
   deleteRestaurantTable,
   getRestaurantTables,
   updateRestaurantTable,
+  RestaurantTableType,
   type RestaurantTable,
 } from "@/lib/services/restaurant-table-service";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
@@ -104,7 +105,9 @@ export default function RestaurantTablesPage() {
   }, []);
 
   const allRows = useMemo<RestaurantTableRow[]>(() => {
-    return tables.map((table) => ({
+    return tables
+      .filter((table) => table.type === RestaurantTableType.Masa)
+      .map((table) => ({
       id: String(table.id),
       tableId: table.id,
       restaurantName:
@@ -283,6 +286,7 @@ export default function RestaurantTablesPage() {
       name: form.name.trim(),
       capacity,
       isActive: form.isActive,
+      type: RestaurantTableType.Masa,
     };
 
     try {

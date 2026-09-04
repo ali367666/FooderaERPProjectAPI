@@ -98,6 +98,10 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
             PaidAmount = order.PaidAmount,
             ChangeAmount = order.ChangeAmount,
             ReceiptNumber = order.ReceiptNumber,
+            TableHourlyRate = order.Table?.HourlyRate,
+            TableRentalStartedAt = order.TableRentalStartedAt,
+            TableRentalStoppedAt = order.TableRentalStoppedAt,
+            TableRentalAmount = order.TableRentalAmount,
             Lines = order.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,

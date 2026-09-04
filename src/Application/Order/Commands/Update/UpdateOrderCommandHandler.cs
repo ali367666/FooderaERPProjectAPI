@@ -217,6 +217,10 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, Ord
                 .Sum(x => x.UnitPrice * x.Quantity) - updatedOrder.DiscountAmount),
             DiscountCode = updatedOrder.DiscountCode,
             DiscountAmount = updatedOrder.DiscountAmount,
+            TableHourlyRate = updatedOrder.Table?.HourlyRate,
+            TableRentalStartedAt = updatedOrder.TableRentalStartedAt,
+            TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
+            TableRentalAmount = updatedOrder.TableRentalAmount,
             Lines = updatedOrder.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,

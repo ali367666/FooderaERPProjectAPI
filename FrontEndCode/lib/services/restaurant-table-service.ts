@@ -1,6 +1,14 @@
 import { api } from "@/lib/api";
 import { ApiFormError, toApiFormError } from "@/lib/api-error";
 
+/** Matches Domain.Enums.RestaurantTableType */
+export const RestaurantTableType = {
+  Masa: 1,
+  Kabinet: 2,
+} as const;
+
+export type RestaurantTableTypeValue = (typeof RestaurantTableType)[keyof typeof RestaurantTableType];
+
 export type RestaurantTable = {
   id: number;
   restaurantId: number;
@@ -16,6 +24,8 @@ export type RestaurantTable = {
   shape: "square" | "round" | "rectangle";
   rotation: number;
   sectionId: number | null;
+  hourlyRate: number | null;
+  type: RestaurantTableTypeValue;
 };
 
 export type TableLayoutUpdate = {
@@ -32,6 +42,8 @@ export type RestaurantTableMutationInput = {
   name: string;
   capacity: number;
   isActive?: boolean;
+  hourlyRate?: number | null;
+  type?: RestaurantTableTypeValue;
 };
 
 function normalizeRestaurantTable(item: unknown): RestaurantTable | null {
@@ -57,6 +69,16 @@ function normalizeRestaurantTable(item: unknown): RestaurantTable | null {
     sectionId: (() => {
       const v = raw.sectionId ?? raw.SectionId;
       return v == null ? null : Number(v);
+    })(),
+    hourlyRate: (() => {
+      const v = raw.hourlyRate ?? raw.HourlyRate;
+      return v == null ? null : Number(v);
+    })(),
+    type: (() => {
+      const n = Number(raw.type ?? raw.Type);
+      if (n === RestaurantTableType.Kabinet) return n;
+      if (n === RestaurantTableType.Masa) return n;
+      return RestaurantTableType.Kabinet;
     })(),
   };
 }

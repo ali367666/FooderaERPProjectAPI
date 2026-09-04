@@ -76,6 +76,10 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
                 .Sum(x => x.UnitPrice * x.Quantity) - order.DiscountAmount),
             DiscountCode = order.DiscountCode,
             DiscountAmount = order.DiscountAmount,
+            TableHourlyRate = order.Table?.HourlyRate,
+            TableRentalStartedAt = order.TableRentalStartedAt,
+            TableRentalStoppedAt = order.TableRentalStoppedAt,
+            TableRentalAmount = order.TableRentalAmount,
             Lines = order.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,

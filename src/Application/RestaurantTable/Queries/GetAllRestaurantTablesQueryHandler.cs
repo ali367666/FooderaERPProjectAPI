@@ -40,7 +40,9 @@ public class GetAllRestaurantTablesQueryHandler
             Height = x.Height,
             Shape = x.Shape,
             Rotation = x.Rotation,
-            SectionId = x.SectionId
+            SectionId = x.SectionId,
+            HourlyRate = x.HourlyRate,
+            Type = x.Type
         }).ToList();
     }
 }

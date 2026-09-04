@@ -44,7 +44,9 @@ public class GetRestaurantTableByIdQueryHandler
             Height = table.Height,
             Shape = table.Shape,
             Rotation = table.Rotation,
-            SectionId = table.SectionId
+            SectionId = table.SectionId,
+            HourlyRate = table.HourlyRate,
+            Type = table.Type
         };
     }
 }

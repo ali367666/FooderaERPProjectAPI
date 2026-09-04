@@ -54,7 +54,9 @@ public class UpdateTableLayoutCommandHandler
             Width = table.Width,
             Height = table.Height,
             Shape = table.Shape,
-            Rotation = table.Rotation
+            Rotation = table.Rotation,
+            HourlyRate = table.HourlyRate,
+            Type = table.Type
         };
     }
 }

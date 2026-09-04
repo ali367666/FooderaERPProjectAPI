@@ -76,5 +76,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.Property(x => x.ServiceChargeAmount)
             .HasColumnType("decimal(18,2)");
+
+        builder.Property(x => x.TableRentalAmount)
+            .HasColumnType("decimal(18,2)");
     }
 }

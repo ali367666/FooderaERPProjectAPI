@@ -30,7 +30,8 @@ public class CreateRestaurantSectionCommandHandler : IRequestHandler<CreateResta
             CompanyId = companyId,
             RestaurantId = dto.RestaurantId,
             Name = name,
-            IsActive = dto.IsActive
+            IsActive = dto.IsActive,
+            Type = dto.Type
         };
 
         await _repository.AddAsync(section, cancellationToken);
@@ -41,7 +42,8 @@ public class CreateRestaurantSectionCommandHandler : IRequestHandler<CreateResta
             Id = section.Id,
             RestaurantId = section.RestaurantId,
             Name = section.Name,
-            IsActive = section.IsActive
+            IsActive = section.IsActive,
+            Type = section.Type
         };
     }
 }
@@ -72,6 +74,7 @@ public class UpdateRestaurantSectionCommandHandler : IRequestHandler<UpdateResta
 
         section.Name = name;
         section.IsActive = dto.IsActive;
+        section.Type = dto.Type;
 
         _repository.Update(section);
         await _repository.SaveChangesAsync(cancellationToken);
@@ -81,7 +84,8 @@ public class UpdateRestaurantSectionCommandHandler : IRequestHandler<UpdateResta
             Id = section.Id,
             RestaurantId = section.RestaurantId,
             Name = section.Name,
-            IsActive = section.IsActive
+            IsActive = section.IsActive,
+            Type = section.Type
         };
     }
 }

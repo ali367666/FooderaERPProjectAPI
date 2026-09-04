@@ -103,6 +103,8 @@ public class UpdateRestaurantTableCommandHandler
         table.Name = trimmedName;
         table.Capacity = dto.Capacity;
         table.IsActive = dto.IsActive;
+        table.HourlyRate = dto.HourlyRate;
+        table.Type = dto.Type;
 
         _restaurantTableRepository.Update(table);
         await _restaurantTableRepository.SaveChangesAsync(cancellationToken);
@@ -156,7 +158,9 @@ public class UpdateRestaurantTableCommandHandler
             Width = table.Width,
             Height = table.Height,
             Shape = table.Shape,
-            Rotation = table.Rotation
+            Rotation = table.Rotation,
+            HourlyRate = table.HourlyRate,
+            Type = table.Type
         };
     }
 }

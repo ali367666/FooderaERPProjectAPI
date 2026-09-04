@@ -270,7 +270,7 @@ export default function PosTablesPage() {
 
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
         {tables
-          .filter((table) => activeSectionId === null || table.sectionId === activeSectionId)
+          .filter((table) => (activeSectionId === null ? table.sectionId == null : table.sectionId === activeSectionId))
           .map((table) => {
           const occupied = table.activeOrder !== null;
           const status = table.activeOrder?.status ?? null;
