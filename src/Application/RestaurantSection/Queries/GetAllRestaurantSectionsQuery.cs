@@ -26,7 +26,8 @@ public class GetAllRestaurantSectionsQueryHandler : IRequestHandler<GetAllRestau
             Id = x.Id,
             RestaurantId = x.RestaurantId,
             Name = x.Name,
-            IsActive = x.IsActive
+            IsActive = x.IsActive,
+            Type = x.Type
         }).ToList();
     }
 }

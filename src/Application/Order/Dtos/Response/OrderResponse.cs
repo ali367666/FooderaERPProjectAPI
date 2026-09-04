@@ -32,5 +32,10 @@ public class OrderResponse
     public decimal ChangeAmount { get; set; }
     public string? ReceiptNumber { get; set; }
 
+    public decimal? TableHourlyRate { get; set; }
+    public DateTime? TableRentalStartedAt { get; set; }
+    public DateTime? TableRentalStoppedAt { get; set; }
+    public decimal? TableRentalAmount { get; set; }
+
     public List<OrderLineResponse> Lines { get; set; } = new();
 }

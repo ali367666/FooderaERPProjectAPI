@@ -41,5 +41,9 @@ public class Order : CompanyEntity<int>
     public DateTime OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
 
+    public DateTime? TableRentalStartedAt { get; set; }
+    public DateTime? TableRentalStoppedAt { get; set; }
+    public decimal? TableRentalAmount { get; set; }
+
     public ICollection<OrderLine> Lines { get; set; } = new List<OrderLine>();
 }

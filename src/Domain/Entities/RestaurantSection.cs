@@ -1,4 +1,5 @@
 using Domain.Common;
+using Domain.Enums;
 
 namespace Domain.Entities;
 
@@ -9,6 +10,7 @@ public class RestaurantSection : CompanyEntity<int>
 
     public string Name { get; set; } = default!;
     public bool IsActive { get; set; } = true;
+    public RestaurantTableType Type { get; set; } = RestaurantTableType.Masa;
 
     public ICollection<RestaurantTable> Tables { get; set; } = new List<RestaurantTable>();
 }

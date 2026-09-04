@@ -21,6 +21,7 @@ using Application.Orders.Commands.Submit;
 using Application.Orders.Commands.Update;
 using Application.Orders.Commands.MoveTable;
 using Application.Orders.Commands.ReassignWaiter;
+using Application.Orders.Commands.TableRental;
 using Application.Orders.Dtos;
 using Application.Orders.Queries.GetAll;
 using Application.Orders.Queries.GetById;
@@ -131,6 +132,20 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<OrderResponse>> DeleteLine(int id)
     {
         var result = await _mediator.Send(new DeleteOrderLineCommand(id));
+        return Ok(result);
+    }
+    [Authorize(Policy = AppPermissions.PosEditProductInSale)]
+    [HttpPut("{id:int}/start-rental")]
+    public async Task<ActionResult<OrderResponse>> StartTableRental(int id)
+    {
+        var result = await _mediator.Send(new StartTableRentalCommand(id));
+        return Ok(result);
+    }
+    [Authorize(Policy = AppPermissions.PosEditProductInSale)]
+    [HttpPut("{id:int}/stop-rental")]
+    public async Task<ActionResult<OrderResponse>> StopTableRental(int id)
+    {
+        var result = await _mediator.Send(new StopTableRentalCommand(id));
         return Ok(result);
     }
     [Authorize(Policy = AppPermissions.OrdersView)]

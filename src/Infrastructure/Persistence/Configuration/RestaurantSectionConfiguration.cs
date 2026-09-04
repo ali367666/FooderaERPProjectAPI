@@ -20,6 +20,11 @@ public class RestaurantSectionConfiguration : IEntityTypeConfiguration<Restauran
             .IsRequired()
             .HasDefaultValue(true);
 
+        builder.Property(x => x.Type)
+            .IsRequired()
+            .HasConversion<int>()
+            .HasDefaultValue(Domain.Enums.RestaurantTableType.Masa);
+
         builder.HasOne(x => x.Restaurant)
             .WithMany()
             .HasForeignKey(x => x.RestaurantId)

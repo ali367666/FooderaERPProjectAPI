@@ -32,6 +32,8 @@ import {
   printKitchenTicket,
   startTimeBasedLine,
   stopTimeBasedLine,
+  startTableRental,
+  stopTableRental,
   type OrderDto,
   type OrderLineDto,
   type OrderReceiptDto,
@@ -419,11 +421,43 @@ export default function PosOrderPage() {
     }
   };
 
+  const handleStartRental = async () => {
+    if (!order || busy) return;
+    setBusy(true);
+    try {
+      const updated = await startTableRental(order.id);
+      setOrder(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "İcarə başladılmadı");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleStopRental = async () => {
+    if (!order || busy) return;
+    setBusy(true);
+    try {
+      const updated = await stopTableRental(order.id);
+      setOrder(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "İcarə dayandırılmadı");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const openPayDialog = () => {
-    if (!order || order.lines.length === 0) return;
+    if (!order) return;
+    const hasRental = order.tableHourlyRate != null;
+    if (order.lines.length === 0 && !hasRental) return;
+    if (hasRental && order.tableRentalStartedAt != null && order.tableRentalStoppedAt == null) {
+      toast.error("Əvvəlcə icarə taymerini dayandırın");
+      return;
+    }
     setPaymentMethod("Cash");
     setServiceChargeInput("");
-    setPaidAmountInput(order.totalAmount.toFixed(2));
+    setPaidAmountInput((order.totalAmount + (order.tableRentalAmount ?? 0)).toFixed(2));
     setPayOpen(true);
   };
 
@@ -462,7 +496,7 @@ export default function PosOrderPage() {
 
   const serviceCharge = canTableServiceCharge ? Number(serviceChargeInput) || 0 : 0;
   const paidAmount = Number(paidAmountInput) || 0;
-  const totalWithService = (order?.totalAmount ?? 0) + serviceCharge;
+  const totalWithService = (order?.totalAmount ?? 0) + (order?.tableRentalAmount ?? 0) + serviceCharge;
   const changeAmount = paymentMethod === "Cash" ? Math.max(0, paidAmount - totalWithService) : 0;
 
   const handleConfirmPayment = async () => {
@@ -648,6 +682,13 @@ export default function PosOrderPage() {
 
   const canPrintReceipt = !(isWaiterRole() && branding?.waiterCanPrintCustomerReceipt === false);
 
+  const isRentalRunning =
+    order.tableHourlyRate != null && order.tableRentalStartedAt != null && order.tableRentalStoppedAt == null;
+  const rentalElapsedMs = isRentalRunning ? now - new Date(order.tableRentalStartedAt!).getTime() : 0;
+  const rentalLiveTotal = isRentalRunning
+    ? (order.tableHourlyRate ?? 0) * (rentalElapsedMs / 3_600_000)
+    : order.tableRentalAmount ?? 0;
+
   return (
     <div className="flex h-full flex-col md:flex-row">
       {/* Menu */}
@@ -690,6 +731,55 @@ export default function PosOrderPage() {
             )}
           </div>
         </div>
+        {order.tableHourlyRate != null && (
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-3 border-b px-3 py-2",
+              isRentalRunning ? "bg-emerald-50" : "bg-muted/40",
+            )}
+          >
+            <span className="text-sm font-medium">
+              Saatlıq icarə — {order.tableHourlyRate.toFixed(2)} ₼/saat
+            </span>
+            {isRentalRunning ? (
+              <>
+                <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700">
+                  <Clock className="h-3.5 w-3.5" />
+                  {formatDuration(rentalElapsedMs)} — {rentalLiveTotal.toFixed(2)} ₼
+                </span>
+                {!isPaid && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto gap-1 text-emerald-700"
+                    disabled={busy}
+                    onClick={() => void handleStopRental()}
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                    Dayandır
+                  </Button>
+                )}
+              </>
+            ) : order.tableRentalStoppedAt != null ? (
+              <span className="ml-auto text-sm text-muted-foreground">
+                Dayandırılıb — {(order.tableRentalAmount ?? 0).toFixed(2)} ₼
+              </span>
+            ) : (
+              !isPaid && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto gap-1"
+                  disabled={busy}
+                  onClick={() => void handleStartRental()}
+                >
+                  <Play className="h-3.5 w-3.5" />
+                  Başlat
+                </Button>
+              )
+            )}
+          </div>
+        )}
         <div className="flex gap-2 overflow-x-auto border-b bg-background px-3 py-2">
           {topLevelCategories.map((cat) => (
             <button
@@ -948,7 +1038,7 @@ export default function PosOrderPage() {
         <div className="border-t p-3">
           <div className="mb-3 flex items-center justify-between text-lg font-bold">
             <span>Cəm</span>
-            <span>{order.totalAmount.toFixed(2)} ₼</span>
+            <span>{(order.totalAmount + (isRentalRunning ? rentalLiveTotal : order.tableRentalAmount ?? 0)).toFixed(2)} ₼</span>
           </div>
           {isPaid ? (
             <div className="space-y-2">
@@ -1005,7 +1095,9 @@ export default function PosOrderPage() {
                   onChange={(e) => {
                     setServiceChargeInput(e.target.value);
                     if (paymentMethod === "Card") {
-                      setPaidAmountInput((order.totalAmount + (Number(e.target.value) || 0)).toFixed(2));
+                      setPaidAmountInput(
+                        (order.totalAmount + (order.tableRentalAmount ?? 0) + (Number(e.target.value) || 0)).toFixed(2),
+                      );
                     }
                   }}
                   placeholder="0.00"

@@ -80,6 +80,10 @@ export type OrderDto = {
   paidAmount: number;
   changeAmount: number;
   receiptNumber: string | null;
+  tableHourlyRate: number | null;
+  tableRentalStartedAt: string | null;
+  tableRentalStoppedAt: string | null;
+  tableRentalAmount: number | null;
   lines: OrderLineDto[];
 };
 
@@ -254,6 +258,18 @@ function normalizeOrder(raw: unknown): OrderDto | null {
     paidAmount: Number(pick(o, "paidAmount", "PaidAmount") ?? 0),
     changeAmount: Number(pick(o, "changeAmount", "ChangeAmount") ?? 0),
     receiptNumber: (pick(o, "receiptNumber", "ReceiptNumber") as string | null | undefined) ?? null,
+    tableHourlyRate: (() => {
+      const v = pick<number | null>(o, "tableHourlyRate", "TableHourlyRate");
+      return v == null ? null : Number(v);
+    })(),
+    tableRentalStartedAt:
+      (pick(o, "tableRentalStartedAt", "TableRentalStartedAt") as string | null | undefined) ?? null,
+    tableRentalStoppedAt:
+      (pick(o, "tableRentalStoppedAt", "TableRentalStoppedAt") as string | null | undefined) ?? null,
+    tableRentalAmount: (() => {
+      const v = pick<number | null>(o, "tableRentalAmount", "TableRentalAmount");
+      return v == null ? null : Number(v);
+    })(),
     lines,
   };
 }
@@ -474,6 +490,30 @@ export async function stopTimeBasedLine(id: number): Promise<OrderDto> {
     return row;
   } catch (error) {
     throw toApiFormError(error, "Failed to stop timer");
+  }
+}
+
+export async function startTableRental(orderId: number): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/${orderId}/start-rental`);
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid start rental response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to start rental");
+  }
+}
+
+export async function stopTableRental(orderId: number): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/${orderId}/stop-rental`);
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid stop rental response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to stop rental");
   }
 }
 

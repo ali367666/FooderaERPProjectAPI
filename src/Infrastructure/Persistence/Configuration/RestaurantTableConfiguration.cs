@@ -19,6 +19,11 @@ public class RestaurantTableConfiguration : IEntityTypeConfiguration<RestaurantT
         builder.Property(x => x.Capacity)
             .IsRequired();
 
+        builder.Property(x => x.Type)
+            .IsRequired()
+            .HasConversion<int>()
+            .HasDefaultValue(Domain.Enums.RestaurantTableType.Masa);
+
         builder.Property(x => x.IsActive)
             .IsRequired()
             .HasDefaultValue(true);
@@ -33,6 +38,7 @@ public class RestaurantTableConfiguration : IEntityTypeConfiguration<RestaurantT
         builder.Property(x => x.Height).HasDefaultValue(80);
         builder.Property(x => x.Shape).HasMaxLength(20).HasDefaultValue("square");
         builder.Property(x => x.Rotation).HasDefaultValue(0);
+        builder.Property(x => x.HourlyRate).HasColumnType("decimal(18,2)");
 
         builder.HasIndex(x => new { x.CompanyId, x.Name })
             .IsUnique();

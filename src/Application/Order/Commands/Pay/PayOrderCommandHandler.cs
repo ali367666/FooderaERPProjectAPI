@@ -37,11 +37,17 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         if (order.Status != OrderStatus.Ready && order.Status != OrderStatus.Served)
             throw new BadRequestException("Only ready or served orders can be paid.");
 
+        if (order.TableRentalStartedAt is not null && order.TableRentalStoppedAt is null)
+            throw new BadRequestException("Masa icarəsi taymeri hələ işləyir — əvvəlcə dayandırın.");
+
         if (!Enum.TryParse<PaymentMethod>(request.Request.PaymentMethod, true, out var paymentMethod))
             throw new BadRequestException("Please select a valid payment method.");
 
         foreach (var line in order.Lines)
+        {
+            if (line.MenuItem?.IsTimeBased == true) continue;
             line.LineTotal = line.UnitPrice * line.Quantity;
+        }
 
         var subtotal = order.Lines
             .DistinctBy(x => x.Id)
@@ -52,7 +58,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         var serviceCharge = request.Request.ServiceChargeAmount is > 0 && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosTableServiceCharge)
             ? request.Request.ServiceChargeAmount.Value
             : (decimal?)null;
-        var totalAmount = Math.Max(0, subtotal - order.DiscountAmount + (serviceCharge ?? 0));
+        var totalAmount = Math.Max(0, subtotal - order.DiscountAmount + (serviceCharge ?? 0) + (order.TableRentalAmount ?? 0));
 
         if (request.Request.PaidAmount < totalAmount)
             throw new BadRequestException("Paid amount cannot be less than total amount.");
@@ -114,6 +120,10 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             PaidAmount = order.PaidAmount,
             ChangeAmount = order.ChangeAmount,
             ReceiptNumber = order.ReceiptNumber,
+            TableHourlyRate = order.Table?.HourlyRate,
+            TableRentalStartedAt = order.TableRentalStartedAt,
+            TableRentalStoppedAt = order.TableRentalStoppedAt,
+            TableRentalAmount = order.TableRentalAmount,
             Lines = order.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,

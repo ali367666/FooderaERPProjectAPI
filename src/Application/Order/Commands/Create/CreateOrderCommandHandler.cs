@@ -164,6 +164,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = 0,
+            TableHourlyRate = table.HourlyRate,
             Lines = new List<OrderLineResponse>()
         };
     }

@@ -26,8 +26,15 @@ import {
 import {
   getRestaurantTables,
   updateTableSection,
+  RestaurantTableType,
   type RestaurantTable,
+  type RestaurantTableTypeValue,
 } from "@/lib/services/restaurant-table-service";
+
+function tableTypeLabel(type: RestaurantTable["type"]): string {
+  if (type === RestaurantTableType.Kabinet) return "Kabinet";
+  return "Masa";
+}
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background";
@@ -37,6 +44,7 @@ type SectionRow = {
   sectionId: number;
   name: string;
   isActive: boolean;
+  typeLabel: string;
 };
 
 export default function RestaurantSectionsPage() {
@@ -50,6 +58,7 @@ export default function RestaurantSectionsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [type, setType] = useState<RestaurantTableTypeValue>(RestaurantTableType.Masa);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [selectedTableIds, setSelectedTableIds] = useState<number[]>([]);
   const [initialTableIds, setInitialTableIds] = useState<number[]>([]);
@@ -93,6 +102,7 @@ export default function RestaurantSectionsPage() {
     setEditingId(null);
     setName("");
     setIsActive(true);
+    setType(RestaurantTableType.Masa);
     setSelectedTableIds([]);
     setInitialTableIds([]);
   };
@@ -108,6 +118,7 @@ export default function RestaurantSectionsPage() {
     setEditingId(target.id);
     setName(target.name);
     setIsActive(target.isActive);
+    setType(target.type);
     try {
       const rid = Number(restaurantId);
       const allTables = await getRestaurantTables();
@@ -146,10 +157,10 @@ export default function RestaurantSectionsPage() {
     setSaving(true);
     try {
       if (editingId == null) {
-        await createRestaurantSection({ restaurantId: rid, name: name.trim(), isActive });
+        await createRestaurantSection({ restaurantId: rid, name: name.trim(), isActive, type });
         toast.success("Bölmə əlavə edildi.");
       } else {
-        await updateRestaurantSection({ id: editingId, name: name.trim(), isActive });
+        await updateRestaurantSection({ id: editingId, name: name.trim(), isActive, type });
         const added = selectedTableIds.filter((id) => !initialTableIds.includes(id));
         const removed = initialTableIds.filter((id) => !selectedTableIds.includes(id));
         await Promise.all([
@@ -175,6 +186,7 @@ export default function RestaurantSectionsPage() {
         sectionId: s.id,
         name: s.name,
         isActive: s.isActive,
+        typeLabel: tableTypeLabel(s.type),
       })),
     [sections],
   );
@@ -182,6 +194,7 @@ export default function RestaurantSectionsPage() {
   const columns = [
     { key: "sectionId" as const, label: "ID" },
     { key: "name" as const, label: "Ad" },
+    { key: "typeLabel" as const, label: "Tip" },
     {
       key: "isActive" as const,
       label: "Status",
@@ -254,6 +267,18 @@ export default function RestaurantSectionsPage() {
                 <Label htmlFor="sec-name">Ad</Label>
                 <Input id="sec-name" className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
+              <div>
+                <Label htmlFor="sec-type">Bölmə tipi</Label>
+                <select
+                  id="sec-type"
+                  className={selectClass + " mt-1"}
+                  value={type}
+                  onChange={(e) => setType(Number(e.target.value) as RestaurantTableTypeValue)}
+                >
+                  <option value={String(RestaurantTableType.Masa)}>Masalar</option>
+                  <option value={String(RestaurantTableType.Kabinet)}>Kabinetlər</option>
+                </select>
+              </div>
               <div className="flex items-center gap-2">
                 <Checkbox id="sec-active" checked={isActive} onCheckedChange={(v) => setIsActive(v === true)} />
                 <Label htmlFor="sec-active" className="text-sm font-normal">
@@ -264,7 +289,7 @@ export default function RestaurantSectionsPage() {
                 <div>
                   <Label>Bu bölmənin masaları</Label>
                   <div className="mt-1 grid max-h-40 grid-cols-2 gap-2 overflow-y-auto rounded-md border border-input p-3">
-                    {tables.map((t) => (
+                    {tables.filter((t) => t.type === type).map((t) => (
                       <label key={t.id} className="flex items-center gap-2 text-sm font-normal">
                         <Checkbox
                           checked={selectedTableIds.includes(t.id)}
@@ -277,7 +302,9 @@ export default function RestaurantSectionsPage() {
                         {t.name}
                       </label>
                     ))}
-                    {tables.length === 0 && <p className="text-sm text-muted-foreground">Masa tapılmadı.</p>}
+                    {tables.filter((t) => t.type === type).length === 0 && (
+                      <p className="text-sm text-muted-foreground">Bu tipdə masa/stansiya tapılmadı.</p>
+                    )}
                   </div>
                 </div>
               )}

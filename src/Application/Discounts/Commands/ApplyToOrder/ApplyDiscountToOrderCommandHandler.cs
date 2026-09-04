@@ -130,6 +130,10 @@ public class ApplyDiscountToOrderCommandHandler : IRequestHandler<ApplyDiscountT
             PaidAmount = order.PaidAmount,
             ChangeAmount = order.ChangeAmount,
             ReceiptNumber = order.ReceiptNumber,
+            TableHourlyRate = order.Table?.HourlyRate,
+            TableRentalStartedAt = order.TableRentalStartedAt,
+            TableRentalStoppedAt = order.TableRentalStoppedAt,
+            TableRentalAmount = order.TableRentalAmount,
             Lines = order.Lines.Select(x => new OrderLineResponse
             {
                 Id = x.Id,

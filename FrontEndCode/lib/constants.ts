@@ -31,6 +31,7 @@ import {
   LayoutTemplate,
   Landmark,
   Scale,
+  Gamepad2,
 } from "lucide-react";
 
 export interface NavItem {
@@ -230,6 +231,13 @@ export const navGroups: NavGroup[] = [
         title: "Restaurant Tables",
         href: "/dashboard/restaurant-tables",
         icon: UtensilsCrossed,
+        permission: "RestaurantTable.View",
+        module: "moduleMasaBolge",
+      },
+      {
+        title: "Kabinetlər",
+        href: "/dashboard/cabinet-stations",
+        icon: Gamepad2,
         permission: "RestaurantTable.View",
         module: "moduleMasaBolge",
       },
