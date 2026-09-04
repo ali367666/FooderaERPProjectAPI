@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Clock, Minus, Pencil, Plus, Printer, Receipt, Trash2, User, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Clock, Minus, Pencil, Play, Plus, Printer, Receipt, Square, Trash2, User, UserCog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,8 @@ import {
   reassignOrderWaiter,
   setOrderCounterparty,
   printKitchenTicket,
+  startTimeBasedLine,
+  stopTimeBasedLine,
   type OrderDto,
   type OrderLineDto,
   type OrderReceiptDto,
@@ -78,6 +80,15 @@ function groupReceiptLines(lines: OrderReceiptLineDto[], group: boolean): OrderR
     }
   }
   return grouped;
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
 export default function PosOrderPage() {
@@ -377,6 +388,32 @@ export default function PosOrderPage() {
       setOrder(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sətir silinmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleStartTimer = async (lineId: number) => {
+    if (!order || busy) return;
+    setBusy(true);
+    try {
+      const updated = await startTimeBasedLine(lineId);
+      setOrder(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Taymer başladılmadı");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleStopTimer = async (lineId: number) => {
+    if (!order || busy) return;
+    setBusy(true);
+    try {
+      const updated = await stopTimeBasedLine(lineId);
+      setOrder(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Taymer dayandırılmadı");
     } finally {
       setBusy(false);
     }
@@ -758,6 +795,9 @@ export default function PosOrderPage() {
               const holdRemainingMinutes = isHeld
                 ? Math.ceil((new Date(line.holdUntilUtc!).getTime() - now) / 60000)
                 : 0;
+              const isTimerRunning = line.isTimeBased && line.timeBasedStartedAt != null && line.timeBasedStoppedAt == null;
+              const timerElapsedMs = isTimerRunning ? now - new Date(line.timeBasedStartedAt!).getTime() : 0;
+              const timerLiveTotal = isTimerRunning ? line.unitPrice * (timerElapsedMs / 3_600_000) : line.lineTotal;
               return (
                 <div key={line.id} className="rounded-lg border p-2">
                   <div className="flex items-start justify-between gap-2">
@@ -799,26 +839,62 @@ export default function PosOrderPage() {
                       Gözlədə — {holdRemainingMinutes} dəq sonra
                     </p>
                   )}
+                  {isTimerRunning && (
+                    <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                      <Clock className="h-3 w-3" />
+                      İşləyir — {formatDuration(timerElapsedMs)} — {timerLiveTotal.toFixed(2)} ₼
+                    </p>
+                  )}
                   <div className="mt-1 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={busy || !canEditProduct}
-                        onClick={() => void handleQuantityChange(line.id, line.quantity, -1)}
-                        className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-6 text-center text-sm font-semibold">{line.quantity}</span>
-                      <button
-                        type="button"
-                        disabled={busy || !canEditProduct}
-                        onClick={() => void handleQuantityChange(line.id, line.quantity, 1)}
-                        className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
+                    {line.isTimeBased ? (
+                      <div className="flex items-center gap-2">
+                        {isTimerRunning ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1 px-2 text-emerald-700"
+                            disabled={busy || !canEditProduct}
+                            onClick={() => void handleStopTimer(line.id)}
+                          >
+                            <Square className="h-3 w-3" />
+                            Dayandır
+                          </Button>
+                        ) : line.timeBasedStoppedAt != null ? (
+                          <span className="text-xs text-muted-foreground">Dayandırılıb</span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1 px-2"
+                            disabled={busy || !canEditProduct}
+                            onClick={() => void handleStartTimer(line.id)}
+                          >
+                            <Play className="h-3 w-3" />
+                            Başlat
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={busy || !canEditProduct}
+                          onClick={() => void handleQuantityChange(line.id, line.quantity, -1)}
+                          className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-semibold">{line.quantity}</span>
+                        <button
+                          type="button"
+                          disabled={busy || !canEditProduct}
+                          onClick={() => void handleQuantityChange(line.id, line.quantity, 1)}
+                          className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
                     {priceEditingLineId === line.id ? (
                       <div className="flex items-center gap-1">
                         <Input
@@ -835,7 +911,7 @@ export default function PosOrderPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">
-                        {canChangePrice && (
+                        {canChangePrice && !line.isTimeBased && (
                           <button
                             type="button"
                             onClick={() => startPriceEdit(line.id, line.unitPrice)}
@@ -844,7 +920,7 @@ export default function PosOrderPage() {
                             <Pencil className="h-3 w-3" />
                           </button>
                         )}
-                        <span className="text-sm font-semibold">{line.lineTotal.toFixed(2)} ₼</span>
+                        <span className="text-sm font-semibold">{timerLiveTotal.toFixed(2)} ₼</span>
                       </div>
                     )}
                   </div>

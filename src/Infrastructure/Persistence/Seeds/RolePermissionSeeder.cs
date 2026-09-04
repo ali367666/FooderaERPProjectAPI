@@ -73,7 +73,9 @@ public static class RolePermissionSeeder
                 AppPermissions.RestaurantSectionView, AppPermissions.RestaurantSectionCreate,
                 AppPermissions.RestaurantSectionUpdate, AppPermissions.RestaurantSectionDelete,
                 AppPermissions.PrinterView, AppPermissions.PrinterCreate, AppPermissions.PrinterUpdate,
-                AppPermissions.PrinterDelete, AppPermissions.PrinterPrint
+                AppPermissions.PrinterDelete, AppPermissions.PrinterPrint,
+                AppPermissions.FiscalDeviceView, AppPermissions.FiscalDeviceCreate,
+                AppPermissions.FiscalDeviceUpdate, AppPermissions.FiscalDeviceDelete
             }
         },
         {

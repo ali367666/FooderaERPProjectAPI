@@ -33,6 +33,7 @@ public class GetCompanySettingsBrandingQueryHandler
             }
             : new CompanySettingsBrandingResponse
             {
+                OpeningTime = settings.OpeningTime,
                 LoginLogoUrl = settings.LoginLogoUrl,
                 ReportLogoUrl = settings.ReportLogoUrl,
                 WallpaperUrl = settings.WallpaperUrl,

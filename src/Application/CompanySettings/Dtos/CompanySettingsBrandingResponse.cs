@@ -2,6 +2,7 @@ namespace Application.CompanySettings.Dtos;
 
 public class CompanySettingsBrandingResponse
 {
+    public TimeSpan? OpeningTime { get; set; }
     public string? LoginLogoUrl { get; set; }
     public string? ReportLogoUrl { get; set; }
     public string? WallpaperUrl { get; set; }

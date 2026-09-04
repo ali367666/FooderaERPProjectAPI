@@ -18,6 +18,9 @@ export type OrderLineDto = {
   parentLineId: number | null;
   holdUntilUtc: string | null;
   kitchenPrintedAt: string | null;
+  timeBasedStartedAt: string | null;
+  timeBasedStoppedAt: string | null;
+  isTimeBased: boolean;
 };
 
 export type PaymentMethod = "Cash" | "Card";
@@ -200,6 +203,11 @@ function normalizeOrder(raw: unknown): OrderDto | null {
             })(),
             holdUntilUtc: (pick(l, "holdUntilUtc", "HoldUntilUtc") as string | null | undefined) ?? null,
             kitchenPrintedAt: (pick(l, "kitchenPrintedAt", "KitchenPrintedAt") as string | null | undefined) ?? null,
+            timeBasedStartedAt:
+              (pick(l, "timeBasedStartedAt", "TimeBasedStartedAt") as string | null | undefined) ?? null,
+            timeBasedStoppedAt:
+              (pick(l, "timeBasedStoppedAt", "TimeBasedStoppedAt") as string | null | undefined) ?? null,
+            isTimeBased: Boolean(pick(l, "isTimeBased", "IsTimeBased") ?? false),
           } satisfies OrderLineDto;
         })
         .filter((line): line is OrderLineDto => line !== null)
@@ -442,6 +450,30 @@ export async function setOrderLineHold(id: number, holdMinutes: number | null): 
     return row;
   } catch (error) {
     throw toApiFormError(error, "Failed to set hold");
+  }
+}
+
+export async function startTimeBasedLine(id: number): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/lines/${id}/start-timer`);
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid start timer response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to start timer");
+  }
+}
+
+export async function stopTimeBasedLine(id: number): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/lines/${id}/stop-timer`);
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid stop timer response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to stop timer");
   }
 }
 

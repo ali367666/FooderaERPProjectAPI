@@ -154,6 +154,11 @@ const PERMISSION_LABELS: Record<string, string> = {
   "Counterparty.Create": "Kontragent yarat",
   "Counterparty.Update": "Kontragenti redaktə et",
   "Counterparty.Delete": "Kontragenti sil",
+
+  "FiscalDevice.View": "Fiskal kassalara bax",
+  "FiscalDevice.Create": "Fiskal kassa əlavə et",
+  "FiscalDevice.Update": "Fiskal kassanı redaktə et",
+  "FiscalDevice.Delete": "Fiskal kassanı sil",
 };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -187,6 +192,7 @@ const MODULE_LABELS: Record<string, string> = {
   RestaurantSection: "Restoran bölmələri",
   Printer: "Printerlər",
   Counterparty: "Kontragentlər",
+  FiscalDevice: "Fiskal kassalar",
 };
 
 export function translatePermissionLabel(name: string, fallback: string): string {

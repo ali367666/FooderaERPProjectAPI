@@ -19,6 +19,8 @@ public class OrderLine : CompanyEntity<int>
     public bool IsStockDeducted { get; set; }
     public DateTime? HoldUntilUtc { get; set; }
     public DateTime? KitchenPrintedAt { get; set; }
+    public DateTime? TimeBasedStartedAt { get; set; }
+    public DateTime? TimeBasedStoppedAt { get; set; }
 
     public OrderLineStatus Status { get; set; } = OrderLineStatus.Pending;
 

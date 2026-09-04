@@ -171,6 +171,7 @@ export async function updateCompanySettings(data: CompanySettingsInput): Promise
 }
 
 export type CompanySettingsBranding = {
+  openingTime: string | null;
   loginLogoUrl: string | null;
   reportLogoUrl: string | null;
   wallpaperUrl: string | null;
@@ -227,6 +228,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     Boolean(pick(raw, camel, pascal) ?? def);
 
   return {
+    openingTime: strOrNull("openingTime", "OpeningTime"),
     loginLogoUrl: strOrNull("loginLogoUrl", "LoginLogoUrl"),
     reportLogoUrl: strOrNull("reportLogoUrl", "ReportLogoUrl"),
     wallpaperUrl: strOrNull("wallpaperUrl", "WallpaperUrl"),

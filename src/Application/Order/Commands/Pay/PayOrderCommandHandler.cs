@@ -125,6 +125,9 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
                 LineTotal = x.LineTotal,
                 HoldUntilUtc = x.HoldUntilUtc,
                 KitchenPrintedAt = x.KitchenPrintedAt,
+                TimeBasedStartedAt = x.TimeBasedStartedAt,
+                TimeBasedStoppedAt = x.TimeBasedStoppedAt,
+                IsTimeBased = x.MenuItem.IsTimeBased,
                 PreparationType = x.PreparationType,
                 Status = x.Status.ToString(),
                 Note = x.Note

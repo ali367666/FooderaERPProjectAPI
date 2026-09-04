@@ -9,6 +9,7 @@ using Application.Orders.Commands.Cancel;
 using Application.Orders.Commands.Complete;
 using Application.OrderLines.Commands.Delete;
 using Application.OrderLines.Commands.SetHold;
+using Application.OrderLines.Commands.TimeBased;
 using Application.OrderLines.Commands.Update;
 using Application.Orders.Commands.Create;
 using Application.Orders.Commands.Delete;
@@ -109,6 +110,20 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<OrderResponse>> SetLineHold(int id, [FromQuery] int? holdMinutes)
     {
         var result = await _mediator.Send(new SetOrderLineHoldCommand(id, holdMinutes));
+        return Ok(result);
+    }
+    [Authorize(Policy = AppPermissions.PosEditProductInSale)]
+    [HttpPut("lines/{id:int}/start-timer")]
+    public async Task<ActionResult<OrderResponse>> StartTimeBasedLine(int id)
+    {
+        var result = await _mediator.Send(new StartTimeBasedLineCommand(id));
+        return Ok(result);
+    }
+    [Authorize(Policy = AppPermissions.PosEditProductInSale)]
+    [HttpPut("lines/{id:int}/stop-timer")]
+    public async Task<ActionResult<OrderResponse>> StopTimeBasedLine(int id)
+    {
+        var result = await _mediator.Send(new StopTimeBasedLineCommand(id));
         return Ok(result);
     }
     [Authorize(Policy = AppPermissions.PosDeleteProductInSale)]

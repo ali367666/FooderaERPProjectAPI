@@ -158,4 +158,9 @@ public static class AppPermissions
     public const string CounterpartyCreate = "Counterparty.Create";
     public const string CounterpartyUpdate = "Counterparty.Update";
     public const string CounterpartyDelete = "Counterparty.Delete";
+
+    public const string FiscalDeviceView = "FiscalDevice.View";
+    public const string FiscalDeviceCreate = "FiscalDevice.Create";
+    public const string FiscalDeviceUpdate = "FiscalDevice.Update";
+    public const string FiscalDeviceDelete = "FiscalDevice.Delete";
 }

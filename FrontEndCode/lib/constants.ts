@@ -29,6 +29,7 @@ import {
   Settings,
   Printer as PrinterIcon,
   LayoutTemplate,
+  Landmark,
 } from "lucide-react";
 
 export interface NavItem {
@@ -289,6 +290,12 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/printers",
         icon: PrinterIcon,
         permission: "Printer.View",
+      },
+      {
+        title: "Fiskal Kassalar",
+        href: "/dashboard/fiscal-devices",
+        icon: Landmark,
+        permission: "FiscalDevice.View",
       },
       {
         title: "Restoran Bölmələri",
