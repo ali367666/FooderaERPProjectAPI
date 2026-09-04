@@ -49,6 +49,7 @@ import {
 } from "@/lib/services/menu-category-service";
 import { getRestaurants } from "@/lib/services/restaurant-service";
 import { getPrinters, type Printer } from "@/lib/services/printer-service";
+import { uploadFile } from "@/lib/services/file-service";
 import { BarcodeSvg } from "@/components/barcode-svg";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { usePermissionSet, useHasPermission } from "@/hooks/use-auth-permissions";
@@ -120,6 +121,8 @@ export default function MenuItemsPage() {
   // Ümumi
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [menuCategoryId, setMenuCategoryId] = useState("");
   const [preparationType, setPreparationType] = useState<string>(String(PreparationType.Kitchen));
   const [itemTypeId, setItemTypeId] = useState("");
@@ -416,6 +419,7 @@ export default function MenuItemsPage() {
   const resetForm = () => {
     setName("");
     setDescription("");
+    setImageUrl(null);
     setMenuCategoryId("");
     setPreparationType(String(PreparationType.Kitchen));
     setItemTypeId("");
@@ -473,6 +477,7 @@ export default function MenuItemsPage() {
       setEditingId(item.id);
       setName(item.name || "");
       setDescription(item.description || "");
+      setImageUrl(item.imageUrl || null);
       setMenuCategoryId(String(item.menuCategoryId || ""));
       setPreparationType(String(item.preparationType ?? PreparationType.Kitchen));
       setItemTypeId(item.itemTypeId ? String(item.itemTypeId) : "");
@@ -637,6 +642,7 @@ export default function MenuItemsPage() {
     const basePayload = {
       name: trimmedName,
       description: description.trim() || null,
+      imageUrl: imageUrl?.trim() || null,
       price: priceNum,
       portion: portion.trim() || null,
       menuCategoryId: categoryId,
@@ -830,6 +836,39 @@ export default function MenuItemsPage() {
                 {getFieldErrorMessage(fieldErrors, "name") && (
                   <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "name")}</p>
                 )}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-foreground">Şəkil</label>
+                <div className="space-y-2">
+                  {imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={imageUrl}
+                      alt=""
+                      className="h-20 w-20 rounded border bg-muted object-cover"
+                    />
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    disabled={uploadingImage}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setUploadingImage(true);
+                      try {
+                        const url = await uploadFile(file);
+                        setImageUrl(url);
+                      } catch (err) {
+                        window.alert(err instanceof Error ? err.message : "Şəkil yüklənmədi");
+                      } finally {
+                        setUploadingImage(false);
+                      }
+                    }}
+                  />
+                  {uploadingImage && <p className="text-xs text-muted-foreground">Yüklənir...</p>}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

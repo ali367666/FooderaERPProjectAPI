@@ -2,8 +2,18 @@ import axios, { type InternalAxiosRequestConfig } from "axios";
 import { clearStoredAuth, getStoredRefreshToken, getStoredToken, persistAuth } from "@/lib/auth-client";
 import { readBaseResponseData } from "@/lib/api-base-response";
 
+function resolveApiBaseUrl(): string {
+  if (typeof window === "undefined") return "https://localhost:7145/api";
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return "https://localhost:7145/api";
+  // Accessed via a LAN IP (e.g. scanning a QR code from a phone) — the backend's
+  // self-signed HTTPS dev cert isn't trusted off the dev machine, so fall back to
+  // its plain-HTTP profile on the same host.
+  return `http://${host}:5167/api`;
+}
+
 export const api = axios.create({
-  baseURL: "https://localhost:7145/api",
+  baseURL: resolveApiBaseUrl(),
 });
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {

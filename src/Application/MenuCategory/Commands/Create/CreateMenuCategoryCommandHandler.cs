@@ -70,6 +70,9 @@ public class CreateMenuCategoryCommandHandler
             Description = string.IsNullOrWhiteSpace(request.Request.Description)
                 ? null
                 : request.Request.Description.Trim(),
+            ImageUrl = string.IsNullOrWhiteSpace(request.Request.ImageUrl)
+                ? null
+                : request.Request.ImageUrl.Trim(),
             IsActive = true,
             ParentCategoryId = request.Request.ParentCategoryId
         };

@@ -78,6 +78,9 @@ public class UpdateMenuCategoryCommandHandler
         entity.Description = string.IsNullOrWhiteSpace(request.Request.Description)
             ? null
             : request.Request.Description.Trim();
+        entity.ImageUrl = string.IsNullOrWhiteSpace(request.Request.ImageUrl)
+            ? null
+            : request.Request.ImageUrl.Trim();
         if (request.Request.ParentCategoryId == request.Id)
             throw new BadRequestException("Kateqoriya öz-özünün alt-kateqoriyası ola bilməz.");
 

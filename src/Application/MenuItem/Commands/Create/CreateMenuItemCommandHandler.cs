@@ -106,6 +106,9 @@ public class CreateMenuItemCommandHandler
             Description = string.IsNullOrWhiteSpace(request.Request.Description)
                 ? null
                 : request.Request.Description.Trim(),
+            ImageUrl = string.IsNullOrWhiteSpace(request.Request.ImageUrl)
+                ? null
+                : request.Request.ImageUrl.Trim(),
             Price = request.Request.Price,
             Portion = string.IsNullOrWhiteSpace(request.Request.Portion)
                 ? null

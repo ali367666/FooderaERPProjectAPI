@@ -23,6 +23,7 @@ import {
 } from "@/lib/services/menu-category-service";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
+import { uploadFile } from "@/lib/services/file-service";
 
 type MenuCategoryRow = {
   id: string;
@@ -47,6 +48,8 @@ export default function MenuCategoriesPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [parentCategoryId, setParentCategoryId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -156,6 +159,7 @@ export default function MenuCategoriesPage() {
   const resetForm = () => {
     setName("");
     setDescription("");
+    setImageUrl(null);
     setIsActive(true);
     setParentCategoryId(null);
     setEditingId(null);
@@ -175,6 +179,7 @@ export default function MenuCategoriesPage() {
       setEditingId(c.id);
       setName(c.name || "");
       setDescription(c.description || "");
+      setImageUrl(c.imageUrl || null);
       setIsActive(c.isActive);
       setParentCategoryId(c.parentCategoryId);
       setFieldErrors({});
@@ -220,6 +225,7 @@ export default function MenuCategoriesPage() {
           {
             name: trimmedName,
             description: description.trim() || null,
+            imageUrl: imageUrl?.trim() || null,
             isActive,
             parentCategoryId,
           },
@@ -229,6 +235,7 @@ export default function MenuCategoriesPage() {
         await createMenuCategory({
           name: trimmedName,
           description: description.trim() || null,
+          imageUrl: imageUrl?.trim() || null,
           parentCategoryId,
         });
       }
@@ -320,6 +327,35 @@ export default function MenuCategoriesPage() {
                   {getFieldErrorMessage(fieldErrors, "description")}
                 </p>
               )}
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Şəkil</label>
+              <div className="space-y-2">
+                {imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={imageUrl} alt="" className="h-20 w-20 rounded border bg-muted object-cover" />
+                )}
+                <Input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  disabled={uploadingImage}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setUploadingImage(true);
+                    try {
+                      const url = await uploadFile(file);
+                      setImageUrl(url);
+                    } catch (err) {
+                      window.alert(err instanceof Error ? err.message : "Şəkil yüklənmədi");
+                    } finally {
+                      setUploadingImage(false);
+                    }
+                  }}
+                />
+                {uploadingImage && <p className="text-xs text-muted-foreground">Yüklənir...</p>}
+              </div>
             </div>
 
             {isEditMode && (
