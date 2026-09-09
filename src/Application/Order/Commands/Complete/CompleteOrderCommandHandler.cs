@@ -67,6 +67,7 @@ public class CompleteOrderCommandHandler : IRequestHandler<CompleteOrderCommand,
             GuestCount = order.GuestCount,
             CounterpartyId = order.CounterpartyId,
             CounterpartyName = order.Counterparty?.Name,
+            CounterpartyDebtAmount = order.Counterparty?.CurrentDebtAmount,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = Math.Max(0, order.Lines
@@ -92,6 +93,9 @@ public class CompleteOrderCommandHandler : IRequestHandler<CompleteOrderCommand,
                 TimeBasedStartedAt = x.TimeBasedStartedAt,
                 TimeBasedStoppedAt = x.TimeBasedStoppedAt,
                 IsTimeBased = x.MenuItem.IsTimeBased,
+                IsWeightBased = Application.Common.Helpers.OrderLinePricing.IsWeightBased(x.MenuItem.UnitId),
+                IsGift = x.IsGift,
+                DiscountAmount = x.DiscountAmount,
                 Note = x.Note,
                 Status = x.Status.ToString()
             }).ToList()

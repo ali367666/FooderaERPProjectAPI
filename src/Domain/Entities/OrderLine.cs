@@ -16,6 +16,12 @@ public class OrderLine : CompanyEntity<int>
     public decimal LineTotal { get; set; }
     public PreparationType PreparationType { get; set; }
     public string? Note { get; set; }
+
+    /// <summary>Complimentary item — printed/shown, but contributes 0 to the order total.</summary>
+    public bool IsGift { get; set; }
+
+    /// <summary>Manual per-line discount (AZN) applied to this line only.</summary>
+    public decimal DiscountAmount { get; set; }
     public bool IsStockDeducted { get; set; }
     public DateTime? HoldUntilUtc { get; set; }
     public DateTime? KitchenPrintedAt { get; set; }

@@ -1,4 +1,5 @@
 using Application.Common.Exceptions;
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Orders.Dtos;
@@ -34,7 +35,7 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
         var defaultVatPercent = settings?.DefaultVatPercent;
 
         foreach (var line in order.Lines)
-            line.LineTotal = line.UnitPrice * line.Quantity;
+            line.LineTotal = OrderLinePricing.ComputeLineTotal(line);
 
         var totalAmount = order.Lines
             .DistinctBy(x => x.Id)

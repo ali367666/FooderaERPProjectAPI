@@ -66,6 +66,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 PrintKitchenOnPayment = settings.PrintKitchenOnPayment,
                 PrintShowPreview = settings.PrintShowPreview,
                 PrintGroupQuantities = settings.PrintGroupQuantities,
+                PrintKitchenGroupQuantities = settings.PrintKitchenGroupQuantities,
                 ReceiptShowTime = settings.ReceiptShowTime,
                 ReceiptShowWaiterName = settings.ReceiptShowWaiterName,
                 ReceiptShowTableName = settings.ReceiptShowTableName,

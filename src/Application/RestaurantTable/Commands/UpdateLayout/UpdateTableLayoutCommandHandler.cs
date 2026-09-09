@@ -56,6 +56,7 @@ public class UpdateTableLayoutCommandHandler
             Shape = table.Shape,
             Rotation = table.Rotation,
             HourlyRate = table.HourlyRate,
+            Note = table.Note,
             Type = table.Type
         };
     }

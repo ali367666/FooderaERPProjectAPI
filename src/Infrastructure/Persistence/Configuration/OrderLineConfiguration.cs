@@ -44,6 +44,13 @@ public class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
         builder.Property(x => x.LineTotal)
               .HasColumnType("decimal(18,2)");
 
+        builder.Property(x => x.DiscountAmount)
+              .HasColumnType("decimal(18,2)")
+              .HasDefaultValue(0m);
+
+        builder.Property(x => x.IsGift)
+              .HasDefaultValue(false);
+
         builder.HasOne(x => x.ParentLine)
             .WithMany()
             .HasForeignKey(x => x.ParentLineId)

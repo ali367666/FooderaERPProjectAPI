@@ -8,6 +8,7 @@ using Application.WarehouseStock.Dtos.Request;
 using Application.WarehouseStock.Dtos.Response;
 using Application.WarehouseStock.Queries.GetDocumentById;
 using Application.WarehouseStock.Queries.GetDocumentsByWarehouseId;
+using Application.WarehouseStock.Queries.GetPosBalances;
 using Application.WarehouseStock.Queries.SearchDocuments;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -122,6 +123,20 @@ public class WarehouseStockController : ControllerBase
     public async Task<ActionResult<BaseResponse>> PosAdjust([FromBody] PosAdjustWarehouseStockRequest request)
     {
         var result = await _mediator.Send(new PosAdjustWarehouseStockCommand(request));
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    [HttpGet("pos-balances")]
+    [Authorize(Policy = AppPermissions.PosWarehouseAmountChange)]
+    public async Task<ActionResult<BaseResponse<List<WarehouseStockBalanceResponse>>>> GetPosBalances(
+        [FromQuery] int restaurantId,
+        [FromQuery] string? search)
+    {
+        var result = await _mediator.Send(new GetPosWarehouseStockBalancesQuery(restaurantId, search));
 
         if (!result.Success)
             return BadRequest(result);

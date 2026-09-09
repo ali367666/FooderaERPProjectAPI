@@ -44,6 +44,7 @@ public class UpdateTableSectionCommandHandler : IRequestHandler<UpdateTableSecti
             Rotation = table.Rotation,
             SectionId = table.SectionId,
             HourlyRate = table.HourlyRate,
+            Note = table.Note,
             Type = table.Type
         };
     }

@@ -45,6 +45,7 @@ export type CompanySettings = {
   printKitchenOnPayment: boolean;
   printShowPreview: boolean;
   printGroupQuantities: boolean;
+  printKitchenGroupQuantities: boolean;
   receiptShowTime: boolean;
   receiptShowWaiterName: boolean;
   receiptShowTableName: boolean;
@@ -130,6 +131,7 @@ function normalize(item: unknown): CompanySettings | null {
     printKitchenOnPayment: bool("printKitchenOnPayment", "PrintKitchenOnPayment"),
     printShowPreview: bool("printShowPreview", "PrintShowPreview", true),
     printGroupQuantities: bool("printGroupQuantities", "PrintGroupQuantities", true),
+    printKitchenGroupQuantities: bool("printKitchenGroupQuantities", "PrintKitchenGroupQuantities"),
     receiptShowTime: bool("receiptShowTime", "ReceiptShowTime", true),
     receiptShowWaiterName: bool("receiptShowWaiterName", "ReceiptShowWaiterName", true),
     receiptShowTableName: bool("receiptShowTableName", "ReceiptShowTableName", true),
@@ -204,6 +206,7 @@ export type CompanySettingsBranding = {
   printKitchenOnPayment: boolean;
   printShowPreview: boolean;
   printGroupQuantities: boolean;
+  printKitchenGroupQuantities: boolean;
   receiptShowTime: boolean;
   receiptShowWaiterName: boolean;
   receiptShowTableName: boolean;
@@ -261,6 +264,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     printKitchenOnPayment: bool("printKitchenOnPayment", "PrintKitchenOnPayment"),
     printShowPreview: bool("printShowPreview", "PrintShowPreview", true),
     printGroupQuantities: bool("printGroupQuantities", "PrintGroupQuantities", true),
+    printKitchenGroupQuantities: bool("printKitchenGroupQuantities", "PrintKitchenGroupQuantities"),
     receiptShowTime: bool("receiptShowTime", "ReceiptShowTime", true),
     receiptShowWaiterName: bool("receiptShowWaiterName", "ReceiptShowWaiterName", true),
     receiptShowTableName: bool("receiptShowTableName", "ReceiptShowTableName", true),

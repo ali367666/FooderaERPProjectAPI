@@ -77,7 +77,10 @@ public static class RolePermissionSeeder
                 AppPermissions.FiscalDeviceView, AppPermissions.FiscalDeviceCreate,
                 AppPermissions.FiscalDeviceUpdate, AppPermissions.FiscalDeviceDelete,
                 AppPermissions.ScaleDeviceView, AppPermissions.ScaleDeviceCreate,
-                AppPermissions.ScaleDeviceUpdate, AppPermissions.ScaleDeviceDelete
+                AppPermissions.ScaleDeviceUpdate, AppPermissions.ScaleDeviceDelete,
+                AppPermissions.DeliveryIntegrationView, AppPermissions.DeliveryIntegrationCreate,
+                AppPermissions.DeliveryIntegrationUpdate, AppPermissions.DeliveryIntegrationDelete,
+                AppPermissions.CashRegisterView, AppPermissions.CashRegisterManage
             }
         },
         {

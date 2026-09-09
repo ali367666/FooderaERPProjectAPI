@@ -80,6 +80,7 @@ public class UpdateCompanySettingsCommandHandler
         settings.PrintKitchenOnPayment = dto.PrintKitchenOnPayment;
         settings.PrintShowPreview = dto.PrintShowPreview;
         settings.PrintGroupQuantities = dto.PrintGroupQuantities;
+        settings.PrintKitchenGroupQuantities = dto.PrintKitchenGroupQuantities;
         settings.ReceiptShowTime = dto.ReceiptShowTime;
         settings.ReceiptShowWaiterName = dto.ReceiptShowWaiterName;
         settings.ReceiptShowTableName = dto.ReceiptShowTableName;

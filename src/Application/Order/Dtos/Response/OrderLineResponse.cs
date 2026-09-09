@@ -16,6 +16,9 @@ public class OrderLineResponse
     public DateTime? TimeBasedStartedAt { get; set; }
     public DateTime? TimeBasedStoppedAt { get; set; }
     public bool IsTimeBased { get; set; }
+    public bool IsWeightBased { get; set; }
+    public bool IsGift { get; set; }
+    public decimal DiscountAmount { get; set; }
     public string? Note { get; set; }
     public PreparationType PreparationType { get; set; }
     public string Status { get; set; } = default!;

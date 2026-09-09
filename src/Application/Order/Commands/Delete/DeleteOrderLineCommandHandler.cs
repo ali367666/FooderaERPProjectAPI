@@ -219,6 +219,7 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
             GuestCount = updatedOrder.GuestCount,
             CounterpartyId = updatedOrder.CounterpartyId,
             CounterpartyName = updatedOrder.Counterparty?.Name,
+            CounterpartyDebtAmount = updatedOrder.Counterparty?.CurrentDebtAmount,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,
@@ -241,6 +242,9 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
                 TimeBasedStartedAt = x.TimeBasedStartedAt,
                 TimeBasedStoppedAt = x.TimeBasedStoppedAt,
                 IsTimeBased = x.MenuItem.IsTimeBased,
+                IsWeightBased = Application.Common.Helpers.OrderLinePricing.IsWeightBased(x.MenuItem.UnitId),
+                IsGift = x.IsGift,
+                DiscountAmount = x.DiscountAmount,
                 Note = x.Note,
                 Status = x.Status.ToString(),
                 ParentLineId = x.ParentLineId

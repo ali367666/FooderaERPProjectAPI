@@ -13,6 +13,7 @@ import {
   Settings,
   Clock,
   History,
+  Boxes,
 } from "lucide-react";
 import PosAuthGuard from "@/components/pos/pos-auth-guard";
 import { Button } from "@/components/ui/button";
@@ -38,11 +39,12 @@ import {
 import { getCurrentShift, openShift, closeShift, type Shift, type ZReport } from "@/lib/services/shift-service";
 
 const TABS = [
-  { href: "/pos", label: "Masalar", icon: LayoutGrid, permission: null as string | null, module: null as keyof CompanySettingsBranding | null },
-  { href: "/pos/orders", label: "Sifarişlər", icon: ClipboardList, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null },
-  { href: "/pos/reservations", label: "Rezervasiyalar", icon: CalendarCheck, permission: "Reservation.View", module: "moduleRezervasyon" as keyof CompanySettingsBranding | null },
-  { href: "/pos/kitchen", label: "Mətbəx", icon: KitchenIcon, permission: "Kitchen.View", module: null as keyof CompanySettingsBranding | null },
-  { href: "/pos/orders/history", label: "Köhnə qəbzlər", icon: History, permission: "Pos.PrintOldReceipt", module: null as keyof CompanySettingsBranding | null },
+  { href: "/pos", label: "Masalar", storeLabel: "Satış", icon: LayoutGrid, permission: null as string | null, module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
+  { href: "/pos/orders", label: "Sifarişlər", storeLabel: "Satışlar", icon: ClipboardList, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
+  { href: "/pos/reservations", label: "Rezervasiyalar", storeLabel: "Rezervasiyalar", icon: CalendarCheck, permission: "Reservation.View", module: "moduleRezervasyon" as keyof CompanySettingsBranding | null, hideInStoreMode: true },
+  { href: "/pos/kitchen", label: "Mətbəx", storeLabel: "Mətbəx", icon: KitchenIcon, permission: "Kitchen.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: true },
+  { href: "/pos/orders/history", label: "Köhnə qəbzlər", storeLabel: "Köhnə çeklər", icon: History, permission: "Pos.PrintOldReceipt", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
+  { href: "/pos/warehouse-adjust", label: "Anbar düzəlişi", storeLabel: "Anbar düzəlişi", icon: Boxes, permission: "Pos.WarehouseAmountChange", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
 ];
 
 export default function PosLayout({ children }: { children: React.ReactNode }) {
@@ -67,11 +69,13 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
     router.replace("/pos-login");
   };
 
+  const isStoreMode = branding?.moduleDataSecimi === true;
   const showTabs = !pathname.startsWith("/pos/order");
   const hasOrdersView = useHasPermission("Orders.View");
   const hasReservationView = useHasPermission("Reservation.View");
   const hasKitchenView = useHasPermission("Kitchen.View");
   const hasPrintOldReceipt = useHasPermission("Pos.PrintOldReceipt");
+  const hasWarehouseAmountChange = useHasPermission("Pos.WarehouseAmountChange");
   const canAccessSettings = useHasPermission("Pos.AccessSettings");
   const canZReport = useHasPermission("Pos.ZReport");
   const permissionMap: Record<string, boolean> = {
@@ -79,6 +83,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
     "Reservation.View": hasReservationView,
     "Kitchen.View": hasKitchenView,
     "Pos.PrintOldReceipt": hasPrintOldReceipt,
+    "Pos.WarehouseAmountChange": hasWarehouseAmountChange,
   };
 
   const [shift, setShift] = useState<Shift | null>(null);
@@ -215,6 +220,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
             {showTabs && (
               <nav className="flex shrink-0 gap-1 border-b bg-background px-3 py-2">
                 {TABS.filter((tab) => {
+                  if (isStoreMode && tab.hideInStoreMode) return false;
                   if (tab.module && branding && branding[tab.module] === false) return false;
                   return !tab.permission || permissionMap[tab.permission];
                 }).map((tab) => {
@@ -230,7 +236,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
                       )}
                     >
                       <Icon className="h-4 w-4" />
-                      {tab.label}
+                      {isStoreMode ? tab.storeLabel : tab.label}
                     </Link>
                   );
                 })}

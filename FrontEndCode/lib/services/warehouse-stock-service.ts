@@ -215,3 +215,61 @@ export async function deleteWarehouseStockDocument(id: number): Promise<void> {
     throw toApiFormError(error, "Failed to delete warehouse stock document");
   }
 }
+
+export type PosWarehouseBalance = {
+  id: number;
+  warehouseId: number;
+  warehouseName: string;
+  stockItemId: number;
+  stockItemName: string;
+  quantity: number;
+  unitId: number;
+};
+
+function normalizePosBalance(item: unknown): PosWarehouseBalance | null {
+  if (!item || typeof item !== "object") return null;
+  const raw = item as Record<string, unknown>;
+  const id = Number(raw.id ?? raw.Id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  return {
+    id,
+    warehouseId: Number(raw.warehouseId ?? raw.WarehouseId ?? 0),
+    warehouseName: String(raw.warehouseName ?? raw.WarehouseName ?? ""),
+    stockItemId: Number(raw.stockItemId ?? raw.StockItemId ?? 0),
+    stockItemName: String(raw.stockItemName ?? raw.StockItemName ?? ""),
+    quantity: Number(raw.quantity ?? raw.Quantity ?? 0),
+    unitId: Number(raw.unitId ?? raw.UnitId ?? 0),
+  };
+}
+
+export async function getPosWarehouseBalances(
+  restaurantId: number,
+  search?: string,
+): Promise<PosWarehouseBalance[]> {
+  try {
+    const response = await api.get<unknown>("/WarehouseStock/pos-balances", {
+      params: { restaurantId, search: search?.trim() || undefined },
+    });
+    assertApiSuccess(response.data);
+    const list = readBaseResponseList<unknown>(response.data);
+    return list
+      .map((row) => normalizePosBalance(row))
+      .filter((row): row is PosWarehouseBalance => row !== null);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to fetch warehouse balances");
+  }
+}
+
+export async function posAdjustWarehouseStock(payload: {
+  warehouseId: number;
+  stockItemId: number;
+  newQuantity: number;
+  unitId: number;
+}): Promise<void> {
+  try {
+    const response = await api.post<unknown>("/WarehouseStock/pos-adjust", payload);
+    assertApiSuccess(response.data);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to adjust warehouse stock");
+  }
+}

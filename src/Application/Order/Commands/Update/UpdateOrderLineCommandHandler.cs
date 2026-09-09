@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -135,7 +136,16 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         line.UnitPrice = request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
             ? request.Request.UnitPrice.Value
             : line.MenuItem.StationPrice ?? line.MenuItem.Price;
-        line.LineTotal = line.UnitPrice * line.Quantity;
+
+        if (_currentUserService.HasPermission(Domain.Constants.AppPermissions.DiscountApply))
+        {
+            if (request.Request.IsGift.HasValue)
+                line.IsGift = request.Request.IsGift.Value;
+            if (request.Request.DiscountAmount.HasValue)
+                line.DiscountAmount = Math.Max(0, request.Request.DiscountAmount.Value);
+        }
+
+        line.LineTotal = OrderLinePricing.ComputeLineTotal(line);
 
         if (quantityChanged)
         {
@@ -284,6 +294,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             GuestCount = updatedOrder.GuestCount,
             CounterpartyId = updatedOrder.CounterpartyId,
             CounterpartyName = updatedOrder.Counterparty?.Name,
+            CounterpartyDebtAmount = updatedOrder.Counterparty?.CurrentDebtAmount,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,
@@ -307,6 +318,9 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
                 TimeBasedStartedAt = x.TimeBasedStartedAt,
                 TimeBasedStoppedAt = x.TimeBasedStoppedAt,
                 IsTimeBased = x.MenuItem.IsTimeBased,
+                IsWeightBased = Application.Common.Helpers.OrderLinePricing.IsWeightBased(x.MenuItem.UnitId),
+                IsGift = x.IsGift,
+                DiscountAmount = x.DiscountAmount,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString(),

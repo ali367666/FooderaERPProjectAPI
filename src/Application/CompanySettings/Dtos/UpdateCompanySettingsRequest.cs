@@ -43,6 +43,7 @@ public class UpdateCompanySettingsRequest
     public bool PrintKitchenOnPayment { get; set; }
     public bool PrintShowPreview { get; set; } = true;
     public bool PrintGroupQuantities { get; set; } = true;
+    public bool PrintKitchenGroupQuantities { get; set; }
     public bool ReceiptShowTime { get; set; } = true;
     public bool ReceiptShowWaiterName { get; set; } = true;
     public bool ReceiptShowTableName { get; set; } = true;

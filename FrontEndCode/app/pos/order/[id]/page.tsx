@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Clock, Minus, Pencil, Play, Plus, Printer, Receipt, Square, Trash2, User, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Clock, Gift, Minus, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Trash2, User, UserCog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,6 +35,9 @@ import {
   stopTimeBasedLine,
   startTableRental,
   stopTableRental,
+  applyDiscountToOrder,
+  removeDiscountFromOrder,
+  updateOrder,
   type OrderDto,
   type OrderLineDto,
   type OrderReceiptDto,
@@ -42,8 +46,13 @@ import {
 } from "@/lib/services/order-service";
 import { getCounterparties, type Counterparty } from "@/lib/services/counterparty-service";
 import { getMenuCategories, type MenuCategory } from "@/lib/services/menu-category-service";
-import { getMenuItems, getMenuItemAvailability, type MenuItem } from "@/lib/services/menu-item-service";
-import { getRestaurantTables, type RestaurantTable } from "@/lib/services/restaurant-table-service";
+import { getMenuItems, getMenuItemAvailability, UnitOfMeasure, type MenuItem } from "@/lib/services/menu-item-service";
+import {
+  getRestaurantTables,
+  getRestaurantTableById,
+  updateRestaurantTable,
+  type RestaurantTable,
+} from "@/lib/services/restaurant-table-service";
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
 import { getPrinters, printToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
@@ -103,6 +112,17 @@ export default function PosOrderPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
   const [activeSubCategoryId, setActiveSubCategoryId] = useState<number | null>(null);
+  const [productSearch, setProductSearch] = useState("");
+  const [weightDialogItem, setWeightDialogItem] = useState<MenuItem | null>(null);
+  const [weightDialogLineId, setWeightDialogLineId] = useState<number | null>(null);
+  const [weightKgInput, setWeightKgInput] = useState("");
+  const [weightBusy, setWeightBusy] = useState(false);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [noteInput, setNoteInput] = useState("");
+  const [noteBusy, setNoteBusy] = useState(false);
+  const [rateEditing, setRateEditing] = useState(false);
+  const [rateInput, setRateInput] = useState("");
+  const [rateBusy, setRateBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -118,6 +138,8 @@ export default function PosOrderPage() {
   const [reassignOpen, setReassignOpen] = useState(false);
   const [employeesList, setEmployeesList] = useState<Employee[]>([]);
   const [priceEditingLineId, setPriceEditingLineId] = useState<number | null>(null);
+  const [discountEditingLineId, setDiscountEditingLineId] = useState<number | null>(null);
+  const [discountAmountInput, setDiscountAmountInput] = useState("");
   const [priceInput, setPriceInput] = useState("");
   const [holdLineId, setHoldLineId] = useState<number | null>(null);
   const [holdMinutesInput, setHoldMinutesInput] = useState("");
@@ -127,12 +149,18 @@ export default function PosOrderPage() {
   const [counterpartySearch, setCounterpartySearch] = useState("");
   const [counterpartyBusy, setCounterpartyBusy] = useState(false);
 
+  const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
+  const [discountCodeInput, setDiscountCodeInput] = useState("");
+  const [discountBusy, setDiscountBusy] = useState(false);
+
+  const isStoreMode = branding?.moduleDataSecimi === true;
   const canEditProduct = useHasPermission("Pos.EditProductInSale");
   const canDeleteProduct = useHasPermission("Pos.DeleteProductInSale");
   const canDeleteOrder = useHasPermission("Pos.DeleteOrder");
   const canMoveTable = useHasPermission("Pos.MoveTable");
   const canRedirectUser = useHasPermission("Pos.RedirectUser");
   const canChangePrice = useHasPermission("Pos.ChangePrice");
+  const canApplyDiscount = useHasPermission("Discount.Apply");
   const canTableServiceCharge = useHasPermission("Pos.TableServiceCharge");
   const canPrint = useHasPermission("Printer.Print");
   const canPay = useHasPermission("Orders.Pay");
@@ -349,6 +377,32 @@ export default function PosOrderPage() {
     return ownItems;
   }, [items, ownItems, activeSubCategoryId]);
 
+  const productSearchTrimmed = productSearch.trim();
+  const searchResults = useMemo(() => {
+    if (!productSearchTrimmed) return [];
+    const term = productSearchTrimmed.toLowerCase();
+    return items.filter((i) => {
+      if (i.hideFromPosSearch) return false;
+      const nameMatch = i.name.toLowerCase().includes(term);
+      const codeMatch =
+        !i.hideBarcode &&
+        ((i.barcode != null && i.barcode === productSearchTrimmed) ||
+          (i.weightCode != null && i.weightCode === productSearchTrimmed));
+      return nameMatch || codeMatch;
+    });
+  }, [items, productSearchTrimmed]);
+
+  const handleBarcodeEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    const exact = items.find(
+      (i) => !i.hideBarcode && (i.barcode === productSearchTrimmed || i.weightCode === productSearchTrimmed),
+    );
+    if (exact) {
+      void handleAddItem(exact.id);
+      setProductSearch("");
+    }
+  };
+
   const handleAddItem = async (menuItemId: number) => {
     if (!order || busy || outOfStockIds.has(menuItemId)) return;
     setBusy(true);
@@ -360,6 +414,52 @@ export default function PosOrderPage() {
       toast.error(err instanceof Error ? err.message : "Məhsul əlavə olunmadı");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const isWeightBasedItem = (item: MenuItem) =>
+    item.unitId === UnitOfMeasure.Kg || item.unitId === UnitOfMeasure.Gram;
+
+  const handleItemClick = (item: MenuItem) => {
+    if (isWeightBasedItem(item)) {
+      setWeightDialogItem(item);
+      setWeightDialogLineId(null);
+      setWeightKgInput("");
+      return;
+    }
+    void handleAddItem(item.id);
+  };
+
+  const openReweighDialog = (line: OrderLineDto) => {
+    const menuItem = items.find((i) => i.id === line.menuItemId);
+    if (!menuItem) return;
+    setWeightDialogItem(menuItem);
+    setWeightDialogLineId(line.id);
+    setWeightKgInput((line.quantity / 1000).toFixed(3));
+  };
+
+  const handleConfirmWeight = async () => {
+    if (!order || !weightDialogItem) return;
+    const kg = Number(weightKgInput);
+    if (!Number.isFinite(kg) || kg <= 0) {
+      toast.error("Çəki düzgün deyil");
+      return;
+    }
+    const grams = Math.round(kg * 1000);
+    setWeightBusy(true);
+    try {
+      const updated = weightDialogLineId != null
+        ? await updateOrderLine({ id: weightDialogLineId, quantity: grams })
+        : await addOrderLine({ orderId: order.id, menuItemId: weightDialogItem.id, quantity: grams });
+      setOrder(updated);
+      void loadAvailability(order.restaurantId);
+      setWeightDialogItem(null);
+      setWeightDialogLineId(null);
+      setWeightKgInput("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Çəki tətbiq edilmədi");
+    } finally {
+      setWeightBusy(false);
     }
   };
 
@@ -634,6 +734,94 @@ export default function PosOrderPage() {
     }
   };
 
+  const handleApplyDiscount = async () => {
+    if (!order || !discountCodeInput.trim()) return;
+    setDiscountBusy(true);
+    try {
+      const updated = await applyDiscountToOrder(order.id, discountCodeInput.trim());
+      setOrder(updated);
+      setDiscountDialogOpen(false);
+      setDiscountCodeInput("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Endirim tətbiq edilmədi");
+    } finally {
+      setDiscountBusy(false);
+    }
+  };
+
+  const handleRemoveDiscount = async () => {
+    if (!order) return;
+    setDiscountBusy(true);
+    try {
+      const updated = await removeDiscountFromOrder(order.id);
+      setOrder(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Endirim silinmədi");
+    } finally {
+      setDiscountBusy(false);
+    }
+  };
+
+  const openNoteDialog = () => {
+    if (!order) return;
+    setNoteInput(order.note ?? "");
+    setNoteDialogOpen(true);
+  };
+
+  const handleSaveNote = async () => {
+    if (!order) return;
+    setNoteBusy(true);
+    try {
+      const updated = await updateOrder({
+        id: order.id,
+        restaurantId: order.restaurantId,
+        tableId: order.tableId,
+        waiterId: order.waiterId,
+        note: noteInput.trim() || null,
+      });
+      setOrder(updated);
+      setNoteDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Qeyd saxlanılmadı");
+    } finally {
+      setNoteBusy(false);
+    }
+  };
+
+  const startRateEdit = () => {
+    if (!order?.tableHourlyRate) return;
+    setRateInput(order.tableHourlyRate.toFixed(2));
+    setRateEditing(true);
+  };
+
+  const handleSaveRate = async () => {
+    if (!order) return;
+    const rate = Number(rateInput);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      toast.error("Saatlıq qiymət düzgün deyil");
+      return;
+    }
+    setRateBusy(true);
+    try {
+      const table = await getRestaurantTableById(order.tableId);
+      await updateRestaurantTable(order.tableId, {
+        restaurantId: table.restaurantId,
+        name: table.name,
+        capacity: table.capacity,
+        isActive: table.isActive,
+        hourlyRate: rate,
+        note: table.note,
+        type: table.type,
+      });
+      await load();
+      setRateEditing(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Saatlıq qiymət dəyişdirilmədi");
+    } finally {
+      setRateBusy(false);
+    }
+  };
+
   const filteredCounterparties = useMemo(() => {
     const term = counterpartySearch.trim().toLowerCase();
     if (!term) return counterparties;
@@ -658,6 +846,41 @@ export default function PosOrderPage() {
       setPriceEditingLineId(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Qiymət dəyişdirilmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startDiscountEdit = (lineId: number, currentDiscount: number) => {
+    setDiscountEditingLineId(lineId);
+    setDiscountAmountInput(currentDiscount > 0 ? currentDiscount.toFixed(2) : "");
+  };
+
+  const handleSaveDiscount = async (lineId: number, quantity: number) => {
+    const amount = Number(discountAmountInput) || 0;
+    if (amount < 0) {
+      toast.error("Endirim məbləği düzgün deyil");
+      return;
+    }
+    setBusy(true);
+    try {
+      const updated = await updateOrderLine({ id: lineId, quantity, discountAmount: amount });
+      setOrder(updated);
+      setDiscountEditingLineId(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Endirim tətbiq edilmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleToggleGift = async (lineId: number, quantity: number, isGift: boolean) => {
+    setBusy(true);
+    try {
+      const updated = await updateOrderLine({ id: lineId, quantity, isGift });
+      setOrder(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Hədiyyə statusu dəyişdirilmədi");
     } finally {
       setBusy(false);
     }
@@ -702,6 +925,35 @@ export default function PosOrderPage() {
             <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
               <User className="h-3 w-3" />
               {order.counterpartyName}
+              {order.counterpartyDebtAmount != null && order.counterpartyDebtAmount > 0 && (
+                <span className="text-destructive">— borc: {order.counterpartyDebtAmount.toFixed(2)} ₼</span>
+              )}
+            </span>
+          )}
+          {order.discountCode && (
+            <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
+              <Tag className="h-3 w-3" />
+              {order.discountCode} (-{order.discountAmount.toFixed(2)} ₼)
+              {!isPaid && (
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveDiscount()}
+                  disabled={discountBusy}
+                  className="ml-0.5 hover:text-blue-950"
+                  title="Endirimi sil"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </span>
+          )}
+          {order.note && (
+            <span
+              className="flex max-w-[160px] items-center gap-1 truncate rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
+              title={order.note}
+            >
+              <StickyNote className="h-3 w-3 shrink-0" />
+              {order.note}
             </span>
           )}
           <div className="ml-auto flex items-center gap-1">
@@ -711,13 +963,31 @@ export default function PosOrderPage() {
                 Müştəri seç
               </Button>
             )}
-            {!isPaid && canMoveTable && (
+            {!isPaid && canApplyDiscount && !order.discountCode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDiscountCodeInput("");
+                  setDiscountDialogOpen(true);
+                }}
+                disabled={busy}
+              >
+                <Tag className="mr-1 h-3.5 w-3.5" />
+                Endirim tətbiq et
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={openNoteDialog} disabled={busy}>
+              <StickyNote className="mr-1 h-3.5 w-3.5" />
+              Qeyd
+            </Button>
+            {!isPaid && !isStoreMode && canMoveTable && (
               <Button variant="outline" size="sm" onClick={() => void openMoveTableDialog()} disabled={busy}>
                 <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
                 Masanı dəyiş
               </Button>
             )}
-            {!isPaid && canRedirectUser && (
+            {!isPaid && !isStoreMode && canRedirectUser && (
               <Button variant="outline" size="sm" onClick={() => void openReassignDialog()} disabled={busy}>
                 <UserCog className="mr-1 h-3.5 w-3.5" />
                 Ofisiantı dəyiş
@@ -738,9 +1008,33 @@ export default function PosOrderPage() {
               isRentalRunning ? "bg-emerald-50" : "bg-muted/40",
             )}
           >
-            <span className="text-sm font-medium">
-              Saatlıq icarə — {order.tableHourlyRate.toFixed(2)} ₼/saat
-            </span>
+            {rateEditing ? (
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium">Saatlıq icarə —</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  autoFocus
+                  value={rateInput}
+                  onChange={(e) => setRateInput(e.target.value)}
+                  className="h-7 w-20 text-sm"
+                />
+                <span className="text-sm text-muted-foreground">₼/saat</span>
+                <Button size="sm" className="h-7 px-2" disabled={rateBusy} onClick={() => void handleSaveRate()}>
+                  OK
+                </Button>
+              </div>
+            ) : (
+              <span className="flex items-center gap-1 text-sm font-medium">
+                Saatlıq icarə — {order.tableHourlyRate.toFixed(2)} ₼/saat
+                {canChangePrice && !isRentalRunning && !isPaid && (
+                  <button type="button" onClick={startRateEdit} className="text-muted-foreground hover:text-primary">
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+              </span>
+            )}
             {isRentalRunning ? (
               <>
                 <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700">
@@ -780,7 +1074,26 @@ export default function PosOrderPage() {
             )}
           </div>
         )}
-        <div className="flex gap-2 overflow-x-auto border-b bg-background px-3 py-2">
+        <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <Input
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+            onKeyDown={handleBarcodeEnter}
+            placeholder="Məhsul axtar və ya barkod skan et..."
+            className="h-8"
+          />
+          {productSearch && (
+            <button
+              type="button"
+              onClick={() => setProductSearch("")}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <div className={cn("flex gap-2 overflow-x-auto border-b bg-background px-3 py-2", productSearchTrimmed && "hidden")}>
           {topLevelCategories.map((cat) => (
             <button
               key={cat.id}
@@ -802,6 +1115,41 @@ export default function PosOrderPage() {
           ))}
         </div>
         <div className="flex-1 overflow-y-auto p-3">
+          {productSearchTrimmed ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {searchResults.map((item) => {
+                const isOutOfStock = outOfStockIds.has(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={busy || isOutOfStock}
+                    onClick={() => handleItemClick(item)}
+                    className={cn(
+                      "relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50",
+                      isOutOfStock && "bg-muted grayscale",
+                    )}
+                  >
+                    {isOutOfStock && (
+                      <span className="absolute right-1 top-1 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
+                        Bitib
+                      </span>
+                    )}
+                    <span className="text-sm font-semibold leading-tight">{item.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {(item.stationPrice ?? item.price).toFixed(2)} ₼
+                    </span>
+                  </button>
+                );
+              })}
+              {searchResults.length === 0 && (
+                <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                  Nəticə tapılmadı
+                </p>
+              )}
+            </div>
+          ) : (
+          <>
           {activeSubCategoryId != null && (
             <button
               type="button"
@@ -837,7 +1185,7 @@ export default function PosOrderPage() {
                   key={item.id}
                   type="button"
                   disabled={busy || isOutOfStock}
-                  onClick={() => void handleAddItem(item.id)}
+                  onClick={() => handleItemClick(item)}
                   className={cn(
                     "relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50",
                     isOutOfStock && "bg-muted grayscale",
@@ -861,6 +1209,8 @@ export default function PosOrderPage() {
               </p>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
 
@@ -891,8 +1241,47 @@ export default function PosOrderPage() {
               return (
                 <div key={line.id} className="rounded-lg border p-2">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-medium">{line.menuItemName}</span>
+                    <span className="text-sm font-medium">
+                      {line.menuItemName}
+                      {line.isGift && (
+                        <Badge className="ml-1.5 bg-pink-100 text-pink-800 hover:bg-pink-100">
+                          <Gift className="mr-1 h-3 w-3" />
+                          Hədiyyə
+                        </Badge>
+                      )}
+                      {!line.isGift && line.discountAmount > 0 && (
+                        <Badge className="ml-1.5 bg-blue-100 text-blue-800 hover:bg-blue-100">
+                          -{line.discountAmount.toFixed(2)} ₼
+                        </Badge>
+                      )}
+                    </span>
                     <div className="flex items-center gap-2">
+                      {canApplyDiscount && !line.isTimeBased && (
+                        <button
+                          type="button"
+                          onClick={() => void handleToggleGift(line.id, line.quantity, !line.isGift)}
+                          className={cn(
+                            "text-muted-foreground hover:text-pink-600",
+                            line.isGift && "text-pink-600 hover:text-pink-700",
+                          )}
+                          title={line.isGift ? "Hədiyyədən çıxar" : "Hədiyyə et"}
+                        >
+                          <Gift className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canApplyDiscount && !line.isTimeBased && !line.isGift && (
+                        <button
+                          type="button"
+                          onClick={() => startDiscountEdit(line.id, line.discountAmount)}
+                          className={cn(
+                            "text-muted-foreground hover:text-blue-600",
+                            line.discountAmount > 0 && "text-blue-600 hover:text-blue-700",
+                          )}
+                          title="Endirim tətbiq et"
+                        >
+                          <Tag className="h-4 w-4" />
+                        </button>
+                      )}
                       {canEditProduct &&
                         line.status !== "InPreparation" &&
                         line.status !== "Ready" &&
@@ -964,6 +1353,21 @@ export default function PosOrderPage() {
                           </Button>
                         )}
                       </div>
+                    ) : line.isWeightBased ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{(line.quantity / 1000).toFixed(3)} kq</span>
+                        {canEditProduct && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => openReweighDialog(line)}
+                            className="text-muted-foreground hover:text-primary"
+                            title="Çəkini dəyiş"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <div className="flex items-center gap-2">
                         <button
@@ -996,6 +1400,22 @@ export default function PosOrderPage() {
                           className="h-7 w-20 text-right text-sm"
                         />
                         <Button size="sm" className="h-7 px-2" disabled={busy} onClick={() => void handleSavePrice(line.id, line.quantity)}>
+                          OK
+                        </Button>
+                      </div>
+                    ) : discountEditingLineId === line.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          autoFocus
+                          value={discountAmountInput}
+                          onChange={(e) => setDiscountAmountInput(e.target.value)}
+                          placeholder="Endirim ₼"
+                          className="h-7 w-24 text-right text-sm"
+                        />
+                        <Button size="sm" className="h-7 px-2" disabled={busy} onClick={() => void handleSaveDiscount(line.id, line.quantity)}>
                           OK
                         </Button>
                       </div>
@@ -1104,7 +1524,7 @@ export default function PosOrderPage() {
                 />
               </div>
             )}
-            <div className="grid grid-cols-2 gap-2">
+            <div className={cn("grid gap-2", order.counterpartyId != null ? "grid-cols-3" : "grid-cols-2")}>
               <Button
                 type="button"
                 variant={paymentMethod === "Cash" ? "default" : "outline"}
@@ -1122,7 +1542,28 @@ export default function PosOrderPage() {
               >
                 Kart
               </Button>
+              {order.counterpartyId != null && (
+                <Button
+                  type="button"
+                  variant={paymentMethod === "Credit" ? "default" : "outline"}
+                  onClick={() => {
+                    setPaymentMethod("Credit");
+                    setPaidAmountInput(totalWithService.toFixed(2));
+                  }}
+                >
+                  Borca yaz
+                </Button>
+              )}
             </div>
+            {paymentMethod === "Credit" && (
+              <p className="text-sm text-muted-foreground">
+                {order.counterpartyName} adına {totalWithService.toFixed(2)} ₼ borc yazılacaq
+                {order.counterpartyDebtAmount != null && order.counterpartyDebtAmount > 0 && (
+                  <> (əvvəlki borc: {order.counterpartyDebtAmount.toFixed(2)} ₼)</>
+                )}
+                .
+              </p>
+            )}
             {paymentMethod === "Cash" && (
               <div className="space-y-2">
                 <Label htmlFor="paid-amount">Alınan məbləğ</Label>
@@ -1336,6 +1777,95 @@ export default function PosOrderPage() {
               <p className="py-4 text-center text-sm text-muted-foreground">İşçi tapılmadı</p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Sifariş qeydi</DialogTitle>
+            <DialogDescription>Bu qeyd sifarişlə birlikdə saxlanılır.</DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={noteInput}
+            onChange={(e) => setNoteInput(e.target.value)}
+            placeholder="məs. Müştəri allergiyası var"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNoteDialogOpen(false)} disabled={noteBusy}>
+              Ləğv et
+            </Button>
+            <Button onClick={() => void handleSaveNote()} disabled={noteBusy}>
+              Saxla
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={weightDialogItem != null} onOpenChange={(o) => !o && setWeightDialogItem(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{weightDialogItem?.name}</DialogTitle>
+            <DialogDescription>
+              Tərəzidə göstərilən çəkini kq olaraq daxil edin
+              {weightDialogItem && (
+                <> — {(weightDialogItem.stationPrice ?? weightDialogItem.price).toFixed(2)} ₼/kq</>
+              )}
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="number"
+            min={0}
+            step="0.001"
+            autoFocus
+            placeholder="0.000"
+            value={weightKgInput}
+            onChange={(e) => setWeightKgInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleConfirmWeight();
+            }}
+          />
+          {weightDialogItem && Number(weightKgInput) > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Cəm: {((weightDialogItem.stationPrice ?? weightDialogItem.price) * Number(weightKgInput)).toFixed(2)} ₼
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWeightDialogItem(null)} disabled={weightBusy}>
+              Ləğv et
+            </Button>
+            <Button onClick={() => void handleConfirmWeight()} disabled={weightBusy || !(Number(weightKgInput) > 0)}>
+              {weightDialogLineId != null ? "Yenilə" : "Əlavə et"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={discountDialogOpen} onOpenChange={setDiscountDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Endirim tətbiq et</DialogTitle>
+            <DialogDescription>Endirim kodunu daxil edin.</DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Endirim kodu"
+            autoFocus
+            value={discountCodeInput}
+            onChange={(e) => setDiscountCodeInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleApplyDiscount();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDiscountDialogOpen(false)} disabled={discountBusy}>
+              Ləğv et
+            </Button>
+            <Button onClick={() => void handleApplyDiscount()} disabled={discountBusy || !discountCodeInput.trim()}>
+              Tətbiq et
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

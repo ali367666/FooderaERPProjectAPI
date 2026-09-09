@@ -19,6 +19,7 @@ public class RestaurantTable : CompanyEntity<int>
     public RestaurantSection? Section { get; set; }
 
     public decimal? HourlyRate { get; set; }
+    public string? Note { get; set; }
 
     // Floor plan position
     public int PosX { get; set; } = 0;

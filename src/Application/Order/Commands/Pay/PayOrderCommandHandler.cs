@@ -1,4 +1,5 @@
 using Application.Common.Exceptions;
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -44,10 +45,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             throw new BadRequestException("Please select a valid payment method.");
 
         foreach (var line in order.Lines)
-        {
-            if (line.MenuItem?.IsTimeBased == true) continue;
-            line.LineTotal = line.UnitPrice * line.Quantity;
-        }
+            line.LineTotal = OrderLinePricing.ComputeLineTotal(line);
 
         var subtotal = order.Lines
             .DistinctBy(x => x.Id)
@@ -60,8 +58,15 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             : (decimal?)null;
         var totalAmount = Math.Max(0, subtotal - order.DiscountAmount + (serviceCharge ?? 0) + (order.TableRentalAmount ?? 0));
 
-        if (request.Request.PaidAmount < totalAmount)
+        if (paymentMethod == PaymentMethod.Credit)
+        {
+            if (order.CounterpartyId is null || order.Counterparty is null)
+                throw new BadRequestException("Borca yazmaq üçün əvvəlcə müştəri seçilməlidir.");
+        }
+        else if (request.Request.PaidAmount < totalAmount)
+        {
             throw new BadRequestException("Paid amount cannot be less than total amount.");
+        }
 
         var nonKitchenLines = order.Lines
             .Where(x =>
@@ -78,9 +83,11 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         order.IsPaid = true;
         order.PaidAt = DateTime.UtcNow;
         order.PaymentMethod = paymentMethod;
-        order.PaidAmount = request.Request.PaidAmount;
-        order.ChangeAmount = request.Request.PaidAmount - totalAmount;
+        order.PaidAmount = paymentMethod == PaymentMethod.Credit ? 0 : request.Request.PaidAmount;
+        order.ChangeAmount = paymentMethod == PaymentMethod.Credit ? 0 : request.Request.PaidAmount - totalAmount;
         order.Status = OrderStatus.Paid;
+        if (paymentMethod == PaymentMethod.Credit)
+            order.Counterparty!.CurrentDebtAmount += totalAmount;
         order.ReceiptNumber = $"RCPT-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{order.Id}";
         order.ClosedAt = order.PaidAt;
         if (order.Table is not null)
@@ -108,6 +115,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             GuestCount = order.GuestCount,
             CounterpartyId = order.CounterpartyId,
             CounterpartyName = order.Counterparty?.Name,
+            CounterpartyDebtAmount = order.Counterparty?.CurrentDebtAmount,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = order.TotalAmount,
@@ -138,6 +146,9 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
                 TimeBasedStartedAt = x.TimeBasedStartedAt,
                 TimeBasedStoppedAt = x.TimeBasedStoppedAt,
                 IsTimeBased = x.MenuItem.IsTimeBased,
+                IsWeightBased = Application.Common.Helpers.OrderLinePricing.IsWeightBased(x.MenuItem.UnitId),
+                IsGift = x.IsGift,
+                DiscountAmount = x.DiscountAmount,
                 PreparationType = x.PreparationType,
                 Status = x.Status.ToString(),
                 Note = x.Note

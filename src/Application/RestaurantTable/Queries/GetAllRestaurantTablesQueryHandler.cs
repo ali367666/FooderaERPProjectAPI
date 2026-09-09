@@ -42,6 +42,7 @@ public class GetAllRestaurantTablesQueryHandler
             Rotation = x.Rotation,
             SectionId = x.SectionId,
             HourlyRate = x.HourlyRate,
+            Note = x.Note,
             Type = x.Type
         }).ToList();
     }
