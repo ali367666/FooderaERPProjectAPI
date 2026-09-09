@@ -44,10 +44,19 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy
-            .WithOrigins("http://localhost:3000")
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        if (builder.Environment.IsDevelopment())
+        {
+            // Allow any origin in dev so the frontend can be reached from a phone's
+            // LAN IP (e.g. scanning a QR menu code) without knowing that IP in advance.
+            policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod();
+        }
+        else
+        {
+            policy
+                .WithOrigins("http://localhost:3000")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
     });
 });
 
@@ -66,7 +75,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseSerilogRequestLogging();
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();

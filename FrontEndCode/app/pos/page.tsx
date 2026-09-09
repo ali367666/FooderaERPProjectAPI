@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Lock, RefreshCw, Users } from "lucide-react";
+import { Lock, RefreshCw, StickyNote, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,11 @@ import {
 import { cn } from "@/lib/utils";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
-import { getRestaurantTables, type RestaurantTable } from "@/lib/services/restaurant-table-service";
+import {
+  getRestaurantTables,
+  ensureStoreSaleTable,
+  type RestaurantTable,
+} from "@/lib/services/restaurant-table-service";
 import { getOrders, createOrder, type OrderDto, type OrderWorkflowStatus } from "@/lib/services/order-service";
 import { getRestaurantSections, type RestaurantSection } from "@/lib/services/restaurant-section-service";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
@@ -104,14 +108,69 @@ export default function PosTablesPage() {
     setTerminal(getPosTerminalContext());
   }, []);
 
+  const [brandingLoaded, setBrandingLoaded] = useState(false);
+  const [storeModeBusy, setStoreModeBusy] = useState(false);
+
   useEffect(() => {
     if (!terminal?.companyId) return;
     getCompanySettingsBranding(terminal.companyId)
       .then(setBranding)
-      .catch(() => setBranding(null));
+      .catch(() => setBranding(null))
+      .finally(() => setBrandingLoaded(true));
   }, [terminal]);
 
+  const isStoreMode = branding?.moduleDataSecimi === true;
+
   const warningMinutes = branding?.tableTimeWarningMinutes ?? 45;
+
+  useEffect(() => {
+    const restaurantId = terminal?.restaurantId;
+    if (!restaurantId || !isStoreMode) return;
+    let cancelled = false;
+
+    const ensureStoreSale = async () => {
+      setStoreModeBusy(true);
+      try {
+        const waiterId = await getCurrentEmployeeId();
+        if (!waiterId) {
+          toast.error("Bu istifadəçi heç bir işçiyə bağlı deyil. Users səhifəsindən bağlayın.");
+          return;
+        }
+
+        const [storeTableId, allOrders] = await Promise.all([
+          ensureStoreSaleTable(restaurantId),
+          getOrders(),
+        ]);
+
+        if (cancelled) return;
+
+        const activeOrder = allOrders.find(
+          (o) => o.tableId === storeTableId && isActiveStatus(o.status),
+        );
+        if (activeOrder) {
+          router.replace(`/pos/order/${activeOrder.id}`);
+          return;
+        }
+
+        const order = await createOrder({
+          restaurantId,
+          tableId: storeTableId,
+          waiterId,
+          guestCount: null,
+        });
+        if (!cancelled) router.replace(`/pos/order/${order.id}`);
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : "Satış ekranı açıla bilmədi");
+      } finally {
+        if (!cancelled) setStoreModeBusy(false);
+      }
+    };
+
+    void ensureStoreSale();
+    return () => {
+      cancelled = true;
+    };
+  }, [terminal, isStoreMode, router]);
 
   useEffect(() => {
     const stillOverdueIds = new Set<number>();
@@ -214,8 +273,16 @@ export default function PosTablesPage() {
     void createOrderForTable(table, guestCount);
   };
 
-  if (loading) {
+  if (loading || !brandingLoaded) {
     return <div className="flex h-full items-center justify-center text-muted-foreground">Yüklənir...</div>;
+  }
+
+  if (isStoreMode) {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        {storeModeBusy ? "Satış ekranı açılır..." : "Satış ekranına yönləndirilir..."}
+      </div>
+    );
   }
 
   return (
@@ -270,6 +337,7 @@ export default function PosTablesPage() {
 
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
         {tables
+          .filter((table) => table.isActive)
           .filter((table) => (activeSectionId === null ? table.sectionId == null : table.sectionId === activeSectionId))
           .map((table) => {
           const occupied = table.activeOrder !== null;
@@ -301,6 +369,13 @@ export default function PosTablesPage() {
             >
               {isOtherWaiterTable && (
                 <Lock className="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-white/90" />
+              )}
+              {table.note && (
+                <span className="absolute left-1.5 top-1.5" title={table.note}>
+                  <StickyNote
+                    className={cn("h-3.5 w-3.5", occupied ? "text-white/90" : "text-amber-600")}
+                  />
+                </span>
               )}
               <span className="text-lg font-bold leading-none">{table.name}</span>
               <span

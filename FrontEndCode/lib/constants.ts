@@ -32,6 +32,8 @@ import {
   Landmark,
   Scale,
   Gamepad2,
+  Truck,
+  Wallet,
 } from "lucide-react";
 
 export interface NavItem {
@@ -63,6 +65,24 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/analytics",
         icon: BarChart3,
         permission: "Analytics.View",
+      },
+      {
+        title: "Satış Sənədləri",
+        href: "/dashboard/sales-documents",
+        icon: FileText,
+        permission: "Orders.View",
+      },
+      {
+        title: "Hesabatlar",
+        href: "/dashboard/z-report",
+        icon: Calculator,
+        permission: "Pos.ZReport",
+      },
+      {
+        title: "Kassa",
+        href: "/dashboard/kassa",
+        icon: Wallet,
+        permission: "CashRegister.View",
       },
       {
         title: "Food Cost",
@@ -311,6 +331,12 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/scale-devices",
         icon: Scale,
         permission: "ScaleDevice.View",
+      },
+      {
+        title: "Çatdırılma İnteqrasiyaları",
+        href: "/dashboard/delivery-integrations",
+        icon: Truck,
+        permission: "DeliveryIntegration.View",
       },
       {
         title: "Restoran Bölmələri",

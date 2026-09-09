@@ -168,4 +168,12 @@ public static class AppPermissions
     public const string ScaleDeviceCreate = "ScaleDevice.Create";
     public const string ScaleDeviceUpdate = "ScaleDevice.Update";
     public const string ScaleDeviceDelete = "ScaleDevice.Delete";
+
+    public const string DeliveryIntegrationView = "DeliveryIntegration.View";
+    public const string DeliveryIntegrationCreate = "DeliveryIntegration.Create";
+    public const string DeliveryIntegrationUpdate = "DeliveryIntegration.Update";
+    public const string DeliveryIntegrationDelete = "DeliveryIntegration.Delete";
+
+    public const string CashRegisterView = "CashRegister.View";
+    public const string CashRegisterManage = "CashRegister.Manage";
 }

@@ -50,6 +50,7 @@ public class ServeOrderCommandHandler : IRequestHandler<ServeOrderCommand, Order
             GuestCount = order.GuestCount,
             CounterpartyId = order.CounterpartyId,
             CounterpartyName = order.Counterparty?.Name,
+            CounterpartyDebtAmount = order.Counterparty?.CurrentDebtAmount,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = order.TotalAmount,
@@ -79,6 +80,9 @@ public class ServeOrderCommandHandler : IRequestHandler<ServeOrderCommand, Order
                 TimeBasedStartedAt = x.TimeBasedStartedAt,
                 TimeBasedStoppedAt = x.TimeBasedStoppedAt,
                 IsTimeBased = x.MenuItem.IsTimeBased,
+                IsWeightBased = Application.Common.Helpers.OrderLinePricing.IsWeightBased(x.MenuItem.UnitId),
+                IsGift = x.IsGift,
+                DiscountAmount = x.DiscountAmount,
                 PreparationType = x.PreparationType,
                 Status = x.Status.ToString(),
                 Note = x.Note

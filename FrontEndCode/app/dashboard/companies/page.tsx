@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,11 +20,40 @@ import {
   deleteCompany,
   getCompanyById,
   getCompanies,
+  setCompanyModules,
   updateCompany,
   type Company,
+  type CompanyModules,
   type CompanyMutationInput,
 } from "@/lib/services/company-service";
+import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
+
+const MODULE_FIELDS: Array<{ key: keyof CompanyModules; label: string }> = [
+  { key: "moduleFilial", label: "Filial" },
+  { key: "moduleAnbar", label: "Anbar" },
+  { key: "moduleRezervasyon", label: "Rezervasiya" },
+  { key: "moduleMasaBolge", label: "Masa Bölgə" },
+  { key: "modulePaket", label: "Paket" },
+  { key: "moduleOtel", label: "Otel" },
+  { key: "moduleFitnes", label: "Fitnes" },
+  { key: "moduleDataSecimi", label: "Data Seçimi (Mağaza rejimi)" },
+  { key: "moduleQiymetSor", label: "Qiymət Sor" },
+];
+
+function emptyCompanyModules(): CompanyModules {
+  return {
+    moduleFilial: false,
+    moduleAnbar: false,
+    moduleRezervasyon: false,
+    moduleMasaBolge: false,
+    modulePaket: false,
+    moduleOtel: false,
+    moduleFitnes: false,
+    moduleDataSecimi: false,
+    moduleQiymetSor: false,
+  };
+}
 
 type CompanyRow = {
   id: string;
@@ -94,6 +125,7 @@ export default function CompaniesPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [form, setForm] = useState<CompanyFormState>(emptyCompanyForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [modules, setModules] = useState<CompanyModules>(emptyCompanyModules);
 
   const loadCompanies = async (silent = false) => {
     try {
@@ -252,6 +284,7 @@ export default function CompaniesPage() {
 
   const handleAdd = () => {
     setForm(emptyCompanyForm());
+    setModules(emptyCompanyModules());
     setFieldErrors({});
     setIsEditMode(false);
     setIsDialogOpen(true);
@@ -278,6 +311,23 @@ export default function CompaniesPage() {
       setFieldErrors({});
       setIsEditMode(true);
       setIsDialogOpen(true);
+
+      try {
+        const branding = await getCompanySettingsBranding(company.id);
+        setModules({
+          moduleFilial: branding.moduleFilial,
+          moduleAnbar: branding.moduleAnbar,
+          moduleRezervasyon: branding.moduleRezervasyon,
+          moduleMasaBolge: branding.moduleMasaBolge,
+          modulePaket: branding.modulePaket,
+          moduleOtel: branding.moduleOtel,
+          moduleFitnes: branding.moduleFitnes,
+          moduleDataSecimi: branding.moduleDataSecimi,
+          moduleQiymetSor: branding.moduleQiymetSor,
+        });
+      } catch {
+        setModules(emptyCompanyModules());
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load company details.";
       setError(message);
@@ -338,15 +388,21 @@ export default function CompaniesPage() {
       setError(null);
       setFieldErrors({});
 
+      let companyId = form.id;
       if (isEditMode && form.id) {
         await updateCompany(form.id, payload);
       } else {
-        await createCompany(payload);
+        companyId = await createCompany(payload);
+      }
+
+      if (companyId) {
+        await setCompanyModules(companyId, modules);
       }
 
       setIsDialogOpen(false);
       setIsEditMode(false);
       setForm(emptyCompanyForm());
+      setModules(emptyCompanyModules());
       await loadCompanies(true);
     } catch (err) {
       const message =
@@ -387,6 +443,7 @@ export default function CompaniesPage() {
           if (!open) {
             setIsEditMode(false);
             setForm(emptyCompanyForm());
+            setModules(emptyCompanyModules());
           }
         }}
       >
@@ -579,6 +636,26 @@ export default function CompaniesPage() {
             </div>
           </div>
 
+          <div>
+            <Label className="mb-2 block">
+              Aktiv modullar <span className="font-normal text-muted-foreground">(yalnız sizin idarə etdiyiniz)</span>
+            </Label>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {MODULE_FIELDS.map((f) => (
+                <div key={f.key} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`company-${f.key}`}
+                    checked={modules[f.key]}
+                    onCheckedChange={(v) => setModules((m) => ({ ...m, [f.key]: v === true }))}
+                  />
+                  <Label htmlFor={`company-${f.key}`} className="text-sm font-normal">
+                    {f.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3">
             <Button
               variant="outline"
@@ -586,6 +663,7 @@ export default function CompaniesPage() {
                 setIsDialogOpen(false);
                 setIsEditMode(false);
                 setForm(emptyCompanyForm());
+                setModules(emptyCompanyModules());
               }}
               disabled={isSubmitting}
             >

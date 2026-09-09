@@ -84,6 +84,7 @@ public class CreateRestaurantTableCommandHandler
             IsActive = true,
             IsOccupied = false,
             HourlyRate = dto.HourlyRate,
+            Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim(),
             Type = dto.Type
         };
 
@@ -137,6 +138,7 @@ public class CreateRestaurantTableCommandHandler
             Shape = table.Shape,
             Rotation = table.Rotation,
             HourlyRate = table.HourlyRate,
+            Note = table.Note,
             Type = table.Type
         };
     }

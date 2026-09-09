@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ export default function RestaurantsPage() {
   const [form, setForm] = useState<RestaurantFormState>(emptyForm);
   const [isEditMode, setIsEditMode] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [qrTarget, setQrTarget] = useState<RestaurantRow | null>(null);
 
   const loadData = async (silent = false) => {
     try {
@@ -210,6 +212,15 @@ export default function RestaurantsPage() {
         <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
           Active
         </Badge>
+      ),
+    },
+    {
+      key: "companyId" as const,
+      label: "QR Menu",
+      render: (_v: number, row: RestaurantRow) => (
+        <Button variant="outline" size="sm" onClick={() => setQrTarget(row)}>
+          QR göstər
+        </Button>
       ),
     },
   ];
@@ -406,6 +417,45 @@ export default function RestaurantsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={qrTarget != null} onOpenChange={(open) => !open && setQrTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{qrTarget?.name} — QR Menu</DialogTitle>
+            <DialogDescription>Bu kodu masalara/qapıya çap edib qoya bilərsiniz.</DialogDescription>
+          </DialogHeader>
+          {qrTarget && (
+            <div id="qr-menu-print-area" className="flex flex-col items-center gap-3 py-2">
+              <QRCodeSVG
+                value={`${typeof window !== "undefined" ? window.location.origin : ""}/menu/${qrTarget.restaurantId}`}
+                size={220}
+              />
+              <p className="text-center text-sm font-medium text-foreground">{qrTarget.name}</p>
+              <p className="break-all text-center text-xs text-muted-foreground">
+                {typeof window !== "undefined" ? window.location.origin : ""}/menu/{qrTarget.restaurantId}
+              </p>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setQrTarget(null)}>
+              Bağla
+            </Button>
+            <Button onClick={() => window.print()}>Çap et</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #qr-menu-print-area, #qr-menu-print-area * { visibility: visible; }
+          #qr-menu-print-area {
+            display: flex !important;
+            position: fixed; top: 0; left: 0; width: 100%;
+            align-items: center; justify-content: center; flex-direction: column;
+          }
+        }
+      `}</style>
     </div>
   );
 }

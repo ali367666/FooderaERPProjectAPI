@@ -46,6 +46,7 @@ public class CompanySettingsResponse
     public bool PrintKitchenOnPayment { get; set; }
     public bool PrintShowPreview { get; set; }
     public bool PrintGroupQuantities { get; set; }
+    public bool PrintKitchenGroupQuantities { get; set; }
     public bool ReceiptShowTime { get; set; }
     public bool ReceiptShowWaiterName { get; set; }
     public bool ReceiptShowTableName { get; set; }

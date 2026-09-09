@@ -104,6 +104,7 @@ public class UpdateRestaurantTableCommandHandler
         table.Capacity = dto.Capacity;
         table.IsActive = dto.IsActive;
         table.HourlyRate = dto.HourlyRate;
+        table.Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
         table.Type = dto.Type;
 
         _restaurantTableRepository.Update(table);
@@ -160,6 +161,7 @@ public class UpdateRestaurantTableCommandHandler
             Shape = table.Shape,
             Rotation = table.Rotation,
             HourlyRate = table.HourlyRate,
+            Note = table.Note,
             Type = table.Type
         };
     }

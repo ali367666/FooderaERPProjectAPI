@@ -3,6 +3,7 @@ using Application.RestaurantTable.Commands.UpdateSection;
 using Application.RestaurantTable.Dtos.Request;
 using Application.RestaurantTables.Commands.Create;
 using Application.RestaurantTables.Commands.Delete;
+using Application.RestaurantTables.Commands.EnsureStoreSaleTable;
 using Application.RestaurantTables.Commands.Update;
 using Application.RestaurantTables.Dtos;
 using Application.RestaurantTables.Queries.GetAll;
@@ -99,5 +100,22 @@ public class RestaurantTablesController : ControllerBase
     {
         var response = await _mediator.Send(new UpdateTableSectionCommand(id, sectionId), cancellationToken);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Mağaza rejimi (Data Seçimi) üçün restoranın gizli satış "masasını" tapır və ya yaradır.
+    /// Xüsusi icazə tələb etmir — istənilən avtorizasiya edilmiş POS sessiyası çağıra bilər.
+    /// </summary>
+    [Authorize]
+    [HttpPost("ensure-store-sale-table")]
+    public async Task<ActionResult<Application.Common.Responce.BaseResponse<int>>> EnsureStoreSaleTable(
+        [FromQuery] int restaurantId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new EnsureStoreSaleTableCommand(restaurantId), cancellationToken);
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
     }
 }

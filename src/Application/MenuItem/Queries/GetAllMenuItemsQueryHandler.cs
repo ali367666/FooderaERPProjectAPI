@@ -37,6 +37,7 @@ public class GetAllMenuItemsQueryHandler
         Id = entity.Id,
         Name = entity.Name,
         Description = entity.Description,
+        ImageUrl = entity.ImageUrl,
         Price = entity.Price,
         Portion = entity.Portion,
         IsActive = entity.IsActive,

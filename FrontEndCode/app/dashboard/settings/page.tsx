@@ -14,18 +14,6 @@ import {
 import { uploadFile } from "@/lib/services/file-service";
 import { ApiFormError } from "@/lib/api-error";
 
-const MODULE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
-  { key: "moduleFilial", label: "Filial" },
-  { key: "moduleAnbar", label: "Anbar" },
-  { key: "moduleRezervasyon", label: "Rezervasiya" },
-  { key: "moduleMasaBolge", label: "Masa Bölgə" },
-  { key: "modulePaket", label: "Paket" },
-  { key: "moduleOtel", label: "Otel" },
-  { key: "moduleFitnes", label: "Fitnes" },
-  { key: "moduleDataSecimi", label: "Data Seçimi" },
-  { key: "moduleQiymetSor", label: "Qiymət Sor" },
-];
-
 const INTEGRATION_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "integrationWolt", label: "Wolt" },
   { key: "integrationBolt", label: "Bolt" },
@@ -79,6 +67,7 @@ const DEFAULTS: CompanySettingsInput = {
   printKitchenOnPayment: false,
   printShowPreview: true,
   printGroupQuantities: true,
+  printKitchenGroupQuantities: false,
   receiptShowTime: true,
   receiptShowWaiterName: true,
   receiptShowTableName: true,
@@ -93,6 +82,7 @@ const PRINT_TOGGLE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: strin
   { key: "printKitchenOnPayment", label: "Ödənişdə mətbəx çapı avtomatik göndərilsin" },
   { key: "printShowPreview", label: "Çapdan əvvəl önizləmə göstər" },
   { key: "printGroupQuantities", label: "Qəbzdə eyni məhsulun miqdarını qruplaşdır" },
+  { key: "printKitchenGroupQuantities", label: "Mətbəx qəbzində eyni məhsulun miqdarını qruplaşdır" },
 ];
 
 const RECEIPT_FIELD_TOGGLES: Array<{ key: keyof CompanySettingsInput; label: string }> = [
@@ -233,24 +223,6 @@ export default function SettingsPage() {
           <div>
             <Label>Masa vaxt xəbərdarlığı (dəqiqə)</Label>
             <div className="mt-1">{numberField("tableTimeWarningMinutes", form.tableTimeWarningMinutes)}</div>
-          </div>
-        </div>
-
-        <div>
-          <Label className="mb-2 block">Aktiv modullar</Label>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {MODULE_FIELDS.map((f) => (
-              <div key={f.key} className="flex items-center gap-2">
-                <Checkbox
-                  id={f.key}
-                  checked={Boolean(form[f.key])}
-                  onCheckedChange={(v) => update(f.key, (v === true) as never)}
-                />
-                <Label htmlFor={f.key} className="text-sm font-normal">
-                  {f.label}
-                </Label>
-              </div>
-            ))}
           </div>
         </div>
 

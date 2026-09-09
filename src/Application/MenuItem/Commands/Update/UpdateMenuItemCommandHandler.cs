@@ -122,6 +122,9 @@ public class UpdateMenuItemCommandHandler
         entity.Description = string.IsNullOrWhiteSpace(request.Request.Description)
             ? null
             : request.Request.Description.Trim();
+        entity.ImageUrl = string.IsNullOrWhiteSpace(request.Request.ImageUrl)
+            ? null
+            : request.Request.ImageUrl.Trim();
         entity.Portion = string.IsNullOrWhiteSpace(request.Request.Portion)
             ? null
             : request.Request.Portion.Trim();

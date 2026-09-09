@@ -95,3 +95,48 @@ export async function getFoodCost(): Promise<FoodCostItem[]> {
     throw toApiFormError(e, "Food cost yüklənmədi");
   }
 }
+
+export type ZReportProductLine = {
+  menuItemId: number;
+  name: string;
+  quantity: number;
+  revenue: number;
+};
+
+export type ZReportWaiterLine = {
+  waiterId: number;
+  waiterName: string;
+  orderCount: number;
+  revenue: number;
+};
+
+export type ZReportCategoryLine = {
+  categoryId: number;
+  categoryName: string;
+  quantity: number;
+  revenue: number;
+};
+
+export type ZReport = {
+  from: string;
+  to: string;
+  totalRevenue: number;
+  totalDiscount: number;
+  cashTotal: number;
+  cardTotal: number;
+  orderCount: number;
+  products: ZReportProductLine[];
+  waiters: ZReportWaiterLine[];
+  categories: ZReportCategoryLine[];
+};
+
+export async function getZReport(from: Date, to: Date): Promise<ZReport> {
+  try {
+    const res = await api.get<ZReport>("/Analytics/z-report", {
+      params: { from: from.toISOString(), to: to.toISOString() },
+    });
+    return res.data;
+  } catch (e) {
+    throw toApiFormError(e, "Z hesabatı yüklənmədi");
+  }
+}

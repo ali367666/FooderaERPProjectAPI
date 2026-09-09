@@ -121,13 +121,18 @@ export async function getCompanyById(id: number): Promise<Company> {
   }
 }
 
-export async function createCompany(data: CompanyMutationInput): Promise<void> {
+export async function createCompany(data: CompanyMutationInput): Promise<number> {
   try {
-    const response = await api.post<ApiResponse<unknown>>("/companies", data);
+    const response = await api.post<ApiResponse<{ id?: number; Id?: number }>>("/companies", data);
     const payload = response.data;
     if (payload?.success === false) {
       throw new ApiFormError(payload.message || "Failed to create company");
     }
+    const id = payload?.data?.id ?? payload?.data?.Id;
+    if (!Number.isFinite(Number(id)) || Number(id) <= 0) {
+      throw new ApiFormError("Invalid create company response");
+    }
+    return Number(id);
   } catch (error) {
     throw toApiFormError(error, "Failed to create company");
   }
@@ -145,6 +150,34 @@ export async function updateCompany(
     }
   } catch (error) {
     throw toApiFormError(error, "Failed to update company");
+  }
+}
+
+export type CompanyModules = {
+  moduleFilial: boolean;
+  moduleAnbar: boolean;
+  moduleRezervasyon: boolean;
+  moduleMasaBolge: boolean;
+  modulePaket: boolean;
+  moduleOtel: boolean;
+  moduleFitnes: boolean;
+  moduleDataSecimi: boolean;
+  moduleQiymetSor: boolean;
+};
+
+export async function setCompanyModules(companyId: number, modules: CompanyModules): Promise<void> {
+  try {
+    const response = await api.put<ApiResponse<unknown>>(
+      "/company-settings/modules",
+      modules,
+      { params: { companyId } },
+    );
+    const payload = response.data;
+    if (payload?.success === false) {
+      throw new ApiFormError(payload.message || "Failed to update company modules");
+    }
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update company modules");
   }
 }
 

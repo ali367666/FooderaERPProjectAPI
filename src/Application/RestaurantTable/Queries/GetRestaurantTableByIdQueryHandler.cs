@@ -46,6 +46,7 @@ public class GetRestaurantTableByIdQueryHandler
             Rotation = table.Rotation,
             SectionId = table.SectionId,
             HourlyRate = table.HourlyRate,
+            Note = table.Note,
             Type = table.Type
         };
     }

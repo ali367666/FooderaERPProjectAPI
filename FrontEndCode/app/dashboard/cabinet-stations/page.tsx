@@ -56,6 +56,7 @@ export default function CabinetStationsPage() {
   const [type, setType] = useState<string>(String(RestaurantTableType.Kabinet));
   const [capacity, setCapacity] = useState("1");
   const [hourlyRate, setHourlyRate] = useState("");
+  const [note, setNote] = useState("");
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
@@ -99,6 +100,7 @@ export default function CabinetStationsPage() {
     setType(String(RestaurantTableType.Kabinet));
     setCapacity("1");
     setHourlyRate("");
+    setNote("");
     setIsActive(true);
   };
 
@@ -115,6 +117,7 @@ export default function CabinetStationsPage() {
     setType(String(target.type));
     setCapacity(String(target.capacity || 1));
     setHourlyRate(target.hourlyRate != null ? String(target.hourlyRate) : "");
+    setNote(target.note ?? "");
     setIsActive(target.isActive);
     setDialogOpen(true);
   };
@@ -150,6 +153,7 @@ export default function CabinetStationsPage() {
         capacity: capacityNum,
         isActive,
         hourlyRate: rateNum,
+        note: note.trim() || null,
         type: Number(type) as RestaurantTableTypeValue,
       };
       if (editingId == null) {
@@ -292,6 +296,16 @@ export default function CabinetStationsPage() {
                   min={1}
                   value={capacity}
                   onChange={(e) => setCapacity(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="st-note">Qeyd</Label>
+                <Input
+                  id="st-note"
+                  className="mt-1"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="məs. Divar tərəfindəki kabinet"
                 />
               </div>
               <div className="flex items-center gap-2">

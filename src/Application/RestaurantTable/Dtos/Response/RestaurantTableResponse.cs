@@ -17,5 +17,6 @@ public class RestaurantTableResponse
     public int Rotation { get; set; }
     public int? SectionId { get; set; }
     public decimal? HourlyRate { get; set; }
+    public string? Note { get; set; }
     public Domain.Enums.RestaurantTableType Type { get; set; }
 }

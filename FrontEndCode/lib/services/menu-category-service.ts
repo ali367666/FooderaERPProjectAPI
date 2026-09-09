@@ -40,6 +40,7 @@ export type MenuCategory = {
   id: number;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   isActive: boolean;
   parentCategoryId: number | null;
   parentCategoryName: string | null;
@@ -48,12 +49,14 @@ export type MenuCategory = {
 export type MenuCategoryCreateInput = {
   name: string;
   description?: string | null;
+  imageUrl?: string | null;
   parentCategoryId?: number | null;
 };
 
 export type MenuCategoryUpdateInput = {
   name: string;
   description?: string | null;
+  imageUrl?: string | null;
   isActive: boolean;
   parentCategoryId?: number | null;
 };
@@ -71,6 +74,7 @@ function normalizeMenuCategory(item: unknown): MenuCategory | null {
       raw.description === undefined && raw.Description === undefined
         ? null
         : String(raw.description ?? raw.Description ?? "") || null,
+    imageUrl: (raw.imageUrl ?? raw.ImageUrl) != null ? String(raw.imageUrl ?? raw.ImageUrl) : null,
     isActive: Boolean(raw.isActive ?? raw.IsActive ?? true),
     parentCategoryId: (() => {
       const v = raw.parentCategoryId ?? raw.ParentCategoryId;
@@ -117,6 +121,7 @@ export async function createMenuCategory(data: MenuCategoryCreateInput): Promise
     await api.post("/MenuCategories", {
       name: data.name.trim(),
       description: data.description?.trim() || null,
+      imageUrl: data.imageUrl?.trim() || null,
       parentCategoryId: data.parentCategoryId ?? null,
     });
   } catch (error) {
@@ -137,6 +142,7 @@ export async function updateMenuCategory(
       {
         name: data.name.trim(),
         description: data.description?.trim() || null,
+        imageUrl: data.imageUrl?.trim() || null,
         isActive: data.isActive,
         parentCategoryId: data.parentCategoryId ?? null,
       },

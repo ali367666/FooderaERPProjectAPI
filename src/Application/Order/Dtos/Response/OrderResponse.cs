@@ -19,6 +19,7 @@ public class OrderResponse
     public int? GuestCount { get; set; }
     public int? CounterpartyId { get; set; }
     public string? CounterpartyName { get; set; }
+    public decimal? CounterpartyDebtAmount { get; set; }
     public DateTime OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
     public decimal TotalAmount { get; set; }

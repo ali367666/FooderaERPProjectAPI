@@ -22,6 +22,8 @@ export default function PosOrderHistoryPage() {
   const [orders, setOrders] = useState<OrderDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [receipt, setReceipt] = useState<OrderReceiptDto | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -55,14 +57,24 @@ export default function PosOrderHistoryPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter(
-      (o) =>
-        o.orderNumber.toLowerCase().includes(q) ||
-        o.receiptNumber?.toLowerCase().includes(q) ||
-        o.tableName?.toLowerCase().includes(q),
-    );
-  }, [orders, search]);
+    return orders.filter((o) => {
+      if (q) {
+        const matchesSearch =
+          o.orderNumber.toLowerCase().includes(q) ||
+          o.receiptNumber?.toLowerCase().includes(q) ||
+          o.tableName?.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
+      if (o.paidAt) {
+        const paidDate = o.paidAt.slice(0, 10);
+        if (fromDate && paidDate < fromDate) return false;
+        if (toDate && paidDate > toDate) return false;
+      } else if (fromDate || toDate) {
+        return false;
+      }
+      return true;
+    });
+  }, [orders, search, fromDate, toDate]);
 
   const handleView = async (order: OrderDto) => {
     try {
@@ -93,11 +105,33 @@ export default function PosOrderHistoryPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold">Köhnə qəbzlər</h1>
-        <div className="relative w-64">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-8" placeholder="Sifariş/qəbz nömrəsi, masa…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="date"
+            className="w-40"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            aria-label="Tarixdən"
+          />
+          <span className="text-sm text-muted-foreground">—</span>
+          <Input
+            type="date"
+            className="w-40"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            aria-label="Tarixə qədər"
+          />
+          {(fromDate || toDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>
+              Təmizlə
+            </Button>
+          )}
+          <div className="relative w-64">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-8" placeholder="Sifariş/qəbz nömrəsi, masa…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
         </div>
       </div>
 

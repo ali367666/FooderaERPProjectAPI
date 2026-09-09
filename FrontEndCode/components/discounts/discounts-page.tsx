@@ -40,6 +40,30 @@ export function DiscountsPage() {
   const [saving, setSaving] = useState(false);
   const [useTimeWindow, setUseTimeWindow] = useState(false);
 
+  // Numeric fields are edited as free-form text (not bound directly to the number) so
+  // typing over a "0" replaces it instead of appending after it (was showing "05").
+  const [valueText, setValueText] = useState(String(EMPTY_FORM.value));
+  const [maxDiscountText, setMaxDiscountText] = useState("");
+  const [minOrderText, setMinOrderText] = useState("");
+  const [maxUsageText, setMaxUsageText] = useState("");
+
+  function numericFieldProps(
+    text: string,
+    setText: (v: string) => void,
+    onValue: (n: number | null) => void,
+  ) {
+    return {
+      value: text,
+      onFocus: (e: React.FocusEvent<HTMLInputElement>) => e.target.select(),
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = e.target.value;
+        if (raw !== "" && !/^\d*\.?\d*$/.test(raw)) return;
+        setText(raw);
+        onValue(raw === "" ? null : Number(raw));
+      },
+    };
+  }
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -57,11 +81,19 @@ export function DiscountsPage() {
     setEditItem(null);
     setForm(EMPTY_FORM);
     setUseTimeWindow(false);
+    setValueText(String(EMPTY_FORM.value));
+    setMaxDiscountText("");
+    setMinOrderText("");
+    setMaxUsageText("");
     setShowForm(true);
   }
 
   function openEdit(item: DiscountDto) {
     setEditItem(item);
+    setValueText(String(item.value));
+    setMaxDiscountText(item.maxDiscountAmount != null ? String(item.maxDiscountAmount) : "");
+    setMinOrderText(item.minOrderAmount != null ? String(item.minOrderAmount) : "");
+    setMaxUsageText(item.maxUsageCount != null ? String(item.maxUsageCount) : "");
     setForm({
       code: item.code, name: item.name, type: item.type, value: item.value,
       minOrderAmount: item.minOrderAmount, maxDiscountAmount: item.maxDiscountAmount,
@@ -267,15 +299,14 @@ export function DiscountsPage() {
                   <label className="text-xs text-muted-foreground mb-1 block">
                     Dəyər * {form.type === "Percentage" ? "(%)" : "(₼)"}
                   </label>
-                  <Input type="number" min={0} max={form.type === "Percentage" ? 100 : undefined} step="0.01"
-                    value={form.value} onChange={e => setForm(f => ({ ...f, value: Number(e.target.value) }))} />
+                  <Input type="text" inputMode="decimal"
+                    {...numericFieldProps(valueText, setValueText, n => setForm(f => ({ ...f, value: n ?? 0 })))} />
                 </div>
                 {form.type === "Percentage" && (
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Maks. endirim (₼)</label>
-                    <Input type="number" min={0} step="0.01"
-                      value={form.maxDiscountAmount ?? ""}
-                      onChange={e => setForm(f => ({ ...f, maxDiscountAmount: e.target.value ? Number(e.target.value) : null }))}
+                    <Input type="text" inputMode="decimal"
+                      {...numericFieldProps(maxDiscountText, setMaxDiscountText, n => setForm(f => ({ ...f, maxDiscountAmount: n })))}
                       placeholder="Limitsiz" />
                   </div>
                 )}
@@ -283,9 +314,8 @@ export function DiscountsPage() {
 
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Minimum sifariş məbləği (₼)</label>
-                <Input type="number" min={0} step="0.01"
-                  value={form.minOrderAmount ?? ""}
-                  onChange={e => setForm(f => ({ ...f, minOrderAmount: e.target.value ? Number(e.target.value) : null }))}
+                <Input type="text" inputMode="decimal"
+                  {...numericFieldProps(minOrderText, setMinOrderText, n => setForm(f => ({ ...f, minOrderAmount: n })))}
                   placeholder="Məhdudiyyət yoxdur" />
               </div>
 
@@ -317,9 +347,8 @@ export function DiscountsPage() {
 
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Maksimum istifadə sayı</label>
-                <Input type="number" min={1}
-                  value={form.maxUsageCount ?? ""}
-                  onChange={e => setForm(f => ({ ...f, maxUsageCount: e.target.value ? Number(e.target.value) : null }))}
+                <Input type="text" inputMode="numeric"
+                  {...numericFieldProps(maxUsageText, setMaxUsageText, n => setForm(f => ({ ...f, maxUsageCount: n })))}
                   placeholder="Limitsiz" />
               </div>
             </div>

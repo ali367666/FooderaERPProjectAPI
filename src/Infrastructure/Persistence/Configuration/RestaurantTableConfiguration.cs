@@ -39,6 +39,7 @@ public class RestaurantTableConfiguration : IEntityTypeConfiguration<RestaurantT
         builder.Property(x => x.Shape).HasMaxLength(20).HasDefaultValue("square");
         builder.Property(x => x.Rotation).HasDefaultValue(0);
         builder.Property(x => x.HourlyRate).HasColumnType("decimal(18,2)");
+        builder.Property(x => x.Note).HasMaxLength(500);
 
         builder.HasIndex(x => new { x.CompanyId, x.Name })
             .IsUnique();

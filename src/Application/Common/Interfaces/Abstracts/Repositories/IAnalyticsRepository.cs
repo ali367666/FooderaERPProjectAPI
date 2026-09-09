@@ -6,4 +6,5 @@ public interface IAnalyticsRepository
 {
     Task<DashboardAnalyticsResponse> GetDashboardAsync(int companyId, CancellationToken cancellationToken);
     Task<List<FoodCostResponse>> GetFoodCostAsync(int companyId, CancellationToken cancellationToken);
+    Task<SalesReportResponse> GetSalesReportAsync(int companyId, DateTime from, DateTime to, CancellationToken cancellationToken);
 }

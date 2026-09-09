@@ -153,6 +153,82 @@ public class AnalyticsRepository : IAnalyticsRepository
         };
     }
 
+    public async Task<SalesReportResponse> GetSalesReportAsync(
+        int companyId,
+        DateTime from,
+        DateTime to,
+        CancellationToken cancellationToken)
+    {
+        var paidOrders = await _context.Orders
+            .Where(o => o.CompanyId == companyId && o.IsPaid && o.PaidAt != null && o.PaidAt >= from && o.PaidAt < to)
+            .Select(o => new
+            {
+                o.Id,
+                o.TotalAmount,
+                o.DiscountAmount,
+                o.PaymentMethod,
+                o.WaiterId,
+                WaiterName = o.Waiter != null
+                    ? (o.Waiter.FirstName + " " + o.Waiter.LastName).Trim()
+                    : "Naməlum",
+            })
+            .ToListAsync(cancellationToken);
+
+        var orderIds = paidOrders.Select(o => o.Id).ToList();
+
+        var products = await _context.OrderLines
+            .Where(l => l.CompanyId == companyId && orderIds.Contains(l.OrderId) && l.Status != OrderLineStatus.Cancelled)
+            .GroupBy(l => new { l.MenuItemId, l.MenuItem.Name })
+            .Select(g => new SalesReportProductLineDto
+            {
+                MenuItemId = g.Key.MenuItemId,
+                Name = g.Key.Name,
+                Quantity = g.Sum(l => l.Quantity),
+                Revenue = g.Sum(l => l.LineTotal),
+            })
+            .OrderByDescending(x => x.Revenue)
+            .ToListAsync(cancellationToken);
+
+        var categories = await _context.OrderLines
+            .Where(l => l.CompanyId == companyId && orderIds.Contains(l.OrderId) && l.Status != OrderLineStatus.Cancelled)
+            .GroupBy(l => new { l.MenuItem.MenuCategoryId, l.MenuItem.MenuCategory.Name })
+            .Select(g => new SalesReportCategoryLineDto
+            {
+                CategoryId = g.Key.MenuCategoryId,
+                CategoryName = g.Key.Name,
+                Quantity = g.Sum(l => l.Quantity),
+                Revenue = g.Sum(l => l.LineTotal),
+            })
+            .OrderByDescending(x => x.Revenue)
+            .ToListAsync(cancellationToken);
+
+        var waiters = paidOrders
+            .GroupBy(o => new { o.WaiterId, o.WaiterName })
+            .Select(g => new SalesReportWaiterLineDto
+            {
+                WaiterId = g.Key.WaiterId,
+                WaiterName = g.Key.WaiterName,
+                OrderCount = g.Count(),
+                Revenue = g.Sum(o => o.TotalAmount),
+            })
+            .OrderByDescending(x => x.Revenue)
+            .ToList();
+
+        return new SalesReportResponse
+        {
+            From = from,
+            To = to,
+            TotalRevenue = paidOrders.Sum(o => o.TotalAmount),
+            TotalDiscount = paidOrders.Sum(o => o.DiscountAmount),
+            CashTotal = paidOrders.Where(o => o.PaymentMethod == PaymentMethod.Cash).Sum(o => o.TotalAmount),
+            CardTotal = paidOrders.Where(o => o.PaymentMethod == PaymentMethod.Card).Sum(o => o.TotalAmount),
+            OrderCount = paidOrders.Count,
+            Products = products,
+            Waiters = waiters,
+            Categories = categories,
+        };
+    }
+
     public async Task<List<FoodCostResponse>> GetFoodCostAsync(int companyId, CancellationToken cancellationToken)
     {
         // Average AZN unit cost per stock item from purchase history

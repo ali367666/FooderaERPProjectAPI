@@ -7,4 +7,6 @@ public class UpdateOrderLineRequest
     public string? Note { get; set; }
     public string? Status { get; set; }
     public decimal? UnitPrice { get; set; }
+    public bool? IsGift { get; set; }
+    public decimal? DiscountAmount { get; set; }
 }

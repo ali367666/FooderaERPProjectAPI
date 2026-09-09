@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces;
+﻿using Application.Common.Helpers;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Orders.Dtos;
 using Domain.Enums;
@@ -42,7 +43,7 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
         var hasLegacyLineTotals = false;
         foreach (var line in order.Lines)
         {
-            var expectedLineTotal = line.UnitPrice * line.Quantity;
+            var expectedLineTotal = OrderLinePricing.ComputeLineTotal(line);
             if (line.LineTotal != expectedLineTotal)
             {
                 line.LineTotal = expectedLineTotal;
@@ -87,6 +88,7 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
             GuestCount = order.GuestCount,
             CounterpartyId = order.CounterpartyId,
             CounterpartyName = order.Counterparty?.Name,
+            CounterpartyDebtAmount = order.Counterparty?.CurrentDebtAmount,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = order.TotalAmount,
@@ -116,6 +118,9 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
                 TimeBasedStartedAt = x.TimeBasedStartedAt,
                 TimeBasedStoppedAt = x.TimeBasedStoppedAt,
                 IsTimeBased = x.MenuItem.IsTimeBased,
+                IsWeightBased = Application.Common.Helpers.OrderLinePricing.IsWeightBased(x.MenuItem.UnitId),
+                IsGift = x.IsGift,
+                DiscountAmount = x.DiscountAmount,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString(),

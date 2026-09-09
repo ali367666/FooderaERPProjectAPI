@@ -21,9 +21,12 @@ export type OrderLineDto = {
   timeBasedStartedAt: string | null;
   timeBasedStoppedAt: string | null;
   isTimeBased: boolean;
+  isWeightBased: boolean;
+  isGift: boolean;
+  discountAmount: number;
 };
 
-export type PaymentMethod = "Cash" | "Card";
+export type PaymentMethod = "Cash" | "Card" | "Credit";
 
 export type OrderReceiptLineDto = {
   menuItemName: string;
@@ -65,6 +68,7 @@ export type OrderDto = {
   guestCount: number | null;
   counterpartyId: number | null;
   counterpartyName: string | null;
+  counterpartyDebtAmount: number | null;
   openedAt: string;
   closedAt: string | null;
   totalAmount: number;
@@ -118,6 +122,8 @@ export type UpdateOrderLinePayload = {
   note?: string | null;
   status?: string | null;
   unitPrice?: number | null;
+  isGift?: boolean | null;
+  discountAmount?: number | null;
 };
 
 export function getOrderStatusValue(status: unknown): number {
@@ -212,6 +218,9 @@ function normalizeOrder(raw: unknown): OrderDto | null {
             timeBasedStoppedAt:
               (pick(l, "timeBasedStoppedAt", "TimeBasedStoppedAt") as string | null | undefined) ?? null,
             isTimeBased: Boolean(pick(l, "isTimeBased", "IsTimeBased") ?? false),
+            isWeightBased: Boolean(pick(l, "isWeightBased", "IsWeightBased") ?? false),
+            isGift: Boolean(pick(l, "isGift", "IsGift") ?? false),
+            discountAmount: Number(pick(l, "discountAmount", "DiscountAmount") ?? 0),
           } satisfies OrderLineDto;
         })
         .filter((line): line is OrderLineDto => line !== null)
@@ -239,6 +248,10 @@ function normalizeOrder(raw: unknown): OrderDto | null {
       return v === null || v === undefined ? null : Number(v);
     })(),
     counterpartyName: (pick(o, "counterpartyName", "CounterpartyName") as string | null | undefined) ?? null,
+    counterpartyDebtAmount: (() => {
+      const v = pick<number | null>(o, "counterpartyDebtAmount", "CounterpartyDebtAmount");
+      return v === null || v === undefined ? null : Number(v);
+    })(),
     openedAt: String(pick(o, "openedAt", "OpenedAt") ?? ""),
     closedAt: (pick(o, "closedAt", "ClosedAt") as string | null | undefined) ?? null,
     totalAmount: Number(pick(o, "totalAmount", "TotalAmount") ?? 0),
@@ -410,6 +423,8 @@ export async function updateOrderLine(payload: UpdateOrderLinePayload): Promise<
       note: payload.note ?? null,
       status: payload.status ?? null,
       unitPrice: payload.unitPrice ?? null,
+      isGift: payload.isGift ?? null,
+      discountAmount: payload.discountAmount ?? null,
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));

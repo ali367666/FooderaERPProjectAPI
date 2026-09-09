@@ -36,6 +36,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     public DbSet<Printer> Printers { get; set; } = null!;
     public DbSet<FiscalDevice> FiscalDevices { get; set; } = null!;
     public DbSet<ScaleDevice> ScaleDevices { get; set; } = null!;
+    public DbSet<DeliveryIntegration> DeliveryIntegrations { get; set; } = null!;
+    public DbSet<CashMovement> CashMovements { get; set; } = null!;
     public DbSet<PrinterStationType> PrinterStationTypes { get; set; } = null!;
     public DbSet<Counterparty> Counterparties { get; set; } = null!;
     public DbSet<CounterpartyCategory> CounterpartyCategories { get; set; } = null!;

@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -101,9 +102,9 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         {
             OrderId = order.Id,
             MenuItemId = menuItem.Id,
+            MenuItem = menuItem,
             Quantity = quantity,
             UnitPrice = effectivePrice,
-            LineTotal = menuItem.IsTimeBased ? 0 : effectivePrice * quantity,
             Note = request.Request.Note,
             PreparationType = menuItem.PreparationType,
             Status = menuItem.PreparationType == PreparationType.None
@@ -114,6 +115,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
                 ? DateTime.UtcNow.AddMinutes(request.Request.HoldMinutes.Value)
                 : null
         };
+        orderLine.LineTotal = OrderLinePricing.ComputeLineTotal(orderLine);
 
         await _orderLineRepository.AddAsync(orderLine, cancellationToken);
         order.Lines.Add(orderLine);
@@ -249,6 +251,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             GuestCount = updatedOrder.GuestCount,
             CounterpartyId = updatedOrder.CounterpartyId,
             CounterpartyName = updatedOrder.Counterparty?.Name,
+            CounterpartyDebtAmount = updatedOrder.Counterparty?.CurrentDebtAmount,
             OpenedAt = updatedOrder.OpenedAt,
             ClosedAt = updatedOrder.ClosedAt,
             TotalAmount = updatedOrder.TotalAmount,
@@ -272,6 +275,9 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
                 TimeBasedStartedAt = x.TimeBasedStartedAt,
                 TimeBasedStoppedAt = x.TimeBasedStoppedAt,
                 IsTimeBased = x.MenuItem.IsTimeBased,
+                IsWeightBased = Application.Common.Helpers.OrderLinePricing.IsWeightBased(x.MenuItem.UnitId),
+                IsGift = x.IsGift,
+                DiscountAmount = x.DiscountAmount,
                 PreparationType = x.PreparationType,
                 Note = x.Note,
                 Status = x.Status.ToString(),

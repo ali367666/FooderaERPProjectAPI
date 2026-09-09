@@ -44,11 +44,12 @@ type FormState = {
   restaurantId: string;
   name: string;
   capacity: string;
+  note: string;
   isActive: boolean;
 };
 
 function emptyForm(): FormState {
-  return { id: null, restaurantId: "", name: "", capacity: "", isActive: true };
+  return { id: null, restaurantId: "", name: "", capacity: "", note: "", isActive: true };
 }
 
 export default function RestaurantTablesPage() {
@@ -245,6 +246,7 @@ export default function RestaurantTablesPage() {
       restaurantId: String(target.restaurantId),
       name: target.name || "",
       capacity: String(target.capacity || ""),
+      note: target.note ?? "",
       isActive: target.isActive,
     });
     setFieldErrors({});
@@ -285,6 +287,7 @@ export default function RestaurantTablesPage() {
       restaurantId,
       name: form.name.trim(),
       capacity,
+      note: form.note.trim() || null,
       isActive: form.isActive,
       type: RestaurantTableType.Masa,
     };
@@ -409,6 +412,15 @@ export default function RestaurantTablesPage() {
               {getFieldErrorMessage(fieldErrors, "capacity") && (
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "capacity")}</p>
               )}
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Note</label>
+              <Input
+                value={form.note}
+                onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+                placeholder="e.g. Near the window"
+              />
             </div>
 
             {isEditMode && (

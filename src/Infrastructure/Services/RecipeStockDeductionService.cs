@@ -71,12 +71,22 @@ public class RecipeStockDeductionService : IRecipeStockDeductionService
     }
 
     private static Dictionary<int, decimal> ComputeRequiredByStockItem(
-        List<MenuItemRecipeLine> recipeLines, int quantity)
+        List<MenuItemRecipeLine> recipeLines, OrderLine orderLine)
     {
+        // A weight-sold menu item (Kg unit) stores its OrderLine.Quantity in GRAMS (see
+        // OrderLinePricing). If the recipe's stock item is tracked in Kg, convert grams -> kg
+        // here so we don't deduct 1000x too much from the warehouse balance.
+        var soldInGrams = orderLine.MenuItem is not null
+            && orderLine.MenuItem.UnitId == (int)UnitOfMeasure.Kg;
+
         var requiredByStockItem = new Dictionary<int, decimal>();
         foreach (var recipeLine in recipeLines)
         {
-            var requiredQuantity = recipeLine.QuantityPerPortion * quantity;
+            var effectiveQuantity = soldInGrams && recipeLine.StockItem?.Unit == UnitOfMeasure.Kg
+                ? orderLine.Quantity / 1000m
+                : orderLine.Quantity;
+
+            var requiredQuantity = recipeLine.QuantityPerPortion * effectiveQuantity;
             if (!requiredByStockItem.TryAdd(recipeLine.StockItemId, requiredQuantity))
                 requiredByStockItem[recipeLine.StockItemId] += requiredQuantity;
         }
@@ -98,7 +108,7 @@ public class RecipeStockDeductionService : IRecipeStockDeductionService
             return;
 
         var restaurantWarehouse = await ResolveRestaurantWarehouseAsync(companyId, order.RestaurantId, cancellationToken);
-        var requiredByStockItem = ComputeRequiredByStockItem(recipeLines, orderLine.Quantity);
+        var requiredByStockItem = ComputeRequiredByStockItem(recipeLines, orderLine);
 
         foreach (var req in requiredByStockItem)
         {
@@ -174,7 +184,7 @@ public class RecipeStockDeductionService : IRecipeStockDeductionService
         }
 
         var restaurantWarehouse = await ResolveRestaurantWarehouseAsync(companyId, order.RestaurantId, cancellationToken);
-        var requiredByStockItem = ComputeRequiredByStockItem(recipeLines, orderLine.Quantity);
+        var requiredByStockItem = ComputeRequiredByStockItem(recipeLines, orderLine);
 
         var now = DateTime.UtcNow;
         foreach (var req in requiredByStockItem)

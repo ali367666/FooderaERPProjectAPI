@@ -25,6 +25,7 @@ export type RestaurantTable = {
   rotation: number;
   sectionId: number | null;
   hourlyRate: number | null;
+  note: string | null;
   type: RestaurantTableTypeValue;
 };
 
@@ -43,6 +44,7 @@ export type RestaurantTableMutationInput = {
   capacity: number;
   isActive?: boolean;
   hourlyRate?: number | null;
+  note?: string | null;
   type?: RestaurantTableTypeValue;
 };
 
@@ -74,6 +76,7 @@ function normalizeRestaurantTable(item: unknown): RestaurantTable | null {
       const v = raw.hourlyRate ?? raw.HourlyRate;
       return v == null ? null : Number(v);
     })(),
+    note: (raw.note ?? raw.Note) != null ? String(raw.note ?? raw.Note) : null,
     type: (() => {
       const n = Number(raw.type ?? raw.Type);
       if (n === RestaurantTableType.Kabinet) return n;
@@ -119,14 +122,44 @@ export async function createRestaurantTable(
 export async function updateRestaurantTable(
   id: number,
   data: RestaurantTableMutationInput,
-): Promise<void> {
+): Promise<RestaurantTable> {
   try {
     const response = await api.put<unknown>(`/RestaurantTables/${id}`, data);
-    if (!response.data) {
+    const table = normalizeRestaurantTable(response.data);
+    if (!table) {
       throw new ApiFormError("Failed to update restaurant table");
     }
+    return table;
   } catch (error) {
     throw toApiFormError(error, "Failed to update restaurant table");
+  }
+}
+
+export async function getRestaurantTableById(id: number): Promise<RestaurantTable> {
+  try {
+    const response = await api.get<unknown>(`/RestaurantTables/${id}`);
+    const table = normalizeRestaurantTable(response.data);
+    if (!table) throw new ApiFormError("Restaurant table not found");
+    return table;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to fetch restaurant table");
+  }
+}
+
+export async function ensureStoreSaleTable(restaurantId: number): Promise<number> {
+  try {
+    const response = await api.post<{ success?: boolean; message?: string; data?: number }>(
+      "/RestaurantTables/ensure-store-sale-table",
+      null,
+      { params: { restaurantId } },
+    );
+    const payload = response.data;
+    if (payload?.success === false || payload?.data == null) {
+      throw new ApiFormError(payload?.message || "Failed to ensure store sale table");
+    }
+    return Number(payload.data);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to ensure store sale table");
   }
 }
 

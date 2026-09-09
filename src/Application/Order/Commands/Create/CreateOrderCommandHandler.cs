@@ -161,6 +161,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             GuestCount = order.GuestCount,
             CounterpartyId = order.CounterpartyId,
             CounterpartyName = order.Counterparty?.Name,
+            CounterpartyDebtAmount = order.Counterparty?.CurrentDebtAmount,
             OpenedAt = order.OpenedAt,
             ClosedAt = order.ClosedAt,
             TotalAmount = 0,

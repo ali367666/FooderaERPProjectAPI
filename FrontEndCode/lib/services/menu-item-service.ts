@@ -25,6 +25,7 @@ export type MenuItem = {
   id: number;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   price: number;
   portion: string | null;
   isActive: boolean;
@@ -77,6 +78,7 @@ export type SetComponentInput = {
 export type MenuItemCreateInput = {
   name: string;
   description?: string | null;
+  imageUrl?: string | null;
   price: number;
   portion?: string | null;
   menuCategoryId: number;
@@ -154,6 +156,7 @@ function normalizeMenuItem(item: unknown): MenuItem | null {
       raw.description === undefined && raw.Description === undefined
         ? null
         : String(raw.description ?? raw.Description ?? "") || null,
+    imageUrl: (raw.imageUrl ?? raw.ImageUrl) != null ? String(raw.imageUrl ?? raw.ImageUrl) : null,
     price: Number(raw.price ?? raw.Price ?? 0),
     portion:
       raw.portion === undefined && raw.Portion === undefined
@@ -250,6 +253,7 @@ function buildBasePayload(data: MenuItemCreateInput) {
   return {
     name: data.name.trim(),
     description: data.description?.trim() || null,
+    imageUrl: data.imageUrl?.trim() || null,
     price: data.price,
     portion: data.portion?.trim() || null,
     menuCategoryId: data.menuCategoryId,

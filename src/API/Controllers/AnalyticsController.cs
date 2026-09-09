@@ -36,4 +36,15 @@ public class AnalyticsController : ControllerBase
         var result = await _mediator.Send(new GetFoodCostQuery(), cancellationToken);
         return Ok(result);
     }
+
+    [Authorize(Policy = AppPermissions.PosZReport)]
+    [HttpGet("z-report")]
+    public async Task<ActionResult<SalesReportResponse>> GetZReport(
+        [FromQuery] DateTime from,
+        [FromQuery] DateTime to,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetSalesReportQuery(from, to), cancellationToken);
+        return Ok(result);
+    }
 }
