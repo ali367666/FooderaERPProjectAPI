@@ -4,5 +4,5 @@ using MediatR;
 
 namespace Application.CompanySettings.Queries;
 
-public record GetCompanySettingsBrandingQuery(int CompanyId)
+public record GetCompanySettingsBrandingQuery(int CompanyId, int? RestaurantId = null)
     : IRequest<BaseResponse<CompanySettingsBrandingResponse>>;

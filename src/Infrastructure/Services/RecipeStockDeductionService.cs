@@ -65,7 +65,7 @@ public class RecipeStockDeductionService : IRecipeStockDeductionService
             ?? warehouses.FirstOrDefault(x => x.CompanyId == companyId);
 
         if (restaurantWarehouse is null)
-            throw new BadRequestException("Restaurant warehouse was not found.");
+            throw new BadRequestException("Branch warehouse was not found.");
 
         return restaurantWarehouse;
     }

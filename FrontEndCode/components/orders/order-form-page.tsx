@@ -215,7 +215,7 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
     const tid = Number(tableId);
     const wid = Number(waiterId);
     if (!rid || !tid || !wid) {
-      toast.error("Restaurant, table and waiter are required.");
+      toast.error("Branch, table and waiter are required.");
       return;
     }
 
@@ -422,14 +422,14 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
             <Input value={order?.companyId ?? ""} readOnly />
           </div>
           <div>
-            <label className="mb-1 block text-sm">Restaurant</label>
+            <label className="mb-1 block text-sm">Branch</label>
             <select
               className="h-10 w-full rounded-md border px-3"
               value={restaurantId}
               onChange={(e) => setRestaurantId(e.target.value)}
               disabled={readOnly}
             >
-              <option value="">Select restaurant</option>
+              <option value="">Select branch</option>
               {restaurants.map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.name}

@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockRequests.Dtos.Response;
 using MediatR;
@@ -9,10 +10,14 @@ public class GetStockRequestByIdQueryHandler
     : IRequestHandler<GetStockRequestByIdQuery, BaseResponse<StockRequestResponse>>
 {
     private readonly IStockRequestRepository _stockRequestRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public GetStockRequestByIdQueryHandler(IStockRequestRepository stockRequestRepository)
+    public GetStockRequestByIdQueryHandler(
+        IStockRequestRepository stockRequestRepository,
+        ICurrentUserService currentUserService)
     {
         _stockRequestRepository = stockRequestRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<BaseResponse<StockRequestResponse>> Handle(
@@ -22,7 +27,7 @@ public class GetStockRequestByIdQueryHandler
         var stockRequest = await _stockRequestRepository
             .GetByIdWithLinesAsync(request.Id, cancellationToken);
 
-        if (stockRequest is null)
+        if (stockRequest is null || (!_currentUserService.IsSuperAdmin && stockRequest.CompanyId != _currentUserService.CompanyId))
         {
             return new BaseResponse<StockRequestResponse>
             {

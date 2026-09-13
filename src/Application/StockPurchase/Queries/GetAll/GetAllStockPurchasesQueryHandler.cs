@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockPurchase.Dtos.Response;
@@ -9,16 +10,31 @@ public class GetAllStockPurchasesQueryHandler
     : IRequestHandler<GetAllStockPurchasesQuery, BaseResponse<List<StockPurchaseResponse>>>
 {
     private readonly IStockPurchaseRepository _purchaseRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public GetAllStockPurchasesQueryHandler(IStockPurchaseRepository purchaseRepository)
+    public GetAllStockPurchasesQueryHandler(
+        IStockPurchaseRepository purchaseRepository,
+        ICurrentUserService currentUserService)
     {
         _purchaseRepository = purchaseRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<BaseResponse<List<StockPurchaseResponse>>> Handle(
         GetAllStockPurchasesQuery request, CancellationToken cancellationToken)
     {
         var purchases = await _purchaseRepository.GetAllAsync(cancellationToken);
+
+        // A tenant Admin only ever sees their own company's purchase documents. SuperAdmin can
+        // target one company via CompanyId, or omit it to browse every company.
+        if (!_currentUserService.IsSuperAdmin)
+        {
+            purchases = purchases.Where(p => p.CompanyId == _currentUserService.CompanyId).ToList();
+        }
+        else if (request.CompanyId is > 0)
+        {
+            purchases = purchases.Where(p => p.CompanyId == request.CompanyId.Value).ToList();
+        }
 
         var result = purchases.Select(p => MapToResponse(p)).ToList();
 

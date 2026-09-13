@@ -22,7 +22,7 @@ public class GetKitchenOrdersQueryHandler : IRequestHandler<GetKitchenOrdersQuer
         GetKitchenOrdersQuery request,
         CancellationToken cancellationToken)
     {
-        var companyId = request.CompanyId.GetValueOrDefault() > 0
+        var companyId = _currentUserService.IsSuperAdmin && request.CompanyId.GetValueOrDefault() > 0
             ? request.CompanyId!.Value
             : _currentUserService.CompanyId;
 

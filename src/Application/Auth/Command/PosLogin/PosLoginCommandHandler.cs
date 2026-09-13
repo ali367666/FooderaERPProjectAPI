@@ -41,7 +41,7 @@ public sealed class PosLoginCommandHandler
             _logger.LogInformation(
                 "POS login blocked before opening time. CompanyId: {CompanyId}, OpeningTime: {OpeningTime}",
                 dto.CompanyId, openingTime);
-            return BaseResponse<LoginResponse>.Fail($"Restoran hələ açılmayıb. Açılış vaxtı: {openingTime:hh\\:mm}.");
+            return BaseResponse<LoginResponse>.Fail($"Filial hələ açılmayıb. Açılış vaxtı: {openingTime:hh\\:mm}.");
         }
 
         var user = !string.IsNullOrWhiteSpace(dto.Code)

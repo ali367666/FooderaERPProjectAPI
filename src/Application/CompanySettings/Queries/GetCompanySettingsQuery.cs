@@ -4,4 +4,4 @@ using MediatR;
 
 namespace Application.CompanySettings.Queries;
 
-public record GetCompanySettingsQuery : IRequest<BaseResponse<CompanySettingsResponse>>;
+public record GetCompanySettingsQuery(int? CompanyId = null) : IRequest<BaseResponse<CompanySettingsResponse>>;

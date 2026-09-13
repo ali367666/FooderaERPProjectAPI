@@ -33,7 +33,7 @@ import {
   type StockCategory,
 } from "@/lib/services/stock-category-service";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
-import { resolveCompanyId } from "@/lib/resolve-company-id";
+import { defaultFormCompanyId, resolveCompanyId } from "@/lib/resolve-company-id";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
@@ -108,8 +108,7 @@ export default function StockItemsPage() {
       setItems(itemData);
       setCategories(categoryData);
       setRestaurants(restaurantData);
-      const defaultCo = scopeCompanyId ?? companies[0]?.id ?? resolveCompanyId();
-      if (!companyId) setCompanyId(String(defaultCo));
+      if (!companyId) setCompanyId(defaultFormCompanyId(companies, scopeCompanyId));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load stock items.");
     } finally {
@@ -273,7 +272,7 @@ export default function StockItemsPage() {
     setUnit(String(UnitOfMeasure.Piece));
     setCategoryId("");
     setRestaurantId("");
-    setCompanyId(String(scopeCompanyId ?? companies[0]?.id ?? resolveCompanyId()));
+    setCompanyId(defaultFormCompanyId(companies, scopeCompanyId));
     setEditingId(null);
     setFieldErrors({});
     setIsEditMode(false);
@@ -478,7 +477,7 @@ export default function StockItemsPage() {
               )}
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-foreground">Restaurant (optional)</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">Branch (optional)</label>
               <select value={restaurantId} onChange={(e) => setRestaurantId(e.target.value)} className={selectClass}>
                 <option value="">None</option>
                 {restaurantsForForm.map((r) => (

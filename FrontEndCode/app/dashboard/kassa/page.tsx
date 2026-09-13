@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
+import { useSelectedRestaurant } from "@/contexts/selected-restaurant-context";
 import { getZReport, type ZReport } from "@/lib/services/analytics-service";
 import {
   adjustCounterpartyDebt,
@@ -44,6 +45,7 @@ function endOfDay(d: Date): Date {
 }
 
 export default function KassaPage() {
+  const { selectedRestaurantId } = useSelectedRestaurant();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [restaurantId, setRestaurantId] = useState<string>("");
 
@@ -67,12 +69,18 @@ export default function KassaPage() {
       try {
         const rs = await getRestaurants();
         setRestaurants(rs);
-        if (rs.length > 0) setRestaurantId(String(rs[0].id));
+        // Follow the top "Filial filter" (Data Seçimi) when one is picked — otherwise default to
+        // the first branch, same as before.
+        if (selectedRestaurantId != null && rs.some((r) => r.id === selectedRestaurantId)) {
+          setRestaurantId(String(selectedRestaurantId));
+        } else if (rs.length > 0) {
+          setRestaurantId(String(rs[0].id));
+        }
       } catch {
         setRestaurants([]);
       }
     })();
-  }, []);
+  }, [selectedRestaurantId]);
 
   const loadAll = useCallback(async (rid: number) => {
     setLoading(true);
@@ -174,14 +182,14 @@ export default function KassaPage() {
       </div>
 
       <div className="max-w-xs">
-        <Label htmlFor="kassa-restaurant">Restoran</Label>
+        <Label htmlFor="kassa-restaurant">Filial</Label>
         <select
           id="kassa-restaurant"
           className={selectClass + " mt-1"}
           value={restaurantId}
           onChange={(e) => setRestaurantId(e.target.value)}
         >
-          <option value="">Restoran seçin</option>
+          <option value="">Filial seçin</option>
           {restaurants.map((r) => (
             <option key={r.id} value={String(r.id)}>
               {r.name}

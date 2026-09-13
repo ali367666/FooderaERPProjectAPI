@@ -16,6 +16,7 @@ public class UpdateEmployeeCommandHandler
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IPositionRepository _positionRepository;
+    private readonly IRestaurantRepository _restaurantRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateEmployeeCommandHandler> _logger;
@@ -24,6 +25,7 @@ public class UpdateEmployeeCommandHandler
         IEmployeeRepository employeeRepository,
         IDepartmentRepository departmentRepository,
         IPositionRepository positionRepository,
+        IRestaurantRepository restaurantRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<UpdateEmployeeCommandHandler> logger)
@@ -31,6 +33,7 @@ public class UpdateEmployeeCommandHandler
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _positionRepository = positionRepository;
+        _restaurantRepository = restaurantRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -42,24 +45,28 @@ public class UpdateEmployeeCommandHandler
     {
         try
         {
-            var companyId = _currentUserService.CompanyId;
+            var isSuperAdmin = _currentUserService.IsSuperAdmin;
+            var callerCompanyId = _currentUserService.CompanyId;
 
             _logger.LogInformation(
-                "UpdateEmployeeCommand başladı. EmployeeId: {EmployeeId}, CompanyId: {CompanyId}",
+                "UpdateEmployeeCommand başladı. EmployeeId: {EmployeeId}, CallerCompanyId: {CallerCompanyId}, IsSuperAdmin: {IsSuperAdmin}",
                 request.Id,
-                companyId);
+                callerCompanyId,
+                isSuperAdmin);
 
-            var employee = await _employeeRepository.GetByIdAsync(
-                request.Id,
-                companyId,
-                cancellationToken);
+            // SuperAdmin can move an employee to any company — look them up by id alone first, the
+            // target company is resolved from whichever Department they're re-assigned to below. A
+            // tenant Admin is always confined to their own company.
+            var employee = isSuperAdmin
+                ? await _employeeRepository.GetByIdAsync(request.Id, cancellationToken)
+                : await _employeeRepository.GetByIdAsync(request.Id, callerCompanyId, cancellationToken);
 
             if (employee is null)
             {
                 _logger.LogWarning(
-                    "Employee update olunmadı. Employee tapılmadı. EmployeeId: {EmployeeId}, CompanyId: {CompanyId}",
+                    "Employee update olunmadı. Employee tapılmadı. EmployeeId: {EmployeeId}, CallerCompanyId: {CallerCompanyId}",
                     request.Id,
-                    companyId);
+                    callerCompanyId);
 
                 return new BaseResponse
                 {
@@ -68,17 +75,26 @@ public class UpdateEmployeeCommandHandler
                 };
             }
 
-            var department = await _departmentRepository.GetByIdAsync(
-                request.Request.DepartmentId,
-                companyId,
-                cancellationToken);
+            Domain.Entities.Department? department;
+            int companyId;
+
+            if (isSuperAdmin)
+            {
+                department = await _departmentRepository.GetByIdAsync(request.Request.DepartmentId, cancellationToken);
+                companyId = department?.CompanyId ?? 0;
+            }
+            else
+            {
+                companyId = callerCompanyId;
+                department = await _departmentRepository.GetByIdAsync(request.Request.DepartmentId, companyId, cancellationToken);
+            }
 
             if (department is null)
             {
                 _logger.LogWarning(
-                    "Employee update olunmadı. Department tapılmadı. DepartmentId: {DepartmentId}, CompanyId: {CompanyId}",
+                    "Employee update olunmadı. Department tapılmadı. DepartmentId: {DepartmentId}, CallerCompanyId: {CallerCompanyId}",
                     request.Request.DepartmentId,
-                    companyId);
+                    callerCompanyId);
 
                 return new BaseResponse
                 {
@@ -104,6 +120,43 @@ public class UpdateEmployeeCommandHandler
                 {
                     Success = false,
                     Message = "Invalid position."
+                };
+            }
+
+            var duplicateContact = await _employeeRepository.ExistsByEmailOrPhoneAsync(
+                companyId,
+                request.Request.Email,
+                request.Request.PhoneNumber,
+                excludeEmployeeId: employee.Id,
+                cancellationToken);
+
+            if (duplicateContact)
+            {
+                _logger.LogWarning(
+                    "Employee update olunmadı. Email/telefon artıq mövcuddur. EmployeeId: {EmployeeId}, CompanyId: {CompanyId}",
+                    employee.Id,
+                    companyId);
+
+                return new BaseResponse
+                {
+                    Success = false,
+                    Message = "An employee with this email or phone number already exists."
+                };
+            }
+
+            var restaurant = await _restaurantRepository.GetByIdAsync(request.Request.RestaurantId, cancellationToken);
+
+            if (restaurant is null || restaurant.CompanyId != companyId)
+            {
+                _logger.LogWarning(
+                    "Employee update olunmadı. Restaurant tapılmadı və ya şirkətə aid deyil. RestaurantId: {RestaurantId}, CompanyId: {CompanyId}",
+                    request.Request.RestaurantId,
+                    companyId);
+
+                return new BaseResponse
+                {
+                    Success = false,
+                    Message = "Branch not found."
                 };
             }
 
@@ -136,6 +189,8 @@ public class UpdateEmployeeCommandHandler
 
             employee.DepartmentId = request.Request.DepartmentId;
             employee.PositionId = request.Request.PositionId;
+            employee.RestaurantId = restaurant.Id;
+            employee.CompanyId = companyId;
 
             _employeeRepository.Update(employee);
             await _employeeRepository.SaveChangesAsync(cancellationToken);

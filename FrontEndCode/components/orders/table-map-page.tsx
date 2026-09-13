@@ -272,7 +272,7 @@ function PlanView({
 
         {tables.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-muted-foreground text-sm">Bu restoran üçün masa tapılmadı.</p>
+            <p className="text-muted-foreground text-sm">Bu filial üçün masa tapılmadı.</p>
           </div>
         )}
 

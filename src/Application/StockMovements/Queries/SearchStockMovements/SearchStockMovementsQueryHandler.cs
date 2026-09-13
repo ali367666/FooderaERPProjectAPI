@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockMovements.Dtos.Response;
@@ -10,18 +11,24 @@ public class SearchStockMovementsQueryHandler
     : IRequestHandler<SearchStockMovementsQuery, BaseResponse<List<StockMovementListItemResponse>>>
 {
     private readonly IStockMovementRepository _stockMovementRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public SearchStockMovementsQueryHandler(IStockMovementRepository stockMovementRepository)
+    public SearchStockMovementsQueryHandler(
+        IStockMovementRepository stockMovementRepository,
+        ICurrentUserService currentUserService)
     {
         _stockMovementRepository = stockMovementRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<BaseResponse<List<StockMovementListItemResponse>>> Handle(
         SearchStockMovementsQuery request,
         CancellationToken cancellationToken)
     {
+        var companyId = _currentUserService.IsSuperAdmin ? request.CompanyId : _currentUserService.CompanyId;
+
         var rows = await _stockMovementRepository.SearchByCompanyAsync(
-            request.CompanyId,
+            companyId,
             request.Search,
             cancellationToken);
 

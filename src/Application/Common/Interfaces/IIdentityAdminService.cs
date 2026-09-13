@@ -19,7 +19,7 @@ public interface IIdentityAdminService
 
     Task<(bool Ok, string? Error)> DeleteUserAsync(int id, CancellationToken cancellationToken = default);
 
-    Task<List<RoleListItemDto>> GetRolesAsync(CancellationToken cancellationToken = default);
+    Task<List<RoleListItemDto>> GetRolesAsync(int? companyId = null, CancellationToken cancellationToken = default);
 
     Task<RoleListItemDto?> GetRoleByIdAsync(int id, CancellationToken cancellationToken = default);
 
@@ -43,4 +43,11 @@ public interface IIdentityAdminService
         int roleId,
         List<int> permissionIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Clones the global template roles (Admin/Manager/Waiter/Kitchen/Cashier/User) into new,
+    /// company-owned roles for the given company, copying each template's permissions. Called once
+    /// right after a new company is created so it gets a full, independent role set immediately.
+    /// </summary>
+    Task CloneDefaultRolesForCompanyAsync(int companyId, CancellationToken cancellationToken = default);
 }

@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
+import { useSelectedRestaurant } from "@/contexts/selected-restaurant-context";
 import {
   createPrinter,
   deletePrinter,
@@ -47,6 +48,7 @@ type PrinterRow = {
 };
 
 export default function PrintersPage() {
+  const { selectedRestaurantId } = useSelectedRestaurant();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [printers, setPrinters] = useState<Printer[]>([]);
@@ -75,12 +77,18 @@ export default function PrintersPage() {
       try {
         const rs = await getRestaurants();
         setRestaurants(rs);
-        if (rs.length > 0) setRestaurantId(String(rs[0].id));
+        // Follow the top "Filial filter" (Data Seçimi) when one is picked — otherwise default to
+        // the first branch, same as before.
+        if (selectedRestaurantId != null && rs.some((r) => r.id === selectedRestaurantId)) {
+          setRestaurantId(String(selectedRestaurantId));
+        } else if (rs.length > 0) {
+          setRestaurantId(String(rs[0].id));
+        }
       } catch {
         setRestaurants([]);
       }
     })();
-  }, []);
+  }, [selectedRestaurantId]);
 
   const loadStationTypes = async () => {
     setStationTypesLoading(true);
@@ -327,7 +335,7 @@ export default function PrintersPage() {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Printerlər</h1>
         <p className="text-muted-foreground mt-1">
-          Restoranın şəbəkə printerlərini qeydə alın — IP ünvanı ilə birbaşa çap.
+          Filialın şəbəkə printerlərini qeydə alın — IP ünvanı ilə birbaşa çap.
         </p>
       </div>
 
@@ -391,14 +399,14 @@ export default function PrintersPage() {
       </div>
 
       <div className="max-w-xs">
-        <Label htmlFor="printer-restaurant">Restoran</Label>
+        <Label htmlFor="printer-restaurant">Filial</Label>
         <select
           id="printer-restaurant"
           className={selectClass + " mt-1"}
           value={restaurantId}
           onChange={(e) => setRestaurantId(e.target.value)}
         >
-          <option value="">Restoran seçin</option>
+          <option value="">Filial seçin</option>
           {restaurants.map((r) => (
             <option key={r.id} value={String(r.id)}>
               {r.name}

@@ -34,6 +34,19 @@ export function useHasPermission(permission: string): boolean {
   return hasPermission(permission, usePermissionSet());
 }
 
+/**
+ * True only for the platform-level SuperAdmin (the reseller managing every tenant) — never for a
+ * tenant's own "Admin" role, which is scoped to their own company.
+ */
+export function useIsSuperAdmin(): boolean {
+  const token = useSyncExternalStore(subscribe, getTokenSnapshot, getServerSnapshot);
+  return useMemo(() => {
+    const authUser = getStoredAuthUser();
+    const roles = authUser?.roles ?? getRoleClaimsFromToken(token);
+    return roles.some((r) => r.trim().toLowerCase() === "superadmin");
+  }, [token]);
+}
+
 export function hasPermission(permission: string, permissionSet: ReadonlySet<string>): boolean {
   const raw = permission.trim();
   if (!raw) return false;

@@ -163,6 +163,7 @@ export type CompanyModules = {
   moduleFitnes: boolean;
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
+  moduleKompleks: boolean;
 };
 
 export async function setCompanyModules(companyId: number, modules: CompanyModules): Promise<void> {

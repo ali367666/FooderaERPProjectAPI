@@ -32,7 +32,8 @@ public class AuditLogsController : ControllerBase
         [FromQuery] int? userId,
         [FromQuery] DateTime? fromUtc,
         [FromQuery] DateTime? toUtc,
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] int? companyId)
     {
         var permissionClaims = User.Claims
             .Where(c => c.Type == "Permission")
@@ -41,7 +42,7 @@ public class AuditLogsController : ControllerBase
         _logger.LogInformation("AuditLogs/GetAll user permission claims: {Claims}", string.Join(", ", permissionClaims));
 
         var result = await _mediator.Send(
-            new GetAuditLogsQuery(entityName, entityId, actionType, userId, fromUtc, toUtc, search));
+            new GetAuditLogsQuery(entityName, entityId, actionType, userId, fromUtc, toUtc, search, companyId));
 
         if (!result.Success)
             return BadRequest(result);

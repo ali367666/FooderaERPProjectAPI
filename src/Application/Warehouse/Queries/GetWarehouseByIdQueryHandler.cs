@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.Warehouse.Dtos.Response;
 using AutoMapper;
@@ -11,15 +12,18 @@ public class GetWarehouseByIdQueryHandler
     : IRequestHandler<GetWarehouseByIdQuery, BaseResponse<WarehouseResponse>>
 {
     private readonly IWarehouseRepository _warehouseRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IMapper _mapper;
     private readonly ILogger<GetWarehouseByIdQueryHandler> _logger;
 
     public GetWarehouseByIdQueryHandler(
         IWarehouseRepository warehouseRepository,
+        ICurrentUserService currentUserService,
         IMapper mapper,
         ILogger<GetWarehouseByIdQueryHandler> logger)
     {
         _warehouseRepository = warehouseRepository;
+        _currentUserService = currentUserService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -32,7 +36,7 @@ public class GetWarehouseByIdQueryHandler
 
         var warehouse = await _warehouseRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (warehouse is null)
+        if (warehouse is null || (!_currentUserService.IsSuperAdmin && warehouse.CompanyId != _currentUserService.CompanyId))
         {
             _logger.LogWarning("Warehouse not found. WarehouseId: {WarehouseId}", request.Id);
 

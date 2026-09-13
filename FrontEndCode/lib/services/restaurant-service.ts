@@ -45,12 +45,14 @@ function normalizeRestaurant(item: unknown): Restaurant | null {
   };
 }
 
-export async function getRestaurants(): Promise<Restaurant[]> {
+export async function getRestaurants(companyId?: number): Promise<Restaurant[]> {
   try {
-    const response = await api.get<ApiResponse<Restaurant[]>>("/Restaurant");
+    const response = await api.get<ApiResponse<Restaurant[]>>("/Restaurant", {
+      params: companyId ? { companyId } : undefined,
+    });
     const payload = response.data;
     if (payload?.success === false) {
-      throw new ApiFormError(payload.message || "Failed to fetch restaurants");
+      throw new ApiFormError(payload.message || "Failed to fetch branches");
     }
 
     const list = Array.isArray(payload?.data) ? payload.data : [];
@@ -58,7 +60,7 @@ export async function getRestaurants(): Promise<Restaurant[]> {
       .map((restaurant) => normalizeRestaurant(restaurant))
       .filter((restaurant): restaurant is Restaurant => restaurant !== null);
   } catch (error) {
-    throw toApiFormError(error, "Failed to fetch restaurants");
+    throw toApiFormError(error, "Failed to fetch branches");
   }
 }
 
@@ -67,10 +69,10 @@ export async function createRestaurant(data: RestaurantMutationInput): Promise<v
     const response = await api.post<ApiResponse<unknown>>("/Restaurant", data);
     const payload = response.data;
     if (payload?.success === false) {
-      throw new ApiFormError(payload.message || "Failed to create restaurant");
+      throw new ApiFormError(payload.message || "Failed to create branch");
     }
   } catch (error) {
-    throw toApiFormError(error, "Failed to create restaurant");
+    throw toApiFormError(error, "Failed to create branch");
   }
 }
 
@@ -82,10 +84,10 @@ export async function updateRestaurant(
     const response = await api.put<ApiResponse<unknown>>(`/Restaurant/${id}`, data);
     const payload = response.data;
     if (payload?.success === false) {
-      throw new ApiFormError(payload.message || "Failed to update restaurant");
+      throw new ApiFormError(payload.message || "Failed to update branch");
     }
   } catch (error) {
-    throw toApiFormError(error, "Failed to update restaurant");
+    throw toApiFormError(error, "Failed to update branch");
   }
 }
 
@@ -94,9 +96,9 @@ export async function deleteRestaurant(id: number): Promise<void> {
     const response = await api.delete<ApiResponse<unknown>>(`/Restaurant/${id}`);
     const payload = response.data;
     if (payload?.success === false) {
-      throw new ApiFormError(payload.message || "Failed to delete restaurant");
+      throw new ApiFormError(payload.message || "Failed to delete branch");
     }
   } catch (error) {
-    throw toApiFormError(error, "Failed to delete restaurant");
+    throw toApiFormError(error, "Failed to delete branch");
   }
 }

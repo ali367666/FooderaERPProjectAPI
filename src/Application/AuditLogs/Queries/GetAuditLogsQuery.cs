@@ -11,5 +11,6 @@ public record GetAuditLogsQuery(
     int? UserId,
     DateTime? FromUtc,
     DateTime? ToUtc,
-    string? Search
+    string? Search,
+    int? CompanyId = null
 ) : IRequest<BaseResponse<List<AuditLogResponse>>>;

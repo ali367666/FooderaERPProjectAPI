@@ -24,7 +24,11 @@ public class GetAllEmployeesQueryHandler
         GetAllEmployeesQuery request,
         CancellationToken cancellationToken)
     {
-        var companyId = _currentUserService.CompanyId;
+        // SuperAdmin may list any company's employees; a tenant Admin is always confined to their
+        // own company regardless of what companyId was requested.
+        var companyId = _currentUserService.IsSuperAdmin && request.CompanyId > 0
+            ? request.CompanyId
+            : _currentUserService.CompanyId;
 
         var employees = await _employeeRepository.GetAllAsync(companyId, cancellationToken);
 
@@ -45,6 +49,8 @@ public class GetAllEmployeesQueryHandler
             DepartmentName = employee.Department?.Name ?? string.Empty,
             PositionId = employee.PositionId,
             PositionName = employee.Position?.Name ?? string.Empty,
+            RestaurantId = employee.RestaurantId,
+            RestaurantName = employee.Restaurant?.Name ?? string.Empty,
             UserId = employee.UserId
         }).ToList();
 

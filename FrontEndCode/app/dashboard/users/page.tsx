@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
+import { defaultFormCompanyId } from "@/lib/resolve-company-id";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
 import {
@@ -158,20 +159,33 @@ export default function UsersPage() {
       } finally {
         if (!c) setWarehousesLoading(false);
       }
-      setRolesLoading(true);
-      try {
-        const rl = await getRoles();
-        if (!c) setRoles(rl);
-      } catch {
-        if (!c) setRoles([]);
-      } finally {
-        if (!c) setRolesLoading(false);
-      }
     })();
     return () => {
       c = true;
     };
   }, [dialogOpen]);
+
+  // Roles belong to a specific company — reload whenever the form's target company changes (a
+  // SuperAdmin creating a user for a different tenant must see THAT tenant's roles, not their own).
+  useEffect(() => {
+    if (!dialogOpen) return;
+    let cancelled = false;
+    const targetCompanyId = Number(companyId) > 0 ? Number(companyId) : undefined;
+    setRolesLoading(true);
+    (async () => {
+      try {
+        const rl = await getRoles(targetCompanyId);
+        if (!cancelled) setRoles(rl);
+      } catch {
+        if (!cancelled) setRoles([]);
+      } finally {
+        if (!cancelled) setRolesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dialogOpen, companyId]);
 
   useEffect(() => {
     if (!pendingRoleNames || roles.length === 0) return;
@@ -206,9 +220,7 @@ export default function UsersPage() {
     setPassword("");
     setPhoneNumber("");
     setIsActive(true);
-    setCompanyId(
-      String(selectedCompanyId ?? companies[0]?.id ?? ""),
-    );
+    setCompanyId(defaultFormCompanyId(companies, selectedCompanyId));
     setEmployeeId("");
     setCode("");
     setRfidCardId("");
@@ -288,7 +300,7 @@ export default function UsersPage() {
       return;
     }
     if (workplaceType === "2" && !restaurantId) {
-      toast.error("Restaurant is required for a restaurant-scoped user.");
+      toast.error("Branch is required for a branch-scoped user.");
       return;
     }
     setSaving(true);
@@ -583,6 +595,9 @@ export default function UsersPage() {
                 onChange={(e) => {
                   setCompanyId(e.target.value);
                   setEmployeeId("");
+                  // Roles are company-specific — a role checked for the previous company is
+                  // meaningless (and silently dropped) once the target company changes.
+                  setSelectedRoleIds([]);
                 }}
               >
                 <option value="">Select company</option>
@@ -605,12 +620,12 @@ export default function UsersPage() {
                 }}
               >
                 <option value="1">Head office</option>
-                <option value="2">Restaurant</option>
+                <option value="2">Branch</option>
               </select>
             </div>
             {workplaceType === "2" && (
               <div>
-                <Label htmlFor="u-restaurant">Restaurant</Label>
+                <Label htmlFor="u-restaurant">Branch</Label>
                 <select
                   id="u-restaurant"
                   className={selectClass + " mt-1"}
@@ -618,7 +633,7 @@ export default function UsersPage() {
                   onChange={(e) => setRestaurantId(e.target.value)}
                   disabled={restLoading}
                 >
-                  <option value="">{restLoading ? "Loading…" : "Select a restaurant"}</option>
+                  <option value="">{restLoading ? "Loading…" : "Select a branch"}</option>
                   {restaurantsForCompany.map((r) => (
                     <option key={r.id} value={String(r.id)}>
                       {r.name}

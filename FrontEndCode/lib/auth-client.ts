@@ -23,6 +23,11 @@ export function clearStoredAuth(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
+  // The "Company filter" scope belongs to whoever was signed in — carrying it over to the next
+  // login (e.g. a different tenant's Admin) can silently point their pages at a company they
+  // don't own.
+  localStorage.removeItem("dashboardSelectedCompanyId");
+  localStorage.removeItem("dashboardSelectedRestaurantId");
 }
 
 export function persistAuth(accessToken: string, refreshToken?: string): void {

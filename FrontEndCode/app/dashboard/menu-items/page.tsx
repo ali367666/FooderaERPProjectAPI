@@ -54,6 +54,7 @@ import { BarcodeSvg } from "@/components/barcode-svg";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { usePermissionSet, useHasPermission } from "@/hooks/use-auth-permissions";
 import { AppPermissions } from "@/lib/app-permissions";
+import { getCompanySettings } from "@/lib/services/company-settings-service";
 
 type MenuItemRow = {
   id: string;
@@ -101,6 +102,13 @@ export default function MenuItemsPage() {
   const [printerOptions, setPrinterOptions] = useState<(Printer & { restaurantName: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isStoreMode, setIsStoreMode] = useState(false);
+
+  useEffect(() => {
+    getCompanySettings()
+      .then((s) => setIsStoreMode(s.moduleDataSecimi))
+      .catch(() => setIsStoreMode(false));
+  }, []);
 
   const [stockItemId, setStockItemId] = useState("");
   const [stockInfo, setStockInfo] = useState<MenuItemStockInfo | null>(null);
@@ -712,9 +720,13 @@ export default function MenuItemsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Menu Items</h1>
+        <h1 className="text-3xl font-bold text-foreground">
+          {isStoreMode ? "Məhsullar" : "Menu Items"}
+        </h1>
         <p className="text-muted-foreground mt-1">
-          Manage dishes and products on your menu, linked to categories.
+          {isStoreMode
+            ? "Mağazanızdakı məhsulları idarə edin, kateqoriyalara bağlayın."
+            : "Manage dishes and products on your menu, linked to categories."}
         </p>
       </div>
 

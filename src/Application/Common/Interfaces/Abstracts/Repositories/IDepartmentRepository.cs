@@ -5,6 +5,7 @@ namespace Application.Abstractions.Repositories;
 public interface IDepartmentRepository
 {
     Task AddAsync(Department department, CancellationToken cancellationToken);
+    Task<Department?> GetByIdAsync(int id, CancellationToken cancellationToken);
     Task<Department?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken);
     Task<List<Department>> GetAllAsync(int companyId, CancellationToken cancellationToken);
     Task<bool> ExistsByNameAsync(int companyId, string name, CancellationToken cancellationToken);

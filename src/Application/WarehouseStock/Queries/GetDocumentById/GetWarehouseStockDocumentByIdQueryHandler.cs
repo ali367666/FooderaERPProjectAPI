@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.WarehouseStock.Dtos.Response;
@@ -10,13 +11,16 @@ public class GetWarehouseStockDocumentByIdQueryHandler
     : IRequestHandler<GetWarehouseStockDocumentByIdQuery, BaseResponse<WarehouseStockDocumentDetailResponse>>
 {
     private readonly IWarehouseStockDocumentRepository _documentRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<GetWarehouseStockDocumentByIdQueryHandler> _logger;
 
     public GetWarehouseStockDocumentByIdQueryHandler(
         IWarehouseStockDocumentRepository documentRepository,
+        ICurrentUserService currentUserService,
         ILogger<GetWarehouseStockDocumentByIdQueryHandler> logger)
     {
         _documentRepository = documentRepository;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -26,7 +30,7 @@ public class GetWarehouseStockDocumentByIdQueryHandler
     {
         var document = await _documentRepository.GetByIdWithLinesAsync(request.Id, cancellationToken);
 
-        if (document is null)
+        if (document is null || (!_currentUserService.IsSuperAdmin && document.CompanyId != _currentUserService.CompanyId))
         {
             _logger.LogWarning("Warehouse stock document not found. Id: {Id}", request.Id);
             return BaseResponse<WarehouseStockDocumentDetailResponse>.Fail("Warehouse stock document not found.");

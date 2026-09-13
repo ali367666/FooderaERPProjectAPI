@@ -25,10 +25,13 @@ export function DashboardPermissionGuard({ children }: { children: React.ReactNo
   const permissionSet = usePermissionSet();
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
 
-  const isAdmin = useMemo(() => {
+  // Only the platform SuperAdmin bypasses permission checks here — a tenant's own "Admin" role
+  // is scoped to their company and must go through the normal permissionSet check like anyone
+  // else, so platform-only pages (e.g. Companies) correctly stay hidden from them.
+  const isSuperAdmin = useMemo(() => {
     const authUser = getStoredAuthUser();
     const roles = authUser?.roles ?? [];
-    return roles.some((r) => r.trim().toLowerCase() === "admin");
+    return roles.some((r) => r.trim().toLowerCase() === "superadmin");
   }, [permissionSet]);
 
   useEffect(() => {
@@ -45,9 +48,9 @@ export function DashboardPermissionGuard({ children }: { children: React.ReactNo
     if (!navItem) return true;
     if (navItem.module && branding && branding[navItem.module] === false) return false;
     if (!navItem.permission) return true;
-    if (isAdmin) return true;
+    if (isSuperAdmin) return true;
     return permissionSet.has(navItem.permission);
-  }, [navItem, branding, isAdmin, permissionSet]);
+  }, [navItem, branding, isSuperAdmin, permissionSet]);
 
   if (!allowed) {
     return (

@@ -21,9 +21,9 @@ public class RolesController : ControllerBase
 
     [Authorize(Policy = AppPermissions.RoleView)]
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll([FromQuery] int? companyId, CancellationToken cancellationToken)
     {
-        var list = await _identityAdminService.GetRolesAsync(cancellationToken);
+        var list = await _identityAdminService.GetRolesAsync(companyId, cancellationToken);
         return Ok(BaseResponse<List<RoleListItemDto>>.Ok(list, "Roles loaded."));
     }
 

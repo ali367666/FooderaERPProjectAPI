@@ -34,7 +34,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IRestaurantRepository, RestaurantRepository>();
 
         // 🔹 Identity
-        services.AddIdentity<User, IdentityRole<int>>(options =>
+        services.AddIdentity<User, AppRole>(options =>
         {
             // 🔐 Password settings
             options.Password.RequireDigit = true;
@@ -59,6 +59,7 @@ public static class InfrastructureServiceRegistration
         // 🔹 Repository-lər
         services.AddScoped<ICompanyRepository,       CompanyRepository>();
         services.AddScoped<ICompanySettingsRepository, CompanySettingsRepository>();
+        services.AddScoped<IRestaurantSettingsRepository, RestaurantSettingsRepository>();
         services.AddScoped<IStockCategoryRepository, StockCategoryRepository>();
         services.AddScoped<IWarehouseRepository,     WarehouseRepository>();
         services.AddScoped<IUserRepository,          UserRepository>();

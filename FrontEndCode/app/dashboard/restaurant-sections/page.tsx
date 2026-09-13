@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
+import { useSelectedRestaurant } from "@/contexts/selected-restaurant-context";
 import {
   createRestaurantSection,
   deleteRestaurantSection,
@@ -48,6 +49,7 @@ type SectionRow = {
 };
 
 export default function RestaurantSectionsPage() {
+  const { selectedRestaurantId } = useSelectedRestaurant();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [sections, setSections] = useState<RestaurantSection[]>([]);
@@ -68,12 +70,18 @@ export default function RestaurantSectionsPage() {
       try {
         const rs = await getRestaurants();
         setRestaurants(rs);
-        if (rs.length > 0) setRestaurantId(String(rs[0].id));
+        // Follow the top "Filial filter" (Data Seçimi) when one is picked — otherwise default to
+        // the first branch, same as before.
+        if (selectedRestaurantId != null && rs.some((r) => r.id === selectedRestaurantId)) {
+          setRestaurantId(String(selectedRestaurantId));
+        } else if (rs.length > 0) {
+          setRestaurantId(String(rs[0].id));
+        }
       } catch {
         setRestaurants([]);
       }
     })();
-  }, []);
+  }, [selectedRestaurantId]);
 
   const loadSections = async (rid: number) => {
     setLoading(true);
@@ -151,7 +159,7 @@ export default function RestaurantSectionsPage() {
       return;
     }
     if (!Number.isFinite(rid) || rid <= 0) {
-      toast.error("Restoran seçilməlidir.");
+      toast.error("Filial seçilməlidir.");
       return;
     }
     setSaving(true);
@@ -211,21 +219,21 @@ export default function RestaurantSectionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Restoran Bölmələri</h1>
+        <h1 className="text-3xl font-bold text-foreground">Filial Bölmələri</h1>
         <p className="text-muted-foreground mt-1">
-          Pivəbar, Kabinet kimi restoran daxili bölmələri idarə edin — hər bölmənin öz masaları olur.
+          Pivəbar, Kabinet kimi filial daxili bölmələri idarə edin — hər bölmənin öz masaları olur.
         </p>
       </div>
 
       <div className="max-w-xs">
-        <Label htmlFor="section-restaurant">Restoran</Label>
+        <Label htmlFor="section-restaurant">Filial</Label>
         <select
           id="section-restaurant"
           className={selectClass + " mt-1"}
           value={restaurantId}
           onChange={(e) => setRestaurantId(e.target.value)}
         >
-          <option value="">Restoran seçin</option>
+          <option value="">Filial seçin</option>
           {restaurants.map((r) => (
             <option key={r.id} value={String(r.id)}>
               {r.name}
@@ -259,7 +267,7 @@ export default function RestaurantSectionsPage() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editingId != null ? "Bölməni redaktə et" : "Bölmə əlavə et"}</DialogTitle>
-              <DialogDescription>Restoran daxilində sərbəst bölmə (Pivəbar, Kabinet və s.)</DialogDescription>
+              <DialogDescription>Filial daxilində sərbəst bölmə (Pivəbar, Kabinet və s.)</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3">

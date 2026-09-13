@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
+import { defaultFormCompanyId } from "@/lib/resolve-company-id";
 
 type DepartmentRow = {
   id: string;
@@ -50,13 +51,7 @@ export default function DepartmentsPage() {
     setEditingDepartment(null);
     setName("");
     setDescription("");
-    setFormCompanyId(
-      selectedCompanyId != null
-        ? String(selectedCompanyId)
-        : companies[0]
-          ? String(companies[0].id)
-          : "",
-    );
+    setFormCompanyId(defaultFormCompanyId(companies, selectedCompanyId));
     setFieldErrors({});
   };
 

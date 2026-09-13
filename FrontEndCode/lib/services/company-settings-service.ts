@@ -142,9 +142,11 @@ function normalize(item: unknown): CompanySettings | null {
   };
 }
 
-export async function getCompanySettings(): Promise<CompanySettings> {
+export async function getCompanySettings(companyId?: number): Promise<CompanySettings> {
   try {
-    const response = await api.get<ApiResponse<unknown>>("/company-settings");
+    const response = await api.get<ApiResponse<unknown>>("/company-settings", {
+      params: companyId ? { companyId } : undefined,
+    });
     const payload = response.data;
     if (payload?.success === false || !payload?.data) {
       throw new Error(payload?.message || "Failed to fetch settings");
@@ -157,9 +159,14 @@ export async function getCompanySettings(): Promise<CompanySettings> {
   }
 }
 
-export async function updateCompanySettings(data: CompanySettingsInput): Promise<CompanySettings> {
+export async function updateCompanySettings(
+  data: CompanySettingsInput,
+  companyId?: number,
+): Promise<CompanySettings> {
   try {
-    const response = await api.put<ApiResponse<unknown>>("/company-settings", data);
+    const response = await api.put<ApiResponse<unknown>>("/company-settings", data, {
+      params: companyId ? { companyId } : undefined,
+    });
     const payload = response.data;
     if (payload?.success === false || !payload?.data) {
       throw new ApiFormError(payload?.message || "Failed to update settings");
@@ -202,6 +209,7 @@ export type CompanySettingsBranding = {
   moduleFitnes: boolean;
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
+  moduleKompleks: boolean;
   printAutoOnPayment: boolean;
   printKitchenOnPayment: boolean;
   printShowPreview: boolean;
@@ -260,6 +268,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     moduleFitnes: bool("moduleFitnes", "ModuleFitnes"),
     moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
     moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
+    moduleKompleks: bool("moduleKompleks", "ModuleKompleks"),
     printAutoOnPayment: bool("printAutoOnPayment", "PrintAutoOnPayment"),
     printKitchenOnPayment: bool("printKitchenOnPayment", "PrintKitchenOnPayment"),
     printShowPreview: bool("printShowPreview", "PrintShowPreview", true),
@@ -275,10 +284,13 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
   };
 }
 
-export async function getCompanySettingsBranding(companyId: number): Promise<CompanySettingsBranding> {
+export async function getCompanySettingsBranding(
+  companyId: number,
+  restaurantId?: number,
+): Promise<CompanySettingsBranding> {
   try {
     const response = await api.get<ApiResponse<unknown>>("/company-settings/branding", {
-      params: { companyId },
+      params: restaurantId ? { companyId, restaurantId } : { companyId },
     });
     const payload = response.data;
     if (payload?.success === false) {

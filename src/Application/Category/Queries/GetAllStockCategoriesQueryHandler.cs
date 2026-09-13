@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockCategory.Commands;
 using Application.StockCategory.Dtos.Response;
@@ -12,15 +13,18 @@ public class GetAllStockCategoriesQueryHandler
     : IRequestHandler<GetAllStockCategoriesQuery, BaseResponse<List<StockCategoryResponse>>>
 {
     private readonly IStockCategoryRepository _repository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IMapper _mapper;
     private readonly ILogger<GetAllStockCategoriesQueryHandler> _logger;
 
     public GetAllStockCategoriesQueryHandler(
         IStockCategoryRepository repository,
+        ICurrentUserService currentUserService,
         IMapper mapper,
         ILogger<GetAllStockCategoriesQueryHandler> logger)
     {
         _repository = repository;
+        _currentUserService = currentUserService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -33,8 +37,14 @@ public class GetAllStockCategoriesQueryHandler
 
         var data = await _repository.GetAllAsync(cancellationToken);
 
-        // filter logic
-        if (request.Request.CompanyId.HasValue)
+        // A tenant Admin only ever sees their own company's categories, regardless of what
+        // CompanyId was requested — only SuperAdmin may target an arbitrary company (or omit it to
+        // browse every company).
+        if (!_currentUserService.IsSuperAdmin)
+        {
+            data = data.Where(x => x.CompanyId == _currentUserService.CompanyId).ToList();
+        }
+        else if (request.Request.CompanyId.HasValue)
             data = data.Where(x => x.CompanyId == request.Request.CompanyId.Value).ToList();
 
         if (request.Request.IsActive.HasValue)

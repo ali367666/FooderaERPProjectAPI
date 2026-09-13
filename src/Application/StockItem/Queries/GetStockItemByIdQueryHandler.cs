@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockItem.Dtos.Response;
 using AutoMapper;
@@ -11,15 +12,18 @@ public class GetStockItemByIdQueryHandler
     : IRequestHandler<GetStockItemByIdQuery, BaseResponse<StockItemResponse>>
 {
     private readonly IStockItemRepository _stockItemRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IMapper _mapper;
     private readonly ILogger<GetStockItemByIdQueryHandler> _logger;
 
     public GetStockItemByIdQueryHandler(
         IStockItemRepository stockItemRepository,
+        ICurrentUserService currentUserService,
         IMapper mapper,
         ILogger<GetStockItemByIdQueryHandler> logger)
     {
         _stockItemRepository = stockItemRepository;
+        _currentUserService = currentUserService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -32,7 +36,7 @@ public class GetStockItemByIdQueryHandler
 
         var stockItem = await _stockItemRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (stockItem is null)
+        if (stockItem is null || (!_currentUserService.IsSuperAdmin && stockItem.CompanyId != _currentUserService.CompanyId))
         {
             _logger.LogWarning("Stock item not found. Id: {Id}", request.Id);
             return BaseResponse<StockItemResponse>.Fail("Stock item not found.");

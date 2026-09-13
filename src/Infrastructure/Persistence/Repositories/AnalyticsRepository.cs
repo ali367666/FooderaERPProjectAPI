@@ -127,7 +127,7 @@ public class AnalyticsRepository : IAnalyticsRepository
             .Select(g => new RestaurantRevenueDto
             {
                 RestaurantId = g.Key.RestaurantId,
-                RestaurantName = g.Key.RestaurantName ?? $"Restoran #{g.Key.RestaurantId}",
+                RestaurantName = g.Key.RestaurantName ?? $"Filial #{g.Key.RestaurantId}",
                 Revenue = g.Sum(o => o.TotalAmount),
                 OrderCount = g.Count(),
             })

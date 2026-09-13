@@ -19,11 +19,22 @@ public class EmployeeRepository : IEmployeeRepository
         await _context.Employees.AddAsync(employee, cancellationToken);
     }
 
+    public async Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken)
+    {
+        return await _context.Employees
+            .Include(x => x.Department)
+            .Include(x => x.Position)
+            .Include(x => x.Restaurant)
+            .Include(x => x.User)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public async Task<Employee?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken)
     {
         return await _context.Employees
             .Include(x => x.Department)
             .Include(x => x.Position)
+            .Include(x => x.Restaurant)
             .Include(x => x.User)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
@@ -33,6 +44,7 @@ public class EmployeeRepository : IEmployeeRepository
         return await _context.Employees
             .Include(x => x.Department)
             .Include(x => x.Position)
+            .Include(x => x.Restaurant)
             .Include(x => x.User)
             .Where(x => x.CompanyId == companyId)
             .ToListAsync(cancellationToken);
@@ -47,6 +59,7 @@ public class EmployeeRepository : IEmployeeRepository
         var query = _context.Employees
             .Include(x => x.Department)
             .Include(x => x.Position)
+            .Include(x => x.Restaurant)
             .Include(x => x.User)
             .Where(x => x.CompanyId == companyId);
 
@@ -70,6 +83,30 @@ public class EmployeeRepository : IEmployeeRepository
     {
         return await _context.Employees
             .AnyAsync(x => x.UserId == userId, cancellationToken);
+    }
+
+    public async Task<bool> ExistsByEmailOrPhoneAsync(
+        int companyId,
+        string? email,
+        string? phoneNumber,
+        int? excludeEmployeeId,
+        CancellationToken cancellationToken)
+    {
+        var trimmedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        var trimmedPhone = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
+
+        if (trimmedEmail is null && trimmedPhone is null)
+            return false;
+
+        var query = _context.Employees.Where(x => x.CompanyId == companyId);
+
+        if (excludeEmployeeId.HasValue)
+            query = query.Where(x => x.Id != excludeEmployeeId.Value);
+
+        return await query.AnyAsync(x =>
+            (trimmedEmail != null && x.Email == trimmedEmail) ||
+            (trimmedPhone != null && x.PhoneNumber == trimmedPhone),
+            cancellationToken);
     }
 
     public async Task<Employee?> GetByUserIdAsync(int userId, int companyId, CancellationToken cancellationToken)

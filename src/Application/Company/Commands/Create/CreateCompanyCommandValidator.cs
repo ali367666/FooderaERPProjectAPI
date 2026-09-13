@@ -8,7 +8,7 @@ public class CreateCompanyCommandValidator : AbstractValidator<CreateCompanyComm
     {
         RuleFor(x => x.Request.CompanyCode)
             .NotEmpty().WithMessage("CompanyCode boş ola bilməz.")
-            .MaximumLength(3).WithMessage("CompanyCode ən çox 3 simvol ola bilər.");
+            .MaximumLength(50).WithMessage("CompanyCode ən çox 50 simvol ola bilər.");
 
         RuleFor(x => x.Request.Name)
             .NotEmpty().WithMessage("Name boş ola bilməz.")
@@ -21,9 +21,11 @@ public class CreateCompanyCommandValidator : AbstractValidator<CreateCompanyComm
             .MaximumLength(200).WithMessage("Address ən çox 200 simvol ola bilər.");
 
         RuleFor(x => x.Request.TaxOfficeCode)
+            .NotEmpty().WithMessage("TaxOfficeCode boş ola bilməz.")
             .MaximumLength(50).WithMessage("TaxOfficeCode ən çox 50 simvol ola bilər.");
 
         RuleFor(x => x.Request.TaxNumber)
+            .NotEmpty().WithMessage("TaxNumber boş ola bilməz.")
             .MaximumLength(50).WithMessage("TaxNumber ən çox 50 simvol ola bilər.");
 
         RuleFor(x => x.Request.CountryCode)

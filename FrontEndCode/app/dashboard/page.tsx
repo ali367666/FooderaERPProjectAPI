@@ -24,7 +24,7 @@ import {
 } from 'recharts';
 import { Calendar, TrendingUp, Package, AlertTriangle } from 'lucide-react';
 import { useSelectedCompany } from '@/contexts/selected-company-context';
-import { getCompanies } from '@/lib/services/company-service';
+import { resolveCompanyId } from '@/lib/resolve-company-id';
 import { getWarehouses } from '@/lib/services/warehouse-service';
 import {
   searchWarehouseStockBalancesForAllCompanies,
@@ -102,7 +102,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const { selectedCompanyId } = useSelectedCompany();
+  const { companies, selectedCompanyId } = useSelectedCompany();
 
   const days = timeFilter === '7d' ? 7 : 30;
 
@@ -113,8 +113,17 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         setError(null);
-        const companies = await getCompanies();
-        const companyIds = companies.map((company) => company.id);
+        // Cross-company listing (GET /companies) needs Company.View, which a regular tenant Admin
+        // doesn't have by default — fall back to their own company instead of failing the whole
+        // dashboard when the cross-company list from context is empty.
+        let companyIds = companies.map((company) => company.id);
+        if (companyIds.length === 0) {
+          try {
+            companyIds = [resolveCompanyId()];
+          } catch {
+            companyIds = [];
+          }
+        }
         if (companyIds.length === 0) {
           setDashboardData(EMPTY_DASHBOARD_DATA);
           return;
@@ -170,7 +179,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [days, reloadToken, selectedCompanyId]);
+  }, [days, reloadToken, selectedCompanyId, companies]);
 
   const stockMovementData = useMemo(() =>
       dashboardData.stockMovementsByDay.map((item) => ({

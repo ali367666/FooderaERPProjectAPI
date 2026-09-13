@@ -102,7 +102,7 @@ export async function getRestaurantTables(): Promise<RestaurantTable[]> {
       .map((table) => normalizeRestaurantTable(table))
       .filter((table): table is RestaurantTable => table !== null);
   } catch (error) {
-    throw toApiFormError(error, "Failed to fetch restaurant tables");
+    throw toApiFormError(error, "Failed to fetch branch tables");
   }
 }
 
@@ -112,10 +112,10 @@ export async function createRestaurantTable(
   try {
     const response = await api.post<unknown>("/RestaurantTables", { request: data });
     if (!response.data) {
-      throw new ApiFormError("Failed to create restaurant table");
+      throw new ApiFormError("Failed to create branch table");
     }
   } catch (error) {
-    throw toApiFormError(error, "Failed to create restaurant table");
+    throw toApiFormError(error, "Failed to create branch table");
   }
 }
 
@@ -127,11 +127,11 @@ export async function updateRestaurantTable(
     const response = await api.put<unknown>(`/RestaurantTables/${id}`, data);
     const table = normalizeRestaurantTable(response.data);
     if (!table) {
-      throw new ApiFormError("Failed to update restaurant table");
+      throw new ApiFormError("Failed to update branch table");
     }
     return table;
   } catch (error) {
-    throw toApiFormError(error, "Failed to update restaurant table");
+    throw toApiFormError(error, "Failed to update branch table");
   }
 }
 
@@ -139,10 +139,10 @@ export async function getRestaurantTableById(id: number): Promise<RestaurantTabl
   try {
     const response = await api.get<unknown>(`/RestaurantTables/${id}`);
     const table = normalizeRestaurantTable(response.data);
-    if (!table) throw new ApiFormError("Restaurant table not found");
+    if (!table) throw new ApiFormError("Branch table not found");
     return table;
   } catch (error) {
-    throw toApiFormError(error, "Failed to fetch restaurant table");
+    throw toApiFormError(error, "Failed to fetch branch table");
   }
 }
 
@@ -167,7 +167,7 @@ export async function deleteRestaurantTable(id: number): Promise<void> {
   try {
     await api.delete(`/RestaurantTables/${id}`);
   } catch (error) {
-    throw toApiFormError(error, "Failed to delete restaurant table");
+    throw toApiFormError(error, "Failed to delete branch table");
   }
 }
 

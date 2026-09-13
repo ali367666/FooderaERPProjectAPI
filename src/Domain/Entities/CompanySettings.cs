@@ -17,6 +17,13 @@ public class CompanySettings : CompanyEntity<int>
     public bool ModuleDataSecimi { get; set; }
     public bool ModuleQiymetSor { get; set; }
 
+    /// <summary>
+    /// İstirahət kompleksi rejimi — aktiv olanda bu şirkətin hər Filialı öz ayrıca modul dəstini
+    /// (RestaurantSettings) təyin edə bilir, əks halda hamısı yuxarıdakı Company-səviyyəli
+    /// modullardan istifadə edir.
+    /// </summary>
+    public bool ModuleKompleks { get; set; }
+
     public bool IntegrationWolt { get; set; }
     public bool IntegrationBolt { get; set; }
     public bool Integration189Delivery { get; set; }

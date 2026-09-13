@@ -24,6 +24,7 @@ import {
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { uploadFile } from "@/lib/services/file-service";
+import { getCompanySettings } from "@/lib/services/company-settings-service";
 
 type MenuCategoryRow = {
   id: string;
@@ -54,6 +55,13 @@ export default function MenuCategoriesPage() {
   const [parentCategoryId, setParentCategoryId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [isStoreMode, setIsStoreMode] = useState(false);
+
+  useEffect(() => {
+    getCompanySettings()
+      .then((s) => setIsStoreMode(s.moduleDataSecimi))
+      .catch(() => setIsStoreMode(false));
+  }, []);
 
   const loadCategories = async (silent = false) => {
     try {
@@ -261,7 +269,9 @@ export default function MenuCategoriesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Menu Categories</h1>
+        <h1 className="text-3xl font-bold text-foreground">
+          {isStoreMode ? "Məhsul Kateqoriyaları" : "Menu Categories"}
+        </h1>
         <p className="text-muted-foreground mt-1">
           Organize your menu into categories for each company.
         </p>

@@ -4,4 +4,4 @@ using MediatR;
 
 namespace Application.StockPurchase.Queries.GetAll;
 
-public record GetAllStockPurchasesQuery : IRequest<BaseResponse<List<StockPurchaseResponse>>>;
+public record GetAllStockPurchasesQuery(int? CompanyId = null) : IRequest<BaseResponse<List<StockPurchaseResponse>>>;

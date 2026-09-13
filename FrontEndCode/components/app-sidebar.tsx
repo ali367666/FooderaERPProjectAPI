@@ -14,26 +14,37 @@ import {
   getCompanySettingsBranding,
   type CompanySettingsBranding,
 } from "@/lib/services/company-settings-service";
+import { useSelectedCompany } from "@/contexts/selected-company-context";
+import { useSelectedRestaurant } from "@/contexts/selected-restaurant-context";
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const permissionSet = usePermissionSet();
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
+  const { selectedCompanyId } = useSelectedCompany();
+  const { selectedRestaurantId } = useSelectedRestaurant();
 
-  const isAdmin = useMemo(() => {
+  // Only the platform SuperAdmin bypasses permission checks in the nav — a tenant's own "Admin"
+  // role is scoped to their company and must go through the normal permissionSet check, so
+  // platform-only links (e.g. Companies) correctly stay hidden from them.
+  const isSuperAdmin = useMemo(() => {
     const authUser = getStoredAuthUser();
     const roles = authUser?.roles ?? [];
-    return roles.some((r) => r.trim().toLowerCase() === "admin");
+    return roles.some((r) => r.trim().toLowerCase() === "superadmin");
   }, [permissionSet]);
 
   useEffect(() => {
-    const companyId = getCompanyIdFromToken(getStoredToken());
-    if (!companyId) return;
-    getCompanySettingsBranding(companyId)
+    // A SuperAdmin browsing another company (Company filter) — and, within it, one specific branch
+    // (Filial filter / "Data Seçimi") — must see THAT company/branch's own module-driven nav, not
+    // their own. A tenant Admin only ever has their own company anyway.
+    const ownCompanyId = getCompanyIdFromToken(getStoredToken());
+    const effectiveCompanyId = selectedCompanyId ?? ownCompanyId;
+    if (!effectiveCompanyId) return;
+    getCompanySettingsBranding(effectiveCompanyId, selectedRestaurantId ?? undefined)
       .then(setBranding)
       .catch(() => setBranding(null));
-  }, []);
+  }, [selectedCompanyId, selectedRestaurantId]);
 
   const visibleNavGroups = useMemo(
     () =>
@@ -42,14 +53,17 @@ export function AppSidebar() {
           ...group,
           items: group.items.filter((item) => {
             if (item.module && branding && branding[item.module] === false) return false;
+            if (item.hiddenForStoreMode && branding?.moduleDataSecimi) return false;
             if (!item.permission) return true;
-            if (isAdmin) return true;
+            if (isSuperAdmin) return true;
             return permissionSet.has(item.permission);
           }),
         }))
         .filter((group) => group.items.length > 0),
-    [isAdmin, permissionSet, branding],
+    [isSuperAdmin, permissionSet, branding],
   );
+
+  const isStoreMode = Boolean(branding?.moduleDataSecimi);
 
   return (
     <>
@@ -88,7 +102,7 @@ export function AppSidebar() {
           {visibleNavGroups.map((group) => (
             <div key={group.title} className="mb-8">
               <h3 className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
-                {group.title}
+                {isStoreMode && group.storeModeTitle ? group.storeModeTitle : group.title}
               </h3>
               <ul className="space-y-2">
                 {group.items.map((item) => {
@@ -108,7 +122,7 @@ export function AppSidebar() {
                         )}
                       >
                         <Icon size={20} />
-                        <span>{item.title}</span>
+                        <span>{isStoreMode && item.storeModeTitle ? item.storeModeTitle : item.title}</span>
                         {item.badge && (
                           <span className="ml-auto bg-sidebar-primary text-sidebar-primary-foreground text-xs rounded-full px-2 py-0.5">
                             {item.badge}

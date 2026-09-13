@@ -124,7 +124,7 @@ export function ReservationsPage() {
     if (!form.guestName.trim() || !form.guestPhone.trim()) {
       toast.error("Ad və telefon mütləqdir."); return;
     }
-    if (!form.restaurantId) { toast.error("Restoran seçin."); return; }
+    if (!form.restaurantId) { toast.error("Filial seçin."); return; }
     setSaving(true);
     try {
       if (editItem) {
@@ -327,7 +327,7 @@ export function ReservationsPage() {
             <div className="p-5 space-y-4">
               {/* Restaurant */}
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Restoran *</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Filial *</label>
                 <select
                   value={form.restaurantId}
                   onChange={e => setForm(f => ({ ...f, restaurantId: Number(e.target.value), tableId: null }))}

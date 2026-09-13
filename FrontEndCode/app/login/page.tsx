@@ -81,21 +81,6 @@ async function parseResponseBody(res: Response): Promise<unknown> {
   }
 }
 
-function errorMessageFromPayload(json: unknown, fallback: string): string {
-  if (!isObject(json)) return fallback;
-
-  const message = json.message;
-  if (typeof message === "string" && message.trim()) return message;
-
-  const errors = json.errors;
-  if (Array.isArray(errors) && errors.length > 0) {
-    const first = errors[0];
-    if (typeof first === "string" && first.trim()) return first;
-  }
-
-  return fallback;
-}
-
 function extractTokens(
   json: unknown,
 ): { token: string; refreshToken?: string; permissions?: string[]; roles?: string[] } | null {
@@ -133,8 +118,8 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
+  const [loginError, setLoginError] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("expired") === "1") {
@@ -237,8 +222,8 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    setError(null);
     setIsLoading(true);
+    setLoginError(false);
 
     if (!rememberMe) {
       localStorage.removeItem(LS_REMEMBER);
@@ -261,24 +246,19 @@ export default function LoginPage() {
       const json = await parseResponseBody(res);
 
       if (!res.ok) {
-        setError(
-          errorMessageFromPayload(
-            json,
-            `Sign in failed (${res.status} ${res.statusText || ""})`.trim(),
-          ),
-        );
+        setLoginError(true);
         return;
       }
 
       if (isObject(json) && json.success === false) {
-        setError(errorMessageFromPayload(json, "Sign in failed"));
+        setLoginError(true);
         return;
       }
 
       const auth = extractTokens(json);
 
       if (!auth) {
-        setError("Invalid response from server");
+        setLoginError(true);
         return;
       }
 
@@ -287,6 +267,11 @@ export default function LoginPage() {
         localStorage.setItem(LS_EMAIL, emailOrUserName.trim());
         localStorage.setItem(LS_PASSWORD, password);
       }
+
+      // A previous user's "Company filter"/"Filial filter" scope must not leak into this new
+      // session — otherwise this account can silently be pointed at a company/branch it doesn't own.
+      localStorage.removeItem("dashboardSelectedCompanyId");
+      localStorage.removeItem("dashboardSelectedRestaurantId");
 
       localStorage.setItem("token", auth.token);
       const permissions = auth.permissions ?? getPermissionClaimsFromToken(auth.token);
@@ -305,9 +290,7 @@ export default function LoginPage() {
 
       router.replace("/dashboard");
     } catch {
-      setError(
-        "Could not reach the server. Check that the API is running and CORS allows this origin.",
-      );
+      setLoginError(true);
     } finally {
       setIsLoading(false);
     }
@@ -424,7 +407,7 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
-            {sessionExpiredNotice && !error && (
+            {sessionExpiredNotice && (
               <Alert>
                 <AlertDescription>
                   Sessiyanızın vaxtı bitdi. Davam etmək üçün yenidən daxil olun.
@@ -432,9 +415,11 @@ export default function LoginPage() {
               </Alert>
             )}
 
-            {error && (
+            {loginError && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>
+                  İstifadəçi adı və ya şifrə yanlışdır.
+                </AlertDescription>
               </Alert>
             )}
 

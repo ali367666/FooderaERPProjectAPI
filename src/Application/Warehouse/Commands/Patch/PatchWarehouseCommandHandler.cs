@@ -74,7 +74,7 @@ public class PatchWarehouseCommandHandler
                         "PatchWarehouse failed. Restaurant not found. RestaurantId: {RestaurantId}",
                         request.Request.RestaurantId.Value);
 
-                    return BaseResponse.Fail("Restaurant not found.");
+                    return BaseResponse.Fail("Branch not found.");
                 }
 
                 if (restaurant.CompanyId != warehouse.CompanyId)
@@ -85,7 +85,7 @@ public class PatchWarehouseCommandHandler
                         restaurant.Id,
                         warehouse.CompanyId);
 
-                    return BaseResponse.Fail("Restaurant does not belong to this company.");
+                    return BaseResponse.Fail("Branch does not belong to this company.");
                 }
 
                 warehouse.RestaurantId = request.Request.RestaurantId.Value;

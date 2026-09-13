@@ -1,6 +1,7 @@
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.IdentityAdmin;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Persistence.Context;
@@ -12,24 +13,67 @@ namespace Infrastructure.Identity;
 
 public class IdentityAdminService : IIdentityAdminService
 {
+    /// <summary>Permissions reserved for the platform SuperAdmin — never visible/assignable to a tenant.</summary>
+    private static readonly string[] PlatformOnlyPermissions =
+    [
+        AppPermissions.CompanyView,
+        AppPermissions.CompanyCreate,
+        AppPermissions.CompanyUpdate,
+        AppPermissions.CompanyDelete,
+    ];
+
     private readonly UserManager<User> _userManager;
-    private readonly RoleManager<IdentityRole<int>> _roleManager;
+    private readonly RoleManager<AppRole> _roleManager;
     private readonly AppDbContext _db;
     private readonly ICompanyRepository _companyRepository;
     private readonly IEmployeeRepository _employeeRepository;
+    private readonly ICurrentUserService _currentUserService;
 
     public IdentityAdminService(
         UserManager<User> userManager,
-        RoleManager<IdentityRole<int>> roleManager,
+        RoleManager<AppRole> roleManager,
         AppDbContext db,
         ICompanyRepository companyRepository,
-        IEmployeeRepository employeeRepository)
+        IEmployeeRepository employeeRepository,
+        ICurrentUserService currentUserService)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _db = db;
         _companyRepository = companyRepository;
         _employeeRepository = employeeRepository;
+        _currentUserService = currentUserService;
+    }
+
+    private bool IsSuperAdmin => _currentUserService.IsSuperAdmin;
+
+    private async Task<int> AddUserToRoleAsync(User user, AppRole role, CancellationToken cancellationToken)
+    {
+        var exists = await _db.UserRoles.AnyAsync(
+            ur => ur.UserId == user.Id && ur.RoleId == role.Id, cancellationToken);
+        if (exists) return 0;
+        _db.UserRoles.Add(new IdentityUserRole<int> { UserId = user.Id, RoleId = role.Id });
+        return await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<int> RemoveUserFromRoleAsync(User user, AppRole role, CancellationToken cancellationToken)
+    {
+        var existing = await _db.UserRoles.FirstOrDefaultAsync(
+            ur => ur.UserId == user.Id && ur.RoleId == role.Id, cancellationToken);
+        if (existing is null) return 0;
+        _db.UserRoles.Remove(existing);
+        return await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Inserts a role directly, bypassing RoleManager.CreateAsync — ASP.NET Identity's default
+    /// RoleValidator enforces a GLOBALLY unique name, which would reject every per-company role
+    /// whose name matches another company's (or a global template's) role.
+    /// </summary>
+    private async Task CreateRoleDirectAsync(AppRole role, CancellationToken cancellationToken)
+    {
+        _db.Roles.Add(role);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<List<UserListItemDto>> GetUsersAsync(int? companyIdFilter, CancellationToken cancellationToken = default)
@@ -225,22 +269,18 @@ public class IdentityAdminService : IIdentityAdminService
             await _employeeRepository.SaveChangesAsync(cancellationToken);
         }
 
-        var u = user;
-        var roleName = "User";
-        if (await _roleManager.RoleExistsAsync(roleName))
-        {
-            await _userManager.AddToRoleAsync(user, roleName);
-        }
+        var defaultRole = await _roleManager.Roles.FirstOrDefaultAsync(
+            r => r.CompanyId == user.CompanyId && r.NormalizedName == "USER", cancellationToken);
+        if (defaultRole is not null)
+            await AddUserToRoleAsync(user, defaultRole, cancellationToken);
 
         if (request.RoleIds is { Count: > 0 })
         {
-            foreach (var roleId in request.RoleIds.Distinct())
-            {
-                var role = await _roleManager.FindByIdAsync(roleId.ToString());
-                if (role?.Name is null) continue;
-                if (!await _userManager.IsInRoleAsync(user, role.Name))
-                    await _userManager.AddToRoleAsync(user, role.Name);
-            }
+            var roles = await _roleManager.Roles
+                .Where(r => request.RoleIds.Contains(r.Id) && r.CompanyId == user.CompanyId)
+                .ToListAsync(cancellationToken);
+            foreach (var role in roles)
+                await AddUserToRoleAsync(user, role, cancellationToken);
         }
 
         return (true, user.Id, null, null);
@@ -384,19 +424,32 @@ public class IdentityAdminService : IIdentityAdminService
 
         if (request.RoleIds is not null)
         {
-            var currentRoleNames = (await _userManager.GetRolesAsync(user)).ToList();
-            var targetRoles = await _roleManager.Roles
-                .Where(r => request.RoleIds.Contains(r.Id))
+            // Diffed by RoleId (not name) — role names are only unique within a company, so a
+            // name-based diff could pick up or drop another tenant's same-named role by mistake.
+            var currentRoleIds = await _db.UserRoles
+                .Where(ur => ur.UserId == user.Id)
+                .Select(ur => ur.RoleId)
                 .ToListAsync(cancellationToken);
-            var targetRoleNames = targetRoles.Select(r => r.Name!).ToList();
+            var targetRoles = await _roleManager.Roles
+                .Where(r => request.RoleIds.Contains(r.Id) && r.CompanyId == user.CompanyId)
+                .ToListAsync(cancellationToken);
+            var targetRoleIds = targetRoles.Select(r => r.Id).ToList();
 
-            var toRemove = currentRoleNames.Except(targetRoleNames, StringComparer.OrdinalIgnoreCase).ToList();
-            var toAdd = targetRoleNames.Except(currentRoleNames, StringComparer.OrdinalIgnoreCase).ToList();
+            var toRemoveIds = currentRoleIds.Except(targetRoleIds).ToList();
+            var toAddIds = targetRoleIds.Except(currentRoleIds).ToList();
 
-            if (toRemove.Count > 0)
-                await _userManager.RemoveFromRolesAsync(user, toRemove);
-            if (toAdd.Count > 0)
-                await _userManager.AddToRolesAsync(user, toAdd);
+            if (toRemoveIds.Count > 0)
+            {
+                var toRemove = await _db.UserRoles
+                    .Where(ur => ur.UserId == user.Id && toRemoveIds.Contains(ur.RoleId))
+                    .ToListAsync(cancellationToken);
+                _db.UserRoles.RemoveRange(toRemove);
+            }
+            foreach (var roleId in toAddIds)
+                _db.UserRoles.Add(new IdentityUserRole<int> { UserId = user.Id, RoleId = roleId });
+
+            if (toRemoveIds.Count > 0 || toAddIds.Count > 0)
+                await _db.SaveChangesAsync(cancellationToken);
         }
 
         return (true, null, null);
@@ -419,49 +472,101 @@ public class IdentityAdminService : IIdentityAdminService
         return (true, null);
     }
 
-    public async Task<List<RoleListItemDto>> GetRolesAsync(CancellationToken cancellationToken = default)
+    public async Task<List<RoleListItemDto>> GetRolesAsync(int? companyId = null, CancellationToken cancellationToken = default)
     {
+        // Tenant-scoped: a company only ever sees its own roles. The global SuperAdmin role and
+        // the CompanyId = null template roles are never listed here — they aren't editable by anyone
+        // through this screen (templates are cloned per-company when a company is created).
+        // A SuperAdmin managing another tenant's users/roles can target that company explicitly;
+        // a tenant Admin is always confined to their own company regardless of what was requested.
+        var effectiveCompanyId = _currentUserService.IsSuperAdmin && companyId is > 0
+            ? companyId.Value
+            : _currentUserService.CompanyId;
+
         return await _roleManager.Roles.AsNoTracking()
+            .Where(r => r.CompanyId == effectiveCompanyId)
             .OrderBy(r => r.Id)
             .Select(r => new RoleListItemDto
             {
                 Id = r.Id,
                 Name = r.Name ?? "",
-                NormalizedName = r.NormalizedName
+                NormalizedName = r.NormalizedName,
+                CompanyId = r.CompanyId
             })
             .ToListAsync(cancellationToken);
     }
 
+    private async Task<AppRole?> FindOwnedRoleAsync(int id, CancellationToken cancellationToken)
+    {
+        // A SuperAdmin manages roles across every company, so a role lookup by id alone is enough —
+        // the id itself already pins the row to its own company. A tenant Admin stays confined to
+        // roles that belong to their own company.
+        if (_currentUserService.IsSuperAdmin)
+            return await _roleManager.Roles.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        var companyId = _currentUserService.CompanyId;
+        return await _roleManager.Roles.FirstOrDefaultAsync(
+            r => r.Id == id && r.CompanyId == companyId, cancellationToken);
+    }
+
     public async Task<RoleListItemDto?> GetRoleByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var r = await _roleManager.FindByIdAsync(id.ToString());
+        var r = await FindOwnedRoleAsync(id, cancellationToken);
         if (r is null) return null;
         return new RoleListItemDto
         {
             Id = r.Id,
             Name = r.Name ?? "",
-            NormalizedName = r.NormalizedName
+            NormalizedName = r.NormalizedName,
+            CompanyId = r.CompanyId
         };
     }
+
+    /// <summary>
+    /// "SuperAdmin" is a reserved name — IsSuperAdmin is a plain role-NAME claim check (JWT claims
+    /// can't carry CompanyId), so a tenant creating or renaming a role to this exact name would
+    /// falsely grant themselves the platform-wide bypass the moment they're assigned to it.
+    /// </summary>
+    private static bool IsReservedRoleName(string normalizedName) =>
+        normalizedName == AppRoles.SuperAdmin.ToUpperInvariant();
 
     public async Task<(bool Ok, int? RoleId, string? Error)> CreateRoleAsync(CreateRoleRequest request, CancellationToken cancellationToken = default)
     {
         var name = request.Name.Trim();
         if (string.IsNullOrEmpty(name)) return (false, null, "Role name is required.");
-        if (await _roleManager.RoleExistsAsync(name)) return (false, null, "A role with this name already exists.");
-        var r = new IdentityRole<int> { Name = name, NormalizedName = name.ToUpperInvariant() };
-        var res = await _roleManager.CreateAsync(r);
-        if (!res.Succeeded) return (false, null, string.Join(" ", res.Errors.Select(x => x.Description)));
+
+        // SuperAdmin may target any company via the form's Company field; a tenant Admin is
+        // always confined to their own company regardless of what was submitted.
+        var companyId = _currentUserService.IsSuperAdmin && request.CompanyId is > 0
+            ? request.CompanyId.Value
+            : _currentUserService.CompanyId;
+        var normalized = name.ToUpperInvariant();
+        if (IsReservedRoleName(normalized))
+            return (false, null, "This role name is reserved.");
+
+        var exists = await _roleManager.Roles.AnyAsync(
+            r => r.CompanyId == companyId && r.NormalizedName == normalized, cancellationToken);
+        if (exists) return (false, null, "A role with this name already exists.");
+
+        var r = new AppRole { Name = name, NormalizedName = normalized, CompanyId = companyId };
+        await CreateRoleDirectAsync(r, cancellationToken);
         return (true, r.Id, null);
     }
 
     public async Task<(bool Ok, string? Error)> UpdateRoleAsync(int id, UpdateRoleRequest request, CancellationToken cancellationToken = default)
     {
-        var r = await _roleManager.FindByIdAsync(id.ToString());
+        var r = await FindOwnedRoleAsync(id, cancellationToken);
         if (r is null) return (false, "Role was not found.");
         var newName = request.Name.Trim();
+        var newNormalized = newName.ToUpperInvariant();
+        if (IsReservedRoleName(newNormalized))
+            return (false, "This role name is reserved.");
+        var companyId = _currentUserService.CompanyId;
+        var nameTaken = await _roleManager.Roles.AnyAsync(
+            x => x.Id != id && x.CompanyId == companyId && x.NormalizedName == newNormalized, cancellationToken);
+        if (nameTaken) return (false, "A role with this name already exists.");
         r.Name = newName;
-        r.NormalizedName = newName.ToUpperInvariant();
+        r.NormalizedName = newNormalized;
         var res = await _roleManager.UpdateAsync(r);
         if (!res.Succeeded) return (false, string.Join(" ", res.Errors.Select(x => x.Description)));
         return (true, null);
@@ -469,9 +574,9 @@ public class IdentityAdminService : IIdentityAdminService
 
     public async Task<(bool Ok, string? Error)> DeleteRoleAsync(int id, CancellationToken cancellationToken = default)
     {
-        var r = await _roleManager.FindByIdAsync(id.ToString());
+        var r = await FindOwnedRoleAsync(id, cancellationToken);
         if (r is null) return (false, "Role was not found.");
-        if (string.Equals(r.Name, "Admin", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(r.Name, AppRoles.Admin, StringComparison.OrdinalIgnoreCase))
             return (false, "The system administrator role cannot be deleted.");
         var res = await _roleManager.DeleteAsync(r);
         if (!res.Succeeded) return (false, string.Join(" ", res.Errors.Select(x => x.Description)));
@@ -480,8 +585,11 @@ public class IdentityAdminService : IIdentityAdminService
 
     public async Task<List<PermissionDto>> GetPermissionsAsync(CancellationToken cancellationToken = default)
     {
-        return await _db.Permissions
-            .AsNoTracking()
+        var query = _db.Permissions.AsNoTracking();
+        if (!IsSuperAdmin)
+            query = query.Where(x => !PlatformOnlyPermissions.Contains(x.Name));
+
+        return await query
             .OrderBy(x => x.Module)
             .ThenBy(x => x.Action)
             .Select(x => new PermissionDto
@@ -497,7 +605,7 @@ public class IdentityAdminService : IIdentityAdminService
 
     public async Task<List<int>> GetRolePermissionIdsAsync(int roleId, CancellationToken cancellationToken = default)
     {
-        var role = await _roleManager.FindByIdAsync(roleId.ToString());
+        var role = await FindOwnedRoleAsync(roleId, cancellationToken);
         if (role is null) return new List<int>();
 
         return await _db.RolePermissions
@@ -512,10 +620,22 @@ public class IdentityAdminService : IIdentityAdminService
         List<int> permissionIds,
         CancellationToken cancellationToken = default)
     {
-        var role = await _roleManager.FindByIdAsync(roleId.ToString());
+        var role = await FindOwnedRoleAsync(roleId, cancellationToken);
         if (role is null) return (false, "Role was not found.");
 
         var distinctIds = permissionIds.Distinct().ToList();
+
+        // Platform-only permissions (managing other companies) can never be granted to a tenant's
+        // own roles, even if someone tries to force them through this endpoint directly.
+        if (!IsSuperAdmin)
+        {
+            var blocked = await _db.Permissions
+                .Where(x => distinctIds.Contains(x.Id) && PlatformOnlyPermissions.Contains(x.Name))
+                .AnyAsync(cancellationToken);
+            if (blocked)
+                return (false, "These permissions can only be managed by the platform administrator.");
+        }
+
         var validIds = await _db.Permissions
             .AsNoTracking()
             .Where(x => distinctIds.Contains(x.Id))
@@ -544,11 +664,16 @@ public class IdentityAdminService : IIdentityAdminService
         return (true, null);
     }
 
-    private async Task SyncRolePermissionClaimsAsync(IdentityRole<int> role, CancellationToken cancellationToken)
+    private async Task SyncRolePermissionClaimsAsync(AppRole role, CancellationToken cancellationToken)
     {
-        var claimPermissions = (await _roleManager.GetClaimsAsync(role))
-            .Where(x => x.Type == "Permission")
-            .Select(x => x.Value)
+        // Written directly to AspNetRoleClaims — RoleManager.Add/RemoveClaimAsync re-validates the
+        // role's name on every single call, which now legitimately fails (multiple companies share
+        // role names) and silently drops the claim instead of persisting it.
+        var existingClaims = await _db.RoleClaims
+            .Where(x => x.RoleId == role.Id && x.ClaimType == "Permission")
+            .ToListAsync(cancellationToken);
+        var claimPermissions = existingClaims
+            .Select(x => x.ClaimValue!)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var dbPermissions = await _db.RolePermissions
@@ -557,28 +682,47 @@ public class IdentityAdminService : IIdentityAdminService
             .Select(x => x.Permission.Name)
             .ToListAsync(cancellationToken);
 
-        foreach (var stale in claimPermissions.Except(dbPermissions, StringComparer.OrdinalIgnoreCase).ToList())
-            await _roleManager.RemoveClaimAsync(role, new Claim("Permission", stale));
+        var stale = existingClaims
+            .Where(x => !dbPermissions.Contains(x.ClaimValue, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        if (stale.Count > 0)
+            _db.RoleClaims.RemoveRange(stale);
 
-        foreach (var missing in dbPermissions.Except(claimPermissions, StringComparer.OrdinalIgnoreCase).ToList())
-            await _roleManager.AddClaimAsync(role, new Claim("Permission", missing));
+        foreach (var missing in dbPermissions.Except(claimPermissions, StringComparer.OrdinalIgnoreCase))
+        {
+            _db.RoleClaims.Add(new IdentityRoleClaim<int>
+            {
+                RoleId = role.Id,
+                ClaimType = "Permission",
+                ClaimValue = missing
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<List<UserRoleRowDto>> GetUserRoleMappingsAsync(CancellationToken cancellationToken = default)
     {
-        return await (from ur in _db.UserRoles
-                      join u in _db.Users on ur.UserId equals u.Id
-                      join role in _db.Roles on ur.RoleId equals role.Id
-                      orderby u.Id, role.Name
-                      select new UserRoleRowDto
-                      {
-                          UserId = u.Id,
-                          UserFullName = u.FullName,
-                          UserName = u.UserName,
-                          Email = u.Email,
-                          RoleId = role.Id,
-                          RoleName = role.Name ?? ""
-                      })
+        var companyId = _currentUserService.CompanyId;
+        var query = from ur in _db.UserRoles
+                     join u in _db.Users on ur.UserId equals u.Id
+                     join role in _db.Roles on ur.RoleId equals role.Id
+                     select new { u, role };
+
+        if (!IsSuperAdmin)
+            query = query.Where(x => x.u.CompanyId == companyId);
+
+        return await query
+            .OrderBy(x => x.u.Id).ThenBy(x => x.role.Name)
+            .Select(x => new UserRoleRowDto
+            {
+                UserId = x.u.Id,
+                UserFullName = x.u.FullName,
+                UserName = x.u.UserName,
+                Email = x.u.Email,
+                RoleId = x.role.Id,
+                RoleName = x.role.Name ?? ""
+            })
             .ToListAsync(cancellationToken);
     }
 
@@ -586,11 +730,13 @@ public class IdentityAdminService : IIdentityAdminService
     {
         var user = await _userManager.FindByIdAsync(request.UserId.ToString());
         if (user is null) return (false, "User was not found.");
-        var role = await _roleManager.FindByIdAsync(request.RoleId.ToString());
+        var role = await FindOwnedRoleAsync(request.RoleId, cancellationToken);
         if (role is null) return (false, "Role was not found.");
-        if (await _userManager.IsInRoleAsync(user, role.Name!)) return (false, "The user already has this role.");
-        var res = await _userManager.AddToRoleAsync(user, role.Name!);
-        if (!res.Succeeded) return (false, string.Join(" ", res.Errors.Select(x => x.Description)));
+        if (user.CompanyId != _currentUserService.CompanyId) return (false, "User was not found.");
+        var alreadyAssigned = await _db.UserRoles.AnyAsync(
+            ur => ur.UserId == user.Id && ur.RoleId == role.Id, cancellationToken);
+        if (alreadyAssigned) return (false, "The user already has this role.");
+        await AddUserToRoleAsync(user, role, cancellationToken);
         return (true, null);
     }
 
@@ -598,10 +744,44 @@ public class IdentityAdminService : IIdentityAdminService
     {
         var user = await _userManager.FindByIdAsync(request.UserId.ToString());
         if (user is null) return (false, "User was not found.");
-        var role = await _roleManager.FindByIdAsync(request.RoleId.ToString());
+        var role = await FindOwnedRoleAsync(request.RoleId, cancellationToken);
         if (role is null) return (false, "Role was not found.");
-        var res = await _userManager.RemoveFromRoleAsync(user, role.Name!);
-        if (!res.Succeeded) return (false, string.Join(" ", res.Errors.Select(x => x.Description)));
+        if (user.CompanyId != _currentUserService.CompanyId) return (false, "User was not found.");
+        await RemoveUserFromRoleAsync(user, role, cancellationToken);
         return (true, null);
+    }
+
+    public async Task CloneDefaultRolesForCompanyAsync(int companyId, CancellationToken cancellationToken = default)
+    {
+        var alreadyProvisioned = await _roleManager.Roles.AnyAsync(r => r.CompanyId == companyId, cancellationToken);
+        if (alreadyProvisioned)
+            return;
+
+        // Only the Admin template is auto-cloned for a new company — the tenant's own Admin
+        // creates whatever additional roles (Waiter, Kitchen, ...) their business actually needs
+        // from the Roles screen, instead of the platform pre-creating a fixed set for everyone.
+        var templates = await _roleManager.Roles
+            .Where(r => r.CompanyId == null && r.NormalizedName == AppRoles.Admin.ToUpperInvariant())
+            .ToListAsync(cancellationToken);
+
+        foreach (var template in templates)
+        {
+            var clone = new AppRole { Name = template.Name, NormalizedName = template.NormalizedName, CompanyId = companyId };
+            await CreateRoleDirectAsync(clone, cancellationToken);
+
+            var templatePermissionIds = await _db.RolePermissions
+                .AsNoTracking()
+                .Where(x => x.RoleId == template.Id)
+                .Select(x => x.PermissionId)
+                .ToListAsync(cancellationToken);
+
+            foreach (var permissionId in templatePermissionIds)
+            {
+                _db.RolePermissions.Add(new RolePermission { RoleId = clone.Id, PermissionId = permissionId });
+            }
+            await _db.SaveChangesAsync(cancellationToken);
+
+            await SyncRolePermissionClaimsAsync(clone, cancellationToken);
+        }
     }
 }

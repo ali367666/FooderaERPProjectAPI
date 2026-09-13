@@ -31,3 +31,23 @@ export function resolveCompanyId(): number {
 
   throw new Error("Unable to resolve companyId from selected company or token.");
 }
+
+/**
+ * Default Company for an "Add" form: the active company-filter scope wins; a viewer with no
+ * cross-company list (no Company.View, so `companies` is empty) only has their own company, so it's
+ * safe to auto-fill via their JWT claim. A SuperAdmin/cross-company viewer with no scope selected
+ * must pick explicitly — silently defaulting to the first row in the list (typically the oldest
+ * seeded company) risks writing data to the wrong tenant.
+ */
+export function defaultFormCompanyId(
+  companies: ReadonlyArray<{ id: number }>,
+  scopeCompanyId: number | null,
+): string {
+  if (scopeCompanyId != null) return String(scopeCompanyId);
+  if (companies.length > 0) return "";
+  try {
+    return String(resolveCompanyId());
+  } catch {
+    return "";
+  }
+}

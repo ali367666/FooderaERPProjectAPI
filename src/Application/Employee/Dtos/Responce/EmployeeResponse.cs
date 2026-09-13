@@ -23,5 +23,8 @@ public class EmployeeResponse
     public int PositionId { get; set; }
     public string PositionName { get; set; } = default!;
 
+    public int RestaurantId { get; set; }
+    public string RestaurantName { get; set; } = default!;
+
     public int? UserId { get; set; }
 }

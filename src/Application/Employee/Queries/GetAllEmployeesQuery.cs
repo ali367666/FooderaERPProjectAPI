@@ -4,4 +4,4 @@ using MediatR;
 
 namespace Application.Employees.Queries.GetAll;
 
-public record GetAllEmployeesQuery() : IRequest<BaseResponse<List<EmployeeResponse>>>;
+public record GetAllEmployeesQuery(int CompanyId) : IRequest<BaseResponse<List<EmployeeResponse>>>;

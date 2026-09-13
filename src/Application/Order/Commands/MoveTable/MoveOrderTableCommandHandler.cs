@@ -43,7 +43,7 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
 
         var newTable = await _tableRepository.GetByIdAsync(request.NewTableId, companyId, cancellationToken);
         if (newTable is null || newTable.RestaurantId != order.RestaurantId)
-            throw new Exception("Table not found for this restaurant.");
+            throw new Exception("Table not found for this branch.");
 
         if (newTable.IsOccupied)
             throw new Exception("The selected table is already occupied.");

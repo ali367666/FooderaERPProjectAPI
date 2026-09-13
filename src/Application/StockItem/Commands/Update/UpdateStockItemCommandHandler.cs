@@ -69,7 +69,7 @@ public class UpdateStockItemCommandHandler
                     "Restaurant not found. RestaurantId: {RestaurantId}",
                     request.Request.RestaurantId.Value);
 
-                return BaseResponse.Fail("Restaurant not found.");
+                return BaseResponse.Fail("Branch not found.");
             }
         }
 

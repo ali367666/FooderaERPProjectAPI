@@ -1,4 +1,5 @@
 ﻿using Application.Common.Extensions;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -14,18 +15,24 @@ public sealed class CreateCompanyCommandHandler
     : IRequestHandler<CreateCompanyCommand, BaseResponse<CreateCompanyResponse>>
 {
     private readonly ICompanyRepository _repository;
+    private readonly IRestaurantRepository _restaurantRepository;
     private readonly IAuditLogService _auditLogService;
+    private readonly IIdentityAdminService _identityAdminService;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateCompanyCommandHandler> _logger;
 
     public CreateCompanyCommandHandler(
         ICompanyRepository repository,
+        IRestaurantRepository restaurantRepository,
         IAuditLogService auditLogService,
+        IIdentityAdminService identityAdminService,
         IMapper mapper,
         ILogger<CreateCompanyCommandHandler> logger)
     {
         _repository = repository;
+        _restaurantRepository = restaurantRepository;
         _auditLogService = auditLogService;
+        _identityAdminService = identityAdminService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -83,6 +90,15 @@ public sealed class CreateCompanyCommandHandler
 
             await _repository.AddAsync(company, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
+
+            await _identityAdminService.CloneDefaultRolesForCompanyAsync(company.Id, cancellationToken);
+
+            // Tək-filiallı biznes üçün Filiallar səhifəsinə əlavə addım atmasın deyə, şirkətin adı
+            // ilə eyni adda ilk filial avtomatik yaradılır — çox-filiallı olanlar sadəcə üstünə əlavə edir.
+            await _restaurantRepository.AddAsync(
+                new Domain.Entities.Restaurant { Name = company.Name, CompanyId = company.Id },
+                cancellationToken);
+            await _restaurantRepository.SaveChangesAsync(cancellationToken);
 
             await _auditLogService.LogAsync(
                 new AuditLogEntry

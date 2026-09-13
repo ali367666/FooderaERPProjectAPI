@@ -13,6 +13,7 @@ import {
 } from "@/lib/services/company-settings-service";
 import { uploadFile } from "@/lib/services/file-service";
 import { ApiFormError } from "@/lib/api-error";
+import { useSelectedCompany } from "@/contexts/selected-company-context";
 
 const INTEGRATION_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "integrationWolt", label: "Wolt" },
@@ -94,16 +95,20 @@ const RECEIPT_FIELD_TOGGLES: Array<{ key: keyof CompanySettingsInput; label: str
 ];
 
 export default function SettingsPage() {
+  const { selectedCompanyId } = useSelectedCompany();
   const [form, setForm] = useState<CompanySettingsInput>(DEFAULTS);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [uploadingField, setUploadingField] = useState<keyof CompanySettingsInput | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const settings = await getCompanySettings();
+        setLoading(true);
+        // SuperAdmin editing a specific company (via the "Company filter") sees THAT company's
+        // settings — a tenant Admin always gets their own regardless (backend enforces this too).
+        const settings = await getCompanySettings(selectedCompanyId ?? undefined);
         setForm(settings);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Tənzimləmələr yüklənə bilmədi");
@@ -111,7 +116,7 @@ export default function SettingsPage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [selectedCompanyId]);
 
   const update = <K extends keyof CompanySettingsInput>(key: K, value: CompanySettingsInput[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -165,7 +170,7 @@ export default function SettingsPage() {
     setSaving(true);
     setError(null);
     try {
-      const updated = await updateCompanySettings(form);
+      const updated = await updateCompanySettings(form, selectedCompanyId ?? undefined);
       setForm(updated);
       toast.success("Tənzimləmələr saxlanıldı.");
     } catch (err) {
@@ -299,7 +304,7 @@ export default function SettingsPage() {
             <div className="mt-1">{numberField("categoryFontSize", form.categoryFontSize)}</div>
           </div>
           <div>
-            <Label>Restoran adı şrift ölçüsü (qəbzdə)</Label>
+            <Label>Filial adı şrift ölçüsü (qəbzdə)</Label>
             <div className="mt-1">
               {numberField("receiptRestaurantNameFontSize", form.receiptRestaurantNameFontSize)}
             </div>

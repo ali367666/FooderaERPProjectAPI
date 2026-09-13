@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.Employees.Dtos;
@@ -9,18 +10,25 @@ public class GetEmployeesByPositionQueryHandler
     : IRequestHandler<GetEmployeesByPositionQuery, BaseResponse<List<EmployeeResponse>>>
 {
     private readonly IEmployeeRepository _employeeRepository;
+    private readonly ICurrentUserService _currentUserService;
 
     public GetEmployeesByPositionQueryHandler(
-        IEmployeeRepository employeeRepository)
+        IEmployeeRepository employeeRepository,
+        ICurrentUserService currentUserService)
     {
         _employeeRepository = employeeRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<BaseResponse<List<EmployeeResponse>>> Handle(
         GetEmployeesByPositionQuery request,
         CancellationToken cancellationToken)
     {
-        if (!request.CompanyId.HasValue || request.CompanyId.Value <= 0)
+        // A tenant Admin is always confined to their own company, regardless of what companyId was
+        // requested — only SuperAdmin may target an arbitrary company.
+        var resolvedCompanyId = _currentUserService.IsSuperAdmin ? request.CompanyId : _currentUserService.CompanyId;
+
+        if (!resolvedCompanyId.HasValue || resolvedCompanyId.Value <= 0)
         {
             return new BaseResponse<List<EmployeeResponse>>
             {
@@ -40,7 +48,7 @@ public class GetEmployeesByPositionQueryHandler
             };
         }
 
-        var companyId = request.CompanyId.Value;
+        var companyId = resolvedCompanyId.Value;
 
         var employees = await _employeeRepository.GetByPositionAsync(
             companyId,
@@ -65,6 +73,8 @@ public class GetEmployeesByPositionQueryHandler
             DepartmentName = employee.Department?.Name ?? string.Empty,
             PositionId = employee.PositionId,
             PositionName = employee.Position?.Name ?? string.Empty,
+            RestaurantId = employee.RestaurantId,
+            RestaurantName = employee.Restaurant?.Name ?? string.Empty,
             UserId = employee.UserId
         }).ToList();
 
