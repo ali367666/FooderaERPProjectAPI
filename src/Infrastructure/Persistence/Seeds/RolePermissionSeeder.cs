@@ -1,4 +1,4 @@
-﻿using Domain.Constants;
+using Domain.Constants;
 
 namespace Infrastructure.Identity;
 
@@ -68,7 +68,7 @@ public static class RolePermissionSeeder
                 AppPermissions.PosMoveTable, AppPermissions.PosRedirectUser, AppPermissions.PosChangePrice,
                 AppPermissions.PosOverridePrice, AppPermissions.PosTableServiceCharge,
                 AppPermissions.PosWarehouseAmountChange, AppPermissions.PosZReport,
-                AppPermissions.PosAccessSettings, AppPermissions.PosPrintOldReceipt, AppPermissions.PosChangeDepartment,
+                AppPermissions.PosAccessSettings, AppPermissions.PosPrintOldReceipt, AppPermissions.PosReturnSale, AppPermissions.PosChangeDepartment,
                 AppPermissions.PosPrintReceipt,
                 AppPermissions.RestaurantSectionView, AppPermissions.RestaurantSectionCreate,
                 AppPermissions.RestaurantSectionUpdate, AppPermissions.RestaurantSectionDelete,

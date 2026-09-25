@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Printer, Search, Trash2 } from "lucide-react";
+import { BarcodeSvg } from "@/components/barcode-svg";
+import { receiptBarcodeValue } from "@/lib/receipt-barcode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,6 +27,7 @@ export default function PosOrderHistoryPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [receipt, setReceipt] = useState<OrderReceiptDto | null>(null);
+  const [receiptOrderId, setReceiptOrderId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const canDeleteReceipt = useHasPermission("Pos.DeleteReceipt");
@@ -79,6 +82,7 @@ export default function PosOrderHistoryPage() {
   const handleView = async (order: OrderDto) => {
     try {
       const r = await getOrderReceipt(order.id);
+      setReceiptOrderId(order.id);
       setReceipt(r);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Qəbz yüklənmədi");
@@ -184,6 +188,11 @@ export default function PosOrderHistoryPage() {
                   <span>{receipt?.totalAmount.toFixed(2)} ₼</span>
                 </div>
               </div>
+              {receiptOrderId != null && (
+                <div className="mt-3 flex justify-center">
+                  <BarcodeSvg value={receiptBarcodeValue(receiptOrderId)} height={40} />
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>

@@ -71,8 +71,10 @@ public class RecipeStockDeductionService : IRecipeStockDeductionService
     }
 
     private static Dictionary<int, decimal> ComputeRequiredByStockItem(
-        List<MenuItemRecipeLine> recipeLines, OrderLine orderLine)
+        List<MenuItemRecipeLine> recipeLines, OrderLine orderLine, int? quantityOverride = null)
     {
+        var quantity = quantityOverride ?? orderLine.Quantity;
+
         // A weight-sold menu item (Kg unit) stores its OrderLine.Quantity in GRAMS (see
         // OrderLinePricing). If the recipe's stock item is tracked in Kg, convert grams -> kg
         // here so we don't deduct 1000x too much from the warehouse balance.
@@ -83,8 +85,8 @@ public class RecipeStockDeductionService : IRecipeStockDeductionService
         foreach (var recipeLine in recipeLines)
         {
             var effectiveQuantity = soldInGrams && recipeLine.StockItem?.Unit == UnitOfMeasure.Kg
-                ? orderLine.Quantity / 1000m
-                : orderLine.Quantity;
+                ? quantity / 1000m
+                : quantity;
 
             var requiredQuantity = recipeLine.QuantityPerPortion * effectiveQuantity;
             if (!requiredByStockItem.TryAdd(recipeLine.StockItemId, requiredQuantity))
@@ -232,5 +234,66 @@ public class RecipeStockDeductionService : IRecipeStockDeductionService
         }
 
         orderLine.IsStockDeducted = false;
+    }
+
+    public async Task RestoreForReturnAsync(
+        Order order, OrderLine orderLine, int quantity, string returnNumber, CancellationToken cancellationToken)
+    {
+        // Nothing was taken from the warehouse for this line — nothing to give back.
+        if (!orderLine.IsStockDeducted || quantity <= 0)
+            return;
+
+        var companyId = order.CompanyId;
+        var recipeLines = await ResolveRecipeLinesAsync(companyId, orderLine.MenuItemId, cancellationToken);
+        if (recipeLines.Count == 0)
+            return;
+
+        var restaurantWarehouse = await ResolveRestaurantWarehouseAsync(companyId, order.RestaurantId, cancellationToken);
+        var requiredByStockItem = ComputeRequiredByStockItem(recipeLines, orderLine, quantity);
+
+        var now = DateTime.UtcNow;
+        foreach (var req in requiredByStockItem)
+        {
+            var balance = await _context.WarehouseStocks.FirstOrDefaultAsync(
+                x => x.CompanyId == companyId
+                    && x.WarehouseId == restaurantWarehouse.Id
+                    && x.StockItemId == req.Key,
+                cancellationToken);
+
+            if (balance is null)
+            {
+                balance = new Domain.Entities.WarehouseAndStock.WarehouseStock
+                {
+                    CompanyId = companyId,
+                    WarehouseId = restaurantWarehouse.Id,
+                    StockItemId = req.Key,
+                    Quantity = 0,
+                    UnitId = 0,
+                    CreatedAtUtc = now,
+                };
+                await _context.WarehouseStocks.AddAsync(balance, cancellationToken);
+            }
+
+            balance.Quantity += req.Value;
+            balance.LastModifiedAtUtc = now;
+
+            await _stockMovementRepository.AddAsync(
+                new StockMovement
+                {
+                    CompanyId = companyId,
+                    WarehouseId = restaurantWarehouse.Id,
+                    FromWarehouseId = null,
+                    ToWarehouseId = restaurantWarehouse.Id,
+                    StockItemId = req.Key,
+                    Type = StockMovementType.SaleReturnIn,
+                    SourceType = StockMovementSourceType.Order,
+                    SourceId = order.Id,
+                    SourceDocumentNo = returnNumber,
+                    MovementDate = now,
+                    Quantity = req.Value,
+                    Note = $"Sale return {returnNumber} for order {order.OrderNumber}"
+                },
+                cancellationToken);
+        }
     }
 }

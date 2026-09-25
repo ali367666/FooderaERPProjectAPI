@@ -1,4 +1,4 @@
-﻿namespace Domain.Enums;
+namespace Domain.Enums;
 
 public enum StockMovementType
 {
@@ -10,4 +10,6 @@ public enum StockMovementType
     OrderConsumptionOut = 4,
     /// <summary>Stock increase from reversing a recipe consumption (order line removed/cancelled).</summary>
     OrderConsumptionReversalIn = 5,
+    /// <summary>Stock increase from a returned sale (Geri qaytarma) with restocking.</summary>
+    SaleReturnIn = 6,
 }

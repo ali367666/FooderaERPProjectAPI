@@ -14,6 +14,7 @@ import {
   Clock,
   History,
   Boxes,
+  Undo2,
 } from "lucide-react";
 import PosAuthGuard from "@/components/pos/pos-auth-guard";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ const TABS = [
   { href: "/pos/orders", label: "Sifarişlər", storeLabel: "Satışlar", icon: ClipboardList, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/reservations", label: "Rezervasiyalar", storeLabel: "Rezervasiyalar", icon: CalendarCheck, permission: "Reservation.View", module: "moduleRezervasyon" as keyof CompanySettingsBranding | null, hideInStoreMode: true },
   { href: "/pos/kitchen", label: "Mətbəx", storeLabel: "Mətbəx", icon: KitchenIcon, permission: "Kitchen.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: true },
+  { href: "/pos/returns", label: "Geri qaytarma", storeLabel: "Geri qaytarma", icon: Undo2, permission: "Pos.ReturnSale", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/orders/history", label: "Köhnə qəbzlər", storeLabel: "Köhnə çeklər", icon: History, permission: "Pos.PrintOldReceipt", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/warehouse-adjust", label: "Anbar düzəlişi", storeLabel: "Anbar düzəlişi", icon: Boxes, permission: "Pos.WarehouseAmountChange", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
 ];
@@ -316,6 +318,21 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
                   <span>{b.totalAmount.toFixed(2)} ₼</span>
                 </div>
               ))}
+              {zReportResult.returnCount > 0 && (
+                <>
+                  <div className="mt-2 border-t pt-2 font-semibold">Geri qaytarmalar ({zReportResult.returnCount})</div>
+                  {zReportResult.returnBreakdown.map((b) => (
+                    <div key={b.paymentMethod} className="flex justify-between text-muted-foreground">
+                      <span>{b.paymentMethod} ({b.orderCount})</span>
+                      <span>−{b.totalAmount.toFixed(2)} ₼</span>
+                    </div>
+                  ))}
+                </>
+              )}
+              <div className="mt-2 flex justify-between border-t pt-2 font-semibold">
+                <span>Xalis satış</span>
+                <span>{zReportResult.netTotal.toFixed(2)} ₼</span>
+              </div>
             </div>
           )}
           <DialogFooter>
