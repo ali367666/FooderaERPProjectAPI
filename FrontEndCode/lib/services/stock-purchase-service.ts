@@ -86,6 +86,11 @@ export type UpdateStockPurchasePayload = {
   lines: { id?: number | null; stockItemId: number; quantity: number; unitPriceForeign: number }[];
 };
 
+function requireData<T>(data: T | null, message: string): T {
+  if (data == null) throw new Error(message);
+  return data;
+}
+
 export async function getStockPurchases(): Promise<StockPurchaseDto[]> {
   const res = await api.get("/stockpurchases");
   return readBaseResponseList<StockPurchaseDto>(res.data);
@@ -93,12 +98,13 @@ export async function getStockPurchases(): Promise<StockPurchaseDto[]> {
 
 export async function getStockPurchaseById(id: number): Promise<StockPurchaseDto> {
   const res = await api.get(`/stockpurchases/${id}`);
-  return readBaseResponseData<StockPurchaseDto>(res.data);
+  return requireData(readBaseResponseData<StockPurchaseDto>(res.data), "Alış sənədi tapılmadı");
 }
 
 export async function createStockPurchase(payload: CreateStockPurchasePayload): Promise<number> {
   const res = await api.post("/stockpurchases", payload);
-  return readBaseResponseData<number>(res.data);
+  assertApiSuccess(res.data);
+  return requireData(readBaseResponseData<number>(res.data), "Alış sənədi yaradılmadı");
 }
 
 export async function updateStockPurchase(id: number, payload: UpdateStockPurchasePayload): Promise<void> {
@@ -130,5 +136,5 @@ export async function getCbarExchangeRate(currency: string, date: string): Promi
   const res = await api.get("/stockpurchases/exchange-rate", {
     params: { currency, date },
   });
-  return readBaseResponseData<number>(res.data);
+  return requireData(readBaseResponseData<number>(res.data), "Məzənnə alınmadı");
 }

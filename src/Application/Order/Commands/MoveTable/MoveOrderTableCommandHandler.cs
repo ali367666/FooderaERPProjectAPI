@@ -1,4 +1,5 @@
 using System.Text;
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -181,7 +182,7 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         sb.AppendLine($"Sifariş: {order.OrderNumber}");
         sb.AppendLine($"Köhnə masa: {oldTableName ?? "-"}");
         sb.AppendLine($"Yeni masa: {newTableName}");
-        sb.AppendLine($"Vaxt: {DateTime.UtcNow:dd.MM.yyyy HH:mm}");
+        sb.AppendLine($"Vaxt: {BusinessTime.Now:dd.MM.yyyy HH:mm}");
         if (order.Waiter is not null)
             sb.AppendLine($"Ofisiant: {order.Waiter.FirstName} {order.Waiter.LastName}");
         sb.AppendLine(new string('-', 32));

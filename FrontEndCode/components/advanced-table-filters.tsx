@@ -30,7 +30,7 @@ export type TableFilterDef<T> = {
   match: (row: T, get: (key: string) => string) => boolean;
 };
 
-export function createInitialFilterState(defs: TableFilterDef<unknown>[]): Record<string, string> {
+export function createInitialFilterState<T>(defs: TableFilterDef<T>[]): Record<string, string> {
   const s: Record<string, string> = {};
   for (const d of defs) {
     if (d.ui === "numberRange") {

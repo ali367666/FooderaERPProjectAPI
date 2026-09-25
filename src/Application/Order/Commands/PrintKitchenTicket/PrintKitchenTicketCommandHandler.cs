@@ -1,4 +1,5 @@
 using System.Text;
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -114,7 +115,7 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
         sb.AppendLine(new string('-', 32));
         sb.AppendLine($"Masa: {order.Table?.Name ?? "-"}");
         sb.AppendLine($"Sifariş: {order.OrderNumber}");
-        sb.AppendLine($"Vaxt: {now:dd.MM.yyyy HH:mm}");
+        sb.AppendLine($"Vaxt: {BusinessTime.FromUtc(now):dd.MM.yyyy HH:mm}");
         if (order.Waiter is not null)
             sb.AppendLine($"Ofisiant: {order.Waiter.FirstName} {order.Waiter.LastName}");
         sb.AppendLine(new string('-', 32));

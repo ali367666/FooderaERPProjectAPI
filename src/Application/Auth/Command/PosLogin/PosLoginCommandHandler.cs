@@ -1,6 +1,7 @@
 using Application.Auth.Dtos.Responce;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
+using Application.Common.Helpers;
 using Application.Common.Responce;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
@@ -36,7 +37,7 @@ public sealed class PosLoginCommandHandler
         var dto = request.Request;
 
         var settings = await _companySettingsRepository.GetByCompanyIdAsync(dto.CompanyId, cancellationToken);
-        if (settings?.OpeningTime is { } openingTime && DateTime.Now.TimeOfDay < openingTime)
+        if (settings?.OpeningTime is { } openingTime && BusinessTime.Now.TimeOfDay < openingTime)
         {
             _logger.LogInformation(
                 "POS login blocked before opening time. CompanyId: {CompanyId}, OpeningTime: {OpeningTime}",
@@ -94,7 +95,7 @@ public sealed class PosLoginCommandHandler
         var requiresRotatingPin = await _userRepository.HasRotatingPinRoleAsync(user.Id, cancellationToken);
         var expectedLength = requiresRotatingPin ? 8 : 4;
         var isValid = submittedCode.Length == expectedLength
-            && (expectedLength == 4 || submittedCode[..4] == DateTime.Now.ToString("ddMM"));
+            && (expectedLength == 4 || submittedCode[..4] == BusinessTime.Now.ToString("ddMM"));
 
         if (!isValid)
         {
