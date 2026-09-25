@@ -17,6 +17,7 @@ import {
   createEmployee,
   deleteEmployee,
   getEmployees,
+  getEmployeesForAllCompanies,
   updateEmployee,
   type Employee,
 } from "@/lib/services/employee-service";
@@ -25,9 +26,12 @@ import {
   type Department,
 } from "@/lib/services/department-service";
 import { getPositionsForAllCompanies, type Position } from "@/lib/services/position-service";
+import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
+import { resolveCompanyId } from "@/lib/resolve-company-id";
+import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 
 type EmployeeRow = {
   id: string;
@@ -37,6 +41,7 @@ type EmployeeRow = {
   phone: string;
   departmentName: string;
   positionName: string;
+  restaurantName: string;
   hireDate: string;
   hireDateIso: string;
   isActive: boolean;
@@ -46,6 +51,7 @@ type EmployeeRow = {
   address: string;
   departmentId: number;
   positionId: number;
+  restaurantId: number;
 };
 
 type EmployeeFormState = {
@@ -59,6 +65,7 @@ type EmployeeFormState = {
   hireDate: string;
   departmentId: string;
   positionId: string;
+  restaurantId: string;
 };
 
 function emptyEmployeeForm(): EmployeeFormState {
@@ -74,6 +81,7 @@ function emptyEmployeeForm(): EmployeeFormState {
     hireDate: today,
     departmentId: "",
     positionId: "",
+    restaurantId: "",
   };
 }
 
@@ -96,6 +104,7 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -108,7 +117,10 @@ export default function EmployeesPage() {
     try {
       if (!silent) setLoading(true);
       setError(null);
-      const data = await getEmployees();
+      // With no cross-company list (no Company.View — a regular tenant Admin), the backend already
+      // defaults to the caller's own company; only loop per company when there's a list to loop over.
+      const ids = companies.map((c) => c.id);
+      const data = ids.length > 0 ? await getEmployeesForAllCompanies(ids) : await getEmployees();
       setEmployees(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load employees.");
@@ -119,6 +131,9 @@ export default function EmployeesPage() {
   };
 
   const loadReferenceData = async () => {
+    const restaurantData = await getRestaurants();
+    setRestaurants(restaurantData);
+
     if (companies.length === 0) {
       setDepartments([]);
       setPositions([]);
@@ -142,10 +157,11 @@ export default function EmployeesPage() {
         setLoading(true);
         setError(null);
         const ids = companies.map((c) => c.id);
-        const [employeeResult, departmentResult, positionResult] = await Promise.allSettled([
-          getEmployees(),
+        const [employeeResult, departmentResult, positionResult, restaurantResult] = await Promise.allSettled([
+          ids.length ? getEmployeesForAllCompanies(ids) : getEmployees(),
           ids.length ? getDepartmentsForAllCompanies(ids) : Promise.resolve([]),
           ids.length ? getPositionsForAllCompanies(ids) : Promise.resolve([]),
+          getRestaurants(),
         ]);
 
         if (!isMounted) return;
@@ -166,6 +182,12 @@ export default function EmployeesPage() {
           setPositions(positionResult.value);
         } else {
           setPositions([]);
+        }
+
+        if (restaurantResult.status === "fulfilled") {
+          setRestaurants(restaurantResult.value);
+        } else {
+          setRestaurants([]);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load employees.");
@@ -197,6 +219,27 @@ export default function EmployeesPage() {
     return departments.filter((d) => d.companyId === scopeCompanyId);
   }, [departments, scopeCompanyId]);
 
+  // A tenant Admin's employee creation is always scoped server-side to their OWN company (never to
+  // whatever "Company filter" is picked in the toolbar), so their Add/Edit form must only ever offer
+  // departments/positions from that same company — otherwise saving fails with "Department not found."
+  // A SuperAdmin, however, can target any company: the backend now resolves the employee's company
+  // from whichever Department they pick, so the form should offer every company's departments.
+  const isSuperAdmin = useIsSuperAdmin();
+
+  const ownCompanyId = useMemo(() => {
+    try {
+      return resolveCompanyId();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const departmentsForForm = useMemo(() => {
+    if (isSuperAdmin) return departments;
+    if (ownCompanyId == null) return departmentsForFilters;
+    return departments.filter((d) => d.companyId === ownCompanyId);
+  }, [departments, isSuperAdmin, ownCompanyId, departmentsForFilters]);
+
   const positionsForFilters = useMemo(() => {
     const deptIds = new Set(departmentsForFilters.map((d) => d.id));
     return positions.filter((p) => deptIds.has(Number(p.departmentId ?? 0)));
@@ -206,11 +249,11 @@ export default function EmployeesPage() {
     const selectedDepartmentId = Number(form.departmentId);
     if (!Number.isFinite(selectedDepartmentId) || selectedDepartmentId <= 0) {
       const pool =
-        scopeCompanyId == null
+        isSuperAdmin || ownCompanyId == null
           ? positions
           : positions.filter((p) => {
               const cid = departmentCompanyMap.get(Number(p.departmentId ?? 0));
-              return cid === scopeCompanyId;
+              return cid === ownCompanyId;
             });
       return pool;
     }
@@ -219,7 +262,19 @@ export default function EmployeesPage() {
       const departmentId = Number(position.departmentId ?? 0);
       return departmentId === selectedDepartmentId;
     });
-  }, [form.departmentId, positions, scopeCompanyId, departmentCompanyMap]);
+  }, [form.departmentId, positions, isSuperAdmin, ownCompanyId, departmentCompanyMap]);
+
+  // Branch always belongs to the same company as the chosen Department — narrow to it once a
+  // Department is picked, otherwise fall back to the same "own company vs. every company" pool.
+  const restaurantsForForm = useMemo(() => {
+    const selectedDepartmentId = Number(form.departmentId);
+    if (Number.isFinite(selectedDepartmentId) && selectedDepartmentId > 0) {
+      const cid = departmentCompanyMap.get(selectedDepartmentId);
+      if (cid != null) return restaurants.filter((r) => r.companyId === cid);
+    }
+    if (isSuperAdmin || ownCompanyId == null) return restaurants;
+    return restaurants.filter((r) => r.companyId === ownCompanyId);
+  }, [restaurants, form.departmentId, departmentCompanyMap, isSuperAdmin, ownCompanyId]);
 
   const sortedDepartmentOptions = useMemo(
     () =>
@@ -252,6 +307,7 @@ export default function EmployeesPage() {
         phone: employee.phoneNumber?.trim() || "-",
         departmentName: employee.departmentName?.trim() || "-",
         positionName: employee.positionName?.trim() || "-",
+        restaurantName: employee.restaurantName?.trim() || "-",
         hireDate: formatDate(employee.hireDate),
         hireDateIso: toFormDate(employee.hireDate),
         isActive: employee.isActive,
@@ -261,6 +317,7 @@ export default function EmployeesPage() {
         address: (employee.address || "").trim(),
         departmentId: employee.departmentId,
         positionId: employee.positionId,
+        restaurantId: employee.restaurantId,
       })),
     [scopedEmployees],
   );
@@ -378,6 +435,7 @@ export default function EmployeesPage() {
     { key: "phone" as const, label: "Phone" },
     { key: "departmentName" as const, label: "Department" },
     { key: "positionName" as const, label: "Position" },
+    { key: "restaurantName" as const, label: "Branch" },
     { key: "hireDate" as const, label: "Hire Date" },
     {
       key: "isActive" as const,
@@ -418,6 +476,7 @@ export default function EmployeesPage() {
       hireDate: toFormDate(employee.hireDate),
       departmentId: String(employee.departmentId || ""),
       positionId: String(employee.positionId || ""),
+      restaurantId: String(employee.restaurantId || ""),
     });
     setFieldErrors({});
     setIsEditMode(true);
@@ -444,6 +503,7 @@ export default function EmployeesPage() {
     const lastName = form.lastName.trim();
     const departmentId = Number(form.departmentId);
     const positionId = Number(form.positionId);
+    const restaurantId = Number(form.restaurantId);
 
     if (!firstName || !lastName) {
       const msg = "First name and last name are required.";
@@ -466,6 +526,13 @@ export default function EmployeesPage() {
       return;
     }
 
+    if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
+      const msg = "Branch selection is required.";
+      setError(msg);
+      window.alert(msg);
+      return;
+    }
+
     if (!form.hireDate) {
       const msg = "Hire date is required.";
       setError(msg);
@@ -483,6 +550,7 @@ export default function EmployeesPage() {
       hireDate: new Date(form.hireDate).toISOString(),
       departmentId,
       positionId,
+      restaurantId,
       userId: null,
     };
 
@@ -689,12 +757,13 @@ export default function EmployeesPage() {
                     ...f,
                     departmentId: e.target.value,
                     positionId: "",
+                    restaurantId: "",
                   }))
                 }
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
               >
                 <option value="">Select department</option>
-                {departmentsForFilters.map((department) => (
+                {departmentsForForm.map((department) => (
                   <option key={department.id} value={department.id}>
                     {department.name}
                   </option>
@@ -726,6 +795,29 @@ export default function EmployeesPage() {
               {getFieldErrorMessage(fieldErrors, "positionid") && (
                 <p className="mt-1 text-xs text-red-600">
                   {getFieldErrorMessage(fieldErrors, "positionid")}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">
+                Branch
+              </label>
+              <select
+                value={form.restaurantId}
+                onChange={(e) => setForm((f) => ({ ...f, restaurantId: e.target.value }))}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+              >
+                <option value="">Select branch</option>
+                {restaurantsForForm.map((restaurant) => (
+                  <option key={restaurant.id} value={restaurant.id}>
+                    {restaurant.name}
+                  </option>
+                ))}
+              </select>
+              {getFieldErrorMessage(fieldErrors, "restaurantid") && (
+                <p className="mt-1 text-xs text-red-600">
+                  {getFieldErrorMessage(fieldErrors, "restaurantid")}
                 </p>
               )}
             </div>

@@ -13,10 +13,8 @@ public class UpdateCompanyCommandValidator : AbstractValidator<UpdateCompanyComm
         RuleFor(x => x.dto.CompanyCode)
             .NotEmpty()
             .WithMessage("Şirkət kodu boş ola bilməz.")
-            .Length(3)
-            .WithMessage("Şirkət kodu tam 3 simvol olmalıdır.")
-            .Matches("^[A-Z]{3}$")
-            .WithMessage("Şirkət kodu yalnız 3 böyük hərfdən ibarət olmalıdır.");
+            .MaximumLength(50)
+            .WithMessage("Şirkət kodu ən çox 50 simvol ola bilər.");
 
         RuleFor(x => x.dto.Name)
             .NotEmpty()

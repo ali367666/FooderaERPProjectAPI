@@ -70,9 +70,17 @@ public class EmployeesController : ControllerBase
     }
     [Authorize(Policy = AppPermissions.EmployeeView)]
     [HttpGet]
-    public async Task<ActionResult<BaseResponse<List<EmployeeResponse>>>> GetAll()
+    public async Task<ActionResult<BaseResponse<List<EmployeeResponse>>>> GetAll(
+        [FromQuery] int? companyId)
     {
-        var result = await _mediator.Send(new GetAllEmployeesQuery());
+        var companyIdFromClaim = User.FindFirst("companyId")?.Value
+            ?? User.FindFirst("CompanyId")?.Value;
+
+        var effectiveCompanyId = companyId;
+        if (effectiveCompanyId is null && int.TryParse(companyIdFromClaim, out var parsedCompanyId))
+            effectiveCompanyId = parsedCompanyId;
+
+        var result = await _mediator.Send(new GetAllEmployeesQuery(effectiveCompanyId ?? 0));
 
         return Ok(result);
     }

@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockPurchase.Dtos.Response;
@@ -10,10 +11,14 @@ public class GetStockPurchaseByIdQueryHandler
     : IRequestHandler<GetStockPurchaseByIdQuery, BaseResponse<StockPurchaseResponse>>
 {
     private readonly IStockPurchaseRepository _purchaseRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public GetStockPurchaseByIdQueryHandler(IStockPurchaseRepository purchaseRepository)
+    public GetStockPurchaseByIdQueryHandler(
+        IStockPurchaseRepository purchaseRepository,
+        ICurrentUserService currentUserService)
     {
         _purchaseRepository = purchaseRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<BaseResponse<StockPurchaseResponse>> Handle(
@@ -21,7 +26,7 @@ public class GetStockPurchaseByIdQueryHandler
     {
         var purchase = await _purchaseRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (purchase is null)
+        if (purchase is null || (!_currentUserService.IsSuperAdmin && purchase.CompanyId != _currentUserService.CompanyId))
             return new BaseResponse<StockPurchaseResponse> { Success = false, Message = "Stok alışı tapılmadı." };
 
         var lines = purchase.Lines.Select(l => new StockPurchaseLineResponse

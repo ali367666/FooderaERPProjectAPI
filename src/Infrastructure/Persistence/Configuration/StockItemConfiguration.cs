@@ -23,6 +23,9 @@ public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
         builder.Property(x => x.Unit)
                .IsRequired();
 
+        builder.Property(x => x.SalePrice)
+               .HasColumnType("decimal(18,2)");
+
         // Category relation
         builder.HasOne(x => x.Category)
                .WithMany()

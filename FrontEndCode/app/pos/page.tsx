@@ -20,10 +20,12 @@ import { getCurrentEmployeeId } from "@/lib/pos-session";
 import {
   getRestaurantTables,
   ensureStoreSaleTable,
+  RestaurantTableType,
   type RestaurantTable,
 } from "@/lib/services/restaurant-table-service";
 import { getOrders, createOrder, type OrderDto, type OrderWorkflowStatus } from "@/lib/services/order-service";
 import { getRestaurantSections, type RestaurantSection } from "@/lib/services/restaurant-section-service";
+import { getReservations, type ReservationDto } from "@/lib/services/reservation-service";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
 import {
   getCompanySettingsBranding,
@@ -94,6 +96,15 @@ export default function PosTablesPage() {
   const [guestCountTable, setGuestCountTable] = useState<TableWithOrder | null>(null);
   const [guestCountInput, setGuestCountInput] = useState("");
   const [currentEmployeeId, setCurrentEmployeeId] = useState<number | null>(null);
+  const [todayReservations, setTodayReservations] = useState<ReservationDto[]>([]);
+  const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
+  const [deliveryAddressInput, setDeliveryAddressInput] = useState("");
+  const [deliveryPhoneInput, setDeliveryPhoneInput] = useState("");
+  const [deliveryCreating, setDeliveryCreating] = useState(false);
+  const [reservationWarning, setReservationWarning] = useState<{
+    table: TableWithOrder;
+    reservation: ReservationDto;
+  } | null>(null);
 
   useEffect(() => {
     void getCurrentEmployeeId().then(setCurrentEmployeeId);
@@ -222,6 +233,39 @@ export default function PosTablesPage() {
       .catch(() => setSections([]));
   }, [terminal]);
 
+  useEffect(() => {
+    if (!terminal?.restaurantId) return;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    getReservations(todayIso)
+      .then((rows) =>
+        setTodayReservations(
+          rows.filter(
+            (r) =>
+              r.restaurantId === terminal.restaurantId &&
+              r.tableId != null &&
+              r.status !== "Cancelled" &&
+              r.status !== "NoShow" &&
+              r.status !== "Completed",
+          ),
+        ),
+      )
+      .catch(() => setTodayReservations([]));
+  }, [terminal]);
+
+  /** A reservation counts as an active/imminent conflict from 30 min before its start until it ends. */
+  const findConflictingReservation = (tableId: number): ReservationDto | null => {
+    const nowMs = Date.now();
+    for (const r of todayReservations) {
+      if (r.tableId !== tableId) continue;
+      const start = new Date(`${r.reservationDate.slice(0, 10)}T${r.reservationTime}`).getTime();
+      if (!Number.isFinite(start)) continue;
+      const windowStart = start - 30 * 60_000;
+      const windowEnd = start + r.durationMinutes * 60_000;
+      if (nowMs >= windowStart && nowMs <= windowEnd) return r;
+    }
+    return null;
+  };
+
   const createOrderForTable = async (table: TableWithOrder, guestCount?: number) => {
     setCreatingTableId(table.id);
     try {
@@ -244,9 +288,46 @@ export default function PosTablesPage() {
     }
   };
 
+  const handleCreateDeliveryOrder = async () => {
+    if (!terminal?.restaurantId) return;
+    setDeliveryCreating(true);
+    try {
+      const waiterId = await getCurrentEmployeeId();
+      if (!waiterId) {
+        toast.error("Bu istifadəçi heç bir işçiyə bağlı deyil. Users səhifəsindən bağlayın.");
+        return;
+      }
+      const order = await createOrder({
+        restaurantId: terminal.restaurantId,
+        waiterId,
+        isDelivery: true,
+        deliveryAddress: deliveryAddressInput.trim() || null,
+        deliveryPhone: deliveryPhoneInput.trim() || null,
+      });
+      setDeliveryDialogOpen(false);
+      setDeliveryAddressInput("");
+      setDeliveryPhoneInput("");
+      router.push(`/pos/order/${order.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Çatdırılma sifarişi yaradıla bilmədi");
+    } finally {
+      setDeliveryCreating(false);
+    }
+  };
+
+  const proceedToOpenTable = (table: TableWithOrder) => {
+    if (branding?.askGuestCountOnOpen) {
+      setGuestCountInput("");
+      setGuestCountTable(table);
+      return;
+    }
+    void createOrderForTable(table);
+  };
+
   const openTable = async (table: TableWithOrder) => {
     if (table.activeOrder) {
-      if (!canViewAllTables && currentEmployeeId != null && table.activeOrder.waiterId !== currentEmployeeId) {
+      const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
+      if (!canOverrideOwnership && currentEmployeeId != null && table.activeOrder.waiterId !== currentEmployeeId) {
         toast.error("Bu masa başqa ofisiantə aiddir, baxa bilməzsiniz.");
         return;
       }
@@ -255,13 +336,20 @@ export default function PosTablesPage() {
     }
     if (!terminal) return;
 
-    if (branding?.askGuestCountOnOpen) {
-      setGuestCountInput("");
-      setGuestCountTable(table);
+    const conflict = findConflictingReservation(table.id);
+    if (conflict) {
+      setReservationWarning({ table, reservation: conflict });
       return;
     }
 
-    void createOrderForTable(table);
+    proceedToOpenTable(table);
+  };
+
+  const handleConfirmReservationWarning = () => {
+    if (!reservationWarning) return;
+    const { table } = reservationWarning;
+    setReservationWarning(null);
+    proceedToOpenTable(table);
   };
 
   const handleConfirmGuestCount = () => {
@@ -289,10 +377,51 @@ export default function PosTablesPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">Masalar</h1>
-        <Button variant="outline" size="sm" onClick={() => void load()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {branding?.modulePaket === true && (
+            <Button size="sm" onClick={() => setDeliveryDialogOpen(true)}>
+              Çatdırılma sifarişi
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+
+      {branding?.modulePaket === true &&
+        (() => {
+          const deliveryOrders = tables.filter((t) => t.activeOrder?.isDelivery);
+          if (deliveryOrders.length === 0) return null;
+          return (
+            <div className="mb-4 space-y-2">
+              <p className="text-sm font-semibold text-muted-foreground">Aktiv çatdırılmalar</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                {deliveryOrders.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
+                    className="rounded-md border bg-card p-3 text-left text-sm hover:bg-muted/50"
+                  >
+                    <p className="font-medium">{t.activeOrder!.orderNumber}</p>
+                    {t.activeOrder!.deliveryPhone && (
+                      <p className="text-xs text-muted-foreground">{t.activeOrder!.deliveryPhone}</p>
+                    )}
+                    {t.activeOrder!.deliveryAddress && (
+                      <p className="truncate text-xs text-muted-foreground">{t.activeOrder!.deliveryAddress}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {t.activeOrder!.deliveryDriverName
+                        ? `Kuryer: ${t.activeOrder!.deliveryDriverName}`
+                        : "Kuryer təyin edilməyib"}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
       {error && (
         <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -338,6 +467,7 @@ export default function PosTablesPage() {
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
         {tables
           .filter((table) => table.isActive)
+          .filter((table) => table.type !== RestaurantTableType.Delivery)
           .filter((table) => (activeSectionId === null ? table.sectionId == null : table.sectionId === activeSectionId))
           .map((table) => {
           const occupied = table.activeOrder !== null;
@@ -347,8 +477,9 @@ export default function PosTablesPage() {
           const order = table.activeOrder;
           const elapsedMinutes = order ? Math.floor((now.getTime() - new Date(order.openedAt).getTime()) / 60000) : 0;
           const isOverdue = occupied && elapsedMinutes >= warningMinutes;
+          const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
           const isOtherWaiterTable =
-            occupied && !canViewAllTables && currentEmployeeId != null && order!.waiterId !== currentEmployeeId;
+            occupied && !canOverrideOwnership && currentEmployeeId != null && order!.waiterId !== currentEmployeeId;
 
           return (
             <button
@@ -436,6 +567,63 @@ export default function PosTablesPage() {
               Ləğv et
             </Button>
             <Button onClick={handleConfirmGuestCount}>Təsdiqlə</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reservationWarning !== null} onOpenChange={(open) => !open && setReservationWarning(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Masa rezerv edilib</DialogTitle>
+          </DialogHeader>
+          {reservationWarning && (
+            <p className="text-sm text-muted-foreground">
+              {reservationWarning.table.name} masası saat {reservationWarning.reservation.reservationTime} üçün{" "}
+              <span className="font-medium text-foreground">{reservationWarning.reservation.guestName}</span> adına
+              rezerv edilib ({reservationWarning.reservation.guestCount} nəfər). Yenə də açmaq istəyirsiniz?
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReservationWarning(null)}>
+              Ləğv et
+            </Button>
+            <Button onClick={handleConfirmReservationWarning}>Yenə də aç</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deliveryDialogOpen} onOpenChange={(o) => !o && setDeliveryDialogOpen(false)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Çatdırılma sifarişi</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="delivery-phone">Telefon</Label>
+              <Input
+                id="delivery-phone"
+                value={deliveryPhoneInput}
+                onChange={(e) => setDeliveryPhoneInput(e.target.value)}
+                placeholder="+994 XX XXX XX XX"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="delivery-address">Ünvan</Label>
+              <Input
+                id="delivery-address"
+                value={deliveryAddressInput}
+                onChange={(e) => setDeliveryAddressInput(e.target.value)}
+                placeholder="Ünvan"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeliveryDialogOpen(false)} disabled={deliveryCreating}>
+              Ləğv et
+            </Button>
+            <Button onClick={() => void handleCreateDeliveryOrder()} disabled={deliveryCreating}>
+              {deliveryCreating ? "Yaradılır..." : "Sifarişi başlat"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -14,6 +14,7 @@ public class UpdateEmployeeRequest
 
     public int DepartmentId { get; set; }
     public int PositionId { get; set; }
+    public int RestaurantId { get; set; }
 
     public int? UserId { get; set; }
 }

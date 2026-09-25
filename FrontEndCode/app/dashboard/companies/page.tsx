@@ -28,6 +28,7 @@ import {
 } from "@/lib/services/company-service";
 import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
+import { useSelectedCompany } from "@/contexts/selected-company-context";
 
 const MODULE_FIELDS: Array<{ key: keyof CompanyModules; label: string }> = [
   { key: "moduleFilial", label: "Filial" },
@@ -37,8 +38,9 @@ const MODULE_FIELDS: Array<{ key: keyof CompanyModules; label: string }> = [
   { key: "modulePaket", label: "Paket" },
   { key: "moduleOtel", label: "Otel" },
   { key: "moduleFitnes", label: "Fitnes" },
-  { key: "moduleDataSecimi", label: "Data Seçimi (Mağaza rejimi)" },
+  { key: "moduleDataSecimi", label: "Mağaza" },
   { key: "moduleQiymetSor", label: "Qiymət Sor" },
+  { key: "moduleKompleks", label: "İstirahət Kompleksi" },
 ];
 
 function emptyCompanyModules(): CompanyModules {
@@ -52,6 +54,7 @@ function emptyCompanyModules(): CompanyModules {
     moduleFitnes: false,
     moduleDataSecimi: false,
     moduleQiymetSor: false,
+    moduleKompleks: false,
   };
 }
 
@@ -117,6 +120,7 @@ function emptyCompanyForm(): CompanyFormState {
 }
 
 export default function CompaniesPage() {
+  const { reloadCompanies } = useSelectedCompany();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -324,6 +328,7 @@ export default function CompaniesPage() {
           moduleFitnes: branding.moduleFitnes,
           moduleDataSecimi: branding.moduleDataSecimi,
           moduleQiymetSor: branding.moduleQiymetSor,
+          moduleKompleks: branding.moduleKompleks,
         });
       } catch {
         setModules(emptyCompanyModules());
@@ -343,6 +348,7 @@ export default function CompaniesPage() {
       setError(null);
       await deleteCompany(row.companyId);
       await loadCompanies(true);
+      await reloadCompanies();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete company.";
       setError(message);
@@ -353,9 +359,11 @@ export default function CompaniesPage() {
   const handleSave = async () => {
     const code = form.companyCode.trim();
     const name = form.name.trim();
+    const taxNumber = form.taxNumber.trim();
+    const taxOfficeCode = form.taxOfficeCode.trim();
 
-    if (!code || !name) {
-      const msg = "Company code and company name are required.";
+    if (!code || !name || !taxNumber || !taxOfficeCode) {
+      const msg = "Company code, company name, tax number and tax office code are required.";
       setError(msg);
       window.alert(msg);
       return;
@@ -404,6 +412,7 @@ export default function CompaniesPage() {
       setForm(emptyCompanyForm());
       setModules(emptyCompanyModules());
       await loadCompanies(true);
+      await reloadCompanies();
     } catch (err) {
       const message =
         err instanceof Error

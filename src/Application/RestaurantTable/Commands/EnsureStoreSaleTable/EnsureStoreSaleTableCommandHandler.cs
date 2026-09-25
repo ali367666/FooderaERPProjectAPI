@@ -29,7 +29,7 @@ public class EnsureStoreSaleTableCommandHandler
         var restaurantExists = await _restaurantTableRepository.RestaurantExistsAsync(
             companyId, request.RestaurantId, cancellationToken);
         if (!restaurantExists)
-            return BaseResponse<int>.Fail("Restoran tapılmadı.");
+            return BaseResponse<int>.Fail("Filial tapılmadı.");
 
         var tables = await _restaurantTableRepository.GetAllByRestaurantAsync(
             companyId, request.RestaurantId, cancellationToken);

@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import { ApiFormError, toApiFormError } from "@/lib/api-error";
+import { fetchListsPerCompany } from "@/lib/company-scope-utils";
 
 type ApiResponse<T> = {
   success?: boolean;
@@ -21,8 +22,10 @@ export type Employee = {
   isActive: boolean;
   departmentId: number;
   positionId: number;
+  restaurantId: number;
   departmentName?: string;
   positionName?: string;
+  restaurantName?: string;
   userId?: number | null;
 };
 
@@ -36,6 +39,7 @@ export type EmployeeMutationInput = {
   hireDate: string;
   departmentId: number;
   positionId: number;
+  restaurantId: number;
   userId?: number | null;
 };
 
@@ -70,15 +74,19 @@ function normalizeEmployee(item: unknown): Employee | null {
     isActive: Boolean(raw.isActive ?? raw.IsActive ?? true),
     departmentId: Number(raw.departmentId ?? raw.DepartmentId ?? 0),
     positionId: Number(raw.positionId ?? raw.PositionId ?? 0),
+    restaurantId: Number(raw.restaurantId ?? raw.RestaurantId ?? 0),
     departmentName: String(raw.departmentName ?? raw.DepartmentName ?? ""),
     positionName: String(raw.positionName ?? raw.PositionName ?? ""),
+    restaurantName: String(raw.restaurantName ?? raw.RestaurantName ?? ""),
     userId: (raw.userId ?? raw.UserId ?? null) as number | null,
   };
 }
 
-export async function getEmployees(): Promise<Employee[]> {
+export async function getEmployees(companyId?: number): Promise<Employee[]> {
   try {
-    const response = await api.get<ApiResponse<Employee[]>>("/Employees");
+    const response = await api.get<ApiResponse<Employee[]>>("/Employees", {
+      params: companyId ? { companyId } : undefined,
+    });
     const payload = response.data;
 
     if (payload?.success === false) {
@@ -92,6 +100,11 @@ export async function getEmployees(): Promise<Employee[]> {
   } catch (error) {
     throw toApiFormError(error, "Failed to fetch employees.");
   }
+}
+
+/** Merge GET /Employees for each company id (mirrors getDepartmentsForAllCompanies/getPositionsForAllCompanies). */
+export async function getEmployeesForAllCompanies(companyIds: number[]): Promise<Employee[]> {
+  return fetchListsPerCompany(companyIds, (id) => getEmployees(id));
 }
 
 export async function getEmployeesByPosition(

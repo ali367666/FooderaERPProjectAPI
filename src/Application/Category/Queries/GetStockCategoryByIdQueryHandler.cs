@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockCategory.Dtos.Response;
 using AutoMapper;
@@ -11,15 +12,18 @@ public class GetStockCategoryByIdQueryHandler
     : IRequestHandler<GetStockCategoryByIdQuery, BaseResponse<StockCategoryDetailResponse>>
 {
     private readonly IStockCategoryRepository _repository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IMapper _mapper;
     private readonly ILogger<GetStockCategoryByIdQueryHandler> _logger;
 
     public GetStockCategoryByIdQueryHandler(
         IStockCategoryRepository repository,
+        ICurrentUserService currentUserService,
         IMapper mapper,
         ILogger<GetStockCategoryByIdQueryHandler> logger)
     {
         _repository = repository;
+        _currentUserService = currentUserService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -32,7 +36,7 @@ public class GetStockCategoryByIdQueryHandler
 
         var category = await _repository.GetByIdWithChildrenAsync(request.Id, cancellationToken);
 
-        if (category is null)
+        if (category is null || (!_currentUserService.IsSuperAdmin && category.CompanyId != _currentUserService.CompanyId))
         {
             _logger.LogWarning("Category not found. Id: {Id}", request.Id);
             return BaseResponse<StockCategoryDetailResponse>.Fail("Stock category not found.");

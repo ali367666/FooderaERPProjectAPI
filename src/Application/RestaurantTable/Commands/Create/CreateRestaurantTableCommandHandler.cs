@@ -61,7 +61,7 @@ public class CreateRestaurantTableCommandHandler
                 dto.RestaurantId,
                 companyId);
 
-            throw new Exception("Restaurant tapılmadı.");
+            throw new Exception("Filial tapılmadı.");
         }
 
         if (exists)

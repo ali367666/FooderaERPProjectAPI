@@ -15,6 +15,8 @@ using Application.Orders.Commands.Create;
 using Application.Orders.Commands.Delete;
 using Application.Orders.Commands.DiscardEmpty;
 using Application.Orders.Commands.SetCounterparty;
+using Application.Orders.Commands.SetOrderHold;
+using Application.Orders.Commands.SetDeliveryDriver;
 using Application.Orders.Commands.PrintKitchenTicket;
 using Application.Orders.Commands.Start;
 using Application.Orders.Commands.Submit;
@@ -111,6 +113,20 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<OrderResponse>> SetLineHold(int id, [FromQuery] int? holdMinutes)
     {
         var result = await _mediator.Send(new SetOrderLineHoldCommand(id, holdMinutes));
+        return Ok(result);
+    }
+    [Authorize(Policy = AppPermissions.PosEditProductInSale)]
+    [HttpPut("{id:int}/hold")]
+    public async Task<ActionResult<OrderResponse>> SetOrderHold(int id, [FromQuery] bool hold)
+    {
+        var result = await _mediator.Send(new SetOrderHoldCommand(id, hold));
+        return Ok(result);
+    }
+    [Authorize(Policy = AppPermissions.PosEditProductInSale)]
+    [HttpPut("{id:int}/delivery-driver")]
+    public async Task<ActionResult<OrderResponse>> SetDeliveryDriver(int id, [FromQuery] int? driverEmployeeId)
+    {
+        var result = await _mediator.Send(new SetOrderDeliveryDriverCommand(id, driverEmployeeId));
         return Ok(result);
     }
     [Authorize(Policy = AppPermissions.PosEditProductInSale)]

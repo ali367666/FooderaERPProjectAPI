@@ -66,9 +66,9 @@ public class WarehousesController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = AppPermissions.WarehouseView)]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] int? companyId)
     {
-        var result = await _mediator.Send(new GetAllWarehousesQuery());
+        var result = await _mediator.Send(new GetAllWarehousesQuery(companyId));
 
         return result.Success ? Ok(result) : BadRequest(result);
     }

@@ -16,10 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
+import { defaultFormCompanyId } from "@/lib/resolve-company-id";
 import {
   createRole,
   deleteRoleApi,
   getRoles,
+  getRolesForAllCompanies,
   updateRole,
   type AppRole,
 } from "@/lib/services/role-service";
@@ -35,6 +37,8 @@ type RoleRow = {
   id: string;
   roleId: number;
   name: string;
+  companyName: string;
+  requiresRotatingPin: boolean;
 };
 
 function friendlyError(err: unknown, fallback: string): string {
@@ -44,7 +48,7 @@ function friendlyError(err: unknown, fallback: string): string {
 }
 
 export default function RolesPage() {
-  const { companiesLoading } = useSelectedCompany();
+  const { companies, companiesLoading, selectedCompanyId } = useSelectedCompany();
   const [list, setList] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +56,8 @@ export default function RolesPage() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
+  const [formCompanyId, setFormCompanyId] = useState("");
+  const [requiresRotatingPin, setRequiresRotatingPin] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const [permissions, setPermissions] = useState<PermissionDto[]>([]);
@@ -87,14 +93,23 @@ export default function RolesPage() {
     setLoading(true);
     setError(null);
     try {
-      setList(await getRoles());
+      // "All Companies" (no scope selected) means literally that for a cross-company viewer — show
+      // every company's roles, not just the caller's own.
+      const ids = companies.map((c) => c.id);
+      const data =
+        selectedCompanyId != null
+          ? await getRoles(selectedCompanyId)
+          : ids.length > 0
+            ? await getRolesForAllCompanies(ids)
+            : await getRoles();
+      setList(data);
     } catch (e) {
       setError(friendlyError(e, "Failed to load roles."));
       setList([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedCompanyId, companies]);
 
   useEffect(() => {
     if (companiesLoading) return;
@@ -104,9 +119,16 @@ export default function RolesPage() {
   const resetForm = () => {
     setEditingId(null);
     setName("");
+    setFormCompanyId(defaultFormCompanyId(companies, selectedCompanyId));
+    setRequiresRotatingPin(false);
     setFieldErrors({});
     setSelectedPermissionIds(new Set());
   };
+
+  const companyNameById = useMemo(
+    () => new Map(companies.map((c) => [c.id, c.name])),
+    [companies],
+  );
 
   const rows: RoleRow[] = useMemo(
     () =>
@@ -114,8 +136,10 @@ export default function RolesPage() {
         id: String(r.id),
         roleId: r.id,
         name: r.name,
+        companyName: r.companyId != null ? companyNameById.get(r.companyId) || `#${r.companyId}` : "-",
+        requiresRotatingPin: r.requiresRotatingPin,
       })),
-    [list],
+    [list, companyNameById],
   );
 
   const filterDefs = useMemo<TableFilterDef<RoleRow>[]>(
@@ -153,6 +177,12 @@ export default function RolesPage() {
   const columns = [
     { key: "roleId" as const, label: "ID" },
     { key: "name" as const, label: "Role name" },
+    { key: "companyName" as const, label: "Company" },
+    {
+      key: "requiresRotatingPin" as const,
+      label: "Gündəlik kod",
+      render: (value: boolean) => (value ? "Bəli" : "Xeyr"),
+    },
   ];
 
   const handleAdd = () => {
@@ -165,6 +195,8 @@ export default function RolesPage() {
     if (!r) return;
     setEditingId(r.id);
     setName(r.name);
+    setFormCompanyId(r.companyId != null ? String(r.companyId) : "");
+    setRequiresRotatingPin(r.requiresRotatingPin);
     setFieldErrors({});
     setDialogOpen(true);
     setPermissionsLoading(true);
@@ -195,15 +227,20 @@ export default function RolesPage() {
       toast.error("Role name is required.");
       return;
     }
+    const parsedCompanyId = Number(formCompanyId);
+    if (editingId == null && (!Number.isFinite(parsedCompanyId) || parsedCompanyId <= 0)) {
+      toast.error("Company selection is required.");
+      return;
+    }
     setSaving(true);
     setFieldErrors({});
     try {
       let roleId = editingId;
       if (roleId == null) {
-        roleId = await createRole(trimmed);
+        roleId = await createRole(trimmed, parsedCompanyId, requiresRotatingPin);
         toast.success("Rol yaradıldı.");
       } else {
-        await updateRole(roleId, trimmed);
+        await updateRole(roleId, trimmed, requiresRotatingPin);
         toast.success("Rol yeniləndi.");
       }
       await updateRolePermissions(roleId, Array.from(selectedPermissionIds));
@@ -250,7 +287,7 @@ export default function RolesPage() {
               data={filtered}
               idSortKey="roleId"
               searchPlaceholder="Search roles…"
-              searchableFields={["name", "id"]}
+              searchableFields={["name", "id", "companyName"]}
               onAdd={handleAdd}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -277,6 +314,49 @@ export default function RolesPage() {
             {getFieldErrorMessage(fieldErrors, "name") && (
               <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "name")}</p>
             )}
+          </div>
+
+          {companies.length > 0 && (
+            <div className="mt-4">
+              <Label htmlFor="role-company">Company</Label>
+              {editingId != null ? (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {companyNameById.get(Number(formCompanyId)) || `#${formCompanyId}`}
+                </p>
+              ) : (
+                <select
+                  id="role-company"
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={formCompanyId}
+                  onChange={(e) => setFormCompanyId(e.target.value)}
+                >
+                  <option value="">Select company</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {getFieldErrorMessage(fieldErrors, "companyid") && (
+                <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "companyid")}</p>
+              )}
+            </div>
+          )}
+
+          <div className="mt-4">
+            <label className="flex items-center gap-2 text-sm font-normal">
+              <Checkbox
+                checked={requiresRotatingPin}
+                onCheckedChange={(v) => setRequiresRotatingPin(Boolean(v))}
+              />
+              Gündəlik dəyişən kod tələb olunsun
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Açılsa, bu rola aid işçilər POS-a daxil olarkən 8 rəqəmli kod yazmalıdır (ilk 4-ü həmin günün
+              tarixinə görə avtomatik dəyişir, son 4-ü öz sabit kodudur). Bağlı qalarsa, sabit 4 rəqəmli kod
+              kifayətdir.
+            </p>
           </div>
 
           <div className="mt-4">

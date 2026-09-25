@@ -33,7 +33,7 @@ import {
   type StockCategory,
 } from "@/lib/services/stock-category-service";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
-import { resolveCompanyId } from "@/lib/resolve-company-id";
+import { defaultFormCompanyId, resolveCompanyId } from "@/lib/resolve-company-id";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
@@ -82,6 +82,7 @@ export default function StockItemsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [barcode, setBarcode] = useState("");
+  const [salePrice, setSalePrice] = useState("");
   const [type, setType] = useState<string>(String(StockItemType.RawMaterial));
   const [unit, setUnit] = useState<string>(String(UnitOfMeasure.Piece));
   const [categoryId, setCategoryId] = useState("");
@@ -108,8 +109,7 @@ export default function StockItemsPage() {
       setItems(itemData);
       setCategories(categoryData);
       setRestaurants(restaurantData);
-      const defaultCo = scopeCompanyId ?? companies[0]?.id ?? resolveCompanyId();
-      if (!companyId) setCompanyId(String(defaultCo));
+      if (!companyId) setCompanyId(defaultFormCompanyId(companies, scopeCompanyId));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load stock items.");
     } finally {
@@ -269,11 +269,12 @@ export default function StockItemsPage() {
   const resetForm = () => {
     setName("");
     setBarcode("");
+    setSalePrice("");
     setType(String(StockItemType.RawMaterial));
     setUnit(String(UnitOfMeasure.Piece));
     setCategoryId("");
     setRestaurantId("");
-    setCompanyId(String(scopeCompanyId ?? companies[0]?.id ?? resolveCompanyId()));
+    setCompanyId(defaultFormCompanyId(companies, scopeCompanyId));
     setEditingId(null);
     setFieldErrors({});
     setIsEditMode(false);
@@ -291,6 +292,7 @@ export default function StockItemsPage() {
       setEditingId(item.id);
       setName(item.name);
       setBarcode(item.barcode || "");
+      setSalePrice(item.salePrice != null ? String(item.salePrice) : "");
       setType(String(item.type));
       setUnit(String(item.unit));
       setCategoryId(String(item.categoryId));
@@ -346,6 +348,7 @@ export default function StockItemsPage() {
       categoryId: cat,
       companyId: comp,
       restaurantId: restaurantId ? Number(restaurantId) : null,
+      salePrice: salePrice.trim() ? Number(salePrice) : null,
     };
 
     try {
@@ -429,6 +432,20 @@ export default function StockItemsPage() {
               <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Optional" />
             </div>
             <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Satış qiyməti</label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={salePrice}
+                onChange={(e) => setSalePrice(e.target.value)}
+                placeholder="Optional"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Bu məhsula bağlı menyu maddəsinin Dəzgah qiyməti boşdursa, POS-da bu qiymət işlədilir.
+              </p>
+            </div>
+            <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Type</label>
               <select value={type} onChange={(e) => setType(e.target.value)} className={selectClass}>
                 {TYPE_OPTIONS.map((opt) => (
@@ -478,7 +495,7 @@ export default function StockItemsPage() {
               )}
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-foreground">Restaurant (optional)</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">Branch (optional)</label>
               <select value={restaurantId} onChange={(e) => setRestaurantId(e.target.value)} className={selectClass}>
                 <option value="">None</option>
                 {restaurantsForForm.map((r) => (

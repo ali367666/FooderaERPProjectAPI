@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -95,7 +95,15 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             order.TotalAmount
         });
 
-        var effectivePrice = menuItem.StationPrice ?? menuItem.Price;
+        // When a menu item has no Station price of its own, fall back to its linked warehouse
+        // item's own sale price before finally falling back to the item's general Price.
+        var warehouseSalePrice = menuItem.StockItem?.SalePrice;
+
+        // Delivery orders (the restaurant's own courier delivery, not third-party Wolt/Bolt/189)
+        // price from the item's Package price when one is configured, falling back like normal.
+        var effectivePrice = order.IsDelivery
+            ? menuItem.PackagePrice ?? menuItem.StationPrice ?? warehouseSalePrice ?? menuItem.Price
+            : menuItem.StationPrice ?? warehouseSalePrice ?? menuItem.Price;
         var quantity = menuItem.IsTimeBased ? 1 : request.Request.Quantity;
 
         var orderLine = new OrderLine
@@ -261,6 +269,12 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             TableRentalStartedAt = updatedOrder.TableRentalStartedAt,
             TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
             TableRentalAmount = updatedOrder.TableRentalAmount,
+            HoldUntilUtc = updatedOrder.HoldUntilUtc,
+            IsDelivery = updatedOrder.IsDelivery,
+            DeliveryAddress = updatedOrder.DeliveryAddress,
+            DeliveryPhone = updatedOrder.DeliveryPhone,
+            DeliveryDriverEmployeeId = updatedOrder.DeliveryDriverEmployeeId,
+            DeliveryDriverName = updatedOrder.DeliveryDriverEmployee != null ? $"{updatedOrder.DeliveryDriverEmployee.FirstName} {updatedOrder.DeliveryDriverEmployee.LastName}" : null,
             Lines = updatedOrder.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,

@@ -23,7 +23,7 @@ import {
   updateStockCategory,
   type StockCategory,
 } from "@/lib/services/stock-category-service";
-import { resolveCompanyId } from "@/lib/resolve-company-id";
+import { defaultFormCompanyId } from "@/lib/resolve-company-id";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
@@ -69,8 +69,7 @@ export default function StockCategoriesPage() {
       const ids = companies.map((c) => c.id);
       const catData = await getAllStockCategoriesForAllCompanies(ids);
       setCategories(catData);
-      const defaultCo = scopeCompanyId ?? companies[0]?.id ?? resolveCompanyId();
-      if (!companyId) setCompanyId(String(defaultCo));
+      if (!companyId) setCompanyId(defaultFormCompanyId(companies, scopeCompanyId));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load stock categories.");
     } finally {
@@ -197,7 +196,7 @@ export default function StockCategoriesPage() {
   const resetForm = () => {
     setName("");
     setDescription("");
-    setCompanyId(String(scopeCompanyId ?? companies[0]?.id ?? resolveCompanyId()));
+    setCompanyId(defaultFormCompanyId(companies, scopeCompanyId));
     setParentId("");
     setIsActive(true);
     setEditingId(null);

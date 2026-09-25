@@ -98,7 +98,7 @@ export default function PosWarehouseAdjustPage() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Anbar düzəlişi</h1>
-          <p className="text-sm text-muted-foreground">Restoranın anbar qalığını əl ilə düzəldin.</p>
+          <p className="text-sm text-muted-foreground">Filialın anbar qalığını əl ilə düzəldin.</p>
         </div>
         <div className="relative w-64">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />

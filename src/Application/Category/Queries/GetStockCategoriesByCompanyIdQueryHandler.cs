@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockCategory.Dtos.Response;
 using AutoMapper;
@@ -11,15 +12,18 @@ public class GetStockCategoriesByCompanyIdQueryHandler
     : IRequestHandler<GetStockCategoriesByCompanyIdQuery, BaseResponse<List<StockCategoryResponse>>>
 {
     private readonly IStockCategoryRepository _stockCategoryRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IMapper _mapper;
     private readonly ILogger<GetStockCategoriesByCompanyIdQueryHandler> _logger;
 
     public GetStockCategoriesByCompanyIdQueryHandler(
         IStockCategoryRepository stockCategoryRepository,
+        ICurrentUserService currentUserService,
         IMapper mapper,
         ILogger<GetStockCategoriesByCompanyIdQueryHandler> logger)
     {
         _stockCategoryRepository = stockCategoryRepository;
+        _currentUserService = currentUserService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -28,12 +32,14 @@ public class GetStockCategoriesByCompanyIdQueryHandler
         GetStockCategoriesByCompanyIdQuery request,
         CancellationToken cancellationToken)
     {
+        var companyId = _currentUserService.IsSuperAdmin ? request.CompanyId : _currentUserService.CompanyId;
+
         _logger.LogInformation(
             "GetStockCategoriesByCompanyIdQuery started. CompanyId: {CompanyId}",
-            request.CompanyId);
+            companyId);
 
         var categories = await _stockCategoryRepository.GetByCompanyIdAsync(
-            request.CompanyId,
+            companyId,
             cancellationToken);
 
         if (categories is null || categories.Count == 0)

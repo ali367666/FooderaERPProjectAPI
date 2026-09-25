@@ -1,4 +1,5 @@
 ﻿using Application.Common.Exceptions;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.MenuCategories.Dtos;
 using MediatR;
@@ -9,17 +10,23 @@ public class GetMenuCategoryByIdQueryHandler
     : IRequestHandler<GetMenuCategoryByIdQuery, MenuCategoryResponse>
 {
     private readonly IMenuCategoryRepository _menuCategoryRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public GetMenuCategoryByIdQueryHandler(IMenuCategoryRepository menuCategoryRepository)
+    public GetMenuCategoryByIdQueryHandler(
+        IMenuCategoryRepository menuCategoryRepository,
+        ICurrentUserService currentUserService)
     {
         _menuCategoryRepository = menuCategoryRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<MenuCategoryResponse> Handle(GetMenuCategoryByIdQuery request, CancellationToken cancellationToken)
     {
+        var companyId = _currentUserService.IsSuperAdmin ? request.CompanyId : _currentUserService.CompanyId;
+
         var entity = await _menuCategoryRepository.GetByIdAsync(
             request.Id,
-            request.CompanyId,
+            companyId,
             cancellationToken);
 
         if (entity is null)

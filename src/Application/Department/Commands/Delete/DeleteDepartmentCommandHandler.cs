@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Application.Abstractions.Repositories;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
@@ -12,15 +13,18 @@ public sealed class DeleteDepartmentCommandHandler
     : IRequestHandler<DeleteDepartmentCommand, BaseResponse>
 {
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<DeleteDepartmentCommandHandler> _logger;
 
     public DeleteDepartmentCommandHandler(
         IDepartmentRepository departmentRepository,
+        ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<DeleteDepartmentCommandHandler> logger)
     {
         _departmentRepository = departmentRepository;
+        _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
     }
@@ -31,14 +35,16 @@ public sealed class DeleteDepartmentCommandHandler
     {
         try
         {
+            var companyId = _currentUserService.IsSuperAdmin ? request.CompanyId : _currentUserService.CompanyId;
+
             _logger.LogInformation(
                 "DeleteDepartmentCommand başladı. Id: {Id}, CompanyId: {CompanyId}",
                 request.Id,
-                request.CompanyId);
+                companyId);
 
             var department = await _departmentRepository.GetByIdAsync(
                 request.Id,
-                request.CompanyId,
+                companyId,
                 cancellationToken);
 
             if (department is null)

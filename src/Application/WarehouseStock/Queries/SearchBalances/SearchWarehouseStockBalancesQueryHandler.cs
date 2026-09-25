@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.WarehouseStock.Dtos.Response;
@@ -10,13 +11,16 @@ public class SearchWarehouseStockBalancesQueryHandler
     : IRequestHandler<SearchWarehouseStockBalancesQuery, BaseResponse<List<WarehouseStockBalanceResponse>>>
 {
     private readonly IWarehouseStockRepository _warehouseStockRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SearchWarehouseStockBalancesQueryHandler> _logger;
 
     public SearchWarehouseStockBalancesQueryHandler(
         IWarehouseStockRepository warehouseStockRepository,
+        ICurrentUserService currentUserService,
         ILogger<SearchWarehouseStockBalancesQueryHandler> logger)
     {
         _warehouseStockRepository = warehouseStockRepository;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -24,8 +28,10 @@ public class SearchWarehouseStockBalancesQueryHandler
         SearchWarehouseStockBalancesQuery request,
         CancellationToken cancellationToken)
     {
+        var companyId = _currentUserService.IsSuperAdmin ? request.CompanyId : _currentUserService.CompanyId;
+
         var rows = await _warehouseStockRepository.SearchAsync(
-            request.CompanyId,
+            companyId,
             request.WarehouseId,
             request.StockItemId,
             request.Search,
@@ -45,7 +51,7 @@ public class SearchWarehouseStockBalancesQueryHandler
 
         _logger.LogInformation(
             "SearchWarehouseStockBalances: company {CompanyId}, count {Count}",
-            request.CompanyId,
+            companyId,
             response.Count);
 
         return BaseResponse<List<WarehouseStockBalanceResponse>>.Ok(response);

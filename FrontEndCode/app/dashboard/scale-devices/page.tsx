@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
+import { useSelectedRestaurant } from "@/contexts/selected-restaurant-context";
 import {
   createScaleDevice,
   deleteScaleDevice,
@@ -37,6 +38,7 @@ type ScaleDeviceRow = {
 };
 
 export default function ScaleDevicesPage() {
+  const { selectedRestaurantId } = useSelectedRestaurant();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [devices, setDevices] = useState<ScaleDevice[]>([]);
@@ -55,12 +57,18 @@ export default function ScaleDevicesPage() {
       try {
         const rs = await getRestaurants();
         setRestaurants(rs);
-        if (rs.length > 0) setRestaurantId(String(rs[0].id));
+        // Follow the top "Filial filter" (Data Seçimi) when one is picked — otherwise default to
+        // the first branch, same as before.
+        if (selectedRestaurantId != null && rs.some((r) => r.id === selectedRestaurantId)) {
+          setRestaurantId(String(selectedRestaurantId));
+        } else if (rs.length > 0) {
+          setRestaurantId(String(rs[0].id));
+        }
       } catch {
         setRestaurants([]);
       }
     })();
-  }, []);
+  }, [selectedRestaurantId]);
 
   const loadDevices = async (rid: number) => {
     setLoading(true);
@@ -194,14 +202,14 @@ export default function ScaleDevicesPage() {
       </div>
 
       <div className="max-w-xs">
-        <Label htmlFor="scale-restaurant">Restoran</Label>
+        <Label htmlFor="scale-restaurant">Filial</Label>
         <select
           id="scale-restaurant"
           className={selectClass + " mt-1"}
           value={restaurantId}
           onChange={(e) => setRestaurantId(e.target.value)}
         >
-          <option value="">Restoran seçin</option>
+          <option value="">Filial seçin</option>
           {restaurants.map((r) => (
             <option key={r.id} value={String(r.id)}>
               {r.name}

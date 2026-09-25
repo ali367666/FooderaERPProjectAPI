@@ -16,6 +16,7 @@ public class CreateEmployeeCommandHandler
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IPositionRepository _positionRepository;
+    private readonly IRestaurantRepository _restaurantRepository;
     private readonly IUserRepository _userRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
@@ -25,6 +26,7 @@ public class CreateEmployeeCommandHandler
         IEmployeeRepository employeeRepository,
         IDepartmentRepository departmentRepository,
         IPositionRepository positionRepository,
+        IRestaurantRepository restaurantRepository,
         IUserRepository userRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
@@ -33,6 +35,7 @@ public class CreateEmployeeCommandHandler
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _positionRepository = positionRepository;
+        _restaurantRepository = restaurantRepository;
         _userRepository = userRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
@@ -45,25 +48,39 @@ public class CreateEmployeeCommandHandler
     {
         try
         {
-            var companyId = _currentUserService.CompanyId;
+            var isSuperAdmin = _currentUserService.IsSuperAdmin;
+            var callerCompanyId = _currentUserService.CompanyId;
 
             _logger.LogInformation(
-                "CreateEmployeeCommand başladı. CompanyId: {CompanyId}, FirstName: {FirstName}, LastName: {LastName}",
-                companyId,
+                "CreateEmployeeCommand başladı. CallerCompanyId: {CallerCompanyId}, IsSuperAdmin: {IsSuperAdmin}, FirstName: {FirstName}, LastName: {LastName}",
+                callerCompanyId,
+                isSuperAdmin,
                 request.Request.FirstName,
                 request.Request.LastName);
 
-            var department = await _departmentRepository.GetByIdAsync(
-                request.Request.DepartmentId,
-                companyId,
-                cancellationToken);
+            // The Employee form has no separate "Company" field — a SuperAdmin targets a company by
+            // picking one of its departments, so their employee is created under whichever company
+            // that department belongs to. A tenant Admin is always confined to their own company.
+            Domain.Entities.Department? department;
+            int companyId;
+
+            if (isSuperAdmin)
+            {
+                department = await _departmentRepository.GetByIdAsync(request.Request.DepartmentId, cancellationToken);
+                companyId = department?.CompanyId ?? 0;
+            }
+            else
+            {
+                companyId = callerCompanyId;
+                department = await _departmentRepository.GetByIdAsync(request.Request.DepartmentId, companyId, cancellationToken);
+            }
 
             if (department is null)
             {
                 _logger.LogWarning(
-                    "Employee yaradılmadı. Department tapılmadı. DepartmentId: {DepartmentId}, CompanyId: {CompanyId}",
+                    "Employee yaradılmadı. Department tapılmadı. DepartmentId: {DepartmentId}, CallerCompanyId: {CallerCompanyId}",
                     request.Request.DepartmentId,
-                    companyId);
+                    callerCompanyId);
 
                 return new BaseResponse<int>
                 {
@@ -102,6 +119,42 @@ public class CreateEmployeeCommandHandler
                 {
                     Success = false,
                     Message = "Position does not belong to selected department."
+                };
+            }
+
+            var duplicateContact = await _employeeRepository.ExistsByEmailOrPhoneAsync(
+                companyId,
+                request.Request.Email,
+                request.Request.PhoneNumber,
+                excludeEmployeeId: null,
+                cancellationToken);
+
+            if (duplicateContact)
+            {
+                _logger.LogWarning(
+                    "Employee yaradılmadı. Email/telefon artıq mövcuddur. CompanyId: {CompanyId}",
+                    companyId);
+
+                return new BaseResponse<int>
+                {
+                    Success = false,
+                    Message = "An employee with this email or phone number already exists."
+                };
+            }
+
+            var restaurant = await _restaurantRepository.GetByIdAsync(request.Request.RestaurantId, cancellationToken);
+
+            if (restaurant is null || restaurant.CompanyId != companyId)
+            {
+                _logger.LogWarning(
+                    "Employee yaradılmadı. Restaurant tapılmadı və ya şirkətə aid deyil. RestaurantId: {RestaurantId}, CompanyId: {CompanyId}",
+                    request.Request.RestaurantId,
+                    companyId);
+
+                return new BaseResponse<int>
+                {
+                    Success = false,
+                    Message = "Branch not found."
                 };
             }
 
@@ -158,6 +211,7 @@ public class CreateEmployeeCommandHandler
 
                 DepartmentId = request.Request.DepartmentId,
                 PositionId = request.Request.PositionId,
+                RestaurantId = restaurant.Id,
 
                 UserId = request.Request.UserId,
                 IsActive = true

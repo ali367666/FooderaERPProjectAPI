@@ -1,4 +1,6 @@
+using System.Text;
 using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -14,17 +16,26 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
     private readonly IRestaurantTableRepository _tableRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
+    private readonly ICompanySettingsRepository _companySettingsRepository;
+    private readonly IPrinterRepository _printerRepository;
+    private readonly INetworkPrinterService _networkPrinterService;
 
     public MoveOrderTableCommandHandler(
         IOrderRepository orderRepository,
         IRestaurantTableRepository tableRepository,
         ICurrentUserService currentUserService,
-        IAuditLogService auditLogService)
+        IAuditLogService auditLogService,
+        ICompanySettingsRepository companySettingsRepository,
+        IPrinterRepository printerRepository,
+        INetworkPrinterService networkPrinterService)
     {
         _orderRepository = orderRepository;
         _tableRepository = tableRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
+        _companySettingsRepository = companySettingsRepository;
+        _printerRepository = printerRepository;
+        _networkPrinterService = networkPrinterService;
     }
 
     public async Task<OrderResponse> Handle(MoveOrderTableCommand request, CancellationToken cancellationToken)
@@ -43,7 +54,7 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
 
         var newTable = await _tableRepository.GetByIdAsync(request.NewTableId, companyId, cancellationToken);
         if (newTable is null || newTable.RestaurantId != order.RestaurantId)
-            throw new Exception("Table not found for this restaurant.");
+            throw new Exception("Table not found for this branch.");
 
         if (newTable.IsOccupied)
             throw new Exception("The selected table is already occupied.");
@@ -63,6 +74,8 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
 
         _orderRepository.Update(order);
         await _orderRepository.SaveChangesAsync(cancellationToken);
+
+        await PrintTransferDocumentAsync(order, oldTable?.Name, newTable.Name, companyId, cancellationToken);
 
         try
         {
@@ -110,6 +123,12 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
             TableRentalStartedAt = updatedOrder.TableRentalStartedAt,
             TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
             TableRentalAmount = updatedOrder.TableRentalAmount,
+            HoldUntilUtc = updatedOrder.HoldUntilUtc,
+            IsDelivery = updatedOrder.IsDelivery,
+            DeliveryAddress = updatedOrder.DeliveryAddress,
+            DeliveryPhone = updatedOrder.DeliveryPhone,
+            DeliveryDriverEmployeeId = updatedOrder.DeliveryDriverEmployeeId,
+            DeliveryDriverName = updatedOrder.DeliveryDriverEmployee != null ? $"{updatedOrder.DeliveryDriverEmployee.FirstName} {updatedOrder.DeliveryDriverEmployee.LastName}" : null,
             Lines = updatedOrder.Lines.Select(x => new OrderLineResponse
             {
                 Id = x.Id,
@@ -130,5 +149,64 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
                 Status = x.Status.ToString()
             }).ToList()
         };
+    }
+
+    /// <summary>
+    /// Köçürmə sənədi — tells every kitchen station that already received this order's lines that
+    /// the order now belongs to a different table. Printing failures never undo the move.
+    /// </summary>
+    private async Task PrintTransferDocumentAsync(
+        Domain.Entities.Order order, string? oldTableName, string newTableName, int companyId, CancellationToken cancellationToken)
+    {
+        var settings = await _companySettingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
+        if (settings?.PrintTransferDocAuto != true)
+            return;
+
+        var printerIds = order.Lines
+            .Where(x => x.Status != OrderLineStatus.Cancelled && x.KitchenPrintedAt != null)
+            .Select(x => x.MenuItem.IsSet ? x.MenuItem.SetPrinterId ?? x.MenuItem.PrinterId : x.MenuItem.PrinterId)
+            .Where(id => id != null)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (printerIds.Count == 0)
+            return;
+
+        var sb = new StringBuilder();
+        if (settings.PrintKitchenShowBusinessName)
+            sb.AppendLine(order.Restaurant?.Name ?? "");
+        sb.AppendLine("MASA KÖÇÜRMƏ");
+        sb.AppendLine(new string('-', 32));
+        sb.AppendLine($"Sifariş: {order.OrderNumber}");
+        sb.AppendLine($"Köhnə masa: {oldTableName ?? "-"}");
+        sb.AppendLine($"Yeni masa: {newTableName}");
+        sb.AppendLine($"Vaxt: {DateTime.UtcNow:dd.MM.yyyy HH:mm}");
+        if (order.Waiter is not null)
+            sb.AppendLine($"Ofisiant: {order.Waiter.FirstName} {order.Waiter.LastName}");
+        sb.AppendLine(new string('-', 32));
+        var content = sb.ToString();
+
+        var copies = settings.PrintTransferDocDouble ? 2 : 1;
+
+        foreach (var printerId in printerIds)
+        {
+            var printer = await _printerRepository.GetByIdAsync(printerId, companyId, cancellationToken);
+            if (printer is null || !printer.IsActive)
+                continue;
+
+            for (var i = 0; i < copies; i++)
+            {
+                try
+                {
+                    await _networkPrinterService.PrintAsync(printer.IpAddress, printer.Port, content, cancellationToken);
+                }
+                catch
+                {
+                    // printer offline — the table move itself already succeeded
+                    break;
+                }
+            }
+        }
     }
 }

@@ -73,7 +73,7 @@ public class CreateStockItemCommandHandler
                     "Restaurant not found. RestaurantId: {RestaurantId}",
                     request.Request.RestaurantId.Value);
 
-                return BaseResponse<int>.Fail("Restaurant not found.");
+                return BaseResponse<int>.Fail("Branch not found.");
             }
         }
 

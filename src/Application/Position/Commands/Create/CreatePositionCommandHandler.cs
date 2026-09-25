@@ -33,7 +33,11 @@ public class CreatePositionCommandHandler
         CreatePositionCommand request,
         CancellationToken cancellationToken)
     {
-        var companyId = _currentUserService.CompanyId;
+        // SuperAdmin may target any company via the form's Company field; a tenant Admin is
+        // always confined to their own company regardless of what was submitted.
+        var companyId = _currentUserService.IsSuperAdmin && request.Request.CompanyId > 0
+            ? request.Request.CompanyId
+            : _currentUserService.CompanyId;
 
         _logger.LogInformation(
             "CreatePositionCommand başladı. Name: {Name}, DepartmentId: {DepartmentId}, CompanyId: {CompanyId}",

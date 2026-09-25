@@ -271,6 +271,7 @@ export async function updatePosition(
     name: data.name,
     departmentId: data.departmentId,
     description: data.description || "",
+    companyId: data.companyId,
   };
 
   console.log("UPDATE endpoint:", endpointPath);

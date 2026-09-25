@@ -39,6 +39,14 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(x => x.RfidCardId == rfidCardId, cancellationToken);
     }
 
+    public async Task<bool> HasRotatingPinRoleAsync(int userId, CancellationToken cancellationToken)
+    {
+        return await _context.UserRoles
+            .Where(ur => ur.UserId == userId)
+            .Join(_context.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.RequiresRotatingPin)
+            .AnyAsync(requiresRotatingPin => requiresRotatingPin, cancellationToken);
+    }
+
     public async Task<List<User>> GetAllByWarehouseIdAsync(int warehouseId, CancellationToken cancellationToken)
     {
         return await _context.Users

@@ -38,7 +38,11 @@ public sealed class CreateDepartmentCommandHandler
         try
         {
             var dto = request.Request;
-            var companyId = dto.CompanyId > 0 ? dto.CompanyId : _currentUserService.CompanyId;
+            // SuperAdmin may target any company via the form's Company field; a tenant Admin is
+            // always confined to their own company regardless of what was submitted.
+            var companyId = _currentUserService.IsSuperAdmin && dto.CompanyId > 0
+                ? dto.CompanyId
+                : _currentUserService.CompanyId;
 
             if (companyId <= 0)
                 return BaseResponse<DepartmentResponse>.Fail("Valid companyId is required.");

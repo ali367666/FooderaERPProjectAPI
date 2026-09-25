@@ -4,4 +4,4 @@ using MediatR;
 
 namespace Application.Warehouse.Queries.GetAll;
 
-public record GetAllWarehousesQuery : IRequest<BaseResponse<List<WarehouseResponse>>>;
+public record GetAllWarehousesQuery(int? CompanyId = null) : IRequest<BaseResponse<List<WarehouseResponse>>>;

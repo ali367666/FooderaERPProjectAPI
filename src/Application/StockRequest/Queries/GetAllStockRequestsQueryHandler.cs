@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockRequests.Dtos.Response;
 using MediatR;
@@ -9,10 +10,14 @@ public class GetAllStockRequestsQueryHandler
     : IRequestHandler<GetAllStockRequestsQuery, BaseResponse<List<StockRequestResponse>>>
 {
     private readonly IStockRequestRepository _stockRequestRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public GetAllStockRequestsQueryHandler(IStockRequestRepository stockRequestRepository)
+    public GetAllStockRequestsQueryHandler(
+        IStockRequestRepository stockRequestRepository,
+        ICurrentUserService currentUserService)
     {
         _stockRequestRepository = stockRequestRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<BaseResponse<List<StockRequestResponse>>> Handle(
@@ -21,6 +26,17 @@ public class GetAllStockRequestsQueryHandler
     {
         var stockRequests = await _stockRequestRepository
             .GetAllWithDetailsAsync(cancellationToken);
+
+        // A tenant Admin only ever sees their own company's inter-warehouse stock requests.
+        // SuperAdmin can target one company via CompanyId, or omit it to browse every company.
+        if (!_currentUserService.IsSuperAdmin)
+        {
+            stockRequests = stockRequests.Where(x => x.CompanyId == _currentUserService.CompanyId).ToList();
+        }
+        else if (request.CompanyId is > 0)
+        {
+            stockRequests = stockRequests.Where(x => x.CompanyId == request.CompanyId.Value).ToList();
+        }
 
         var response = stockRequests.Select(stockRequest => new StockRequestResponse
         {

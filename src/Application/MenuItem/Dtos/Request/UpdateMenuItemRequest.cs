@@ -17,6 +17,7 @@ public class UpdateMenuItemRequest
     public int UnitId { get; set; } = 1;
     public decimal? VatPercent { get; set; }
     public string? Barcode { get; set; }
+    public string? Brand { get; set; }
     public bool ResetWeightCode { get; set; }
 
     public decimal? StationPrice { get; set; }
@@ -35,6 +36,7 @@ public class UpdateMenuItemRequest
     public bool IsTimeBased { get; set; }
     public bool AllowQuantityPromptOverride { get; set; }
     public int? PrinterId { get; set; }
+    public int? SetPrinterId { get; set; }
 
     public bool IsSet { get; set; }
     public List<SetComponentInput> SetComponents { get; set; } = new();

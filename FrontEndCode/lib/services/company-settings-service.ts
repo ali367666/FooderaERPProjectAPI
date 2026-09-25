@@ -32,6 +32,7 @@ export type CompanySettings = {
   transparencyLevel: number | null;
   productColor: string | null;
   floorLabel: string | null;
+  logoSize: number | null;
   slogan: string | null;
   socialLinks: string | null;
   contactPhoneNumber: string | null;
@@ -51,8 +52,23 @@ export type CompanySettings = {
   receiptShowTableName: boolean;
   receiptShowOrderNumber: boolean;
   receiptShowPaymentMethod: boolean;
+  printAskBeforeAutoPrint: boolean;
+  receiptSimpleMode: boolean;
+  receiptSimpleShowOrderNumber: boolean;
+  receiptSimpleShowWaiterName: boolean;
+  receiptSimpleShowTime: boolean;
+  receiptSimpleShowPaymentMethod: boolean;
+  receiptSimpleShowVat: boolean;
+  receiptSimpleShowFooter: boolean;
+  printKitchenShowBusinessName: boolean;
+  receiptShowBusinessName: boolean;
+  printKitchenOnHold: boolean;
+  printTransferDocAuto: boolean;
+  printTransferDocDouble: boolean;
+  printChiefCopy: boolean;
 
   askGuestCountOnOpen: boolean;
+  singleWaiterMode: boolean;
   defaultVatPercent: number | null;
 };
 
@@ -118,6 +134,7 @@ function normalize(item: unknown): CompanySettings | null {
     transparencyLevel: numOrNull("transparencyLevel", "TransparencyLevel"),
     productColor: strOrNull("productColor", "ProductColor"),
     floorLabel: strOrNull("floorLabel", "FloorLabel"),
+    logoSize: numOrNull("logoSize", "LogoSize"),
     slogan: strOrNull("slogan", "Slogan"),
     socialLinks: strOrNull("socialLinks", "SocialLinks"),
     contactPhoneNumber: strOrNull("contactPhoneNumber", "ContactPhoneNumber"),
@@ -137,14 +154,31 @@ function normalize(item: unknown): CompanySettings | null {
     receiptShowTableName: bool("receiptShowTableName", "ReceiptShowTableName", true),
     receiptShowOrderNumber: bool("receiptShowOrderNumber", "ReceiptShowOrderNumber", true),
     receiptShowPaymentMethod: bool("receiptShowPaymentMethod", "ReceiptShowPaymentMethod", true),
+    printAskBeforeAutoPrint: bool("printAskBeforeAutoPrint", "PrintAskBeforeAutoPrint"),
+    receiptSimpleMode: bool("receiptSimpleMode", "ReceiptSimpleMode"),
+    receiptSimpleShowOrderNumber: bool("receiptSimpleShowOrderNumber", "ReceiptSimpleShowOrderNumber"),
+    receiptSimpleShowWaiterName: bool("receiptSimpleShowWaiterName", "ReceiptSimpleShowWaiterName"),
+    receiptSimpleShowTime: bool("receiptSimpleShowTime", "ReceiptSimpleShowTime"),
+    receiptSimpleShowPaymentMethod: bool("receiptSimpleShowPaymentMethod", "ReceiptSimpleShowPaymentMethod"),
+    receiptSimpleShowVat: bool("receiptSimpleShowVat", "ReceiptSimpleShowVat"),
+    receiptSimpleShowFooter: bool("receiptSimpleShowFooter", "ReceiptSimpleShowFooter"),
+    printKitchenShowBusinessName: bool("printKitchenShowBusinessName", "PrintKitchenShowBusinessName", true),
+    receiptShowBusinessName: bool("receiptShowBusinessName", "ReceiptShowBusinessName", true),
+    printKitchenOnHold: bool("printKitchenOnHold", "PrintKitchenOnHold"),
+    printTransferDocAuto: bool("printTransferDocAuto", "PrintTransferDocAuto"),
+    printTransferDocDouble: bool("printTransferDocDouble", "PrintTransferDocDouble"),
+    printChiefCopy: bool("printChiefCopy", "PrintChiefCopy"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
+    singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
   };
 }
 
-export async function getCompanySettings(): Promise<CompanySettings> {
+export async function getCompanySettings(companyId?: number): Promise<CompanySettings> {
   try {
-    const response = await api.get<ApiResponse<unknown>>("/company-settings");
+    const response = await api.get<ApiResponse<unknown>>("/company-settings", {
+      params: companyId ? { companyId } : undefined,
+    });
     const payload = response.data;
     if (payload?.success === false || !payload?.data) {
       throw new Error(payload?.message || "Failed to fetch settings");
@@ -157,9 +191,14 @@ export async function getCompanySettings(): Promise<CompanySettings> {
   }
 }
 
-export async function updateCompanySettings(data: CompanySettingsInput): Promise<CompanySettings> {
+export async function updateCompanySettings(
+  data: CompanySettingsInput,
+  companyId?: number,
+): Promise<CompanySettings> {
   try {
-    const response = await api.put<ApiResponse<unknown>>("/company-settings", data);
+    const response = await api.put<ApiResponse<unknown>>("/company-settings", data, {
+      params: companyId ? { companyId } : undefined,
+    });
     const payload = response.data;
     if (payload?.success === false || !payload?.data) {
       throw new ApiFormError(payload?.message || "Failed to update settings");
@@ -180,6 +219,7 @@ export type CompanySettingsBranding = {
   loginLocation: string | null;
   transparencyLevel: number | null;
   floorLabel: string | null;
+  logoSize: number | null;
   socialLinks: string | null;
   slogan: string | null;
   productColor: string | null;
@@ -202,6 +242,7 @@ export type CompanySettingsBranding = {
   moduleFitnes: boolean;
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
+  moduleKompleks: boolean;
   printAutoOnPayment: boolean;
   printKitchenOnPayment: boolean;
   printShowPreview: boolean;
@@ -212,7 +253,22 @@ export type CompanySettingsBranding = {
   receiptShowTableName: boolean;
   receiptShowOrderNumber: boolean;
   receiptShowPaymentMethod: boolean;
+  printAskBeforeAutoPrint: boolean;
+  receiptSimpleMode: boolean;
+  receiptSimpleShowOrderNumber: boolean;
+  receiptSimpleShowWaiterName: boolean;
+  receiptSimpleShowTime: boolean;
+  receiptSimpleShowPaymentMethod: boolean;
+  receiptSimpleShowVat: boolean;
+  receiptSimpleShowFooter: boolean;
+  printKitchenShowBusinessName: boolean;
+  receiptShowBusinessName: boolean;
+  printKitchenOnHold: boolean;
+  printTransferDocAuto: boolean;
+  printTransferDocDouble: boolean;
+  printChiefCopy: boolean;
   askGuestCountOnOpen: boolean;
+  singleWaiterMode: boolean;
   defaultVatPercent: number | null;
 };
 
@@ -238,6 +294,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     loginLocation: strOrNull("loginLocation", "LoginLocation"),
     transparencyLevel: numOrNull("transparencyLevel", "TransparencyLevel"),
     floorLabel: strOrNull("floorLabel", "FloorLabel"),
+    logoSize: numOrNull("logoSize", "LogoSize"),
     socialLinks: strOrNull("socialLinks", "SocialLinks"),
     slogan: strOrNull("slogan", "Slogan"),
     productColor: strOrNull("productColor", "ProductColor"),
@@ -260,6 +317,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     moduleFitnes: bool("moduleFitnes", "ModuleFitnes"),
     moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
     moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
+    moduleKompleks: bool("moduleKompleks", "ModuleKompleks"),
     printAutoOnPayment: bool("printAutoOnPayment", "PrintAutoOnPayment"),
     printKitchenOnPayment: bool("printKitchenOnPayment", "PrintKitchenOnPayment"),
     printShowPreview: bool("printShowPreview", "PrintShowPreview", true),
@@ -270,15 +328,33 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     receiptShowTableName: bool("receiptShowTableName", "ReceiptShowTableName", true),
     receiptShowOrderNumber: bool("receiptShowOrderNumber", "ReceiptShowOrderNumber", true),
     receiptShowPaymentMethod: bool("receiptShowPaymentMethod", "ReceiptShowPaymentMethod", true),
+    printAskBeforeAutoPrint: bool("printAskBeforeAutoPrint", "PrintAskBeforeAutoPrint"),
+    receiptSimpleMode: bool("receiptSimpleMode", "ReceiptSimpleMode"),
+    receiptSimpleShowOrderNumber: bool("receiptSimpleShowOrderNumber", "ReceiptSimpleShowOrderNumber"),
+    receiptSimpleShowWaiterName: bool("receiptSimpleShowWaiterName", "ReceiptSimpleShowWaiterName"),
+    receiptSimpleShowTime: bool("receiptSimpleShowTime", "ReceiptSimpleShowTime"),
+    receiptSimpleShowPaymentMethod: bool("receiptSimpleShowPaymentMethod", "ReceiptSimpleShowPaymentMethod"),
+    receiptSimpleShowVat: bool("receiptSimpleShowVat", "ReceiptSimpleShowVat"),
+    receiptSimpleShowFooter: bool("receiptSimpleShowFooter", "ReceiptSimpleShowFooter"),
+    printKitchenShowBusinessName: bool("printKitchenShowBusinessName", "PrintKitchenShowBusinessName", true),
+    receiptShowBusinessName: bool("receiptShowBusinessName", "ReceiptShowBusinessName", true),
+    printKitchenOnHold: bool("printKitchenOnHold", "PrintKitchenOnHold"),
+    printTransferDocAuto: bool("printTransferDocAuto", "PrintTransferDocAuto"),
+    printTransferDocDouble: bool("printTransferDocDouble", "PrintTransferDocDouble"),
+    printChiefCopy: bool("printChiefCopy", "PrintChiefCopy"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
+    singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
   };
 }
 
-export async function getCompanySettingsBranding(companyId: number): Promise<CompanySettingsBranding> {
+export async function getCompanySettingsBranding(
+  companyId: number,
+  restaurantId?: number,
+): Promise<CompanySettingsBranding> {
   try {
     const response = await api.get<ApiResponse<unknown>>("/company-settings/branding", {
-      params: { companyId },
+      params: restaurantId ? { companyId, restaurantId } : { companyId },
     });
     const payload = response.data;
     if (payload?.success === false) {

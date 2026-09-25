@@ -85,6 +85,12 @@ public class StopTimeBasedLineCommandHandler : IRequestHandler<StopTimeBasedLine
             TableRentalStartedAt = updatedOrder.TableRentalStartedAt,
             TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
             TableRentalAmount = updatedOrder.TableRentalAmount,
+            HoldUntilUtc = updatedOrder.HoldUntilUtc,
+            IsDelivery = updatedOrder.IsDelivery,
+            DeliveryAddress = updatedOrder.DeliveryAddress,
+            DeliveryPhone = updatedOrder.DeliveryPhone,
+            DeliveryDriverEmployeeId = updatedOrder.DeliveryDriverEmployeeId,
+            DeliveryDriverName = updatedOrder.DeliveryDriverEmployee != null ? $"{updatedOrder.DeliveryDriverEmployee.FirstName} {updatedOrder.DeliveryDriverEmployee.LastName}" : null,
             Lines = updatedOrder.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,

@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.WarehouseStock.Dtos.Response;
@@ -10,13 +11,16 @@ public class GetWarehouseStockDocumentsByWarehouseIdQueryHandler
     : IRequestHandler<GetWarehouseStockDocumentsByWarehouseIdQuery, BaseResponse<List<WarehouseStockDocumentSummaryResponse>>>
 {
     private readonly IWarehouseStockDocumentRepository _documentRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<GetWarehouseStockDocumentsByWarehouseIdQueryHandler> _logger;
 
     public GetWarehouseStockDocumentsByWarehouseIdQueryHandler(
         IWarehouseStockDocumentRepository documentRepository,
+        ICurrentUserService currentUserService,
         ILogger<GetWarehouseStockDocumentsByWarehouseIdQueryHandler> logger)
     {
         _documentRepository = documentRepository;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -29,6 +33,11 @@ public class GetWarehouseStockDocumentsByWarehouseIdQueryHandler
             request.WarehouseId);
 
         var documents = await _documentRepository.GetByWarehouseIdAsync(request.WarehouseId, cancellationToken);
+
+        if (!_currentUserService.IsSuperAdmin)
+        {
+            documents = documents.Where(x => x.CompanyId == _currentUserService.CompanyId).ToList();
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {

@@ -68,7 +68,7 @@ public sealed class CreateRestaurantCommandHandler
                 dto.Name,
                 dto.CompanyId);
 
-            return BaseResponse<CreateRestaurantResponse>.Fail("Bu şirkət daxilində eyni adda restaurant artıq mövcuddur.");
+            return BaseResponse<CreateRestaurantResponse>.Fail("Bu şirkət daxilində eyni adda filial artıq mövcuddur.");
         }
 
         var restaurant = _mapper.Map<Domain.Entities.Restaurant>(dto);

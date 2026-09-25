@@ -19,6 +19,12 @@ public class DepartmentRepository : IDepartmentRepository
         await _context.Departments.AddAsync(department, cancellationToken);
     }
 
+    public async Task<Department?> GetByIdAsync(int id, CancellationToken cancellationToken)
+    {
+        return await _context.Departments
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public async Task<Department?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken)
     {
         return await _context.Departments

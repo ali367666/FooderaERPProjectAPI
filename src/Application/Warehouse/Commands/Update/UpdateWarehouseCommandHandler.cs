@@ -73,13 +73,13 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
             if (restaurant is null)
             {
                 _logger.LogWarning("Restaurant not found. RestaurantId: {RestaurantId}", request.Request.RestaurantId.Value);
-                return BaseResponse.Fail("Restaurant not found.");
+                return BaseResponse.Fail("Branch not found.");
             }
 
             if (restaurant.CompanyId != request.Request.CompanyId)
             {
                 _logger.LogWarning("Restaurant does not belong to company.");
-                return BaseResponse.Fail("Restaurant does not belong to this company.");
+                return BaseResponse.Fail("Branch does not belong to this company.");
             }
         }
 

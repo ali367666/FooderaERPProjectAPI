@@ -67,6 +67,7 @@ public class OrderLineRepository : IOrderLineRepository
                 x.CompanyId == companyId &&
                 x.Order.RestaurantId == restaurantId &&
                 x.Order.Status != OrderStatus.Draft &&
+                x.Order.HoldUntilUtc == null &&
                 x.PreparationType == PreparationType.Kitchen &&
                 x.Status != OrderLineStatus.Served &&
                 x.Status != OrderLineStatus.Cancelled)

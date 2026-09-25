@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Clock, Gift, Minus, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Trash2, User, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Clock, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Trash2, User, UserCog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
   addOrderLine,
   updateOrderLine,
   setOrderLineHold,
+  setOrderHold,
   deleteOrderLine,
   payOrder,
   getOrderReceipt,
@@ -29,6 +30,7 @@ import {
   discardEmptyOrder,
   moveOrderTable,
   reassignOrderWaiter,
+  setOrderDeliveryDriver,
   setOrderCounterparty,
   printKitchenTicket,
   startTimeBasedLine,
@@ -56,6 +58,7 @@ import {
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
 import { getPrinters, printToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
+import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getStoredAuthUser } from "@/lib/auth-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
 import {
@@ -125,6 +128,8 @@ export default function PosOrderPage() {
   const [rateBusy, setRateBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [orderHoldBusy, setOrderHoldBusy] = useState(false);
+  const [confirmPrintOpen, setConfirmPrintOpen] = useState(false);
 
   const [payOpen, setPayOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Cash");
@@ -136,7 +141,9 @@ export default function PosOrderPage() {
   const [moveTableOpen, setMoveTableOpen] = useState(false);
   const [availableTables, setAvailableTables] = useState<RestaurantTable[]>([]);
   const [reassignOpen, setReassignOpen] = useState(false);
+  const [driverDialogOpen, setDriverDialogOpen] = useState(false);
   const [employeesList, setEmployeesList] = useState<Employee[]>([]);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<number | null>(null);
   const [priceEditingLineId, setPriceEditingLineId] = useState<number | null>(null);
   const [discountEditingLineId, setDiscountEditingLineId] = useState<number | null>(null);
   const [discountAmountInput, setDiscountAmountInput] = useState("");
@@ -205,6 +212,21 @@ export default function PosOrderPage() {
   }, [load]);
 
   useEffect(() => {
+    void getCurrentEmployeeId().then(setCurrentEmployeeId);
+  }, []);
+
+  // Single-waiter mode: only the owning waiter may view/edit this order — no manager override,
+  // even for a user who otherwise holds the "view all tables" permission.
+  useEffect(() => {
+    if (!order || branding?.singleWaiterMode !== true) return;
+    if (currentEmployeeId == null) return;
+    if (order.waiterId !== currentEmployeeId) {
+      toast.error("Bu masa başqa ofisiantə aiddir, baxa bilməzsiniz.");
+      router.replace("/pos");
+    }
+  }, [order, branding, currentEmployeeId, router]);
+
+  useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
@@ -234,6 +256,19 @@ export default function PosOrderPage() {
     const parsed = Number(holdMinutesInput);
     const minutes = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
     await submitHold(holdLineId, minutes);
+  };
+
+  const handleToggleOrderHold = async () => {
+    if (!order) return;
+    setOrderHoldBusy(true);
+    try {
+      const updated = await setOrderHold(order.id, !order.holdUntilUtc);
+      setOrder(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sifariş gözlətməsi dəyişdirilmədi");
+    } finally {
+      setOrderHoldBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -275,7 +310,7 @@ export default function PosOrderPage() {
     for (const line of order?.lines ?? []) {
       if (line.status === "Cancelled" || line.kitchenPrintedAt != null) continue;
       const item = itemById.get(line.menuItemId);
-      const printerId = item?.printerId;
+      const printerId = item?.isSet ? item?.setPrinterId ?? item?.printerId : item?.printerId;
       if (!printerId) continue;
       const printer = printers.find((p) => p.id === printerId);
       if (!printer) continue;
@@ -311,8 +346,10 @@ export default function PosOrderPage() {
   const buildReceiptContent = (r: OrderReceiptDto | null = receipt) => {
     if (!r) return "";
     const lines: string[] = [];
-    lines.push((order?.restaurantName ?? r.restaurantName ?? "").toUpperCase());
-    lines.push("");
+    if (branding?.receiptShowBusinessName !== false) {
+      lines.push((order?.restaurantName ?? r.restaurantName ?? "").toUpperCase());
+      lines.push("");
+    }
     if (branding?.receiptShowOrderNumber !== false) lines.push(`Sifariş: ${r.orderNumber}`);
     if (branding?.receiptShowTableName !== false) lines.push(`Masa: ${r.tableName}`);
     if (branding?.receiptShowWaiterName !== false) lines.push(`Ofisiant: ${r.waiterName}`);
@@ -564,9 +601,17 @@ export default function PosOrderPage() {
   const maybeAutoPrint = (isFromPayment: boolean) => {
     const shouldAutoPrint =
       (isFromPayment && branding?.printAutoOnPayment === true) || branding?.printShowPreview === false;
-    if (shouldAutoPrint) {
-      setTimeout(() => window.print(), 150);
+    if (!shouldAutoPrint) return;
+    if (branding?.printAskBeforeAutoPrint === true) {
+      setConfirmPrintOpen(true);
+      return;
     }
+    setTimeout(() => window.print(), 150);
+  };
+
+  const handleConfirmAutoPrint = () => {
+    setConfirmPrintOpen(false);
+    setTimeout(() => window.print(), 150);
   };
 
   const handleBack = async () => {
@@ -703,6 +748,31 @@ export default function PosOrderPage() {
       setReassignOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ofisiant dəyişdirilmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openDriverDialog = async () => {
+    setDriverDialogOpen(true);
+    try {
+      const emp = await getEmployees();
+      setEmployeesList(emp);
+    } catch {
+      setEmployeesList([]);
+    }
+  };
+
+  const handleSetDriver = async (driverEmployeeId: number | null) => {
+    if (!order || busy) return;
+    setBusy(true);
+    try {
+      const updated = await setOrderDeliveryDriver(order.id, driverEmployeeId);
+      setOrder(updated);
+      toast.success(driverEmployeeId ? "Kuryer təyin edildi" : "Kuryer götürüldü");
+      setDriverDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Kuryer dəyişdirilmədi");
     } finally {
       setBusy(false);
     }
@@ -851,6 +921,18 @@ export default function PosOrderPage() {
     }
   };
 
+  const applyQuickPrice = async (lineId: number, quantity: number, price: number) => {
+    setBusy(true);
+    try {
+      const updated = await updateOrderLine({ id: lineId, quantity, unitPrice: price });
+      setOrder(updated);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Qiymət tətbiq edilmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const startDiscountEdit = (lineId: number, currentDiscount: number) => {
     setDiscountEditingLineId(lineId);
     setDiscountAmountInput(currentDiscount > 0 ? currentDiscount.toFixed(2) : "");
@@ -904,6 +986,24 @@ export default function PosOrderPage() {
   }
 
   const canPrintReceipt = !(isWaiterRole() && branding?.waiterCanPrintCustomerReceipt === false);
+
+  // Simple-receipt mode uses its own independently-configured field toggles instead of the
+  // normal receipt's — each company decides separately what appears in each mode.
+  const receiptSimpleMode = branding?.receiptSimpleMode === true;
+  const showReceiptOrderNumber = receiptSimpleMode
+    ? branding?.receiptSimpleShowOrderNumber === true
+    : branding?.receiptShowOrderNumber !== false;
+  const showReceiptWaiterName = receiptSimpleMode
+    ? branding?.receiptSimpleShowWaiterName === true
+    : branding?.receiptShowWaiterName !== false;
+  const showReceiptTime = receiptSimpleMode
+    ? branding?.receiptSimpleShowTime === true
+    : branding?.receiptShowTime !== false;
+  const showReceiptPaymentMethod = receiptSimpleMode
+    ? branding?.receiptSimpleShowPaymentMethod === true
+    : branding?.receiptShowPaymentMethod !== false;
+  const showReceiptVat = receiptSimpleMode ? branding?.receiptSimpleShowVat === true : true;
+  const showReceiptFooter = receiptSimpleMode ? branding?.receiptSimpleShowFooter === true : true;
 
   const isRentalRunning =
     order.tableHourlyRate != null && order.tableRentalStartedAt != null && order.tableRentalStoppedAt == null;
@@ -993,6 +1093,24 @@ export default function PosOrderPage() {
                 Ofisiantı dəyiş
               </Button>
             )}
+            {!isPaid && canEditProduct && (
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(order.holdUntilUtc && "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100")}
+                onClick={() => void handleToggleOrderHold()}
+                disabled={orderHoldBusy}
+              >
+                <Clock className="mr-1 h-3.5 w-3.5" />
+                {order.holdUntilUtc ? "Gözləməni ləğv et" : "Bütöv sifarişi gözlət"}
+              </Button>
+            )}
+            {!isPaid && order.isDelivery && canRedirectUser && (
+              <Button variant="outline" size="sm" onClick={() => void openDriverDialog()} disabled={busy}>
+                <UserCog className="mr-1 h-3.5 w-3.5" />
+                {order.deliveryDriverName ? `Kuryer: ${order.deliveryDriverName}` : "Kuryer təyin et"}
+              </Button>
+            )}
             {canCancelOrderStatus && canDeleteOrder && (
               <Button variant="outline" size="sm" className="text-destructive" onClick={() => void handleDeleteOrder()} disabled={busy}>
                 <X className="mr-1 h-3.5 w-3.5" />
@@ -1001,6 +1119,20 @@ export default function PosOrderPage() {
             )}
           </div>
         </div>
+        {order.holdUntilUtc && (
+          <div className="flex items-center gap-2 border-b bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+            <Clock className="h-4 w-4" />
+            Sifariş gözlədədir — mətbəxə göndərilmir, "Gözləməni ləğv et" ilə buraxın.
+          </div>
+        )}
+        {order.isDelivery && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            <span className="font-medium">Çatdırılma sifarişi</span>
+            {order.deliveryPhone && <span>Tel: {order.deliveryPhone}</span>}
+            {order.deliveryAddress && <span>Ünvan: {order.deliveryAddress}</span>}
+            <span>{order.deliveryDriverName ? `Kuryer: ${order.deliveryDriverName}` : "Kuryer təyin edilməyib"}</span>
+          </div>
+        )}
         {order.tableHourlyRate != null && (
           <div
             className={cn(
@@ -1430,6 +1562,43 @@ export default function PosOrderPage() {
                             <Pencil className="h-3 w-3" />
                           </button>
                         )}
+                        {canChangePrice &&
+                          !line.isTimeBased &&
+                          !busy &&
+                          (() => {
+                            const packagePrice = items.find((i) => i.id === line.menuItemId)?.packagePrice;
+                            if (packagePrice == null || packagePrice === line.unitPrice) return null;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => void applyQuickPrice(line.id, line.quantity, packagePrice)}
+                                className="text-muted-foreground hover:text-primary"
+                                title={`Paket qiyməti tətbiq et (${packagePrice.toFixed(2)} ₼)`}
+                              >
+                                <Package className="h-3 w-3" />
+                              </button>
+                            );
+                          })()}
+                        {canChangePrice &&
+                          !line.isTimeBased &&
+                          !busy &&
+                          ([1, 2, 3] as const).map((n) => {
+                            const menuItem = items.find((i) => i.id === line.menuItemId);
+                            const price =
+                              n === 1 ? menuItem?.specialPrice1 : n === 2 ? menuItem?.specialPrice2 : menuItem?.specialPrice3;
+                            if (price == null || price === line.unitPrice) return null;
+                            return (
+                              <button
+                                key={n}
+                                type="button"
+                                onClick={() => void applyQuickPrice(line.id, line.quantity, price)}
+                                className="text-[10px] font-bold text-muted-foreground hover:text-primary"
+                                title={`Qiymət ${n} tətbiq et (${price.toFixed(2)} ₼)`}
+                              >
+                                Q{n}
+                              </button>
+                            );
+                          })}
                         <span className="text-sm font-semibold">{timerLiveTotal.toFixed(2)} ₼</span>
                       </div>
                     )}
@@ -1589,6 +1758,25 @@ export default function PosOrderPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Confirm auto-print dialog */}
+      <Dialog open={confirmPrintOpen} onOpenChange={(o) => !o && setConfirmPrintOpen(false)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Çap et?</DialogTitle>
+            <DialogDescription>Qəbzi indi çap etmək istəyirsiniz?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmPrintOpen(false)}>
+              İmtina et
+            </Button>
+            <Button onClick={handleConfirmAutoPrint}>
+              <Printer className="mr-2 h-4 w-4" />
+              Çap et
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Receipt dialog */}
       <Dialog
         open={receipt !== null}
@@ -1613,17 +1801,19 @@ export default function PosOrderPage() {
                   className="mx-auto mb-1 h-12 w-auto object-contain"
                 />
               )}
-              <p
-                className="text-center font-bold uppercase tracking-wide"
-                style={{
-                  fontSize: branding?.receiptRestaurantNameFontSize
-                    ? `${branding.receiptRestaurantNameFontSize}px`
-                    : "18px",
-                  color: branding?.productColor || undefined,
-                }}
-              >
-                {receipt?.restaurantName}
-              </p>
+              {branding?.receiptShowBusinessName !== false && (
+                <p
+                  className="text-center font-bold uppercase tracking-wide"
+                  style={{
+                    fontSize: branding?.receiptRestaurantNameFontSize
+                      ? `${branding.receiptRestaurantNameFontSize}px`
+                      : "18px",
+                    color: branding?.productColor || undefined,
+                  }}
+                >
+                  {receipt?.restaurantName}
+                </p>
+              )}
               <DialogTitle className="sr-only">Qəbz</DialogTitle>
               {(branding?.receiptShowTableName !== false && receipt?.tableName) || branding?.floorLabel ? (
                 <DialogDescription className="text-center">
@@ -1634,16 +1824,17 @@ export default function PosOrderPage() {
                       : branding.floorLabel)}
                 </DialogDescription>
               ) : null}
-              {receipt && (
-                <div className="space-y-0.5 text-xs text-muted-foreground">
-                  {branding?.receiptShowOrderNumber !== false && <p>Sifariş: {receipt.orderNumber}</p>}
-                  {branding?.receiptShowWaiterName !== false && <p>Ofisiant: {receipt.waiterName}</p>}
-                  {branding?.receiptShowTime !== false && (
-                    <p>Vaxt: {new Date(receipt.paidAt ?? receipt.openedAt).toLocaleString("az-AZ")}</p>
-                  )}
-                  {branding?.receiptShowPaymentMethod !== false && <p>Ödəniş: {receipt.paymentMethod}</p>}
-                </div>
-              )}
+              {receipt &&
+                (showReceiptOrderNumber || showReceiptWaiterName || showReceiptTime || showReceiptPaymentMethod) && (
+                  <div className="space-y-0.5 text-xs text-muted-foreground">
+                    {showReceiptOrderNumber && <p>Sifariş: {receipt.orderNumber}</p>}
+                    {showReceiptWaiterName && <p>Ofisiant: {receipt.waiterName}</p>}
+                    {showReceiptTime && (
+                      <p>Vaxt: {new Date(receipt.paidAt ?? receipt.openedAt).toLocaleString("az-AZ")}</p>
+                    )}
+                    {showReceiptPaymentMethod && <p>Ödəniş: {receipt.paymentMethod}</p>}
+                  </div>
+                )}
             </DialogHeader>
             <div className="space-y-1 text-sm">
               {groupedReceiptLines.map((line, i) => (
@@ -1668,7 +1859,7 @@ export default function PosOrderPage() {
                   <span>Cəm</span>
                   <span>{receipt?.totalAmount.toFixed(2)} ₼</span>
                 </div>
-                {receipt && receipt.vatAmount > 0 && (
+                {receipt && receipt.vatAmount > 0 && showReceiptVat && (
                   <div className="flex justify-between font-normal text-muted-foreground">
                     <span>ƏDV daxildir</span>
                     <span>{receipt.vatAmount.toFixed(2)} ₼</span>
@@ -1687,7 +1878,7 @@ export default function PosOrderPage() {
                   </>
                 )}
               </div>
-              {(branding?.slogan || branding?.contactPhoneNumber || branding?.socialLinks) && (
+              {showReceiptFooter && (branding?.slogan || branding?.contactPhoneNumber || branding?.socialLinks) && (
                 <div className="mt-3 border-t pt-2 text-center text-xs text-muted-foreground">
                   {branding?.slogan && <p>{branding.slogan}</p>}
                   {branding?.contactPhoneNumber && <p>{branding.contactPhoneNumber}</p>}
@@ -1768,6 +1959,42 @@ export default function PosOrderPage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void handleReassignWaiter(e.id)}
+                className="flex w-full items-center rounded-md border px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
+              >
+                {formatEmployeeName(e)}
+              </button>
+            ))}
+            {employeesList.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">İşçi tapılmadı</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set delivery driver dialog */}
+      <Dialog open={driverDialogOpen} onOpenChange={setDriverDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Kuryer təyin et</DialogTitle>
+            <DialogDescription>Bu çatdırılma sifarişi üçün kuryer seçin.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-64 space-y-1 overflow-y-auto">
+            {order?.deliveryDriverEmployeeId != null && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleSetDriver(null)}
+                className="flex w-full items-center rounded-md border px-3 py-2 text-left text-sm text-destructive hover:bg-muted disabled:opacity-50"
+              >
+                Kuryeri götür
+              </button>
+            )}
+            {employeesList.map((e) => (
+              <button
+                key={e.id}
+                type="button"
+                disabled={busy}
+                onClick={() => void handleSetDriver(e.id)}
                 className="flex w-full items-center rounded-md border px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
               >
                 {formatEmployeeName(e)}

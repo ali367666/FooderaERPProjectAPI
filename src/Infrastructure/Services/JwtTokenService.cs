@@ -58,9 +58,12 @@ public class JwtTokenService : IJwtTokenService
 
         if (roleList.Count > 0)
         {
+            // Role names are only unique within a company (or globally, for the null-CompanyId
+            // SuperAdmin/template roles) — matching by name alone would also pull in another
+            // tenant's same-named role and its permissions.
             var roleIds = await _dbContext.Roles
                 .AsNoTracking()
-                .Where(x => roleList.Contains(x.Name!))
+                .Where(x => roleList.Contains(x.Name!) && (x.CompanyId == user.CompanyId || x.CompanyId == null))
                 .Select(x => x.Id)
                 .ToListAsync();
 

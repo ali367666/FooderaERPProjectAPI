@@ -36,7 +36,7 @@ public class GetPosWarehouseStockBalancesQueryHandler
             ?? warehouses.FirstOrDefault(x => x.CompanyId == companyId);
 
         if (restaurantWarehouse is null)
-            throw new BadRequestException("Restoran anbarı tapılmadı.");
+            throw new BadRequestException("Filial anbarı tapılmadı.");
 
         var rows = await _warehouseStockRepository.SearchAsync(
             companyId,

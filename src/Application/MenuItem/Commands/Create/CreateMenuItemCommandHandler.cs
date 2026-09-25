@@ -121,6 +121,7 @@ public class CreateMenuItemCommandHandler
             UnitId = request.Request.UnitId,
             VatPercent = request.Request.VatPercent,
             Barcode = string.IsNullOrWhiteSpace(request.Request.Barcode) ? null : request.Request.Barcode.Trim(),
+            Brand = string.IsNullOrWhiteSpace(request.Request.Brand) ? null : request.Request.Brand.Trim(),
             StationPrice = request.Request.StationPrice,
             PurchasePrice = request.Request.PurchasePrice,
             PackagePrice = request.Request.PackagePrice,
@@ -136,6 +137,7 @@ public class CreateMenuItemCommandHandler
             IsTimeBased = request.Request.IsTimeBased,
             AllowQuantityPromptOverride = request.Request.AllowQuantityPromptOverride,
             PrinterId = request.Request.PrinterId,
+            SetPrinterId = request.Request.SetPrinterId,
             IsSet = request.Request.IsSet,
             StockItemId = request.Request.StockItemId
         };

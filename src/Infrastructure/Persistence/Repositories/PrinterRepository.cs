@@ -57,6 +57,17 @@ public class PrinterRepository : IPrinterRepository
                 cancellationToken);
     }
 
+    public async Task<Printer?> GetChiefAsync(int companyId, int restaurantId, int? excludeId, CancellationToken cancellationToken)
+    {
+        return await _context.Printers
+            .FirstOrDefaultAsync(
+                x => x.CompanyId == companyId
+                    && x.RestaurantId == restaurantId
+                    && x.IsChiefPrinter
+                    && (excludeId == null || x.Id != excludeId),
+                cancellationToken);
+    }
+
     public void Update(Printer printer) => _context.Printers.Update(printer);
     public void Delete(Printer printer) => _context.Printers.Remove(printer);
 

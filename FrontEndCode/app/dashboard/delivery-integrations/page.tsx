@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
+import { useSelectedRestaurant } from "@/contexts/selected-restaurant-context";
 import {
   createDeliveryIntegration,
   deleteDeliveryIntegration,
@@ -42,6 +43,7 @@ type DeliveryIntegrationRow = {
 };
 
 export default function DeliveryIntegrationsPage() {
+  const { selectedRestaurantId } = useSelectedRestaurant();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [integrations, setIntegrations] = useState<DeliveryIntegration[]>([]);
@@ -62,12 +64,18 @@ export default function DeliveryIntegrationsPage() {
       try {
         const rs = await getRestaurants();
         setRestaurants(rs);
-        if (rs.length > 0) setRestaurantId(String(rs[0].id));
+        // Follow the top "Filial filter" (Data Seçimi) when one is picked — otherwise default to
+        // the first branch, same as before.
+        if (selectedRestaurantId != null && rs.some((r) => r.id === selectedRestaurantId)) {
+          setRestaurantId(String(selectedRestaurantId));
+        } else if (rs.length > 0) {
+          setRestaurantId(String(rs[0].id));
+        }
       } catch {
         setRestaurants([]);
       }
     })();
-  }, []);
+  }, [selectedRestaurantId]);
 
   const loadIntegrations = async (rid: number) => {
     setLoading(true);
@@ -207,21 +215,21 @@ export default function DeliveryIntegrationsPage() {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Çatdırılma İnteqrasiyaları</h1>
         <p className="text-muted-foreground mt-1">
-          Wolt, Bolt və 189 Delivery hesablarınızın açarlarını hər restoran üçün ayrıca qeyd edin. Platformadan
+          Wolt, Bolt və 189 Delivery hesablarınızın açarlarını hər filial üçün ayrıca qeyd edin. Platformadan
           alınan "integrator ID"/API açarını və webhook sirrini bura yazın, sonra platformanın öz panelində
           "webhook address" sahəsinə aşağıda göstərilən linki qeyd edin.
         </p>
       </div>
 
       <div className="max-w-xs">
-        <Label htmlFor="delivery-restaurant">Restoran</Label>
+        <Label htmlFor="delivery-restaurant">Filial</Label>
         <select
           id="delivery-restaurant"
           className={selectClass + " mt-1"}
           value={restaurantId}
           onChange={(e) => setRestaurantId(e.target.value)}
         >
-          <option value="">Restoran seçin</option>
+          <option value="">Filial seçin</option>
           {restaurants.map((r) => (
             <option key={r.id} value={String(r.id)}>
               {r.name}

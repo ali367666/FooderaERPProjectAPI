@@ -3,13 +3,19 @@
 import { usePathname } from "next/navigation";
 import { FILTER_SELECT_CLASS } from "@/components/advanced-table-filters";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
+import { useHasPermission } from "@/hooks/use-auth-permissions";
 import { cn } from "@/lib/utils";
 
-/** Global company scope control; hidden on pages where it does not apply. */
+/** Global company scope control; requires Company.View (grantable to any role) and hidden on pages where it does not apply. */
 export function DashboardCompanyToolbar() {
   const pathname = usePathname() ?? "";
+  const canViewCompanies = useHasPermission("Company.View");
   const { companies, companiesLoading, companiesError, selectedCompanyId, setSelectedCompanyId } =
     useSelectedCompany();
+
+  if (!canViewCompanies) {
+    return null;
+  }
 
   if (pathname === "/dashboard/companies" || pathname === "/dashboard/company") {
     return null;

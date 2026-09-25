@@ -39,6 +39,7 @@ export type MenuItem = {
   vatPercent: number | null;
   weightCode: string | null;
   barcode: string | null;
+  brand: string | null;
 
   stationPrice: number | null;
   purchasePrice: number | null;
@@ -57,6 +58,8 @@ export type MenuItem = {
   allowQuantityPromptOverride: boolean;
   printerId: number | null;
   printerName: string | null;
+  setPrinterId: number | null;
+  setPrinterName: string | null;
 
   isSet: boolean;
 
@@ -88,6 +91,7 @@ export type MenuItemCreateInput = {
   unitId: UnitOfMeasureValue;
   vatPercent?: number | null;
   barcode?: string | null;
+  brand?: string | null;
 
   stationPrice?: number | null;
   purchasePrice?: number | null;
@@ -105,6 +109,7 @@ export type MenuItemCreateInput = {
   isTimeBased: boolean;
   allowQuantityPromptOverride: boolean;
   printerId?: number | null;
+  setPrinterId?: number | null;
 
   isSet: boolean;
 
@@ -173,6 +178,7 @@ function normalizeMenuItem(item: unknown): MenuItem | null {
     vatPercent: nullableNumber(raw.vatPercent ?? raw.VatPercent),
     weightCode: (raw.weightCode ?? raw.WeightCode) != null ? String(raw.weightCode ?? raw.WeightCode) : null,
     barcode: (raw.barcode ?? raw.Barcode) != null ? String(raw.barcode ?? raw.Barcode) : null,
+    brand: (raw.brand ?? raw.Brand) != null ? String(raw.brand ?? raw.Brand) : null,
 
     stationPrice: nullableNumber(raw.stationPrice ?? raw.StationPrice),
     purchasePrice: nullableNumber(raw.purchasePrice ?? raw.PurchasePrice),
@@ -193,6 +199,9 @@ function normalizeMenuItem(item: unknown): MenuItem | null {
     ),
     printerId: nullableNumber(raw.printerId ?? raw.PrinterId),
     printerName: (raw.printerName ?? raw.PrinterName) != null ? String(raw.printerName ?? raw.PrinterName) : null,
+    setPrinterId: nullableNumber(raw.setPrinterId ?? raw.SetPrinterId),
+    setPrinterName:
+      (raw.setPrinterName ?? raw.SetPrinterName) != null ? String(raw.setPrinterName ?? raw.SetPrinterName) : null,
 
     isSet: Boolean(raw.isSet ?? raw.IsSet ?? false),
 
@@ -263,6 +272,7 @@ function buildBasePayload(data: MenuItemCreateInput) {
     unitId: data.unitId,
     vatPercent: data.vatPercent ?? null,
     barcode: data.barcode?.trim() || null,
+    brand: data.brand?.trim() || null,
 
     stationPrice: data.stationPrice ?? null,
     purchasePrice: data.purchasePrice ?? null,
@@ -280,6 +290,7 @@ function buildBasePayload(data: MenuItemCreateInput) {
     isTimeBased: data.isTimeBased,
     allowQuantityPromptOverride: data.allowQuantityPromptOverride,
     printerId: data.printerId ?? null,
+    setPrinterId: data.setPrinterId ?? null,
 
     isSet: data.isSet,
 
@@ -371,6 +382,16 @@ export async function deleteMenuItem(id: number): Promise<void> {
     await api.delete(`/MenuItems/${id}`);
   } catch (error) {
     throw toApiFormError(error, "Failed to delete menu item");
+  }
+}
+
+/** Regenerates the weight-code sticker for every weight-sold (Kg/Gram) menu item at once. */
+export async function bulkResetWeightCodes(): Promise<number> {
+  try {
+    const response = await api.post<{ count?: number; Count?: number }>("/MenuItems/bulk-reset-weight-codes");
+    return Number(response.data?.count ?? response.data?.Count ?? 0);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to reset weight codes");
   }
 }
 

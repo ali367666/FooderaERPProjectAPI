@@ -25,7 +25,6 @@ import {
   CalendarCheck,
   Calculator,
   Tag,
-  FileSpreadsheet,
   Settings,
   Printer as PrinterIcon,
   LayoutTemplate,
@@ -44,10 +43,16 @@ export interface NavItem {
   permission?: string;
   /** Company-level module toggle key (from CompanySettingsBranding) required for this item to show. */
   module?: "moduleFilial" | "moduleAnbar" | "moduleRezervasyon" | "moduleMasaBolge";
+  /** Restaurant-only page (tables, kitchen) with no equivalent in a Mağaza (store) business — hidden when moduleDataSecimi is on. */
+  hiddenForStoreMode?: boolean;
+  /** Label to show instead of `title` when the company is in Mağaza (store) mode — e.g. "Menu" reads as "Products" for a store. */
+  storeModeTitle?: string;
 }
 
 export interface NavGroup {
   title: string;
+  /** Label to show instead of `title` when the company is in Mağaza (store) mode. */
+  storeModeTitle?: string;
   items: NavItem[];
 }
 
@@ -179,12 +184,6 @@ export const navGroups: NavGroup[] = [
         module: "moduleAnbar",
       },
       {
-        title: "BSC İnvoice",
-        href: "/dashboard/bsc-invoices",
-        icon: FileSpreadsheet,
-        permission: "BscInvoice.View",
-      },
-      {
         title: "Konturagentlər",
         href: "/dashboard/counterparties",
         icon: Building2,
@@ -195,6 +194,7 @@ export const navGroups: NavGroup[] = [
   },
   {
     title: "ORDERS & TABLES",
+    storeModeTitle: "ORDERS",
     items: [
       {
         title: "Table Map",
@@ -202,6 +202,7 @@ export const navGroups: NavGroup[] = [
         icon: LayoutGrid,
         permission: "RestaurantTable.View",
         module: "moduleMasaBolge",
+        hiddenForStoreMode: true,
       },
       {
         title: "Rezervasiyalar",
@@ -209,6 +210,7 @@ export const navGroups: NavGroup[] = [
         icon: CalendarCheck,
         permission: "Reservation.View",
         module: "moduleRezervasyon",
+        hiddenForStoreMode: true,
       },
       {
         title: "Endirimlər",
@@ -222,6 +224,7 @@ export const navGroups: NavGroup[] = [
         icon: PenTool,
         permission: "RestaurantTable.View",
         module: "moduleMasaBolge",
+        hiddenForStoreMode: true,
       },
       {
         title: "Orders",
@@ -234,25 +237,28 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/kitchen",
         icon: ChefHat,
         permission: "Kitchen.View",
+        hiddenForStoreMode: true,
       },
     ],
   },
   {
-    title: "RESTAURANT & MENU",
+    title: "BRANCHES & MENU",
+    storeModeTitle: "BRANCHES & PRODUCTS",
     items: [
       {
-        title: "Restaurants",
+        title: "Branches",
         href: "/dashboard/restaurants",
         icon: Building2,
         permission: "Restaurant.View",
         module: "moduleFilial",
       },
       {
-        title: "Restaurant Tables",
+        title: "Branch Tables",
         href: "/dashboard/restaurant-tables",
         icon: UtensilsCrossed,
         permission: "RestaurantTable.View",
         module: "moduleMasaBolge",
+        hiddenForStoreMode: true,
       },
       {
         title: "Kabinetlər",
@@ -260,15 +266,18 @@ export const navGroups: NavGroup[] = [
         icon: Gamepad2,
         permission: "RestaurantTable.View",
         module: "moduleMasaBolge",
+        hiddenForStoreMode: true,
       },
       {
         title: "Menu Categories",
+        storeModeTitle: "Məhsul Kateqoriyaları",
         href: "/dashboard/menu-categories",
         icon: Wine,
         permission: "MenuCategory.View",
       },
       {
         title: "Menu Items",
+        storeModeTitle: "Məhsullar",
         href: "/dashboard/menu-items",
         icon: ShoppingCart,
         permission: "MenuItem.View",
@@ -339,10 +348,11 @@ export const navGroups: NavGroup[] = [
         permission: "DeliveryIntegration.View",
       },
       {
-        title: "Restoran Bölmələri",
+        title: "Filial Bölmələri",
         href: "/dashboard/restaurant-sections",
         icon: LayoutTemplate,
         permission: "RestaurantSection.View",
+        hiddenForStoreMode: true,
       },
       {
         title: "Notifications",

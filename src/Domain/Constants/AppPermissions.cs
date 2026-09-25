@@ -84,10 +84,6 @@ public static class AppPermissions
 
     public const string AnalyticsView = "Analytics.View";
 
-    public const string BscInvoiceView = "BscInvoice.View";
-    public const string BscInvoiceSync = "BscInvoice.Sync";
-
-
     public const string MenuItemView = "MenuItem.View";
     public const string MenuItemCreate = "MenuItem.Create";
     public const string MenuItemUpdate = "MenuItem.Update";

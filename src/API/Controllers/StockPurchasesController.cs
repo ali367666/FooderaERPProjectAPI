@@ -30,9 +30,9 @@ public class StockPurchasesController : ControllerBase
 
     [Authorize(Policy = AppPermissions.StockPurchaseView)]
     [HttpGet]
-    public async Task<ActionResult<BaseResponse<List<StockPurchaseResponse>>>> GetAll()
+    public async Task<ActionResult<BaseResponse<List<StockPurchaseResponse>>>> GetAll([FromQuery] int? companyId)
     {
-        var result = await _mediator.Send(new GetAllStockPurchasesQuery());
+        var result = await _mediator.Send(new GetAllStockPurchasesQuery(companyId));
         return Ok(result);
     }
 

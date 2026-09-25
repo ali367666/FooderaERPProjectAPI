@@ -27,6 +27,7 @@ public class MenuItem : CompanyEntity<int>
     public decimal? VatPercent { get; set; }
     public string? WeightCode { get; set; }
     public string? Barcode { get; set; }
+    public string? Brand { get; set; }
 
     // Qiymətlər
     public decimal? StationPrice { get; set; }
@@ -47,6 +48,12 @@ public class MenuItem : CompanyEntity<int>
     public bool AllowQuantityPromptOverride { get; set; }
     public int? PrinterId { get; set; }
     public Printer? Printer { get; set; }
+
+    /// <summary>Printer used for this item's own ticket specifically when IsSet is true —
+    /// overrides PrinterId for the set's header line (its component lines still route via their
+    /// own MenuItem's PrinterId). Falls back to PrinterId when not set.</summary>
+    public int? SetPrinterId { get; set; }
+    public Printer? SetPrinter { get; set; }
 
     // Cari stok
     public int? StockItemId { get; set; }

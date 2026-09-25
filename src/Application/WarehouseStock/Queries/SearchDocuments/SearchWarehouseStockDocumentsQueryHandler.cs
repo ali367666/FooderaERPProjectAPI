@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.WarehouseStock.Dtos.Response;
@@ -10,13 +11,16 @@ public class SearchWarehouseStockDocumentsQueryHandler
     : IRequestHandler<SearchWarehouseStockDocumentsQuery, BaseResponse<List<WarehouseStockDocumentSummaryResponse>>>
 {
     private readonly IWarehouseStockDocumentRepository _documentRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SearchWarehouseStockDocumentsQueryHandler> _logger;
 
     public SearchWarehouseStockDocumentsQueryHandler(
         IWarehouseStockDocumentRepository documentRepository,
+        ICurrentUserService currentUserService,
         ILogger<SearchWarehouseStockDocumentsQueryHandler> logger)
     {
         _documentRepository = documentRepository;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -24,13 +28,15 @@ public class SearchWarehouseStockDocumentsQueryHandler
         SearchWarehouseStockDocumentsQuery request,
         CancellationToken cancellationToken)
     {
+        var companyId = _currentUserService.IsSuperAdmin ? request.CompanyId : _currentUserService.CompanyId;
+
         _logger.LogInformation(
             "Search warehouse stock documents. CompanyId: {CompanyId}, Search: {Search}",
-            request.CompanyId,
+            companyId,
             request.Search);
 
         var documents = await _documentRepository.SearchByCompanyAsync(
-            request.CompanyId,
+            companyId,
             request.Search,
             cancellationToken);
 

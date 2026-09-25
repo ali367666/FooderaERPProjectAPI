@@ -95,7 +95,7 @@ export default function RestaurantTablesPage() {
       setTables(tableData);
       setRestaurants(restaurantData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load restaurant tables.");
+      setError(err instanceof Error ? err.message : "Failed to load branch tables.");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -114,7 +114,7 @@ export default function RestaurantTablesPage() {
       restaurantName:
         table.restaurantName?.trim() ||
         restaurantNameById.get(table.restaurantId) ||
-        `Restaurant #${table.restaurantId}`,
+        `Branch #${table.restaurantId}`,
       name: table.name,
       capacity: table.capacity,
       statusLabel: table.isActive ? "Active" : "Inactive",
@@ -147,7 +147,7 @@ export default function RestaurantTablesPage() {
       },
       {
         id: "restaurant",
-        label: "Restaurant",
+        label: "Branch",
         ui: "select",
         options: sortedRestaurantOptions,
         match: (row, get) => {
@@ -210,7 +210,7 @@ export default function RestaurantTablesPage() {
 
   const columns = [
     { key: "tableId" as const, label: "ID" },
-    { key: "restaurantName" as const, label: "Restaurant" },
+    { key: "restaurantName" as const, label: "Branch" },
     { key: "name" as const, label: "Table No" },
     { key: "capacity" as const, label: "Capacity" },
     { key: "occupiedLabel" as const, label: "Occupancy" },
@@ -261,7 +261,7 @@ export default function RestaurantTablesPage() {
       await deleteRestaurantTable(row.tableId);
       await loadData(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete restaurant table.";
+      const message = err instanceof Error ? err.message : "Failed to delete branch table.";
       setError(message);
       window.alert(message);
     }
@@ -271,7 +271,7 @@ export default function RestaurantTablesPage() {
     const restaurantId = Number(form.restaurantId);
     const capacity = Number(form.capacity);
     if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
-      setError("Restaurant selection is required.");
+      setError("Branch selection is required.");
       return;
     }
     if (!form.name.trim()) {
@@ -310,7 +310,7 @@ export default function RestaurantTablesPage() {
       const message =
         err instanceof Error
           ? err.message
-          : "Restaurant table save failed due to an unexpected error.";
+          : "Branch table save failed due to an unexpected error.";
       setError(message);
       window.alert(message);
     } finally {
@@ -319,14 +319,14 @@ export default function RestaurantTablesPage() {
   };
 
   if (companiesLoading || loading) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading restaurant tables...</div>;
+    return <div className="p-6 text-sm text-muted-foreground">Loading branch tables...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Restaurant Tables</h1>
-        <p className="text-muted-foreground mt-1">Manage tables with restaurant names and capacity.</p>
+        <h1 className="text-3xl font-bold text-foreground">Branch Tables</h1>
+        <p className="text-muted-foreground mt-1">Manage tables with branch names and capacity.</p>
       </div>
 
       {error && (
@@ -348,7 +348,7 @@ export default function RestaurantTablesPage() {
         <AdvancedTableFilters defs={restaurantTableFilterDefs} data={scopedRows}>
           {(filtered) => (
             <DataTable
-              title="Restaurant Table List"
+              title="Branch Table List"
               columns={columns}
               data={filtered}
               idSortKey="tableId"
@@ -360,7 +360,7 @@ export default function RestaurantTablesPage() {
                 "occupiedLabel",
                 "statusLabel",
               ]}
-              searchPlaceholder="Search restaurant tables..."
+              searchPlaceholder="Search branch tables..."
               onAdd={handleAdd}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -370,19 +370,19 @@ export default function RestaurantTablesPage() {
 
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{isEditMode ? "Edit Restaurant Table" : "Add Restaurant Table"}</DialogTitle>
-            <DialogDescription>Set restaurant, table number, and capacity.</DialogDescription>
+            <DialogTitle>{isEditMode ? "Edit Branch Table" : "Add Branch Table"}</DialogTitle>
+            <DialogDescription>Set branch, table number, and capacity.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">Restaurant</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">Branch</label>
               <select
                 value={form.restaurantId}
                 onChange={(e) => setForm((f) => ({ ...f, restaurantId: e.target.value }))}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
               >
-                <option value="">Select restaurant</option>
+                <option value="">Select branch</option>
                 {restaurantsScoped.map((restaurant) => (
                   <option key={restaurant.id} value={restaurant.id}>
                     {restaurant.name}

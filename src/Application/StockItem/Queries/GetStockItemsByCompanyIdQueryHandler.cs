@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockItem.Dtos.Response;
 using AutoMapper;
@@ -11,15 +12,18 @@ public class GetStockItemsByCompanyIdQueryHandler
     : IRequestHandler<GetStockItemsByCompanyIdQuery, BaseResponse<List<StockItemResponse>>>
 {
     private readonly IStockItemRepository _stockItemRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IMapper _mapper;
     private readonly ILogger<GetStockItemsByCompanyIdQueryHandler> _logger;
 
     public GetStockItemsByCompanyIdQueryHandler(
         IStockItemRepository stockItemRepository,
+        ICurrentUserService currentUserService,
         IMapper mapper,
         ILogger<GetStockItemsByCompanyIdQueryHandler> logger)
     {
         _stockItemRepository = stockItemRepository;
+        _currentUserService = currentUserService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -28,12 +32,14 @@ public class GetStockItemsByCompanyIdQueryHandler
         GetStockItemsByCompanyIdQuery request,
         CancellationToken cancellationToken)
     {
+        var companyId = _currentUserService.IsSuperAdmin ? request.CompanyId : _currentUserService.CompanyId;
+
         _logger.LogInformation(
             "Getting stock items by company id. CompanyId: {CompanyId}",
-            request.CompanyId);
+            companyId);
 
         var stockItems = await _stockItemRepository
-            .GetByCompanyIdAsync(request.CompanyId, cancellationToken);
+            .GetByCompanyIdAsync(companyId, cancellationToken);
 
         var response = _mapper.Map<List<StockItemResponse>>(stockItems);
 

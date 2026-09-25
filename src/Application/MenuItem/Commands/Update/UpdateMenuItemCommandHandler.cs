@@ -151,6 +151,7 @@ public class UpdateMenuItemCommandHandler
         entity.UnitId = request.Request.UnitId;
         entity.VatPercent = request.Request.VatPercent;
         entity.Barcode = string.IsNullOrWhiteSpace(request.Request.Barcode) ? null : request.Request.Barcode.Trim();
+        entity.Brand = string.IsNullOrWhiteSpace(request.Request.Brand) ? null : request.Request.Brand.Trim();
         if (request.Request.ResetWeightCode)
             entity.WeightCode = $"{companyId}-{entity.Id:D6}-{DateTime.UtcNow:HHmmss}";
 
@@ -174,6 +175,7 @@ public class UpdateMenuItemCommandHandler
         entity.IsTimeBased = request.Request.IsTimeBased;
         entity.AllowQuantityPromptOverride = request.Request.AllowQuantityPromptOverride;
         entity.PrinterId = request.Request.PrinterId;
+        entity.SetPrinterId = request.Request.SetPrinterId;
         entity.IsSet = request.Request.IsSet;
         entity.StockItemId = request.Request.StockItemId;
 

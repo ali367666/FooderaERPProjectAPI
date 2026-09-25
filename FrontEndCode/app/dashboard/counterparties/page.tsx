@@ -60,6 +60,7 @@ export default function CounterpartiesPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmStep, setConfirmStep] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -70,6 +71,7 @@ export default function CounterpartiesPage() {
   const [debtTarget, setDebtTarget] = useState<Counterparty | null>(null);
   const [debtInput, setDebtInput] = useState("0");
   const [savingDebt, setSavingDebt] = useState(false);
+  const [debtConfirmStep, setDebtConfirmStep] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -162,6 +164,7 @@ export default function CounterpartiesPage() {
     setPhoneNumber("");
     setCategoryId("");
     setIsActive(true);
+    setConfirmStep(false);
   };
 
   const handleAdd = () => {
@@ -177,6 +180,7 @@ export default function CounterpartiesPage() {
     setPhoneNumber(target.phoneNumber ?? "");
     setCategoryId(String(target.categoryId));
     setIsActive(target.isActive);
+    setConfirmStep(false);
     setDialogOpen(true);
   };
 
@@ -191,7 +195,9 @@ export default function CounterpartiesPage() {
     }
   };
 
-  const handleSave = async () => {
+  const categoryNameById = (id: string) => categories.find((c) => String(c.id) === id)?.name ?? "";
+
+  const proceedToConfirm = () => {
     if (!name.trim()) {
       toast.error("Ad vacibdir.");
       return;
@@ -201,6 +207,11 @@ export default function CounterpartiesPage() {
       toast.error("Kateqoriya seçilməlidir.");
       return;
     }
+    setConfirmStep(true);
+  };
+
+  const handleSave = async () => {
+    const catId = Number(categoryId);
     setSaving(true);
     try {
       const payload = {
@@ -231,16 +242,22 @@ export default function CounterpartiesPage() {
     if (!target) return;
     setDebtTarget(target);
     setDebtInput(String(target.currentDebtAmount));
+    setDebtConfirmStep(false);
     setDebtDialogOpen(true);
   };
 
-  const handleSaveDebt = async () => {
-    if (!debtTarget) return;
+  const proceedToDebtConfirm = () => {
     const amount = Number(debtInput);
     if (!Number.isFinite(amount)) {
       toast.error("Məbləğ düzgün deyil.");
       return;
     }
+    setDebtConfirmStep(true);
+  };
+
+  const handleSaveDebt = async () => {
+    if (!debtTarget) return;
+    const amount = Number(debtInput);
     setSavingDebt(true);
     try {
       await adjustCounterpartyDebt(debtTarget.id, amount);
@@ -433,55 +450,97 @@ export default function CounterpartiesPage() {
 
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingId != null ? "Konturagenti redaktə et" : "Konturagent əlavə et"}</DialogTitle>
-            <DialogDescription>Ad, telefon və kateqoriya.</DialogDescription>
+            <DialogTitle>
+              {confirmStep
+                ? "Yoxlayın və təsdiqləyin"
+                : editingId != null
+                  ? "Konturagenti redaktə et"
+                  : "Konturagent əlavə et"}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmStep ? "Aşağıdakı məlumatlar saxlanılacaq." : "Ad, telefon və kateqoriya."}
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <div>
-              <Label htmlFor="cp-name">Ad</Label>
-              <Input id="cp-name" className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+          {confirmStep ? (
+            <div className="space-y-2 rounded-md border p-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Ad</span>
+                <span className="font-medium">{name.trim()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Telefon</span>
+                <span className="font-medium">{phoneNumber.trim() || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Kateqoriya</span>
+                <span className="font-medium">{categoryNameById(categoryId) || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <span className="font-medium">{isActive ? "Aktiv" : "Passiv"}</span>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="cp-phone">Telefon</Label>
-              <Input id="cp-phone" className="mt-1" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="Opsional" />
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="cp-name">Ad</Label>
+                <Input id="cp-name" className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="cp-phone">Telefon</Label>
+                <Input id="cp-phone" className="mt-1" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="Opsional" />
+              </div>
+              <div>
+                <Label htmlFor="cp-category">Kateqoriya</Label>
+                <select
+                  id="cp-category"
+                  className={selectClass + " mt-1"}
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                >
+                  <option value="">Kateqoriya seçin</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                {categories.length === 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Əvvəlcə yuxarıdakı "Kateqoriyalar" bölümündən bir kateqoriya yaradın.
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox id="cp-active" checked={isActive} onCheckedChange={(v) => setIsActive(v === true)} />
+                <Label htmlFor="cp-active" className="text-sm font-normal">
+                  Aktiv
+                </Label>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="cp-category">Kateqoriya</Label>
-              <select
-                id="cp-category"
-                className={selectClass + " mt-1"}
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                <option value="">Kateqoriya seçin</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              {categories.length === 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Əvvəlcə yuxarıdakı "Kateqoriyalar" bölümündən bir kateqoriya yaradın.
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox id="cp-active" checked={isActive} onCheckedChange={(v) => setIsActive(v === true)} />
-              <Label htmlFor="cp-active" className="text-sm font-normal">
-                Aktiv
-              </Label>
-            </div>
-          </div>
+          )}
 
           <div className="mt-4 flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
-              Ləğv et
-            </Button>
-            <Button onClick={() => void handleSave()} disabled={saving}>
-              {saving ? "Saxlanılır…" : "Saxla"}
-            </Button>
+            {confirmStep ? (
+              <>
+                <Button variant="outline" onClick={() => setConfirmStep(false)} disabled={saving}>
+                  İmtina et
+                </Button>
+                <Button onClick={() => void handleSave()} disabled={saving}>
+                  {saving ? "Saxlanılır…" : "Təsdiqlə"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+                  Ləğv et
+                </Button>
+                <Button onClick={proceedToConfirm} disabled={saving}>
+                  Davam et
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -489,20 +548,42 @@ export default function CounterpartiesPage() {
       <Dialog open={debtDialogOpen} onOpenChange={setDebtDialogOpen}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle>Borcu düzəlt</DialogTitle>
+            <DialogTitle>{debtConfirmStep ? "Borc dəyişikliyini təsdiqləyin" : "Borcu düzəlt"}</DialogTitle>
             <DialogDescription>{debtTarget?.name}</DialogDescription>
           </DialogHeader>
-          <div>
-            <Label htmlFor="cp-debt">Cari borc (₼)</Label>
-            <Input id="cp-debt" type="number" step="0.01" className="mt-1" value={debtInput} onChange={(e) => setDebtInput(e.target.value)} />
-          </div>
+          {debtConfirmStep ? (
+            <div className="rounded-md border p-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Yeni cari borc</span>
+                <span className="font-medium">{Number(debtInput).toFixed(2)} ₼</span>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="cp-debt">Cari borc (₼)</Label>
+              <Input id="cp-debt" type="number" step="0.01" className="mt-1" value={debtInput} onChange={(e) => setDebtInput(e.target.value)} />
+            </div>
+          )}
           <div className="mt-4 flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDebtDialogOpen(false)} disabled={savingDebt}>
-              Ləğv et
-            </Button>
-            <Button onClick={() => void handleSaveDebt()} disabled={savingDebt}>
-              {savingDebt ? "Saxlanılır…" : "Saxla"}
-            </Button>
+            {debtConfirmStep ? (
+              <>
+                <Button variant="outline" onClick={() => setDebtConfirmStep(false)} disabled={savingDebt}>
+                  İmtina et
+                </Button>
+                <Button onClick={() => void handleSaveDebt()} disabled={savingDebt}>
+                  {savingDebt ? "Saxlanılır…" : "Təsdiqlə"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setDebtDialogOpen(false)} disabled={savingDebt}>
+                  Ləğv et
+                </Button>
+                <Button onClick={proceedToDebtConfirm} disabled={savingDebt}>
+                  Davam et
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

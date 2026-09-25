@@ -5,6 +5,7 @@ namespace Application.Common.Interfaces.Abstracts.Repositories;
 public interface IEmployeeRepository
 {
     Task AddAsync(Employee employee, CancellationToken cancellationToken);
+    Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken);
     Task<Employee?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken);
     Task<List<Employee>> GetAllAsync(int companyId, CancellationToken cancellationToken);
     Task<List<Employee>> GetByPositionAsync(
@@ -13,6 +14,12 @@ public interface IEmployeeRepository
         string? positionName,
         CancellationToken cancellationToken);
     Task<bool> ExistsByUserIdAsync(int userId, CancellationToken cancellationToken);
+    Task<bool> ExistsByEmailOrPhoneAsync(
+        int companyId,
+        string? email,
+        string? phoneNumber,
+        int? excludeEmployeeId,
+        CancellationToken cancellationToken);
     Task<Employee?> GetByUserIdAsync(int userId, int companyId, CancellationToken cancellationToken);
     void Update(Employee employee);
     void Delete(Employee employee);

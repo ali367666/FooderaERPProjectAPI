@@ -50,7 +50,7 @@ public sealed class UpdateRestaurantCommandHandler
                 "Restaurant update olunmadı. Restaurant tapılmadı. RestaurantId: {RestaurantId}",
                 request.Id);
 
-            return BaseResponse.Fail("Restaurant tapılmadı.");
+            return BaseResponse.Fail("Filial tapılmadı.");
         }
 
         var companyExists = await _companyRepository.ExistsAsync(dto.CompanyId, cancellationToken);
@@ -77,7 +77,7 @@ public sealed class UpdateRestaurantCommandHandler
                 dto.Name,
                 dto.CompanyId);
 
-            return BaseResponse.Fail("Bu şirkət daxilində eyni adda restaurant artıq mövcuddur.");
+            return BaseResponse.Fail("Bu şirkət daxilində eyni adda filial artıq mövcuddur.");
         }
 
         var oldName = restaurant.Name;

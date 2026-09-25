@@ -5,6 +5,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,6 +26,13 @@ import {
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
+import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
+import {
+  getRestaurantModules,
+  setRestaurantModules,
+  type RestaurantModules,
+} from "@/lib/services/restaurant-settings-service";
+import { defaultFormCompanyId } from "@/lib/resolve-company-id";
 
 type RestaurantFormState = {
   id: number | null;
@@ -69,6 +78,12 @@ export default function RestaurantsPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [qrTarget, setQrTarget] = useState<RestaurantRow | null>(null);
+  const [storeModeByCompany, setStoreModeByCompany] = useState<Record<number, boolean>>({});
+  const [komplexModeByCompany, setKomplexModeByCompany] = useState<Record<number, boolean>>({});
+  const [moduleTarget, setModuleTarget] = useState<RestaurantRow | null>(null);
+  const [moduleForm, setModuleForm] = useState<RestaurantModules | null>(null);
+  const [moduleFormLoading, setModuleFormLoading] = useState(false);
+  const [moduleFormSaving, setModuleFormSaving] = useState(false);
 
   const loadData = async (silent = false) => {
     try {
@@ -77,7 +92,7 @@ export default function RestaurantsPage() {
       const restaurantData = await getRestaurants();
       setRestaurants(restaurantData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load restaurants.");
+      setError(err instanceof Error ? err.message : "Failed to load branches.");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -113,6 +128,45 @@ export default function RestaurantsPage() {
     [restaurants, companies],
   );
 
+  // "QR göstər" yalnız restoran/menyu iş axını olan şirkətlərə aiddir — Mağaza (moduleDataSecimi)
+  // rejimindəki şirkətlərin filiallarında ictimai menyu anlayışı yoxdur, ona görə düymə gizlədilir.
+  useEffect(() => {
+    const missingCompanyIds = Array.from(new Set(rows.map((r) => r.companyId))).filter(
+      (id) => !(id in storeModeByCompany),
+    );
+    if (missingCompanyIds.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        missingCompanyIds.map(async (companyId) => {
+          try {
+            const branding = await getCompanySettingsBranding(companyId);
+            return [companyId, branding.moduleDataSecimi, branding.moduleKompleks] as const;
+          } catch {
+            return [companyId, false, false] as const;
+          }
+        }),
+      );
+      if (!cancelled) {
+        setStoreModeByCompany((prev) => {
+          const next = { ...prev };
+          for (const [companyId, isStoreMode] of entries) next[companyId] = isStoreMode;
+          return next;
+        });
+        setKomplexModeByCompany((prev) => {
+          const next = { ...prev };
+          for (const [companyId, , isKompleks] of entries) next[companyId] = isKompleks;
+          return next;
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, storeModeByCompany]);
+
   const scopedRows = useMemo(
     () => filterBySelectedCompany(rows, scopeCompanyId, (r) => r.companyId),
     [rows, scopeCompanyId],
@@ -137,7 +191,7 @@ export default function RestaurantsPage() {
       },
       {
         id: "name",
-        label: "Restaurant Name",
+        label: "Branch Name",
         ui: "text",
         match: (row, get) => {
           const q = get("name").trim().toLowerCase();
@@ -201,7 +255,7 @@ export default function RestaurantsPage() {
 
   const columns = [
     { key: "restaurantId" as const, label: "ID" },
-    { key: "name" as const, label: "Restaurant Name" },
+    { key: "name" as const, label: "Branch Name" },
     { key: "companyName" as const, label: "Company" },
     { key: "phone" as const, label: "Phone" },
     { key: "address" as const, label: "Address" },
@@ -217,18 +271,59 @@ export default function RestaurantsPage() {
     {
       key: "companyId" as const,
       label: "QR Menu",
-      render: (_v: number, row: RestaurantRow) => (
-        <Button variant="outline" size="sm" onClick={() => setQrTarget(row)}>
-          QR göstər
-        </Button>
-      ),
+      render: (_v: number, row: RestaurantRow) =>
+        storeModeByCompany[row.companyId] ? (
+          <span className="text-xs text-muted-foreground">-</span>
+        ) : (
+          <Button variant="outline" size="sm" onClick={() => setQrTarget(row)}>
+            QR göstər
+          </Button>
+        ),
+    },
+    {
+      key: "description" as const,
+      label: "Modules",
+      render: (_v: string, row: RestaurantRow) =>
+        komplexModeByCompany[row.companyId] ? (
+          <Button variant="outline" size="sm" onClick={() => void handleOpenModules(row)}>
+            Modullar
+          </Button>
+        ) : (
+          <span className="text-xs text-muted-foreground">-</span>
+        ),
     },
   ];
 
+  const handleOpenModules = async (row: RestaurantRow) => {
+    setModuleTarget(row);
+    setModuleFormLoading(true);
+    try {
+      const modules = await getRestaurantModules(row.restaurantId);
+      setModuleForm(modules);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Failed to load branch modules.");
+      setModuleForm(null);
+    } finally {
+      setModuleFormLoading(false);
+    }
+  };
+
+  const handleSaveModules = async () => {
+    if (!moduleTarget || !moduleForm) return;
+    setModuleFormSaving(true);
+    try {
+      await setRestaurantModules(moduleTarget.restaurantId, moduleForm);
+      setModuleTarget(null);
+      setModuleForm(null);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Failed to save branch modules.");
+    } finally {
+      setModuleFormSaving(false);
+    }
+  };
+
   const handleAdd = () => {
-    const defaultCo =
-      scopeCompanyId ?? companies[0]?.id ?? "";
-    setForm({ ...emptyForm(), companyId: defaultCo ? String(defaultCo) : "" });
+    setForm({ ...emptyForm(), companyId: defaultFormCompanyId(companies, scopeCompanyId) });
     setFieldErrors({});
     setIsEditMode(false);
     setIsDialogOpen(true);
@@ -259,7 +354,7 @@ export default function RestaurantsPage() {
       await deleteRestaurant(row.restaurantId);
       await loadData(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete restaurant.";
+      const message = err instanceof Error ? err.message : "Failed to delete branch.";
       setError(message);
       window.alert(message);
     }
@@ -268,7 +363,7 @@ export default function RestaurantsPage() {
   const handleSave = async () => {
     const companyId = Number(form.companyId);
     if (!form.name.trim()) {
-      const msg = "Restaurant name is required.";
+      const msg = "Branch name is required.";
       setError(msg);
       return;
     }
@@ -303,7 +398,7 @@ export default function RestaurantsPage() {
     } catch (err) {
       if (err instanceof ApiFormError) setFieldErrors(err.fieldErrors);
       const message =
-        err instanceof Error ? err.message : "Restaurant save failed due to an unexpected error.";
+        err instanceof Error ? err.message : "Branch save failed due to an unexpected error.";
       setError(message);
       window.alert(message);
     } finally {
@@ -312,14 +407,14 @@ export default function RestaurantsPage() {
   };
 
   if (companiesLoading || loading) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading restaurants...</div>;
+    return <div className="p-6 text-sm text-muted-foreground">Loading branches...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Restaurants</h1>
-        <p className="text-muted-foreground mt-1">Manage restaurant branches.</p>
+        <h1 className="text-3xl font-bold text-foreground">Branches</h1>
+        <p className="text-muted-foreground mt-1">Manage branches.</p>
       </div>
 
       {error && (
@@ -341,12 +436,12 @@ export default function RestaurantsPage() {
         <AdvancedTableFilters defs={restaurantFilterDefs} data={scopedRows}>
           {(filtered) => (
             <DataTable
-              title="Restaurant List"
+              title="Branch List"
               columns={columns}
               data={filtered}
               idSortKey="restaurantId"
               searchableFields={["name", "companyName", "address", "phone", "description", "id"]}
-              searchPlaceholder="Search restaurants..."
+              searchPlaceholder="Search branches..."
               onAdd={handleAdd}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -356,13 +451,13 @@ export default function RestaurantsPage() {
 
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{isEditMode ? "Edit Restaurant" : "Add Restaurant"}</DialogTitle>
-            <DialogDescription>Enter restaurant details and save changes.</DialogDescription>
+            <DialogTitle>{isEditMode ? "Edit Branch" : "Add Branch"}</DialogTitle>
+            <DialogDescription>Enter branch details and save changes.</DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">Restaurant Name</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">Branch Name</label>
               <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
               {getFieldErrorMessage(fieldErrors, "name") && (
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "name")}</p>
@@ -441,6 +536,67 @@ export default function RestaurantsPage() {
               Bağla
             </Button>
             <Button onClick={() => window.print()}>Çap et</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={moduleTarget != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setModuleTarget(null);
+            setModuleForm(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{moduleTarget?.name} — Modullar</DialogTitle>
+            <DialogDescription>
+              Bu filialın öz aktiv modulları — ana şirkətin ümumi modullarının üzərinə yazılır.
+            </DialogDescription>
+          </DialogHeader>
+          {moduleFormLoading && <p className="text-sm text-muted-foreground">Yüklənir...</p>}
+          {!moduleFormLoading && moduleForm && (
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  { key: "moduleAnbar", label: "Anbar" },
+                  { key: "moduleRezervasyon", label: "Rezervasiya" },
+                  { key: "moduleMasaBolge", label: "Masa Bölgə" },
+                  { key: "modulePaket", label: "Paket" },
+                  { key: "moduleOtel", label: "Otel" },
+                  { key: "moduleFitnes", label: "Fitnes" },
+                  { key: "moduleDataSecimi", label: "Mağaza" },
+                  { key: "moduleQiymetSor", label: "Qiymət Sor" },
+                ] as Array<{ key: keyof RestaurantModules; label: string }>
+              ).map((f) => (
+                <label key={f.key} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={moduleForm[f.key]}
+                    onCheckedChange={(v) =>
+                      setModuleForm((prev) => (prev ? { ...prev, [f.key]: v === true } : prev))
+                    }
+                  />
+                  <Label className="cursor-pointer font-normal">{f.label}</Label>
+                </label>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setModuleTarget(null);
+                setModuleForm(null);
+              }}
+              disabled={moduleFormSaving}
+            >
+              Ləğv et
+            </Button>
+            <Button onClick={() => void handleSaveModules()} disabled={moduleFormSaving || moduleFormLoading}>
+              {moduleFormSaving ? "Saxlanılır..." : "Saxla"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

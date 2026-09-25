@@ -210,7 +210,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
         {isBeforeOpening ? (
           <main className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
             <Lock className="h-10 w-10 text-muted-foreground" />
-            <h2 className="text-xl font-semibold">Restoran hələ bağlıdır</h2>
+            <h2 className="text-xl font-semibold">Filial hələ bağlıdır</h2>
             <p className="text-muted-foreground">
               Açılış saatı: {branding?.openingTime?.slice(0, 5)}. Sistem həmin saatdan aktiv olacaq.
             </p>

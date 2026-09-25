@@ -86,7 +86,7 @@ export function warehouseTypeLabel(type: WarehouseTypeValue): string {
     case WarehouseType.HeadOffice:
       return "Head office";
     case WarehouseType.Restaurant:
-      return "Restaurant";
+      return "Branch";
     case WarehouseType.Vehicle:
       return "Vehicle";
     default:

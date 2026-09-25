@@ -44,7 +44,7 @@ public sealed class DeleteRestaurantCommandHandler
                 "Restaurant silinmədi. Restaurant tapılmadı. RestaurantId: {RestaurantId}",
                 request.Id);
 
-            return BaseResponse.Fail("Restaurant tapılmadı.");
+            return BaseResponse.Fail("Filial tapılmadı.");
         }
 
         // 🔥 Köhnə məlumatları saxla (audit üçün)

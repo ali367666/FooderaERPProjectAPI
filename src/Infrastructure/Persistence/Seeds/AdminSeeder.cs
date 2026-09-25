@@ -2,6 +2,7 @@
 using Domain.Entities;
 using Domain.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 
 namespace Infrastructure.Identity;
 
@@ -9,11 +10,14 @@ public static class AdminSeeder
 {
     public static async Task SeedAdminAsync(
         UserManager<User> userManager,
+        IConfiguration configuration,
         int companyId)
     {
-        const string email = "admin@foodera.com";
-        const string username = "admin";
-        const string password = "Admin123!";
+        var seedSection = configuration.GetSection("Seed");
+        var username = seedSection["SuperAdminUserName"] ?? "admin";
+        var email = seedSection["SuperAdminEmail"] ?? "admin@foodera.com";
+        var password = seedSection["SuperAdminPassword"] ?? "Admin123!";
+        var fullName = seedSection["SuperAdminFullName"] ?? "System Administrator";
 
         var existingUser = await userManager.FindByEmailAsync(email);
         if (existingUser is not null)
@@ -24,7 +28,7 @@ public static class AdminSeeder
             UserName = username,
             Email = email,
             EmailConfirmed = true,
-            FullName = "System Administrator",
+            FullName = fullName,
             WorkplaceType = EmployeeWorkplaceType.HeadOffice,
             CompanyId = companyId,
             RestaurantId = null
@@ -38,7 +42,7 @@ public static class AdminSeeder
             throw new Exception($"Admin user could not be seeded: {errors}");
         }
 
-        var roleResult = await userManager.AddToRoleAsync(user, AppRoles.Admin);
+        var roleResult = await userManager.AddToRoleAsync(user, AppRoles.SuperAdmin);
 
         if (!roleResult.Succeeded)
         {

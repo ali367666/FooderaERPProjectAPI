@@ -78,6 +78,9 @@ public class PatchStockItemCommandHandler
         if (request.Request.CategoryId.HasValue)
             stockItem.CategoryId = request.Request.CategoryId.Value;
 
+        if (request.Request.SalePrice.HasValue)
+            stockItem.SalePrice = request.Request.SalePrice.Value;
+
         _stockItemRepository.Update(stockItem);
         await _stockItemRepository.SaveChangesAsync(cancellationToken);
 

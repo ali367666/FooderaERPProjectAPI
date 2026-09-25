@@ -367,7 +367,7 @@ export function RestaurantDashboard() {
 
         {/* Restaurant revenue breakdown */}
         {data.restaurantRevenue.length > 1 && (
-          <Section title="Restoran üzrə gəlir (bu ay)">
+          <Section title="Filial üzrə gəlir (bu ay)">
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={data.restaurantRevenue} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" horizontal={false} />

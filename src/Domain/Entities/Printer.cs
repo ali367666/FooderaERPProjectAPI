@@ -14,4 +14,8 @@ public class Printer : CompanyEntity<int>
     public int Port { get; set; } = 9100;
     public bool IsActive { get; set; } = true;
     public bool IsPrimary { get; set; }
+
+    /// <summary>Chief (head chef) printer — receives a copy of every kitchen ticket when the
+    /// company's ChiefPrint setting is on. At most one per branch.</summary>
+    public bool IsChiefPrinter { get; set; }
 }

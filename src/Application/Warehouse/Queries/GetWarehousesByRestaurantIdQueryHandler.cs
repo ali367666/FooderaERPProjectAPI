@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.Warehouse.Dtos.Response;
 using AutoMapper;
@@ -11,15 +12,18 @@ public class GetWarehousesByRestaurantIdQueryHandler
     : IRequestHandler<GetWarehousesByRestaurantIdQuery, BaseResponse<List<WarehouseResponse>>>
 {
     private readonly IWarehouseRepository _warehouseRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IMapper _mapper;
     private readonly ILogger<GetWarehousesByRestaurantIdQueryHandler> _logger;
 
     public GetWarehousesByRestaurantIdQueryHandler(
         IWarehouseRepository warehouseRepository,
+        ICurrentUserService currentUserService,
         IMapper mapper,
         ILogger<GetWarehousesByRestaurantIdQueryHandler> logger)
     {
         _warehouseRepository = warehouseRepository;
+        _currentUserService = currentUserService;
         _mapper = mapper;
         _logger = logger;
     }
@@ -31,6 +35,13 @@ public class GetWarehousesByRestaurantIdQueryHandler
         _logger.LogInformation("Getting warehouses by restaurant id: {RestaurantId}", request.RestaurantId);
 
         var warehouses = await _warehouseRepository.GetByRestaurantIdAsync(request.RestaurantId, cancellationToken);
+
+        // A tenant Admin only ever sees warehouses that belong to their own company — a restaurantId
+        // that resolves to a different tenant's branch must yield nothing, not that tenant's data.
+        if (!_currentUserService.IsSuperAdmin)
+        {
+            warehouses = warehouses.Where(w => w.CompanyId == _currentUserService.CompanyId).ToList();
+        }
 
         var response = _mapper.Map<List<WarehouseResponse>>(warehouses);
 

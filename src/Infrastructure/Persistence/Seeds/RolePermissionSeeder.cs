@@ -62,7 +62,7 @@ public static class RolePermissionSeeder
                 AppPermissions.WarehouseView, AppPermissions.WarehouseStockView,
                 AppPermissions.StockRequestView, AppPermissions.StockPurchaseView,
                 AppPermissions.ReservationView, AppPermissions.DiscountView, AppPermissions.DiscountApply,
-                AppPermissions.AnalyticsView, AppPermissions.BscInvoiceView,
+                AppPermissions.AnalyticsView,
                 AppPermissions.PosDeleteOrder, AppPermissions.PosDeleteReceipt,
                 AppPermissions.PosEditProductInSale, AppPermissions.PosDeleteProductInSale,
                 AppPermissions.PosMoveTable, AppPermissions.PosRedirectUser, AppPermissions.PosChangePrice,

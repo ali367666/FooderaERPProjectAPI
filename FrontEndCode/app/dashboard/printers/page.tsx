@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
+import { useSelectedRestaurant } from "@/contexts/selected-restaurant-context";
 import {
   createPrinter,
   deletePrinter,
@@ -44,9 +45,11 @@ type PrinterRow = {
   address: string;
   isActive: boolean;
   isPrimary: boolean;
+  isChiefPrinter: boolean;
 };
 
 export default function PrintersPage() {
+  const { selectedRestaurantId } = useSelectedRestaurant();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [printers, setPrinters] = useState<Printer[]>([]);
@@ -69,18 +72,25 @@ export default function PrintersPage() {
   const [port, setPort] = useState("9100");
   const [isActive, setIsActive] = useState(true);
   const [isPrimary, setIsPrimary] = useState(false);
+  const [isChiefPrinter, setIsChiefPrinter] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         const rs = await getRestaurants();
         setRestaurants(rs);
-        if (rs.length > 0) setRestaurantId(String(rs[0].id));
+        // Follow the top "Filial filter" (Data Seçimi) when one is picked — otherwise default to
+        // the first branch, same as before.
+        if (selectedRestaurantId != null && rs.some((r) => r.id === selectedRestaurantId)) {
+          setRestaurantId(String(selectedRestaurantId));
+        } else if (rs.length > 0) {
+          setRestaurantId(String(rs[0].id));
+        }
       } catch {
         setRestaurants([]);
       }
     })();
-  }, []);
+  }, [selectedRestaurantId]);
 
   const loadStationTypes = async () => {
     setStationTypesLoading(true);
@@ -184,6 +194,7 @@ export default function PrintersPage() {
     setPort("9100");
     setIsActive(true);
     setIsPrimary(false);
+    setIsChiefPrinter(false);
   };
 
   const handleAdd = () => {
@@ -201,6 +212,7 @@ export default function PrintersPage() {
     setPort(String(target.port));
     setIsActive(target.isActive);
     setIsPrimary(target.isPrimary);
+    setIsChiefPrinter(target.isChiefPrinter);
     setDialogOpen(true);
   };
 
@@ -252,7 +264,7 @@ export default function PrintersPage() {
     }
     setSaving(true);
     try {
-      const payload = { restaurantId: rid, name: name.trim(), stationTypeId: stationId, ipAddress: ipAddress.trim(), port: portNum, isActive, isPrimary };
+      const payload = { restaurantId: rid, name: name.trim(), stationTypeId: stationId, ipAddress: ipAddress.trim(), port: portNum, isActive, isPrimary, isChiefPrinter };
       if (editingId == null) {
         await createPrinter(payload);
         toast.success("Printer əlavə edildi.");
@@ -280,6 +292,7 @@ export default function PrintersPage() {
         address: `${p.ipAddress}:${p.port}`,
         isActive: p.isActive,
         isPrimary: p.isPrimary,
+        isChiefPrinter: p.isChiefPrinter,
       })),
     [printers],
   );
@@ -294,6 +307,9 @@ export default function PrintersPage() {
           {v}
           {row.isPrimary && (
             <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Əsas</Badge>
+          )}
+          {row.isChiefPrinter && (
+            <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100">Şef</Badge>
           )}
         </span>
       ),
@@ -327,7 +343,7 @@ export default function PrintersPage() {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Printerlər</h1>
         <p className="text-muted-foreground mt-1">
-          Restoranın şəbəkə printerlərini qeydə alın — IP ünvanı ilə birbaşa çap.
+          Filialın şəbəkə printerlərini qeydə alın — IP ünvanı ilə birbaşa çap.
         </p>
       </div>
 
@@ -391,14 +407,14 @@ export default function PrintersPage() {
       </div>
 
       <div className="max-w-xs">
-        <Label htmlFor="printer-restaurant">Restoran</Label>
+        <Label htmlFor="printer-restaurant">Filial</Label>
         <select
           id="printer-restaurant"
           className={selectClass + " mt-1"}
           value={restaurantId}
           onChange={(e) => setRestaurantId(e.target.value)}
         >
-          <option value="">Restoran seçin</option>
+          <option value="">Filial seçin</option>
           {restaurants.map((r) => (
             <option key={r.id} value={String(r.id)}>
               {r.name}
@@ -481,6 +497,12 @@ export default function PrintersPage() {
                 <Checkbox id="pr-primary" checked={isPrimary} onCheckedChange={(v) => setIsPrimary(v === true)} />
                 <Label htmlFor="pr-primary" className="text-sm font-normal">
                   Əsas (Kassa) printer — sifariş ekranında ilk sırada göstərilir və avtomatik çapda istifadə olunur
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox id="pr-chief" checked={isChiefPrinter} onCheckedChange={(v) => setIsChiefPrinter(v === true)} />
+                <Label htmlFor="pr-chief" className="text-sm font-normal">
+                  Şef printeri (ChiefPrint) — "ChiefPrint" ayarı aktivdirsə, bütün mətbəx çeklərinin nüsxəsi bu printerə çıxır
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground">

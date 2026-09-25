@@ -89,7 +89,7 @@ public class UpdateUserCommandHandler
                     request.id,
                     dto.RestaurantId.Value);
 
-                return BaseResponse<UpdateUserResponseDto>.Fail("Restaurant tapılmadı.");
+                return BaseResponse<UpdateUserResponseDto>.Fail("Filial tapılmadı.");
             }
 
             if (restaurant.CompanyId != dto.CompanyId)
@@ -100,7 +100,7 @@ public class UpdateUserCommandHandler
                     restaurant.Id,
                     dto.CompanyId);
 
-                return BaseResponse<UpdateUserResponseDto>.Fail("Seçilən restaurant bu company-ə aid deyil.");
+                return BaseResponse<UpdateUserResponseDto>.Fail("Seçilən filial bu company-ə aid deyil.");
             }
 
             restaurantId = restaurant.Id;

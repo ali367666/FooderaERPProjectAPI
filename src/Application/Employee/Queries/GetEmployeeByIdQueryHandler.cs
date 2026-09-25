@@ -24,12 +24,14 @@ public class GetEmployeeByIdQueryHandler
         GetEmployeeByIdQuery request,
         CancellationToken cancellationToken)
     {
-        var companyId = _currentUserService.CompanyId;
+        var isSuperAdmin = _currentUserService.IsSuperAdmin;
+        var callerCompanyId = _currentUserService.CompanyId;
 
-        var employee = await _employeeRepository.GetByIdAsync(
-            request.Id,
-            companyId,
-            cancellationToken);
+        // SuperAdmin can view any company's employee; a tenant Admin is always confined to their
+        // own company.
+        var employee = isSuperAdmin
+            ? await _employeeRepository.GetByIdAsync(request.Id, cancellationToken)
+            : await _employeeRepository.GetByIdAsync(request.Id, callerCompanyId, cancellationToken);
 
         if (employee is null)
         {
@@ -57,6 +59,8 @@ public class GetEmployeeByIdQueryHandler
             DepartmentName = employee.Department?.Name ?? string.Empty,
             PositionId = employee.PositionId,
             PositionName = employee.Position?.Name ?? string.Empty,
+            RestaurantId = employee.RestaurantId,
+            RestaurantName = employee.Restaurant?.Name ?? string.Empty,
             UserId = employee.UserId
         };
 

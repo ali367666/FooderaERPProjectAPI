@@ -11,4 +11,5 @@ public class StockItemRequest
     public int CategoryId { get; set; }
     public int CompanyId { get; set; }
     public int? RestaurantId { get; set; }
+    public decimal? SalePrice { get; set; }
 }

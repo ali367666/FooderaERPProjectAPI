@@ -16,6 +16,7 @@ public class CreateMenuItemRequest
     public int UnitId { get; set; } = 1;
     public decimal? VatPercent { get; set; }
     public string? Barcode { get; set; }
+    public string? Brand { get; set; }
 
     public decimal? StationPrice { get; set; }
     public decimal? PurchasePrice { get; set; }
@@ -33,6 +34,7 @@ public class CreateMenuItemRequest
     public bool IsTimeBased { get; set; }
     public bool AllowQuantityPromptOverride { get; set; }
     public int? PrinterId { get; set; }
+    public int? SetPrinterId { get; set; }
 
     public bool IsSet { get; set; }
 

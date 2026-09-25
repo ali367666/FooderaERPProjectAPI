@@ -28,7 +28,11 @@ public class GetCompanySettingsQueryHandler
         GetCompanySettingsQuery request,
         CancellationToken cancellationToken)
     {
-        var companyId = _currentUserService.CompanyId;
+        // SuperAdmin may view any company's settings; a tenant Admin is always confined to their
+        // own company regardless of what was requested.
+        var companyId = _currentUserService.IsSuperAdmin && request.CompanyId is > 0
+            ? request.CompanyId.Value
+            : _currentUserService.CompanyId;
 
         var settings = await _repository.GetByCompanyIdAsync(companyId, cancellationToken);
 

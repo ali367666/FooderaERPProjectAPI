@@ -57,7 +57,7 @@ export async function getRestaurantSections(restaurantId: number): Promise<Resta
     const response = await api.get<unknown>("/RestaurantSections", { params: { restaurantId } });
     return unwrapList<unknown>(response.data).map(normalize).filter((x): x is RestaurantSection => x !== null);
   } catch (error) {
-    throw toApiFormError(error, "Failed to fetch restaurant sections");
+    throw toApiFormError(error, "Failed to fetch branch sections");
   }
 }
 

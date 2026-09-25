@@ -1,11 +1,14 @@
 import { api } from "@/lib/api";
 import { assertApiSuccess, readBaseResponseData, readBaseResponseList } from "@/lib/api-base-response";
 import { ApiFormError, toApiFormError } from "@/lib/api-error";
+import { fetchListsPerCompany } from "@/lib/company-scope-utils";
 
 export type AppRole = {
   id: number;
   name: string;
   normalizedName: string | null;
+  companyId: number | null;
+  requiresRotatingPin: boolean;
 };
 
 function normalizeRole(item: unknown): AppRole | null {
@@ -13,10 +16,14 @@ function normalizeRole(item: unknown): AppRole | null {
   const raw = item as Record<string, unknown>;
   const id = Number(raw.id ?? raw.Id);
   if (!Number.isFinite(id) || id <= 0) return null;
+  const companyIdRaw = raw.companyId ?? raw.CompanyId;
+  const companyId = Number(companyIdRaw);
   return {
     id,
     name: String(raw.name ?? raw.Name ?? ""),
     normalizedName: (raw.normalizedName ?? raw.NormalizedName ?? null) as string | null,
+    companyId: Number.isFinite(companyId) && companyId > 0 ? companyId : null,
+    requiresRotatingPin: Boolean(raw.requiresRotatingPin ?? raw.RequiresRotatingPin ?? false),
   };
 }
 
@@ -32,9 +39,11 @@ function parseFieldErrors(data: unknown): Record<string, string[]> | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
-export async function getRoles(): Promise<AppRole[]> {
+export async function getRoles(companyId?: number): Promise<AppRole[]> {
   try {
-    const response = await api.get<unknown>("/roles");
+    const response = await api.get<unknown>("/roles", {
+      params: companyId ? { companyId } : undefined,
+    });
     assertApiSuccess(response.data);
     return readBaseResponseList<unknown>(response.data)
       .map((r) => normalizeRole(r))
@@ -42,6 +51,11 @@ export async function getRoles(): Promise<AppRole[]> {
   } catch (e) {
     throw toApiFormError(e, "Failed to load roles.");
   }
+}
+
+/** Merge GET /roles for each company id — used when "All Companies" is selected. */
+export async function getRolesForAllCompanies(companyIds: number[]): Promise<AppRole[]> {
+  return fetchListsPerCompany(companyIds, (id) => getRoles(id));
 }
 
 export async function getRoleById(id: number): Promise<AppRole> {
@@ -58,9 +72,13 @@ export async function getRoleById(id: number): Promise<AppRole> {
   }
 }
 
-export async function createRole(name: string): Promise<number> {
+export async function createRole(name: string, companyId?: number, requiresRotatingPin?: boolean): Promise<number> {
   try {
-    const response = await api.post<unknown>("/roles", { name: name.trim() });
+    const response = await api.post<unknown>("/roles", {
+      name: name.trim(),
+      companyId,
+      requiresRotatingPin: Boolean(requiresRotatingPin),
+    });
     if (response.data && typeof response.data === "object" && (response.data as { success?: boolean }).success === false) {
       const o = response.data as { message?: string };
       throw new ApiFormError(o.message || "Could not create role.", parseFieldErrors(response.data) ?? {});
@@ -75,9 +93,12 @@ export async function createRole(name: string): Promise<number> {
   }
 }
 
-export async function updateRole(id: number, name: string): Promise<void> {
+export async function updateRole(id: number, name: string, requiresRotatingPin?: boolean): Promise<void> {
   try {
-    const response = await api.put<unknown>(`/roles/${id}`, { name: name.trim() });
+    const response = await api.put<unknown>(`/roles/${id}`, {
+      name: name.trim(),
+      requiresRotatingPin: Boolean(requiresRotatingPin),
+    });
     if (response.data && typeof response.data === "object" && (response.data as { success?: boolean }).success === false) {
       const o = response.data as { message?: string };
       throw new ApiFormError(o.message || "Could not update role.", parseFieldErrors(response.data) ?? {});

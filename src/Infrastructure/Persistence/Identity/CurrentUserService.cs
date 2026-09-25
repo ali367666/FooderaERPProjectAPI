@@ -60,4 +60,6 @@ public class CurrentUserService : ICurrentUserService
     {
         return User?.HasClaim("Permission", permission) == true;
     }
+
+    public bool IsSuperAdmin => User?.IsInRole(Domain.Constants.AppRoles.SuperAdmin) == true;
 }

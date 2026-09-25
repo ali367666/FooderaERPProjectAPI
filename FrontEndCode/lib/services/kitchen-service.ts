@@ -92,7 +92,7 @@ function normalizeLine(raw: unknown): KitchenLineDto | null {
 export async function getKitchenOrders(restaurantId: number): Promise<KitchenOrderGroupDto[]> {
   try {
     if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
-      throw new ApiFormError("Please select restaurant");
+      throw new ApiFormError("Please select branch");
     }
 
     const response = await api.get<unknown>(`/Kitchen/${restaurantId}`);

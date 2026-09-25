@@ -32,45 +32,55 @@ public class UpdatePositionCommandHandler
         UpdatePositionCommand request,
         CancellationToken cancellationToken)
     {
-        var companyId = _currentUserService.CompanyId;
+        var isSuperAdmin = _currentUserService.IsSuperAdmin;
+        var callerCompanyId = _currentUserService.CompanyId;
 
         _logger.LogInformation(
             "Updating Position: requested Id={PositionId}, NewName={NewName}, NewDepartmentId={NewDepartmentId}, current user CompanyId={CompanyId}, current user UserId={UserId}",
             request.Id,
             request.Request.Name,
             request.Request.DepartmentId,
-            companyId,
+            callerCompanyId,
             _currentUserService.UserId);
 
-        if (companyId <= 0)
+        Domain.Entities.Position? position;
+
+        if (isSuperAdmin)
         {
-            _logger.LogWarning(
-                "Update Position rejected: invalid or missing company context (CompanyId={CompanyId}).",
-                companyId);
-
-            return BaseResponse.Fail("Company context is required.");
+            // SuperAdmin can move a position to any company — look it up by id alone first, the
+            // target company (existing or the one they're re-assigning it to) is resolved below.
+            position = await _positionRepository.GetByIdAsync(request.Id, cancellationToken);
         }
+        else
+        {
+            if (callerCompanyId <= 0)
+            {
+                _logger.LogWarning(
+                    "Update Position rejected: invalid or missing company context (CompanyId={CompanyId}).",
+                    callerCompanyId);
 
-        var position = await _positionRepository.GetByIdAsync(
-            request.Id,
-            companyId,
-            cancellationToken);
+                return BaseResponse.Fail("Company context is required.");
+            }
 
-        _logger.LogInformation(
-            "DEBUG Update -> RequestId={RequestId}, UserCompanyId={UserCompanyId}, FoundPositionId={FoundPositionId}",
-            request.Id,
-            companyId,
-            position?.Id);
+            // A tenant Admin is always confined to their own company — never honor a different
+            // CompanyId even if one was sent in the request.
+            position = await _positionRepository.GetByIdAsync(request.Id, callerCompanyId, cancellationToken);
+        }
 
         if (position is null)
         {
             _logger.LogWarning(
-                "Update Position: no row with Id={PositionId} for CompanyId={CompanyId}.",
+                "Update Position: no row with Id={PositionId} for CompanyId={CompanyId}, IsSuperAdmin={IsSuperAdmin}.",
                 request.Id,
-                companyId);
+                callerCompanyId,
+                isSuperAdmin);
 
             return BaseResponse.Fail("Position not found.");
         }
+
+        var companyId = isSuperAdmin && request.Request.CompanyId is > 0
+            ? request.Request.CompanyId.Value
+            : (isSuperAdmin ? position.CompanyId : callerCompanyId);
 
         var departmentExists = await _positionRepository.DepartmentExistsAsync(
             request.Request.DepartmentId,
@@ -115,6 +125,7 @@ public class UpdatePositionCommandHandler
         position.Name = trimmedName;
         position.DepartmentId = request.Request.DepartmentId;
         position.Description = request.Request.Description;
+        position.CompanyId = companyId;
 
         _positionRepository.Update(position);
         await _positionRepository.SaveChangesAsync(cancellationToken);

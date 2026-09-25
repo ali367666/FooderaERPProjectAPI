@@ -11,6 +11,12 @@ public class StockItem : BaseEntity<int>
     public StockItemType Type { get; set; }
     public UnitOfMeasure Unit { get; set; }
 
+    /// <summary>
+    /// The warehouse's own sale price for this item — used as a POS fallback for any MenuItem
+    /// linked to it whose own Station price hasn't been set.
+    /// </summary>
+    public decimal? SalePrice { get; set; }
+
     public int CategoryId { get; set; }
     public StockCategory Category { get; set; } = default!;
 

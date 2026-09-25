@@ -149,7 +149,7 @@ export function OrderListPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Orders</h1>
-          <p className="text-muted-foreground mt-1">Master list of restaurant orders</p>
+          <p className="text-muted-foreground mt-1">Master list of branch orders</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => router.push("/dashboard/orders/create")} disabled={!canCreateOrder}>
@@ -205,7 +205,7 @@ export function OrderListPage() {
                 <tr className="border-b bg-muted/50">
                   <th className="w-10 px-3 py-2 text-left">Sel</th>
                   <th className="px-4 py-3 text-left">Order Number</th>
-                  <th className="px-4 py-3 text-left">Restaurant</th>
+                  <th className="px-4 py-3 text-left">Branch</th>
                   <th className="px-4 py-3 text-left">Table</th>
                   <th className="px-4 py-3 text-left">Waiter</th>
                   <th className="px-4 py-3 text-left">Total Amount</th>

@@ -28,7 +28,7 @@ import {
 } from "@/lib/services/warehouse-service";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
 import { getEmployees, getEmployeesByPosition, type Employee } from "@/lib/services/employee-service";
-import { resolveCompanyId } from "@/lib/resolve-company-id";
+import { defaultFormCompanyId } from "@/lib/resolve-company-id";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
@@ -311,9 +311,7 @@ export default function WarehousesPage() {
   const resetForm = () => {
     setName("");
     setType(String(WarehouseType.HeadOffice));
-    setCompanyId(
-      String(scopeCompanyId ?? companies[0]?.id ?? resolveCompanyId()),
-    );
+    setCompanyId(defaultFormCompanyId(companies, scopeCompanyId));
     setRestaurantId("");
     setResponsibleEmployeeId("");
     setDriverUserId("");
@@ -427,7 +425,7 @@ export default function WarehousesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Warehouses</h1>
-        <p className="text-muted-foreground mt-1">Manage storage locations linked to companies and restaurants.</p>
+        <p className="text-muted-foreground mt-1">Manage storage locations linked to companies and branches.</p>
       </div>
 
       {error && (
@@ -496,7 +494,7 @@ export default function WarehousesPage() {
               )}
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-foreground">Restaurant (optional)</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">Branch (optional)</label>
               <select value={restaurantId} onChange={(e) => setRestaurantId(e.target.value)} className={selectClass}>
                 <option value="">None</option>
                 {restaurantsForForm.map((r) => (

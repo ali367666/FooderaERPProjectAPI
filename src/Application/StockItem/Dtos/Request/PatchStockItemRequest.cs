@@ -9,4 +9,5 @@ public class PatchStockItemRequest
     public StockItemType? Type { get; set; }
     public UnitOfMeasure? Unit { get; set; }
     public int? CategoryId { get; set; }
+    public decimal? SalePrice { get; set; }
 }

@@ -1,5 +1,4 @@
 ﻿using Domain.Entities;
-using Domain.Entities.BscInvoice;
 using Domain.Entities.WarehouseAndStock;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -9,7 +8,7 @@ using Persistence.Configurations;
 
 namespace Infrastructure.Persistence.Context;
 
-public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
+public class AppDbContext : IdentityDbContext<User, AppRole, int>
 {
     // SQL Server's datetime2 has no timezone concept, so EF Core loses DateTimeKind on read.
     // All persisted timestamps in this app are written with DateTime.UtcNow, so we re-tag them
@@ -32,6 +31,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     // Core entities
     public DbSet<Company> Companies { get; set; } = null!;
     public DbSet<CompanySettings> CompanySettings { get; set; } = null!;
+    public DbSet<RestaurantSettings> RestaurantSettings { get; set; } = null!;
     public DbSet<RestaurantSection> RestaurantSections { get; set; } = null!;
     public DbSet<Printer> Printers { get; set; } = null!;
     public DbSet<FiscalDevice> FiscalDevices { get; set; } = null!;
@@ -66,10 +66,6 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     public DbSet<StockRequest> StockRequests { get; set; } = null!;
     public DbSet<StockRequestLine> StockRequestLines { get; set; } = null!;
 
-    // BSC Invoice sync
-    public DbSet<BscInvoiceM> BscInvoiceMs { get; set; } = null!;
-    public DbSet<BscInvoiceD> BscInvoiceDs { get; set; } = null!;
-
     //Loggin system
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
@@ -90,6 +86,18 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // IdentityDbContext gives AspNetRoles.NormalizedName a single-column unique index, which
+        // would block every company from having its own "Admin"/"Waiter"/etc. role. Replace it
+        // with a composite unique index scoped by company (CompanyId = null for the global
+        // SuperAdmin/template roles, so those still can't collide with each other either).
+        modelBuilder.Entity<AppRole>(b =>
+        {
+            b.HasIndex(r => r.NormalizedName).IsUnique(false);
+            b.HasIndex(r => new { r.CompanyId, r.NormalizedName })
+                .IsUnique()
+                .HasDatabaseName("IX_AspNetRoles_CompanyId_NormalizedName");
+        });
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 

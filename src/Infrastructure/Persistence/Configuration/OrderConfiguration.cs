@@ -47,6 +47,17 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasForeignKey(x => x.CounterpartyId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(x => x.DeliveryDriverEmployee)
+            .WithMany()
+            .HasForeignKey(x => x.DeliveryDriverEmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(x => x.DeliveryAddress)
+            .HasMaxLength(500);
+
+        builder.Property(x => x.DeliveryPhone)
+            .HasMaxLength(50);
+
         builder.HasMany(x => x.Lines)
        .WithOne(x => x.Order)
        .HasForeignKey(x => x.OrderId)

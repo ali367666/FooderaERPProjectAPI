@@ -50,7 +50,7 @@ export default function KitchenPage() {
       const list = await getRestaurants();
       setRestaurants(list);
     } catch (e) {
-      setError(toApiFormError(e, "Failed to load restaurants").message);
+      setError(toApiFormError(e, "Failed to load branches").message);
     } finally {
       setRestaurantsLoading(false);
     }
@@ -61,7 +61,7 @@ export default function KitchenPage() {
     if (!Number.isFinite(selectedRestaurantId) || selectedRestaurantId <= 0) {
       setOrders([]);
       setLoading(false);
-      setError("Please select restaurant");
+      setError("Please select branch");
       return;
     }
 
@@ -163,7 +163,7 @@ export default function KitchenPage() {
             onChange={(e) => setRestaurantId(e.target.value)}
             disabled={restaurantsLoading}
           >
-            <option value="">Select restaurant</option>
+            <option value="">Select branch</option>
             {restaurantOptions.map((restaurant) => (
               <option key={restaurant.id} value={restaurant.id}>
                 {restaurant.name}
@@ -194,7 +194,7 @@ export default function KitchenPage() {
       ) : null}
 
       {!restaurantId ? (
-        <div className="rounded-md border p-6 text-sm text-muted-foreground">Please select restaurant</div>
+        <div className="rounded-md border p-6 text-sm text-muted-foreground">Please select branch</div>
       ) : loading ? (
         <div className="text-sm text-muted-foreground">Loading kitchen orders...</div>
       ) : filteredOrders.length === 0 ? (

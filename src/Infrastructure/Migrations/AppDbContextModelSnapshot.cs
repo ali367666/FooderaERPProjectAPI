@@ -22,6 +22,45 @@ namespace Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Domain.Entities.AppRole", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("RequiresRotatingPin")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .HasDatabaseName("RoleNameIndex");
+
+                    b.HasIndex("CompanyId", "NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("IX_AspNetRoles_CompanyId_NormalizedName")
+                        .HasFilter("[CompanyId] IS NOT NULL AND [NormalizedName] IS NOT NULL");
+
+                    b.ToTable("AspNetRoles", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -96,134 +135,6 @@ namespace Infrastructure.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("AuditLogs", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Entities.BscInvoice.BscInvoiceD", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amt")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<decimal>("AmtVat")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<int?>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("BscCreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("BscInvoiceDId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("BscInvoiceMId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CoId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("DocDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("ItemId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("LastModifiedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("LastModifiedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("LineNo")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("Qty")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<decimal>("VatRate")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BscInvoiceDId")
-                        .IsUnique();
-
-                    b.HasIndex("BscInvoiceMId");
-
-                    b.ToTable("BscInvoiceDs", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Entities.BscInvoice.BscInvoiceM", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amt")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<decimal>("AmtVat")
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<int?>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("BscCreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("BscInvoiceMId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CoId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("DocDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("DocNo")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int?>("EntityId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("LastModifiedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("LastModifiedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("PurchaseSales")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BscInvoiceMId")
-                        .IsUnique();
-
-                    b.ToTable("BscInvoiceMs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.CashMovement", b =>
@@ -417,6 +328,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int?>("LogoSize")
+                        .HasColumnType("int");
+
                     b.Property<bool>("ModuleAnbar")
                         .HasColumnType("bit");
 
@@ -427,6 +341,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("ModuleFitnes")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleKompleks")
                         .HasColumnType("bit");
 
                     b.Property<bool>("ModuleMasaBolge")
@@ -447,7 +364,13 @@ namespace Infrastructure.Migrations
                     b.Property<TimeSpan?>("OpeningTime")
                         .HasColumnType("time");
 
+                    b.Property<bool>("PrintAskBeforeAutoPrint")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("PrintAutoOnPayment")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("PrintChiefCopy")
                         .HasColumnType("bit");
 
                     b.Property<bool>("PrintGroupQuantities")
@@ -456,10 +379,22 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("PrintKitchenGroupQuantities")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("PrintKitchenOnHold")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("PrintKitchenOnPayment")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("PrintKitchenShowBusinessName")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("PrintShowPreview")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("PrintTransferDocAuto")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("PrintTransferDocDouble")
                         .HasColumnType("bit");
 
                     b.Property<string>("ProductColor")
@@ -471,6 +406,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<int?>("ReceiptRestaurantNameFontSize")
                         .HasColumnType("int");
+
+                    b.Property<bool>("ReceiptShowBusinessName")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("ReceiptShowOrderNumber")
                         .HasColumnType("bit");
@@ -487,9 +425,33 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("ReceiptShowWaiterName")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("ReceiptSimpleMode")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ReceiptSimpleShowFooter")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ReceiptSimpleShowOrderNumber")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ReceiptSimpleShowPaymentMethod")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ReceiptSimpleShowTime")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ReceiptSimpleShowVat")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ReceiptSimpleShowWaiterName")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ReportLogoUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("SingleWaiterMode")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Slogan")
                         .HasMaxLength(300)
@@ -858,6 +820,9 @@ namespace Infrastructure.Migrations
                     b.Property<int>("PositionId")
                         .HasColumnType("int");
 
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("TerminationDate")
                         .HasColumnType("datetime2");
 
@@ -872,6 +837,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("DepartmentId");
 
                     b.HasIndex("PositionId");
+
+                    b.HasIndex("RestaurantId");
 
                     b.HasIndex("UserId")
                         .IsUnique()
@@ -998,6 +965,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("Brand")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("CompanyId")
                         .HasColumnType("int");
 
@@ -1066,7 +1036,10 @@ namespace Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal?>("PurchasePrice")
-                        .HasColumnType("decimal(18,4)");
+                        .HasColumnType("decimal(18,5)");
+
+                    b.Property<int?>("SetPrinterId")
+                        .HasColumnType("int");
 
                     b.Property<bool>("SkipTaxCalculation")
                         .HasColumnType("bit");
@@ -1109,6 +1082,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("MenuCategoryId");
 
                     b.HasIndex("PrinterId");
+
+                    b.HasIndex("SetPrinterId");
 
                     b.HasIndex("StockItemId");
 
@@ -1293,6 +1268,17 @@ namespace Infrastructure.Migrations
                     b.Property<int?>("CreatedByUserId")
                         .HasColumnType("int");
 
+                    b.Property<string>("DeliveryAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("DeliveryDriverEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DeliveryPhone")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<decimal>("DiscountAmount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(18,2)")
@@ -1306,6 +1292,12 @@ namespace Infrastructure.Migrations
 
                     b.Property<int?>("GuestCount")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("HoldUntilUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDelivery")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsPaid")
                         .HasColumnType("bit");
@@ -1381,6 +1373,8 @@ namespace Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CounterpartyId");
+
+                    b.HasIndex("DeliveryDriverEmployeeId");
 
                     b.HasIndex("DiscountId");
 
@@ -1596,6 +1590,9 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("IsChiefPrinter")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsPrimary")
                         .HasColumnType("bit");
@@ -1905,6 +1902,49 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("RestaurantSections", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.RestaurantSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("ModuleAnbar")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleDataSecimi")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleFitnes")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleMasaBolge")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleOtel")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModulePaket")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleQiymetSor")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleRezervasyon")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId")
+                        .IsUnique();
+
+                    b.ToTable("RestaurantSettings");
                 });
 
             modelBuilder.Entity("Domain.Entities.RestaurantTable", b =>
@@ -2452,6 +2492,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<decimal?>("SalePrice")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("Type")
                         .HasColumnType("int");
 
@@ -2907,36 +2950,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("WarehouseStockLines", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("NormalizedName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedName")
-                        .IsUnique()
-                        .HasDatabaseName("RoleNameIndex")
-                        .HasFilter("[NormalizedName] IS NOT NULL");
-
-                    b.ToTable("AspNetRoles", (string)null);
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
                     b.Property<int>("Id")
@@ -3047,17 +3060,6 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("UserId");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Domain.Entities.BscInvoice.BscInvoiceD", b =>
-                {
-                    b.HasOne("Domain.Entities.BscInvoice.BscInvoiceM", "InvoiceM")
-                        .WithMany("Lines")
-                        .HasForeignKey("BscInvoiceMId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("InvoiceM");
                 });
 
             modelBuilder.Entity("Domain.Entities.CashMovement", b =>
@@ -3188,6 +3190,12 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.Restaurant", "Restaurant")
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Domain.Entities.User", "User")
                         .WithOne()
                         .HasForeignKey("Domain.Entities.Employee", "UserId")
@@ -3198,6 +3206,8 @@ namespace Infrastructure.Migrations
                     b.Navigation("Department");
 
                     b.Navigation("Position");
+
+                    b.Navigation("Restaurant");
 
                     b.Navigation("User");
                 });
@@ -3262,6 +3272,10 @@ namespace Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("PrinterId");
 
+                    b.HasOne("Domain.Entities.Printer", "SetPrinter")
+                        .WithMany()
+                        .HasForeignKey("SetPrinterId");
+
                     b.HasOne("Domain.Entities.WarehouseAndStock.StockItem", "StockItem")
                         .WithMany()
                         .HasForeignKey("StockItemId");
@@ -3273,6 +3287,8 @@ namespace Infrastructure.Migrations
                     b.Navigation("MenuCategory");
 
                     b.Navigation("Printer");
+
+                    b.Navigation("SetPrinter");
 
                     b.Navigation("StockItem");
                 });
@@ -3339,6 +3355,11 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("CounterpartyId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Domain.Entities.Employee", "DeliveryDriverEmployee")
+                        .WithMany()
+                        .HasForeignKey("DeliveryDriverEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Domain.Entities.Discount", "Discount")
                         .WithMany()
                         .HasForeignKey("DiscountId");
@@ -3369,6 +3390,8 @@ namespace Infrastructure.Migrations
                     b.Navigation("Company");
 
                     b.Navigation("Counterparty");
+
+                    b.Navigation("DeliveryDriverEmployee");
 
                     b.Navigation("Discount");
 
@@ -3544,6 +3567,17 @@ namespace Infrastructure.Migrations
                     b.Navigation("Restaurant");
                 });
 
+            modelBuilder.Entity("Domain.Entities.RestaurantSettings", b =>
+                {
+                    b.HasOne("Domain.Entities.Restaurant", "Restaurant")
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Restaurant");
+                });
+
             modelBuilder.Entity("Domain.Entities.RestaurantTable", b =>
                 {
                     b.HasOne("Domain.Entities.Company", "Company")
@@ -3577,7 +3611,7 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", "Role")
+                    b.HasOne("Domain.Entities.AppRole", "Role")
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -3984,7 +4018,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
+                    b.HasOne("Domain.Entities.AppRole", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -4011,7 +4045,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
+                    b.HasOne("Domain.Entities.AppRole", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -4031,11 +4065,6 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("Domain.Entities.BscInvoice.BscInvoiceM", b =>
-                {
-                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Domain.Entities.Company", b =>

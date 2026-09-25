@@ -35,24 +35,27 @@ public class DeleteEmployeeCommandHandler
     {
         try
         {
-            var companyId = _currentUserService.CompanyId;
+            var isSuperAdmin = _currentUserService.IsSuperAdmin;
+            var callerCompanyId = _currentUserService.CompanyId;
 
             _logger.LogInformation(
-                "DeleteEmployeeCommand başladı. EmployeeId: {EmployeeId}, CompanyId: {CompanyId}",
+                "DeleteEmployeeCommand başladı. EmployeeId: {EmployeeId}, CallerCompanyId: {CallerCompanyId}, IsSuperAdmin: {IsSuperAdmin}",
                 request.Id,
-                companyId);
+                callerCompanyId,
+                isSuperAdmin);
 
-            var employee = await _employeeRepository.GetByIdAsync(
-                request.Id,
-                companyId,
-                cancellationToken);
+            // SuperAdmin can delete any company's employee; a tenant Admin is always confined to
+            // their own company.
+            var employee = isSuperAdmin
+                ? await _employeeRepository.GetByIdAsync(request.Id, cancellationToken)
+                : await _employeeRepository.GetByIdAsync(request.Id, callerCompanyId, cancellationToken);
 
             if (employee is null)
             {
                 _logger.LogWarning(
-                    "Employee silinmədi. Tapılmadı. EmployeeId: {EmployeeId}, CompanyId: {CompanyId}",
+                    "Employee silinmədi. Tapılmadı. EmployeeId: {EmployeeId}, CallerCompanyId: {CallerCompanyId}",
                     request.Id,
-                    companyId);
+                    callerCompanyId);
 
                 return new BaseResponse
                 {

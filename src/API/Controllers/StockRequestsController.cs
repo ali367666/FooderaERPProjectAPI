@@ -129,9 +129,9 @@ public class StockRequestsController : ControllerBase
 
     [Authorize(Policy = AppPermissions.StockRequestView)]
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] int? companyId)
     {
-        var result = await _mediator.Send(new GetAllStockRequestsQuery());
+        var result = await _mediator.Send(new GetAllStockRequestsQuery(companyId));
         return Ok(result);
     }
 

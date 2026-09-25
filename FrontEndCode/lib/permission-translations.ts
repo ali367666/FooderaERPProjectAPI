@@ -12,10 +12,10 @@ const PERMISSION_LABELS: Record<string, string> = {
   "User.Update": "İstifadəçini redaktə et",
   "User.Delete": "İstifadəçini sil",
 
-  "Restaurant.View": "Restorana bax",
-  "Restaurant.Create": "Restoran yarat",
-  "Restaurant.Update": "Restoranı redaktə et",
-  "Restaurant.Delete": "Restoranı sil",
+  "Restaurant.View": "Filiala bax",
+  "Restaurant.Create": "Filial yarat",
+  "Restaurant.Update": "Filialı redaktə et",
+  "Restaurant.Delete": "Filialı sil",
 
   "StockCategory.View": "Anbar kateqoriyalarına bax",
   "StockCategory.Create": "Anbar kateqoriyası yarat",
@@ -83,9 +83,6 @@ const PERMISSION_LABELS: Record<string, string> = {
 
   "Analytics.View": "Analitikaya bax",
 
-  "BscInvoice.View": "BSC hesab-fakturalarına bax",
-  "BscInvoice.Sync": "BSC hesab-fakturalarını sinxronlaşdır",
-
   "MenuItem.View": "Menyu məhsullarına bax",
   "MenuItem.Create": "Menyu məhsulu yarat",
   "MenuItem.Update": "Menyu məhsulunu redaktə et",
@@ -139,10 +136,10 @@ const PERMISSION_LABELS: Record<string, string> = {
   "Pos.WarehouseAmountChange": "Anbar məbləğini dəyiş",
   "Pos.PrintOldReceipt": "Köhnə qəbzi çap et",
 
-  "RestaurantSection.View": "Bölmələrə bax",
-  "RestaurantSection.Create": "Bölmə yarat",
-  "RestaurantSection.Update": "Bölməni redaktə et",
-  "RestaurantSection.Delete": "Bölməni sil",
+  "RestaurantSection.View": "Filial bölmələrinə bax",
+  "RestaurantSection.Create": "Filial bölməsi yarat",
+  "RestaurantSection.Update": "Filial bölməsini redaktə et",
+  "RestaurantSection.Delete": "Filial bölməsini sil",
 
   "Printer.View": "Printerlərə bax",
   "Printer.Create": "Printer yarat",
@@ -170,7 +167,7 @@ const MODULE_LABELS: Record<string, string> = {
   Company: "Şirkət",
   CompanySettings: "Tənzimləmələr",
   User: "İstifadəçilər",
-  Restaurant: "Restoran",
+  Restaurant: "Filial",
   StockCategory: "Anbar kateqoriyaları",
   Warehouse: "Anbarlar",
   StockItem: "Stok məhsulları",
@@ -185,7 +182,6 @@ const MODULE_LABELS: Record<string, string> = {
   Role: "Rollar",
   UserRole: "İstifadəçi rolları",
   Analytics: "Analitika",
-  BscInvoice: "BSC hesab-fakturaları",
   MenuItem: "Menyu məhsulları",
   MenuCategory: "Menyu kateqoriyaları",
   Kitchen: "Mətbəx",
@@ -194,7 +190,7 @@ const MODULE_LABELS: Record<string, string> = {
   Reservation: "Rezervasiyalar",
   Discount: "Endirimlər",
   Pos: "POS",
-  RestaurantSection: "Restoran bölmələri",
+  RestaurantSection: "Filial bölmələri",
   Printer: "Printerlər",
   Counterparty: "Kontragentlər",
   FiscalDevice: "Fiskal kassalar",

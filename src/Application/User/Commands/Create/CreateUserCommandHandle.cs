@@ -107,7 +107,7 @@ public class CreateUserCommandHandler
                     "User yaradılmadı. WorkplaceType Restaurant olduqda RestaurantId göndərilməyib. EmployeeId: {EmployeeId}",
                     dto.EmployeeId);
 
-                throw new Exception("Restaurant seçilməlidir.");
+                throw new Exception("Filial seçilməlidir.");
             }
 
             var restaurant = await _restaurantRepository.GetByIdAsync(
@@ -121,7 +121,7 @@ public class CreateUserCommandHandler
                     dto.RestaurantId.Value,
                     currentCompanyId);
 
-                throw new Exception("Restaurant tapılmadı.");
+                throw new Exception("Filial tapılmadı.");
             }
         }
 

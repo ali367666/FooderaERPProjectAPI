@@ -9,10 +9,14 @@ public class GetCompanySettingsBrandingQueryHandler
     : IRequestHandler<GetCompanySettingsBrandingQuery, BaseResponse<CompanySettingsBrandingResponse>>
 {
     private readonly ICompanySettingsRepository _repository;
+    private readonly IRestaurantSettingsRepository _restaurantSettingsRepository;
 
-    public GetCompanySettingsBrandingQueryHandler(ICompanySettingsRepository repository)
+    public GetCompanySettingsBrandingQueryHandler(
+        ICompanySettingsRepository repository,
+        IRestaurantSettingsRepository restaurantSettingsRepository)
     {
         _repository = repository;
+        _restaurantSettingsRepository = restaurantSettingsRepository;
     }
 
     public async Task<BaseResponse<CompanySettingsBrandingResponse>> Handle(
@@ -40,6 +44,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 LoginLocation = settings.LoginLocation,
                 TransparencyLevel = settings.TransparencyLevel,
                 FloorLabel = settings.FloorLabel,
+                LogoSize = settings.LogoSize,
                 SocialLinks = settings.SocialLinks,
                 Slogan = settings.Slogan,
                 ProductColor = settings.ProductColor,
@@ -62,6 +67,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 ModuleFitnes = settings.ModuleFitnes,
                 ModuleDataSecimi = settings.ModuleDataSecimi,
                 ModuleQiymetSor = settings.ModuleQiymetSor,
+                ModuleKompleks = settings.ModuleKompleks,
                 PrintAutoOnPayment = settings.PrintAutoOnPayment,
                 PrintKitchenOnPayment = settings.PrintKitchenOnPayment,
                 PrintShowPreview = settings.PrintShowPreview,
@@ -72,9 +78,44 @@ public class GetCompanySettingsBrandingQueryHandler
                 ReceiptShowTableName = settings.ReceiptShowTableName,
                 ReceiptShowOrderNumber = settings.ReceiptShowOrderNumber,
                 ReceiptShowPaymentMethod = settings.ReceiptShowPaymentMethod,
+                PrintAskBeforeAutoPrint = settings.PrintAskBeforeAutoPrint,
+                ReceiptSimpleMode = settings.ReceiptSimpleMode,
+                ReceiptSimpleShowOrderNumber = settings.ReceiptSimpleShowOrderNumber,
+                ReceiptSimpleShowWaiterName = settings.ReceiptSimpleShowWaiterName,
+                ReceiptSimpleShowTime = settings.ReceiptSimpleShowTime,
+                ReceiptSimpleShowPaymentMethod = settings.ReceiptSimpleShowPaymentMethod,
+                ReceiptSimpleShowVat = settings.ReceiptSimpleShowVat,
+                ReceiptSimpleShowFooter = settings.ReceiptSimpleShowFooter,
+                PrintKitchenShowBusinessName = settings.PrintKitchenShowBusinessName,
+                ReceiptShowBusinessName = settings.ReceiptShowBusinessName,
+                PrintKitchenOnHold = settings.PrintKitchenOnHold,
+                PrintTransferDocAuto = settings.PrintTransferDocAuto,
+                PrintTransferDocDouble = settings.PrintTransferDocDouble,
+                PrintChiefCopy = settings.PrintChiefCopy,
                 AskGuestCountOnOpen = settings.AskGuestCountOnOpen,
+                SingleWaiterMode = settings.SingleWaiterMode,
                 DefaultVatPercent = settings.DefaultVatPercent
             };
+
+        // İstirahət Kompleksi rejimində, hər Filialın öz modul dəsti Company-nin ümumisinin üzərinə
+        // yazılır (ModuleFilial istisna — o, Company səviyyəsində qalır).
+        if (response.ModuleKompleks && request.RestaurantId is > 0)
+        {
+            var branchSettings = await _restaurantSettingsRepository.GetByRestaurantIdAsync(
+                request.RestaurantId.Value, cancellationToken);
+
+            if (branchSettings is not null)
+            {
+                response.ModuleAnbar = branchSettings.ModuleAnbar;
+                response.ModuleRezervasyon = branchSettings.ModuleRezervasyon;
+                response.ModuleMasaBolge = branchSettings.ModuleMasaBolge;
+                response.ModulePaket = branchSettings.ModulePaket;
+                response.ModuleOtel = branchSettings.ModuleOtel;
+                response.ModuleFitnes = branchSettings.ModuleFitnes;
+                response.ModuleDataSecimi = branchSettings.ModuleDataSecimi;
+                response.ModuleQiymetSor = branchSettings.ModuleQiymetSor;
+            }
+        }
 
         return BaseResponse<CompanySettingsBrandingResponse>.Ok(response);
     }

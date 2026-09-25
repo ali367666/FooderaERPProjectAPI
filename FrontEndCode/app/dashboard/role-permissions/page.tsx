@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { getRoles, type AppRole } from "@/lib/services/role-service";
+import { getRoles, getRolesForAllCompanies, type AppRole } from "@/lib/services/role-service";
+import { useSelectedCompany } from "@/contexts/selected-company-context";
 import {
   getPermissions,
   getRolePermissionIds,
@@ -15,6 +16,7 @@ import { toApiFormError } from "@/lib/api-error";
 import { translatePermissionLabel, translateModuleLabel } from "@/lib/permission-translations";
 
 export default function RolePermissionsPage() {
+  const { companies, selectedCompanyId } = useSelectedCompany();
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [permissions, setPermissions] = useState<PermissionDto[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
@@ -26,18 +28,26 @@ export default function RolePermissionsPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [roleRows, permissionRows] = await Promise.all([getRoles(), getPermissions()]);
+      // "All Companies" (no scope selected) means literally that for a cross-company viewer — load
+      // every company's roles, not just the caller's own.
+      const ids = companies.map((c) => c.id);
+      const rolesPromise =
+        selectedCompanyId != null
+          ? getRoles(selectedCompanyId)
+          : ids.length > 0
+            ? getRolesForAllCompanies(ids)
+            : getRoles();
+      const [roleRows, permissionRows] = await Promise.all([rolesPromise, getPermissions()]);
       setRoles(roleRows);
       setPermissions(permissionRows);
-      if (roleRows.length > 0 && !selectedRoleId) {
-        setSelectedRoleId(roleRows[0].id);
-      }
+      setSelectedRoleId(roleRows.some((r) => r.id === selectedRoleId) ? selectedRoleId : (roleRows[0]?.id ?? null));
     } catch (e) {
       toast.error(toApiFormError(e, "Səhifə yüklənə bilmədi").message);
     } finally {
       setLoading(false);
     }
-  }, [selectedRoleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCompanyId, companies]);
 
   const loadRolePermissions = useCallback(async () => {
     if (!selectedRoleId) {

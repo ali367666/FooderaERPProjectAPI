@@ -88,15 +88,25 @@ export type OrderDto = {
   tableRentalStartedAt: string | null;
   tableRentalStoppedAt: string | null;
   tableRentalAmount: number | null;
+  holdUntilUtc: string | null;
+  isDelivery: boolean;
+  deliveryAddress: string | null;
+  deliveryPhone: string | null;
+  deliveryDriverEmployeeId: number | null;
+  deliveryDriverName: string | null;
   lines: OrderLineDto[];
 };
 
 export type CreateOrderPayload = {
   restaurantId: number;
-  tableId: number;
+  /** Required unless isDelivery is true — the backend auto-creates a dedicated virtual table then. */
+  tableId?: number;
   waiterId: number;
   note?: string | null;
   guestCount?: number | null;
+  isDelivery?: boolean;
+  deliveryAddress?: string | null;
+  deliveryPhone?: string | null;
 };
 
 export type AddOrderLinePayload = {
@@ -283,6 +293,15 @@ function normalizeOrder(raw: unknown): OrderDto | null {
       const v = pick<number | null>(o, "tableRentalAmount", "TableRentalAmount");
       return v == null ? null : Number(v);
     })(),
+    holdUntilUtc: (pick(o, "holdUntilUtc", "HoldUntilUtc") as string | null | undefined) ?? null,
+    isDelivery: Boolean(pick(o, "isDelivery", "IsDelivery") ?? false),
+    deliveryAddress: (pick(o, "deliveryAddress", "DeliveryAddress") as string | null | undefined) ?? null,
+    deliveryPhone: (pick(o, "deliveryPhone", "DeliveryPhone") as string | null | undefined) ?? null,
+    deliveryDriverEmployeeId: (() => {
+      const v = pick<number | null>(o, "deliveryDriverEmployeeId", "DeliveryDriverEmployeeId");
+      return v == null ? null : Number(v);
+    })(),
+    deliveryDriverName: (pick(o, "deliveryDriverName", "DeliveryDriverName") as string | null | undefined) ?? null,
     lines,
   };
 }
@@ -352,10 +371,13 @@ export async function createOrder(payload: CreateOrderPayload): Promise<OrderDto
   try {
     const response = await api.post<unknown>("/Orders", {
       restaurantId: payload.restaurantId,
-      tableId: payload.tableId,
+      tableId: payload.tableId ?? null,
       waiterId: payload.waiterId,
       note: payload.note ?? null,
       guestCount: payload.guestCount ?? null,
+      isDelivery: payload.isDelivery ?? false,
+      deliveryAddress: payload.deliveryAddress ?? null,
+      deliveryPhone: payload.deliveryPhone ?? null,
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
@@ -481,6 +503,36 @@ export async function setOrderLineHold(id: number, holdMinutes: number | null): 
     return row;
   } catch (error) {
     throw toApiFormError(error, "Failed to set hold");
+  }
+}
+
+/** Parks or releases the WHOLE order — distinct from setOrderLineHold, which holds one line. */
+export async function setOrderHold(id: number, hold: boolean): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/${id}/hold`, null, {
+      params: { hold },
+    });
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid set order hold response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to set order hold");
+  }
+}
+
+/** Assigns (driverEmployeeId) or clears (null) the courier for a delivery order. */
+export async function setOrderDeliveryDriver(id: number, driverEmployeeId: number | null): Promise<OrderDto> {
+  try {
+    const response = await api.put<unknown>(`/Orders/${id}/delivery-driver`, null, {
+      params: driverEmployeeId != null ? { driverEmployeeId } : {},
+    });
+    assertApiSuccess(response.data);
+    const row = normalizeOrder(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid set delivery driver response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to set delivery driver");
   }
 }
 

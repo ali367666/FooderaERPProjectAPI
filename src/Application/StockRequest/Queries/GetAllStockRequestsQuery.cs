@@ -4,5 +4,5 @@ using MediatR;
 
 namespace Application.StockRequests.Queries.GetAll;
 
-public record GetAllStockRequestsQuery()
+public record GetAllStockRequestsQuery(int? CompanyId = null)
     : IRequest<BaseResponse<List<StockRequestResponse>>>;

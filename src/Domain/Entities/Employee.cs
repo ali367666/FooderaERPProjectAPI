@@ -23,6 +23,9 @@ public class Employee : CompanyEntity<int>
     public int PositionId { get; set; }
     public Position Position { get; set; } = default!;
 
+    public int RestaurantId { get; set; }
+    public Restaurant Restaurant { get; set; } = default!;
+
     public int? UserId { get; set; }
     public User? User { get; set; }
 }

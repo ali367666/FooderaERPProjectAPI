@@ -16,27 +16,31 @@ public class CompanySettingsController(IMediator mediator) : BaseController(medi
 {
     [Authorize(Policy = AppPermissions.CompanySettingsView)]
     [HttpGet]
-    public async Task<IActionResult> Get(CancellationToken cancellationToken)
+    public async Task<IActionResult> Get([FromQuery] int? companyId, CancellationToken cancellationToken)
     {
-        var response = await Mediator.Send(new GetCompanySettingsQuery(), cancellationToken);
+        var response = await Mediator.Send(new GetCompanySettingsQuery(companyId), cancellationToken);
         return response.Success ? Ok(response) : BadRequest(response);
     }
 
     [AllowAnonymous]
     [HttpGet("branding")]
-    public async Task<IActionResult> GetBranding([FromQuery] int companyId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetBranding(
+        [FromQuery] int companyId,
+        [FromQuery] int? restaurantId,
+        CancellationToken cancellationToken)
     {
-        var response = await Mediator.Send(new GetCompanySettingsBrandingQuery(companyId), cancellationToken);
+        var response = await Mediator.Send(new GetCompanySettingsBrandingQuery(companyId, restaurantId), cancellationToken);
         return response.Success ? Ok(response) : BadRequest(response);
     }
 
     [Authorize(Policy = AppPermissions.CompanySettingsUpdate)]
     [HttpPut]
     public async Task<IActionResult> Update(
+        [FromQuery] int? companyId,
         [FromBody] UpdateCompanySettingsRequest request,
         CancellationToken cancellationToken)
     {
-        var response = await Mediator.Send(new UpdateCompanySettingsCommand(request), cancellationToken);
+        var response = await Mediator.Send(new UpdateCompanySettingsCommand(request, companyId), cancellationToken);
         return response.Success ? Ok(response) : BadRequest(response);
     }
 

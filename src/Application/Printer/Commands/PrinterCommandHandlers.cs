@@ -45,6 +45,16 @@ public class CreatePrinterCommandHandler : IRequestHandler<CreatePrinterCommand,
             }
         }
 
+        if (dto.IsChiefPrinter)
+        {
+            var currentChief = await _repository.GetChiefAsync(companyId, dto.RestaurantId, null, cancellationToken);
+            if (currentChief is not null)
+            {
+                currentChief.IsChiefPrinter = false;
+                _repository.Update(currentChief);
+            }
+        }
+
         var printer = new Domain.Entities.Printer
         {
             CompanyId = companyId,
@@ -54,7 +64,8 @@ public class CreatePrinterCommandHandler : IRequestHandler<CreatePrinterCommand,
             IpAddress = dto.IpAddress.Trim(),
             Port = dto.Port,
             IsActive = dto.IsActive,
-            IsPrimary = dto.IsPrimary
+            IsPrimary = dto.IsPrimary,
+            IsChiefPrinter = dto.IsChiefPrinter
         };
 
         await _repository.AddAsync(printer, cancellationToken);
@@ -74,7 +85,8 @@ public class CreatePrinterCommandHandler : IRequestHandler<CreatePrinterCommand,
         IpAddress = p.IpAddress,
         Port = p.Port,
         IsActive = p.IsActive,
-        IsPrimary = p.IsPrimary
+        IsPrimary = p.IsPrimary,
+        IsChiefPrinter = p.IsChiefPrinter
     };
 }
 
@@ -121,12 +133,23 @@ public class UpdatePrinterCommandHandler : IRequestHandler<UpdatePrinterCommand,
             }
         }
 
+        if (dto.IsChiefPrinter && !printer.IsChiefPrinter)
+        {
+            var currentChief = await _repository.GetChiefAsync(companyId, printer.RestaurantId, printer.Id, cancellationToken);
+            if (currentChief is not null)
+            {
+                currentChief.IsChiefPrinter = false;
+                _repository.Update(currentChief);
+            }
+        }
+
         printer.Name = name;
         printer.StationTypeId = stationType.Id;
         printer.IpAddress = dto.IpAddress.Trim();
         printer.Port = dto.Port;
         printer.IsActive = dto.IsActive;
         printer.IsPrimary = dto.IsPrimary;
+        printer.IsChiefPrinter = dto.IsChiefPrinter;
 
         _repository.Update(printer);
         await _repository.SaveChangesAsync(cancellationToken);

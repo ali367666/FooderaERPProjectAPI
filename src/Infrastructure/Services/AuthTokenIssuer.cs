@@ -3,6 +3,7 @@ using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Application.Common.Interfaces.Abstracts.Services;
 using Domain.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services;
@@ -10,13 +11,13 @@ namespace Infrastructure.Services;
 public class AuthTokenIssuer : IAuthTokenIssuer
 {
     private readonly UserManager<User> _userManager;
-    private readonly RoleManager<IdentityRole<int>> _roleManager;
+    private readonly RoleManager<AppRole> _roleManager;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ILogger<AuthTokenIssuer> _logger;
 
     public AuthTokenIssuer(
         UserManager<User> userManager,
-        RoleManager<IdentityRole<int>> roleManager,
+        RoleManager<AppRole> roleManager,
         IJwtTokenService jwtTokenService,
         ILogger<AuthTokenIssuer> logger)
     {
@@ -38,12 +39,18 @@ public class AuthTokenIssuer : IAuthTokenIssuer
 
         var roles = await _userManager.GetRolesAsync(user);
         _logger.LogInformation("Token roles for user {UserId}: {Roles}", user.Id, string.Join(", ", roles));
-        foreach (var roleName in roles)
-        {
-            var role = await _roleManager.FindByNameAsync(roleName);
-            if (role is null)
-                continue;
 
+        // Role names are only unique WITHIN a company (or globally, for the null-CompanyId
+        // SuperAdmin/template roles) — a plain FindByNameAsync would match an arbitrary
+        // same-named role from a different tenant, leaking that tenant's permissions.
+        var normalizedNames = roles.Select(r => r.ToUpperInvariant()).ToList();
+        var candidateRoles = await _roleManager.Roles
+            .Where(r => normalizedNames.Contains(r.NormalizedName!)
+                && (r.CompanyId == user.CompanyId || r.CompanyId == null))
+            .ToListAsync();
+
+        foreach (var role in candidateRoles)
+        {
             var roleClaims = await _roleManager.GetClaimsAsync(role);
             foreach (var claim in roleClaims.Where(x => x.Type == "Permission"))
             {

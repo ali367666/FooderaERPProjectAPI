@@ -94,7 +94,7 @@ public class CreateWarehouseCommandHandler
                     "CreateWarehouseCommand failed. Restaurant not found. RestaurantId: {RestaurantId}",
                     dto.RestaurantId);
 
-                return BaseResponse<WarehouseResponse>.Fail("Restaurant not found.");
+                return BaseResponse<WarehouseResponse>.Fail("Branch not found.");
             }
         }
 

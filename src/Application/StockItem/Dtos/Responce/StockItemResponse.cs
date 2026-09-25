@@ -16,4 +16,5 @@ public class StockItemResponse
     public int CompanyId { get; set; }
     public int? RestaurantId { get; set; }
     public string? RestaurantName { get; set; }
+    public decimal? SalePrice { get; set; }
 }
