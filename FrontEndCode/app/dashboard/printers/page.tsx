@@ -45,6 +45,7 @@ type PrinterRow = {
   address: string;
   isActive: boolean;
   isPrimary: boolean;
+  isChiefPrinter: boolean;
 };
 
 export default function PrintersPage() {
@@ -71,6 +72,7 @@ export default function PrintersPage() {
   const [port, setPort] = useState("9100");
   const [isActive, setIsActive] = useState(true);
   const [isPrimary, setIsPrimary] = useState(false);
+  const [isChiefPrinter, setIsChiefPrinter] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -192,6 +194,7 @@ export default function PrintersPage() {
     setPort("9100");
     setIsActive(true);
     setIsPrimary(false);
+    setIsChiefPrinter(false);
   };
 
   const handleAdd = () => {
@@ -209,6 +212,7 @@ export default function PrintersPage() {
     setPort(String(target.port));
     setIsActive(target.isActive);
     setIsPrimary(target.isPrimary);
+    setIsChiefPrinter(target.isChiefPrinter);
     setDialogOpen(true);
   };
 
@@ -260,7 +264,7 @@ export default function PrintersPage() {
     }
     setSaving(true);
     try {
-      const payload = { restaurantId: rid, name: name.trim(), stationTypeId: stationId, ipAddress: ipAddress.trim(), port: portNum, isActive, isPrimary };
+      const payload = { restaurantId: rid, name: name.trim(), stationTypeId: stationId, ipAddress: ipAddress.trim(), port: portNum, isActive, isPrimary, isChiefPrinter };
       if (editingId == null) {
         await createPrinter(payload);
         toast.success("Printer əlavə edildi.");
@@ -288,6 +292,7 @@ export default function PrintersPage() {
         address: `${p.ipAddress}:${p.port}`,
         isActive: p.isActive,
         isPrimary: p.isPrimary,
+        isChiefPrinter: p.isChiefPrinter,
       })),
     [printers],
   );
@@ -302,6 +307,9 @@ export default function PrintersPage() {
           {v}
           {row.isPrimary && (
             <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Əsas</Badge>
+          )}
+          {row.isChiefPrinter && (
+            <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100">Şef</Badge>
           )}
         </span>
       ),
@@ -489,6 +497,12 @@ export default function PrintersPage() {
                 <Checkbox id="pr-primary" checked={isPrimary} onCheckedChange={(v) => setIsPrimary(v === true)} />
                 <Label htmlFor="pr-primary" className="text-sm font-normal">
                   Əsas (Kassa) printer — sifariş ekranında ilk sırada göstərilir və avtomatik çapda istifadə olunur
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox id="pr-chief" checked={isChiefPrinter} onCheckedChange={(v) => setIsChiefPrinter(v === true)} />
+                <Label htmlFor="pr-chief" className="text-sm font-normal">
+                  Şef printeri (ChiefPrint) — "ChiefPrint" ayarı aktivdirsə, bütün mətbəx çeklərinin nüsxəsi bu printerə çıxır
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground">

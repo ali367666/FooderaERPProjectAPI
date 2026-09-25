@@ -38,6 +38,7 @@ type RoleRow = {
   roleId: number;
   name: string;
   companyName: string;
+  requiresRotatingPin: boolean;
 };
 
 function friendlyError(err: unknown, fallback: string): string {
@@ -56,6 +57,7 @@ export default function RolesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [formCompanyId, setFormCompanyId] = useState("");
+  const [requiresRotatingPin, setRequiresRotatingPin] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const [permissions, setPermissions] = useState<PermissionDto[]>([]);
@@ -118,6 +120,7 @@ export default function RolesPage() {
     setEditingId(null);
     setName("");
     setFormCompanyId(defaultFormCompanyId(companies, selectedCompanyId));
+    setRequiresRotatingPin(false);
     setFieldErrors({});
     setSelectedPermissionIds(new Set());
   };
@@ -134,6 +137,7 @@ export default function RolesPage() {
         roleId: r.id,
         name: r.name,
         companyName: r.companyId != null ? companyNameById.get(r.companyId) || `#${r.companyId}` : "-",
+        requiresRotatingPin: r.requiresRotatingPin,
       })),
     [list, companyNameById],
   );
@@ -174,6 +178,11 @@ export default function RolesPage() {
     { key: "roleId" as const, label: "ID" },
     { key: "name" as const, label: "Role name" },
     { key: "companyName" as const, label: "Company" },
+    {
+      key: "requiresRotatingPin" as const,
+      label: "Gündəlik kod",
+      render: (value: boolean) => (value ? "Bəli" : "Xeyr"),
+    },
   ];
 
   const handleAdd = () => {
@@ -187,6 +196,7 @@ export default function RolesPage() {
     setEditingId(r.id);
     setName(r.name);
     setFormCompanyId(r.companyId != null ? String(r.companyId) : "");
+    setRequiresRotatingPin(r.requiresRotatingPin);
     setFieldErrors({});
     setDialogOpen(true);
     setPermissionsLoading(true);
@@ -227,10 +237,10 @@ export default function RolesPage() {
     try {
       let roleId = editingId;
       if (roleId == null) {
-        roleId = await createRole(trimmed, parsedCompanyId);
+        roleId = await createRole(trimmed, parsedCompanyId, requiresRotatingPin);
         toast.success("Rol yaradıldı.");
       } else {
-        await updateRole(roleId, trimmed);
+        await updateRole(roleId, trimmed, requiresRotatingPin);
         toast.success("Rol yeniləndi.");
       }
       await updateRolePermissions(roleId, Array.from(selectedPermissionIds));
@@ -333,6 +343,21 @@ export default function RolesPage() {
               )}
             </div>
           )}
+
+          <div className="mt-4">
+            <label className="flex items-center gap-2 text-sm font-normal">
+              <Checkbox
+                checked={requiresRotatingPin}
+                onCheckedChange={(v) => setRequiresRotatingPin(Boolean(v))}
+              />
+              Gündəlik dəyişən kod tələb olunsun
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Açılsa, bu rola aid işçilər POS-a daxil olarkən 8 rəqəmli kod yazmalıdır (ilk 4-ü həmin günün
+              tarixinə görə avtomatik dəyişir, son 4-ü öz sabit kodudur). Bağlı qalarsa, sabit 4 rəqəmli kod
+              kifayətdir.
+            </p>
+          </div>
 
           <div className="mt-4">
             <Label>Səlahiyyətlər</Label>

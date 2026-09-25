@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +56,7 @@ const DEFAULTS: CompanySettingsInput = {
   transparencyLevel: null,
   productColor: null,
   floorLabel: null,
+  logoSize: null,
   slogan: null,
   socialLinks: null,
   contactPhoneNumber: null,
@@ -74,7 +75,22 @@ const DEFAULTS: CompanySettingsInput = {
   receiptShowTableName: true,
   receiptShowOrderNumber: true,
   receiptShowPaymentMethod: true,
+  printAskBeforeAutoPrint: false,
+  receiptSimpleMode: false,
+  receiptSimpleShowOrderNumber: false,
+  receiptSimpleShowWaiterName: false,
+  receiptSimpleShowTime: false,
+  receiptSimpleShowPaymentMethod: false,
+  receiptSimpleShowVat: false,
+  receiptSimpleShowFooter: false,
+  printKitchenShowBusinessName: true,
+  receiptShowBusinessName: true,
+  printKitchenOnHold: false,
+  printTransferDocAuto: false,
+  printTransferDocDouble: false,
+  printChiefCopy: false,
   askGuestCountOnOpen: false,
+  singleWaiterMode: false,
   defaultVatPercent: null,
 };
 
@@ -84,6 +100,14 @@ const PRINT_TOGGLE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: strin
   { key: "printShowPreview", label: "Çapdan əvvəl önizləmə göstər" },
   { key: "printGroupQuantities", label: "Qəbzdə eyni məhsulun miqdarını qruplaşdır" },
   { key: "printKitchenGroupQuantities", label: "Mətbəx qəbzində eyni məhsulun miqdarını qruplaşdır" },
+  { key: "printAskBeforeAutoPrint", label: "Avtomatik çapdan əvvəl təsdiq soruş" },
+  { key: "printKitchenShowBusinessName", label: "Mətbəx çapında biznes adı" },
+  { key: "receiptShowBusinessName", label: "Adisyonda (müştəri qəbzində) biznes adı" },
+  { key: "printKitchenOnHold", label: "Gözlətmədə mətbəx çapı (sifariş gözləmədə olsa da mətbəxə göndərilsin)" },
+  { key: "printTransferDocAuto", label: "Köçürmə sənədi avtomatik (masa köçürüləndə mətbəxə çap)" },
+  { key: "printTransferDocDouble", label: "Köçürmə sənədinin ikili çapı" },
+  { key: "printChiefCopy", label: "ChiefPrint (mətbəx çeklərinin nüsxəsi şef printerinə)" },
+  { key: "receiptSimpleMode", label: "Sadə qəbz rejimi aktiv olsun" },
 ];
 
 const RECEIPT_FIELD_TOGGLES: Array<{ key: keyof CompanySettingsInput; label: string }> = [
@@ -94,12 +118,23 @@ const RECEIPT_FIELD_TOGGLES: Array<{ key: keyof CompanySettingsInput; label: str
   { key: "receiptShowPaymentMethod", label: "Ödəniş üsulu" },
 ];
 
+const RECEIPT_SIMPLE_FIELD_TOGGLES: Array<{ key: keyof CompanySettingsInput; label: string }> = [
+  { key: "receiptSimpleShowTime", label: "Vaxt" },
+  { key: "receiptSimpleShowWaiterName", label: "Ofisiant adı" },
+  { key: "receiptSimpleShowOrderNumber", label: "Sifariş nömrəsi" },
+  { key: "receiptSimpleShowPaymentMethod", label: "Ödəniş üsulu" },
+  { key: "receiptSimpleShowVat", label: "ƏDV sətri" },
+  { key: "receiptSimpleShowFooter", label: "Slogan / əlaqə / sosial media" },
+];
+
 export default function SettingsPage() {
   const { selectedCompanyId } = useSelectedCompany();
   const [form, setForm] = useState<CompanySettingsInput>(DEFAULTS);
+  const [savedForm, setSavedForm] = useState<CompanySettingsInput>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingField, setConfirmingField] = useState<keyof CompanySettingsInput | null>(null);
   const [uploadingField, setUploadingField] = useState<keyof CompanySettingsInput | null>(null);
 
   useEffect(() => {
@@ -110,6 +145,7 @@ export default function SettingsPage() {
         // settings — a tenant Admin always gets their own regardless (backend enforces this too).
         const settings = await getCompanySettings(selectedCompanyId ?? undefined);
         setForm(settings);
+        setSavedForm(settings);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Tənzimləmələr yüklənə bilmədi");
       } finally {
@@ -172,6 +208,7 @@ export default function SettingsPage() {
     try {
       const updated = await updateCompanySettings(form, selectedCompanyId ?? undefined);
       setForm(updated);
+      setSavedForm(updated);
       toast.success("Tənzimləmələr saxlanıldı.");
     } catch (err) {
       if (err instanceof ApiFormError) {
@@ -183,6 +220,65 @@ export default function SettingsPage() {
       setSaving(false);
     }
   };
+
+  // Login Logo/Rapor Logo/Divar kağızı/Login mövqeyi/Şəffaflıq/Məhsul rəngi/Mərtəbə/Logo ölçüsü each
+  // get their own confirm/cancel affordance instead of relying on the page-wide "Yadda saxla" button.
+  // The backend only exposes a whole-object update, so "confirm" on one field submits every currently
+  // pending change — but "cancel" reverts only that one field, leaving other pending edits untouched.
+  const isFieldDirty = (key: keyof CompanySettingsInput) => form[key] !== savedForm[key];
+
+  const confirmField = async (key: keyof CompanySettingsInput) => {
+    setConfirmingField(key);
+    setError(null);
+    try {
+      const updated = await updateCompanySettings(form, selectedCompanyId ?? undefined);
+      setForm(updated);
+      setSavedForm(updated);
+      toast.success("Dəyişiklik təsdiqləndi.");
+    } catch (err) {
+      if (err instanceof ApiFormError) {
+        toast.error(err.message);
+      } else {
+        toast.error(err instanceof Error ? err.message : "Təsdiqlənmədi");
+      }
+    } finally {
+      setConfirmingField(null);
+    }
+  };
+
+  const cancelField = (key: keyof CompanySettingsInput) => {
+    setForm((prev) => ({ ...prev, [key]: savedForm[key] }));
+  };
+
+  const confirmableField = (key: keyof CompanySettingsInput, control: ReactNode) => (
+    <div>
+      {control}
+      {isFieldDirty(key) && (
+        <div className="mt-1.5 flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            disabled={confirmingField === key}
+            onClick={() => void confirmField(key)}
+          >
+            {confirmingField === key ? "Təsdiqlənir…" : "Təsdiq et"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            disabled={confirmingField === key}
+            onClick={() => cancelField(key)}
+          >
+            İmtina et
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 
   if (loading) {
     return <div className="p-6 text-sm text-muted-foreground">Yüklənir...</div>;
@@ -254,34 +350,46 @@ export default function SettingsPage() {
       <section className="space-y-4 rounded-xl border bg-card p-6">
         <h2 className="text-lg font-semibold">Qəbz tənzimləmələri</h2>
 
+        <p className="text-xs text-muted-foreground">
+          Bu bölmədəki hər sahə öz təsdiq/imtina düymələri ilə ayrıca saxlanılır — dəyişiklik edən kimi aşağıda
+          "Təsdiq et" / "İmtina et" görünəcək.
+        </p>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label>Login loqo</Label>
-            <div className="mt-1">{imageField("loginLogoUrl", form.loginLogoUrl)}</div>
+            {confirmableField("loginLogoUrl", <div className="mt-1">{imageField("loginLogoUrl", form.loginLogoUrl)}</div>)}
           </div>
           <div>
             <Label>Rapor loqo</Label>
-            <div className="mt-1">{imageField("reportLogoUrl", form.reportLogoUrl)}</div>
+            {confirmableField("reportLogoUrl", <div className="mt-1">{imageField("reportLogoUrl", form.reportLogoUrl)}</div>)}
           </div>
           <div>
             <Label>Divar kağızı</Label>
-            <div className="mt-1">{imageField("wallpaperUrl", form.wallpaperUrl)}</div>
+            {confirmableField("wallpaperUrl", <div className="mt-1">{imageField("wallpaperUrl", form.wallpaperUrl)}</div>)}
           </div>
           <div>
             <Label>Login mövqeyi</Label>
-            <div className="mt-1">{textField("loginLocation", form.loginLocation)}</div>
+            {confirmableField("loginLocation", <div className="mt-1">{textField("loginLocation", form.loginLocation)}</div>)}
           </div>
           <div>
             <Label>Şəffaflıq səviyyəsi (0-100)</Label>
-            <div className="mt-1">{numberField("transparencyLevel", form.transparencyLevel)}</div>
+            {confirmableField(
+              "transparencyLevel",
+              <div className="mt-1">{numberField("transparencyLevel", form.transparencyLevel)}</div>,
+            )}
           </div>
           <div>
             <Label>Məhsul rəngi (hex)</Label>
-            <div className="mt-1">{textField("productColor", form.productColor)}</div>
+            {confirmableField("productColor", <div className="mt-1">{textField("productColor", form.productColor)}</div>)}
           </div>
           <div>
             <Label>Mərtəbə</Label>
-            <div className="mt-1">{textField("floorLabel", form.floorLabel)}</div>
+            {confirmableField("floorLabel", <div className="mt-1">{textField("floorLabel", form.floorLabel)}</div>)}
+          </div>
+          <div>
+            <Label>Logo ölçüsü (px)</Label>
+            {confirmableField("logoSize", <div className="mt-1">{numberField("logoSize", form.logoSize)}</div>)}
           </div>
           <div className="sm:col-span-2">
             <Label>Slogan</Label>
@@ -355,6 +463,29 @@ export default function SettingsPage() {
         </div>
 
         <div>
+          <Label className="mb-2 block">Sadə qəbzdə görünsün</Label>
+          <p className="mb-2 text-xs text-muted-foreground">
+            "Sadə qəbz rejimi" aktiv olanda qəbzdə restoran adı, məhsullar və cəm həmişə görünür — aşağıdakılardan
+            hansını əlavə olaraq göstərmək istəyirsinizsə seçin (bunlar adi qəbzdəki seçimlərdən tamamilə
+            asılı deyil, ayrıca tənzimlənir).
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {RECEIPT_SIMPLE_FIELD_TOGGLES.map((f) => (
+              <div key={f.key} className="flex items-center gap-2">
+                <Checkbox
+                  id={f.key}
+                  checked={Boolean(form[f.key])}
+                  onCheckedChange={(v) => update(f.key, (v === true) as never)}
+                />
+                <Label htmlFor={f.key} className="text-sm font-normal">
+                  {f.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
           <Label className="mb-2 block">Qəbzdə görünsün</Label>
           <p className="mb-2 text-xs text-muted-foreground">
             Bu sahələrdən hansını müştəri qəbzində göstərmək istəmirsinizsə, işarəni götürün.
@@ -388,6 +519,22 @@ export default function SettingsPage() {
           <Label htmlFor="askGuestCountOnOpen" className="text-sm font-normal">
             Masa açılanda qonaq (kişi) sayını soruş
           </Label>
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="singleWaiterMode"
+              checked={form.singleWaiterMode}
+              onCheckedChange={(v) => update("singleWaiterMode", v === true)}
+            />
+            <Label htmlFor="singleWaiterMode" className="text-sm font-normal">
+              Tək ofisiant rejimi
+            </Label>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Açıqsa, bir masanı yalnız onu açan ofisiant görə/redaktə edə bilər — "bütün masaları gör" icazəsi olan
+            menecer də daxil, heç kim başqasının masasına müdaxilə edə bilməz.
+          </p>
         </div>
       </section>
 

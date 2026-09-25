@@ -82,6 +82,7 @@ export default function StockItemsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [barcode, setBarcode] = useState("");
+  const [salePrice, setSalePrice] = useState("");
   const [type, setType] = useState<string>(String(StockItemType.RawMaterial));
   const [unit, setUnit] = useState<string>(String(UnitOfMeasure.Piece));
   const [categoryId, setCategoryId] = useState("");
@@ -268,6 +269,7 @@ export default function StockItemsPage() {
   const resetForm = () => {
     setName("");
     setBarcode("");
+    setSalePrice("");
     setType(String(StockItemType.RawMaterial));
     setUnit(String(UnitOfMeasure.Piece));
     setCategoryId("");
@@ -290,6 +292,7 @@ export default function StockItemsPage() {
       setEditingId(item.id);
       setName(item.name);
       setBarcode(item.barcode || "");
+      setSalePrice(item.salePrice != null ? String(item.salePrice) : "");
       setType(String(item.type));
       setUnit(String(item.unit));
       setCategoryId(String(item.categoryId));
@@ -345,6 +348,7 @@ export default function StockItemsPage() {
       categoryId: cat,
       companyId: comp,
       restaurantId: restaurantId ? Number(restaurantId) : null,
+      salePrice: salePrice.trim() ? Number(salePrice) : null,
     };
 
     try {
@@ -426,6 +430,20 @@ export default function StockItemsPage() {
             <div className="sm:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">Barcode</label>
               <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Optional" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Satış qiyməti</label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={salePrice}
+                onChange={(e) => setSalePrice(e.target.value)}
+                placeholder="Optional"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Bu məhsula bağlı menyu maddəsinin Dəzgah qiyməti boşdursa, POS-da bu qiymət işlədilir.
+              </p>
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Type</label>

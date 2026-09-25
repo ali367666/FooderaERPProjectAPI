@@ -83,6 +83,12 @@ public class StartOrderCommandHandler : IRequestHandler<StartOrderCommand, Order
             TableRentalStartedAt = order.TableRentalStartedAt,
             TableRentalStoppedAt = order.TableRentalStoppedAt,
             TableRentalAmount = order.TableRentalAmount,
+            HoldUntilUtc = order.HoldUntilUtc,
+            IsDelivery = order.IsDelivery,
+            DeliveryAddress = order.DeliveryAddress,
+            DeliveryPhone = order.DeliveryPhone,
+            DeliveryDriverEmployeeId = order.DeliveryDriverEmployeeId,
+            DeliveryDriverName = order.DeliveryDriverEmployee != null ? $"{order.DeliveryDriverEmployee.FirstName} {order.DeliveryDriverEmployee.LastName}" : null,
             Lines = order.Lines.DistinctBy(x => x.Id).Select(x => new OrderLineResponse
             {
                 Id = x.Id,

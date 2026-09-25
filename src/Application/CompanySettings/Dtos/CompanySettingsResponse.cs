@@ -33,6 +33,7 @@ public class CompanySettingsResponse
     public int? TransparencyLevel { get; set; }
     public string? ProductColor { get; set; }
     public string? FloorLabel { get; set; }
+    public int? LogoSize { get; set; }
     public string? Slogan { get; set; }
     public string? SocialLinks { get; set; }
     public string? ContactPhoneNumber { get; set; }
@@ -52,8 +53,24 @@ public class CompanySettingsResponse
     public bool ReceiptShowTableName { get; set; }
     public bool ReceiptShowOrderNumber { get; set; }
     public bool ReceiptShowPaymentMethod { get; set; }
+    public bool PrintAskBeforeAutoPrint { get; set; }
+    public bool ReceiptSimpleMode { get; set; }
+    public bool ReceiptSimpleShowOrderNumber { get; set; }
+    public bool ReceiptSimpleShowWaiterName { get; set; }
+    public bool ReceiptSimpleShowTime { get; set; }
+    public bool ReceiptSimpleShowPaymentMethod { get; set; }
+    public bool ReceiptSimpleShowVat { get; set; }
+    public bool ReceiptSimpleShowFooter { get; set; }
+
+    public bool PrintKitchenShowBusinessName { get; set; } = true;
+    public bool ReceiptShowBusinessName { get; set; } = true;
+    public bool PrintKitchenOnHold { get; set; }
+    public bool PrintTransferDocAuto { get; set; }
+    public bool PrintTransferDocDouble { get; set; }
+    public bool PrintChiefCopy { get; set; }
 
     public bool AskGuestCountOnOpen { get; set; }
+    public bool SingleWaiterMode { get; set; }
 
     public decimal? DefaultVatPercent { get; set; }
 }

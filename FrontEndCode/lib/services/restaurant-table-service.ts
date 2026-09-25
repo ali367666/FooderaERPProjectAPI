@@ -5,6 +5,7 @@ import { ApiFormError, toApiFormError } from "@/lib/api-error";
 export const RestaurantTableType = {
   Masa: 1,
   Kabinet: 2,
+  Delivery: 3,
 } as const;
 
 export type RestaurantTableTypeValue = (typeof RestaurantTableType)[keyof typeof RestaurantTableType];
@@ -81,6 +82,7 @@ function normalizeRestaurantTable(item: unknown): RestaurantTable | null {
       const n = Number(raw.type ?? raw.Type);
       if (n === RestaurantTableType.Kabinet) return n;
       if (n === RestaurantTableType.Masa) return n;
+      if (n === RestaurantTableType.Delivery) return n;
       return RestaurantTableType.Kabinet;
     })(),
   };

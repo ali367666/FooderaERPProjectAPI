@@ -33,6 +33,7 @@ export type StockItem = {
   companyId: number;
   restaurantId: number | null;
   restaurantName: string | null;
+  salePrice: number | null;
 };
 
 export type StockItemMutationInput = {
@@ -43,6 +44,7 @@ export type StockItemMutationInput = {
   categoryId: number;
   companyId: number;
   restaurantId?: number | null;
+  salePrice?: number | null;
 };
 
 function normalizeStockItem(item: unknown): StockItem | null {
@@ -72,6 +74,10 @@ function normalizeStockItem(item: unknown): StockItem | null {
       raw.restaurantName !== undefined || raw.RestaurantName !== undefined
         ? String(raw.restaurantName ?? raw.RestaurantName ?? "") || null
         : null,
+    salePrice: (() => {
+      const v = raw.salePrice ?? raw.SalePrice;
+      return v == null ? null : Number(v);
+    })(),
   };
 }
 
@@ -149,6 +155,7 @@ export async function createStockItem(payload: StockItemMutationInput): Promise<
       categoryId: payload.categoryId,
       companyId: payload.companyId,
       restaurantId: payload.restaurantId ?? null,
+      salePrice: payload.salePrice ?? null,
     });
     assertApiSuccess(response.data);
   } catch (error) {
@@ -166,6 +173,7 @@ export async function updateStockItem(id: number, payload: StockItemMutationInpu
       categoryId: payload.categoryId,
       companyId: payload.companyId,
       restaurantId: payload.restaurantId ?? null,
+      salePrice: payload.salePrice ?? null,
     });
     assertApiSuccess(response.data);
   } catch (error) {

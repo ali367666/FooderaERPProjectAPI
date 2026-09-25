@@ -22,6 +22,7 @@ public class MenuItemResponse
     public decimal? VatPercent { get; set; }
     public string? WeightCode { get; set; }
     public string? Barcode { get; set; }
+    public string? Brand { get; set; }
 
     public decimal? StationPrice { get; set; }
     public decimal? PurchasePrice { get; set; }
@@ -40,6 +41,8 @@ public class MenuItemResponse
     public bool AllowQuantityPromptOverride { get; set; }
     public int? PrinterId { get; set; }
     public string? PrinterName { get; set; }
+    public int? SetPrinterId { get; set; }
+    public string? SetPrinterName { get; set; }
 
     public bool IsSet { get; set; }
 

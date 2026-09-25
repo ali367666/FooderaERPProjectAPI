@@ -32,6 +32,7 @@ export type CompanySettings = {
   transparencyLevel: number | null;
   productColor: string | null;
   floorLabel: string | null;
+  logoSize: number | null;
   slogan: string | null;
   socialLinks: string | null;
   contactPhoneNumber: string | null;
@@ -51,8 +52,23 @@ export type CompanySettings = {
   receiptShowTableName: boolean;
   receiptShowOrderNumber: boolean;
   receiptShowPaymentMethod: boolean;
+  printAskBeforeAutoPrint: boolean;
+  receiptSimpleMode: boolean;
+  receiptSimpleShowOrderNumber: boolean;
+  receiptSimpleShowWaiterName: boolean;
+  receiptSimpleShowTime: boolean;
+  receiptSimpleShowPaymentMethod: boolean;
+  receiptSimpleShowVat: boolean;
+  receiptSimpleShowFooter: boolean;
+  printKitchenShowBusinessName: boolean;
+  receiptShowBusinessName: boolean;
+  printKitchenOnHold: boolean;
+  printTransferDocAuto: boolean;
+  printTransferDocDouble: boolean;
+  printChiefCopy: boolean;
 
   askGuestCountOnOpen: boolean;
+  singleWaiterMode: boolean;
   defaultVatPercent: number | null;
 };
 
@@ -118,6 +134,7 @@ function normalize(item: unknown): CompanySettings | null {
     transparencyLevel: numOrNull("transparencyLevel", "TransparencyLevel"),
     productColor: strOrNull("productColor", "ProductColor"),
     floorLabel: strOrNull("floorLabel", "FloorLabel"),
+    logoSize: numOrNull("logoSize", "LogoSize"),
     slogan: strOrNull("slogan", "Slogan"),
     socialLinks: strOrNull("socialLinks", "SocialLinks"),
     contactPhoneNumber: strOrNull("contactPhoneNumber", "ContactPhoneNumber"),
@@ -137,7 +154,22 @@ function normalize(item: unknown): CompanySettings | null {
     receiptShowTableName: bool("receiptShowTableName", "ReceiptShowTableName", true),
     receiptShowOrderNumber: bool("receiptShowOrderNumber", "ReceiptShowOrderNumber", true),
     receiptShowPaymentMethod: bool("receiptShowPaymentMethod", "ReceiptShowPaymentMethod", true),
+    printAskBeforeAutoPrint: bool("printAskBeforeAutoPrint", "PrintAskBeforeAutoPrint"),
+    receiptSimpleMode: bool("receiptSimpleMode", "ReceiptSimpleMode"),
+    receiptSimpleShowOrderNumber: bool("receiptSimpleShowOrderNumber", "ReceiptSimpleShowOrderNumber"),
+    receiptSimpleShowWaiterName: bool("receiptSimpleShowWaiterName", "ReceiptSimpleShowWaiterName"),
+    receiptSimpleShowTime: bool("receiptSimpleShowTime", "ReceiptSimpleShowTime"),
+    receiptSimpleShowPaymentMethod: bool("receiptSimpleShowPaymentMethod", "ReceiptSimpleShowPaymentMethod"),
+    receiptSimpleShowVat: bool("receiptSimpleShowVat", "ReceiptSimpleShowVat"),
+    receiptSimpleShowFooter: bool("receiptSimpleShowFooter", "ReceiptSimpleShowFooter"),
+    printKitchenShowBusinessName: bool("printKitchenShowBusinessName", "PrintKitchenShowBusinessName", true),
+    receiptShowBusinessName: bool("receiptShowBusinessName", "ReceiptShowBusinessName", true),
+    printKitchenOnHold: bool("printKitchenOnHold", "PrintKitchenOnHold"),
+    printTransferDocAuto: bool("printTransferDocAuto", "PrintTransferDocAuto"),
+    printTransferDocDouble: bool("printTransferDocDouble", "PrintTransferDocDouble"),
+    printChiefCopy: bool("printChiefCopy", "PrintChiefCopy"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
+    singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
   };
 }
@@ -187,6 +219,7 @@ export type CompanySettingsBranding = {
   loginLocation: string | null;
   transparencyLevel: number | null;
   floorLabel: string | null;
+  logoSize: number | null;
   socialLinks: string | null;
   slogan: string | null;
   productColor: string | null;
@@ -220,7 +253,22 @@ export type CompanySettingsBranding = {
   receiptShowTableName: boolean;
   receiptShowOrderNumber: boolean;
   receiptShowPaymentMethod: boolean;
+  printAskBeforeAutoPrint: boolean;
+  receiptSimpleMode: boolean;
+  receiptSimpleShowOrderNumber: boolean;
+  receiptSimpleShowWaiterName: boolean;
+  receiptSimpleShowTime: boolean;
+  receiptSimpleShowPaymentMethod: boolean;
+  receiptSimpleShowVat: boolean;
+  receiptSimpleShowFooter: boolean;
+  printKitchenShowBusinessName: boolean;
+  receiptShowBusinessName: boolean;
+  printKitchenOnHold: boolean;
+  printTransferDocAuto: boolean;
+  printTransferDocDouble: boolean;
+  printChiefCopy: boolean;
   askGuestCountOnOpen: boolean;
+  singleWaiterMode: boolean;
   defaultVatPercent: number | null;
 };
 
@@ -246,6 +294,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     loginLocation: strOrNull("loginLocation", "LoginLocation"),
     transparencyLevel: numOrNull("transparencyLevel", "TransparencyLevel"),
     floorLabel: strOrNull("floorLabel", "FloorLabel"),
+    logoSize: numOrNull("logoSize", "LogoSize"),
     socialLinks: strOrNull("socialLinks", "SocialLinks"),
     slogan: strOrNull("slogan", "Slogan"),
     productColor: strOrNull("productColor", "ProductColor"),
@@ -279,7 +328,22 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     receiptShowTableName: bool("receiptShowTableName", "ReceiptShowTableName", true),
     receiptShowOrderNumber: bool("receiptShowOrderNumber", "ReceiptShowOrderNumber", true),
     receiptShowPaymentMethod: bool("receiptShowPaymentMethod", "ReceiptShowPaymentMethod", true),
+    printAskBeforeAutoPrint: bool("printAskBeforeAutoPrint", "PrintAskBeforeAutoPrint"),
+    receiptSimpleMode: bool("receiptSimpleMode", "ReceiptSimpleMode"),
+    receiptSimpleShowOrderNumber: bool("receiptSimpleShowOrderNumber", "ReceiptSimpleShowOrderNumber"),
+    receiptSimpleShowWaiterName: bool("receiptSimpleShowWaiterName", "ReceiptSimpleShowWaiterName"),
+    receiptSimpleShowTime: bool("receiptSimpleShowTime", "ReceiptSimpleShowTime"),
+    receiptSimpleShowPaymentMethod: bool("receiptSimpleShowPaymentMethod", "ReceiptSimpleShowPaymentMethod"),
+    receiptSimpleShowVat: bool("receiptSimpleShowVat", "ReceiptSimpleShowVat"),
+    receiptSimpleShowFooter: bool("receiptSimpleShowFooter", "ReceiptSimpleShowFooter"),
+    printKitchenShowBusinessName: bool("printKitchenShowBusinessName", "PrintKitchenShowBusinessName", true),
+    receiptShowBusinessName: bool("receiptShowBusinessName", "ReceiptShowBusinessName", true),
+    printKitchenOnHold: bool("printKitchenOnHold", "PrintKitchenOnHold"),
+    printTransferDocAuto: bool("printTransferDocAuto", "PrintTransferDocAuto"),
+    printTransferDocDouble: bool("printTransferDocDouble", "PrintTransferDocDouble"),
+    printChiefCopy: bool("printChiefCopy", "PrintChiefCopy"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
+    singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
   };
 }

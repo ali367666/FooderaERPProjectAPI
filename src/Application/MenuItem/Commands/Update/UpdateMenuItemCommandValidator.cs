@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using Domain.Enums;
+using FluentValidation;
 
 namespace Application.MenuItems.Commands.Update;
 
@@ -26,5 +27,14 @@ public class UpdateMenuItemCommandValidator : AbstractValidator<UpdateMenuItemCo
             .GreaterThan(0);
         RuleFor(x => x.Request.PreparationType)
             .IsInEnum().WithMessage("PreparationType düzgün seçilməlidir.");
+
+        // SET (bundle) items have no barcode of their own, and weight-sold items are identified
+        // by their auto-generated weight-code sticker instead — everything else must have one.
+        RuleFor(x => x.Request.Barcode)
+            .NotEmpty()
+            .WithMessage("Barkod məcburidir.")
+            .When(x => !x.Request.IsSet
+                && x.Request.UnitId != (int)UnitOfMeasure.Kg
+                && x.Request.UnitId != (int)UnitOfMeasure.Gram);
     }
 }

@@ -1,5 +1,4 @@
 ﻿using Domain.Entities;
-using Domain.Entities.BscInvoice;
 using Domain.Entities.WarehouseAndStock;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -66,10 +65,6 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     // Request system
     public DbSet<StockRequest> StockRequests { get; set; } = null!;
     public DbSet<StockRequestLine> StockRequestLines { get; set; } = null!;
-
-    // BSC Invoice sync
-    public DbSet<BscInvoiceM> BscInvoiceMs { get; set; } = null!;
-    public DbSet<BscInvoiceD> BscInvoiceDs { get; set; } = null!;
 
     //Loggin system
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;

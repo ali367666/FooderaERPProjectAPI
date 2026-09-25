@@ -27,6 +27,7 @@ public class OrderRepository : IOrderRepository
             .Include(x => x.Waiter)
             .Include(x => x.ProcessedByUser)
             .Include(x => x.Counterparty)
+            .Include(x => x.DeliveryDriverEmployee)
             .Include(x => x.Lines)
                 .ThenInclude(x => x.MenuItem)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
@@ -40,6 +41,7 @@ public class OrderRepository : IOrderRepository
             .Include(x => x.Waiter)
             .Include(x => x.ProcessedByUser)
             .Include(x => x.Counterparty)
+            .Include(x => x.DeliveryDriverEmployee)
             .Include(x => x.Lines)
                 .ThenInclude(x => x.MenuItem)
             .Where(x => x.CompanyId == companyId)
@@ -108,6 +110,7 @@ public class OrderRepository : IOrderRepository
             .Include(x => x.Restaurant)
             .Include(x => x.Table)
             .Include(x => x.Waiter)
+            .Include(x => x.DeliveryDriverEmployee)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 }

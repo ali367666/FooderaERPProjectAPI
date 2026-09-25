@@ -71,6 +71,7 @@ public class UpdateCompanySettingsCommandHandler
         settings.TransparencyLevel = dto.TransparencyLevel;
         settings.ProductColor = dto.ProductColor?.Trim();
         settings.FloorLabel = dto.FloorLabel?.Trim();
+        settings.LogoSize = dto.LogoSize;
         settings.Slogan = dto.Slogan?.Trim();
         settings.SocialLinks = dto.SocialLinks?.Trim();
         settings.ContactPhoneNumber = dto.ContactPhoneNumber?.Trim();
@@ -90,7 +91,22 @@ public class UpdateCompanySettingsCommandHandler
         settings.ReceiptShowTableName = dto.ReceiptShowTableName;
         settings.ReceiptShowOrderNumber = dto.ReceiptShowOrderNumber;
         settings.ReceiptShowPaymentMethod = dto.ReceiptShowPaymentMethod;
+        settings.PrintAskBeforeAutoPrint = dto.PrintAskBeforeAutoPrint;
+        settings.ReceiptSimpleMode = dto.ReceiptSimpleMode;
+        settings.ReceiptSimpleShowOrderNumber = dto.ReceiptSimpleShowOrderNumber;
+        settings.ReceiptSimpleShowWaiterName = dto.ReceiptSimpleShowWaiterName;
+        settings.ReceiptSimpleShowTime = dto.ReceiptSimpleShowTime;
+        settings.ReceiptSimpleShowPaymentMethod = dto.ReceiptSimpleShowPaymentMethod;
+        settings.ReceiptSimpleShowVat = dto.ReceiptSimpleShowVat;
+        settings.ReceiptSimpleShowFooter = dto.ReceiptSimpleShowFooter;
+        settings.PrintKitchenShowBusinessName = dto.PrintKitchenShowBusinessName;
+        settings.ReceiptShowBusinessName = dto.ReceiptShowBusinessName;
+        settings.PrintKitchenOnHold = dto.PrintKitchenOnHold;
+        settings.PrintTransferDocAuto = dto.PrintTransferDocAuto;
+        settings.PrintTransferDocDouble = dto.PrintTransferDocDouble;
+        settings.PrintChiefCopy = dto.PrintChiefCopy;
         settings.AskGuestCountOnOpen = dto.AskGuestCountOnOpen;
+        settings.SingleWaiterMode = dto.SingleWaiterMode;
         settings.DefaultVatPercent = dto.DefaultVatPercent;
 
         await _repository.SaveChangesAsync(cancellationToken);

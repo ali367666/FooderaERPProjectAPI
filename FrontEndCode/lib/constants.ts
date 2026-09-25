@@ -25,7 +25,6 @@ import {
   CalendarCheck,
   Calculator,
   Tag,
-  FileSpreadsheet,
   Settings,
   Printer as PrinterIcon,
   LayoutTemplate,
@@ -183,12 +182,6 @@ export const navGroups: NavGroup[] = [
         icon: ShoppingCart,
         permission: "StockPurchase.View",
         module: "moduleAnbar",
-      },
-      {
-        title: "BSC İnvoice",
-        href: "/dashboard/bsc-invoices",
-        icon: FileSpreadsheet,
-        permission: "BscInvoice.View",
       },
       {
         title: "Konturagentlər",

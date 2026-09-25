@@ -37,6 +37,12 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
         if (order is null)
             throw new Exception("Sifariş tapılmadı.");
 
+        var settings = await _companySettingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
+        var isOnHold = order.HoldUntilUtc is not null;
+
+        if (isOnHold && settings?.PrintKitchenOnHold != true)
+            throw new Exception("Sifariş gözlədədir — mətbəxə göndərmək üçün əvvəlcə gözləməni ləğv edin.");
+
         var printer = await _printerRepository.GetByIdAsync(request.PrinterId, companyId, cancellationToken);
         if (printer is null)
             throw new Exception("Printer tapılmadı.");
@@ -48,20 +54,38 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
             .Where(x =>
                 x.Status != OrderLineStatus.Cancelled
                 && x.KitchenPrintedAt == null
-                && x.MenuItem.PrinterId == request.PrinterId)
+                && (x.MenuItem.IsSet ? x.MenuItem.SetPrinterId ?? x.MenuItem.PrinterId : x.MenuItem.PrinterId) == request.PrinterId)
             .OrderBy(x => x.Id)
             .ToList();
 
         if (linesToPrint.Count == 0)
             return 0;
 
-        var settings = await _companySettingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
         var groupQuantities = settings?.PrintKitchenGroupQuantities ?? false;
+        var showBusinessName = settings?.PrintKitchenShowBusinessName ?? true;
 
         var now = DateTime.UtcNow;
-        var content = BuildTicketContent(order, linesToPrint, now, groupQuantities);
+        var content = BuildTicketContent(order, linesToPrint, now, groupQuantities, showBusinessName, isOnHold, chiefCopyOf: null);
 
         await _networkPrinterService.PrintAsync(printer.IpAddress, printer.Port, content, cancellationToken);
+
+        // ChiefPrint — the head chef gets a copy of every station's ticket on the branch's chief printer.
+        if (settings?.PrintChiefCopy == true)
+        {
+            var chief = await _printerRepository.GetChiefAsync(companyId, order.RestaurantId, null, cancellationToken);
+            if (chief is not null && chief.IsActive && chief.Id != printer.Id)
+            {
+                var chiefContent = BuildTicketContent(order, linesToPrint, now, groupQuantities, showBusinessName, isOnHold, chiefCopyOf: printer.Name);
+                try
+                {
+                    await _networkPrinterService.PrintAsync(chief.IpAddress, chief.Port, chiefContent, cancellationToken);
+                }
+                catch
+                {
+                    // the station ticket already printed — a failed chief copy must not block the kitchen
+                }
+            }
+        }
 
         foreach (var line in linesToPrint)
             line.KitchenPrintedAt = now;
@@ -73,11 +97,20 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
     }
 
     private static string BuildTicketContent(
-        Domain.Entities.Order order, List<Domain.Entities.OrderLine> lines, DateTime now, bool groupQuantities)
+        Domain.Entities.Order order,
+        List<Domain.Entities.OrderLine> lines,
+        DateTime now,
+        bool groupQuantities,
+        bool showBusinessName,
+        bool isOnHold,
+        string? chiefCopyOf)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(order.Restaurant?.Name ?? "");
-        sb.AppendLine("MƏTBƏX");
+        if (showBusinessName)
+            sb.AppendLine(order.Restaurant?.Name ?? "");
+        sb.AppendLine(chiefCopyOf is null ? "MƏTBƏX" : $"ŞEF NÜSXƏSİ ({chiefCopyOf})");
+        if (isOnHold)
+            sb.AppendLine("*** GÖZLƏMƏDƏ — HAZIRLAMAYIN ***");
         sb.AppendLine(new string('-', 32));
         sb.AppendLine($"Masa: {order.Table?.Name ?? "-"}");
         sb.AppendLine($"Sifariş: {order.OrderNumber}");

@@ -87,6 +87,7 @@ public class UpdateStockItemCommandHandler
         stockItem.Unit = request.Request.Unit;
         stockItem.CategoryId = request.Request.CategoryId;
         stockItem.CompanyId = request.Request.CompanyId;
+        stockItem.SalePrice = request.Request.SalePrice;
         // stockItem.RestaurantId = request.Request.RestaurantId;
 
         _stockItemRepository.Update(stockItem);

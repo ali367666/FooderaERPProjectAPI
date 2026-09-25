@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  bulkResetWeightCodes,
   createMenuItem,
   deleteMenuItem,
   getMenuItemById,
@@ -118,6 +119,7 @@ export default function MenuItemsPage() {
   const [itemTypesLoading, setItemTypesLoading] = useState(true);
   const [newItemTypeName, setNewItemTypeName] = useState("");
   const [savingItemType, setSavingItemType] = useState(false);
+  const [bulkResetBusy, setBulkResetBusy] = useState(false);
   const [editingItemTypeId, setEditingItemTypeId] = useState<number | null>(null);
   const [editingItemTypeName, setEditingItemTypeName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -137,6 +139,7 @@ export default function MenuItemsPage() {
   const [unitId, setUnitId] = useState<string>(String(UnitOfMeasure.Piece));
   const [vatPercent, setVatPercent] = useState("");
   const [barcode, setBarcode] = useState("");
+  const [brand, setBrand] = useState("");
   const [weightCode, setWeightCode] = useState<string | null>(null);
   const [resetWeightCode, setResetWeightCode] = useState(false);
   const [portion, setPortion] = useState("");
@@ -161,6 +164,7 @@ export default function MenuItemsPage() {
   const [isTimeBased, setIsTimeBased] = useState(false);
   const [allowQuantityPromptOverride, setAllowQuantityPromptOverride] = useState(false);
   const [printerId, setPrinterId] = useState("");
+  const [setItemPrinterId, setSetItemPrinterId] = useState("");
 
   // SET (bundle)
   const [isSet, setIsSet] = useState(false);
@@ -224,6 +228,20 @@ export default function MenuItemsPage() {
     void loadData();
     void loadItemTypes();
   }, []);
+
+  const handleBulkResetWeightCodes = async () => {
+    if (!window.confirm("Bütün çəki (kq/qram) məhsullarının çəki kodu sıfırlansın?")) return;
+    setBulkResetBusy(true);
+    try {
+      const count = await bulkResetWeightCodes();
+      window.alert(`${count} məhsulun çəki kodu sıfırlandı.`);
+      await loadData(true);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Çəki kodları sıfırlanmadı.");
+    } finally {
+      setBulkResetBusy(false);
+    }
+  };
 
   const handleAddItemType = async () => {
     const trimmed = newItemTypeName.trim();
@@ -434,6 +452,7 @@ export default function MenuItemsPage() {
     setUnitId(String(UnitOfMeasure.Piece));
     setVatPercent("");
     setBarcode("");
+    setBrand("");
     setWeightCode(null);
     setResetWeightCode(false);
     setPortion("");
@@ -456,6 +475,7 @@ export default function MenuItemsPage() {
     setIsTimeBased(false);
     setAllowQuantityPromptOverride(false);
     setPrinterId("");
+    setSetItemPrinterId("");
 
     setIsSet(false);
     setSetComponents([]);
@@ -492,6 +512,7 @@ export default function MenuItemsPage() {
       setUnitId(String(item.unitId));
       setVatPercent(item.vatPercent != null ? String(item.vatPercent) : "");
       setBarcode(item.barcode || "");
+      setBrand(item.brand || "");
       setWeightCode(item.weightCode);
       setResetWeightCode(false);
       setPortion(item.portion || "");
@@ -514,6 +535,7 @@ export default function MenuItemsPage() {
       setIsTimeBased(item.isTimeBased);
       setAllowQuantityPromptOverride(item.allowQuantityPromptOverride);
       setPrinterId(item.printerId ? String(item.printerId) : "");
+      setSetPrinterId(item.setPrinterId ? String(item.setPrinterId) : "");
 
       setIsSet(item.isSet);
       if (item.isSet) {
@@ -646,6 +668,14 @@ export default function MenuItemsPage() {
     }
 
     const unit = Number(unitId) as UnitOfMeasureValue;
+    const isWeightBasedUnit = unit === UnitOfMeasure.Kg || unit === UnitOfMeasure.Gram;
+
+    if (!isSet && !isWeightBasedUnit && !barcode.trim()) {
+      const msg = "Barkod məcburidir.";
+      setError(msg);
+      window.alert(msg);
+      return;
+    }
 
     const basePayload = {
       name: trimmedName,
@@ -660,6 +690,7 @@ export default function MenuItemsPage() {
       unitId: unit,
       vatPercent: toNumberOrNull(vatPercent),
       barcode: barcode.trim() || null,
+      brand: brand.trim() || null,
 
       stationPrice: toNumberOrNull(stationPrice),
       purchasePrice: toNumberOrNull(purchasePrice),
@@ -677,6 +708,7 @@ export default function MenuItemsPage() {
       isTimeBased,
       allowQuantityPromptOverride,
       printerId: printerId ? Number(printerId) : null,
+      setPrinterId: setPrinterId ? Number(setPrinterId) : null,
 
       isSet,
 
@@ -791,6 +823,19 @@ export default function MenuItemsPage() {
           </Button>
         </div>
       </div>
+
+      {canUpdate && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={bulkResetBusy}
+            onClick={() => void handleBulkResetWeightCodes()}
+          >
+            {bulkResetBusy ? "Sıfırlanır…" : "Bütün çəki kodlarını sıfırla"}
+          </Button>
+        </div>
+      )}
 
       <Dialog
         open={isDialogOpen}
@@ -959,8 +1004,26 @@ export default function MenuItemsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-foreground">Barcode</label>
-                  <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Optional" />
+                  <label className="mb-2 block text-sm font-medium text-foreground">
+                    Barcode
+                    {!isSet && Number(unitId) !== UnitOfMeasure.Kg && Number(unitId) !== UnitOfMeasure.Gram && (
+                      <span className="text-destructive"> *</span>
+                    )}
+                  </label>
+                  <Input
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    placeholder={
+                      isSet || Number(unitId) === UnitOfMeasure.Kg || Number(unitId) === UnitOfMeasure.Gram
+                        ? "Optional"
+                        : "Məcburidir"
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-foreground">Brend</label>
+                  <Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Optional" />
                 </div>
 
                 <div>
@@ -1076,7 +1139,7 @@ export default function MenuItemsPage() {
                   <Input
                     type="number"
                     min={0}
-                    step="0.0001"
+                    step="0.00001"
                     value={purchasePrice}
                     onChange={(e) => setPurchasePrice(e.target.value)}
                     placeholder="Optional"
@@ -1174,6 +1237,28 @@ export default function MenuItemsPage() {
                 <Checkbox checked={isSet} onCheckedChange={(v) => setIsSet(v === true)} />
                 Bu, SET (paket) məhsuldur
               </label>
+
+              {isSet && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-foreground">
+                    Set printeri (boş qalsa, yuxarıdakı Printer sahəsi işlədilir)
+                  </label>
+                  <select
+                    value={setPrinterId}
+                    onChange={(e) => setSetPrinterId(e.target.value)}
+                    className={selectClass}
+                  >
+                    <option value="">Adi Printer sahəsindən istifadə et</option>
+                    {printerOptions.map((p) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {printerOptions.some((x) => x.id !== p.id && x.restaurantName !== p.restaurantName)
+                          ? `${p.name} (${p.restaurantName})`
+                          : p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {isSet && !isEditMode && (
                 <p className="text-xs text-muted-foreground">

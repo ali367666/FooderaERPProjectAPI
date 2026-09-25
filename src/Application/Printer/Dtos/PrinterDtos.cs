@@ -11,6 +11,7 @@ public class PrinterResponse
     public int Port { get; set; }
     public bool IsActive { get; set; }
     public bool IsPrimary { get; set; }
+    public bool IsChiefPrinter { get; set; }
 }
 
 public class CreatePrinterRequest
@@ -22,6 +23,7 @@ public class CreatePrinterRequest
     public int Port { get; set; } = 9100;
     public bool IsActive { get; set; } = true;
     public bool IsPrimary { get; set; }
+    public bool IsChiefPrinter { get; set; }
 }
 
 public class UpdatePrinterRequest
@@ -33,6 +35,7 @@ public class UpdatePrinterRequest
     public int Port { get; set; } = 9100;
     public bool IsActive { get; set; } = true;
     public bool IsPrimary { get; set; }
+    public bool IsChiefPrinter { get; set; }
 }
 
 public class PrintRequest

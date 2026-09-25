@@ -83,9 +83,6 @@ const PERMISSION_LABELS: Record<string, string> = {
 
   "Analytics.View": "Analitikaya bax",
 
-  "BscInvoice.View": "BSC hesab-fakturalarına bax",
-  "BscInvoice.Sync": "BSC hesab-fakturalarını sinxronlaşdır",
-
   "MenuItem.View": "Menyu məhsullarına bax",
   "MenuItem.Create": "Menyu məhsulu yarat",
   "MenuItem.Update": "Menyu məhsulunu redaktə et",
@@ -185,7 +182,6 @@ const MODULE_LABELS: Record<string, string> = {
   Role: "Rollar",
   UserRole: "İstifadəçi rolları",
   Analytics: "Analitika",
-  BscInvoice: "BSC hesab-fakturaları",
   MenuItem: "Menyu məhsulları",
   MenuCategory: "Menyu kateqoriyaları",
   Kitchen: "Mətbəx",

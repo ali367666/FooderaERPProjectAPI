@@ -45,21 +45,6 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             request.Request.WaiterId,
             companyId);
 
-        var table = await _restaurantTableRepository.GetByIdAsync(
-            request.Request.TableId,
-            companyId,
-            cancellationToken);
-
-        if (table is null)
-        {
-            _logger.LogWarning(
-                "Order yaradılmadı. Masa tapılmadı. TableId: {TableId}, CompanyId: {CompanyId}",
-                request.Request.TableId,
-                companyId);
-
-            throw new Exception("Masa tapılmadı.");
-        }
-
         var waiter = await _employeeRepository.GetByIdAsync(
             request.Request.WaiterId,
             companyId,
@@ -75,29 +60,68 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             throw new Exception("Garson tapılmadı.");
         }
 
-        var hasOpenOrder = await _orderRepository.HasOpenOrderForTableAsync(
-            request.Request.TableId,
-            companyId,
-            cancellationToken);
-
-        if (hasOpenOrder)
-        {
-            _logger.LogWarning(
-                "Order yaradılmadı. Masa üçün artıq açıq sifariş var. TableId: {TableId}, CompanyId: {CompanyId}",
-                request.Request.TableId,
-                companyId);
-
-            throw new Exception("Bu masa üçün artıq açıq sifariş mövcuddur.");
-        }
-
         var orderNumber = await GenerateOrderNumberAsync(companyId, cancellationToken);
+
+        Domain.Entities.RestaurantTable table;
+        if (request.Request.IsDelivery)
+        {
+            // Every delivery order gets its own dedicated virtual "table" — the schema requires a
+            // TableId, and reusing one shared table (like store-mode's virtual sale table) would
+            // block concurrent deliveries via HasOpenOrderForTableAsync below.
+            table = new Domain.Entities.RestaurantTable
+            {
+                CompanyId = companyId,
+                RestaurantId = request.Request.RestaurantId,
+                Name = $"Çatdırılma #{orderNumber}",
+                Capacity = 1,
+                IsActive = true,
+                IsOccupied = false,
+                Type = RestaurantTableType.Delivery
+            };
+            await _restaurantTableRepository.AddAsync(table, cancellationToken);
+            await _restaurantTableRepository.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            var existingTable = await _restaurantTableRepository.GetByIdAsync(
+                request.Request.TableId ?? 0,
+                companyId,
+                cancellationToken);
+
+            if (existingTable is null)
+            {
+                _logger.LogWarning(
+                    "Order yaradılmadı. Masa tapılmadı. TableId: {TableId}, CompanyId: {CompanyId}",
+                    request.Request.TableId,
+                    companyId);
+
+                throw new Exception("Masa tapılmadı.");
+            }
+
+            var hasOpenOrder = await _orderRepository.HasOpenOrderForTableAsync(
+                existingTable.Id,
+                companyId,
+                cancellationToken);
+
+            if (hasOpenOrder)
+            {
+                _logger.LogWarning(
+                    "Order yaradılmadı. Masa üçün artıq açıq sifariş var. TableId: {TableId}, CompanyId: {CompanyId}",
+                    request.Request.TableId,
+                    companyId);
+
+                throw new Exception("Bu masa üçün artıq açıq sifariş mövcuddur.");
+            }
+
+            table = existingTable;
+        }
 
         var order = new Domain.Entities.Order
         {
             CompanyId = companyId,
             OrderNumber = orderNumber,
             RestaurantId = request.Request.RestaurantId,
-            TableId = request.Request.TableId,
+            TableId = table.Id,
             WaiterId = request.Request.WaiterId,
             Status = OrderStatus.Draft,
             Note = string.IsNullOrWhiteSpace(request.Request.Note)
@@ -105,7 +129,14 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
                 : request.Request.Note.Trim(),
             GuestCount = request.Request.GuestCount,
             OpenedAt = DateTime.UtcNow,
-            TotalAmount = 0
+            TotalAmount = 0,
+            IsDelivery = request.Request.IsDelivery,
+            DeliveryAddress = request.Request.IsDelivery && !string.IsNullOrWhiteSpace(request.Request.DeliveryAddress)
+                ? request.Request.DeliveryAddress.Trim()
+                : null,
+            DeliveryPhone = request.Request.IsDelivery && !string.IsNullOrWhiteSpace(request.Request.DeliveryPhone)
+                ? request.Request.DeliveryPhone.Trim()
+                : null
         };
 
         await _orderRepository.AddAsync(order, cancellationToken);

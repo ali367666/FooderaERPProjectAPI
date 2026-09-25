@@ -1,3 +1,4 @@
+using Application.MenuItems.Commands.BulkResetWeightCodes;
 using Application.MenuItems.Commands.Create;
 using Application.MenuItems.Commands.Delete;
 using Application.MenuItems.Commands.Update;
@@ -54,6 +55,14 @@ public class MenuItemsController : ControllerBase
 
         return NoContent();
     }
+    [Authorize(Policy = AppPermissions.MenuItemUpdate)]
+    [HttpPost("bulk-reset-weight-codes")]
+    public async Task<IActionResult> BulkResetWeightCodes(CancellationToken cancellationToken)
+    {
+        var count = await _mediator.Send(new BulkResetWeightCodesCommand(), cancellationToken);
+        return Ok(new { Count = count, Message = $"{count} məhsulun çəki kodu sıfırlandı." });
+    }
+
     [Authorize(Policy = AppPermissions.MenuItemDelete)]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(

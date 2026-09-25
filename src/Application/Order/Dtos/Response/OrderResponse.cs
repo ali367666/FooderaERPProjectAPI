@@ -38,5 +38,13 @@ public class OrderResponse
     public DateTime? TableRentalStoppedAt { get; set; }
     public decimal? TableRentalAmount { get; set; }
 
+    public DateTime? HoldUntilUtc { get; set; }
+
+    public bool IsDelivery { get; set; }
+    public string? DeliveryAddress { get; set; }
+    public string? DeliveryPhone { get; set; }
+    public int? DeliveryDriverEmployeeId { get; set; }
+    public string? DeliveryDriverName { get; set; }
+
     public List<OrderLineResponse> Lines { get; set; } = new();
 }

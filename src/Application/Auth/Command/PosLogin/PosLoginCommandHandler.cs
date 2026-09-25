@@ -91,7 +91,8 @@ public sealed class PosLoginCommandHandler
             return null;
         }
 
-        var expectedLength = user.CanAccessAdminPanel ? 8 : 4;
+        var requiresRotatingPin = await _userRepository.HasRotatingPinRoleAsync(user.Id, cancellationToken);
+        var expectedLength = requiresRotatingPin ? 8 : 4;
         var isValid = submittedCode.Length == expectedLength
             && (expectedLength == 4 || submittedCode[..4] == DateTime.Now.ToString("ddMM"));
 

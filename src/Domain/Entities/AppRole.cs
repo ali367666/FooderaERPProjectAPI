@@ -12,6 +12,12 @@ public class AppRole : IdentityRole<int>
 {
     public int? CompanyId { get; set; }
 
+    /// <summary>
+    /// When true, POS login for users holding this role requires the daily-rotating 8-digit
+    /// code (date prefix + the user's fixed 4-digit code) instead of the plain fixed 4-digit code.
+    /// </summary>
+    public bool RequiresRotatingPin { get; set; }
+
     public AppRole() { }
 
     public AppRole(string roleName) : base(roleName) { }

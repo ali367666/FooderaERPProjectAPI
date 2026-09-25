@@ -41,6 +41,22 @@ public class Order : CompanyEntity<int>
     public DateTime OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
 
+    /// <summary>
+    /// When set, the whole order is "parked" — its lines are hidden from the kitchen queue and
+    /// excluded from kitchen ticket printing until released, regardless of any per-line hold.
+    /// </summary>
+    public DateTime? HoldUntilUtc { get; set; }
+
+    /// <summary>
+    /// The restaurant's own courier delivery (as opposed to a third-party integration like
+    /// Wolt/Bolt/189) — priced from each item's Package price instead of the usual station price.
+    /// </summary>
+    public bool IsDelivery { get; set; }
+    public string? DeliveryAddress { get; set; }
+    public string? DeliveryPhone { get; set; }
+    public int? DeliveryDriverEmployeeId { get; set; }
+    public Employee? DeliveryDriverEmployee { get; set; }
+
     public DateTime? TableRentalStartedAt { get; set; }
     public DateTime? TableRentalStoppedAt { get; set; }
     public decimal? TableRentalAmount { get; set; }

@@ -50,6 +50,7 @@ public class GetAllMenuItemsQueryHandler
         VatPercent = entity.VatPercent,
         WeightCode = entity.WeightCode,
         Barcode = entity.Barcode,
+        Brand = entity.Brand,
         StationPrice = entity.StationPrice,
         PurchasePrice = entity.PurchasePrice,
         PackagePrice = entity.PackagePrice,
@@ -66,6 +67,8 @@ public class GetAllMenuItemsQueryHandler
         AllowQuantityPromptOverride = entity.AllowQuantityPromptOverride,
         PrinterId = entity.PrinterId,
         PrinterName = entity.Printer?.Name,
+        SetPrinterId = entity.SetPrinterId,
+        SetPrinterName = entity.SetPrinter?.Name,
         IsSet = entity.IsSet,
         StockItemId = entity.StockItemId,
         StockItemName = entity.StockItem?.Name

@@ -36,7 +36,7 @@ public class MenuItemConfiguration : IEntityTypeConfiguration<MenuItem>
 
         builder.Property(x => x.VatPercent).HasColumnType("decimal(5,2)");
         builder.Property(x => x.StationPrice).HasColumnType("decimal(18,2)");
-        builder.Property(x => x.PurchasePrice).HasColumnType("decimal(18,4)");
+        builder.Property(x => x.PurchasePrice).HasColumnType("decimal(18,5)");
         builder.Property(x => x.PackagePrice).HasColumnType("decimal(18,2)");
         builder.Property(x => x.SpecialPrice1).HasColumnType("decimal(18,2)");
         builder.Property(x => x.SpecialPrice2).HasColumnType("decimal(18,2)");
@@ -55,6 +55,11 @@ public class MenuItemConfiguration : IEntityTypeConfiguration<MenuItem>
         builder.HasOne(x => x.Printer)
             .WithMany()
             .HasForeignKey(x => x.PrinterId)
+            .OnDelete(DeleteBehavior.ClientSetNull);
+
+        builder.HasOne(x => x.SetPrinter)
+            .WithMany()
+            .HasForeignKey(x => x.SetPrinterId)
             .OnDelete(DeleteBehavior.ClientSetNull);
 
         builder.HasOne(x => x.ItemType)

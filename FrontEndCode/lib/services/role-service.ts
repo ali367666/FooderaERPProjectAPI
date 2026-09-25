@@ -8,6 +8,7 @@ export type AppRole = {
   name: string;
   normalizedName: string | null;
   companyId: number | null;
+  requiresRotatingPin: boolean;
 };
 
 function normalizeRole(item: unknown): AppRole | null {
@@ -22,6 +23,7 @@ function normalizeRole(item: unknown): AppRole | null {
     name: String(raw.name ?? raw.Name ?? ""),
     normalizedName: (raw.normalizedName ?? raw.NormalizedName ?? null) as string | null,
     companyId: Number.isFinite(companyId) && companyId > 0 ? companyId : null,
+    requiresRotatingPin: Boolean(raw.requiresRotatingPin ?? raw.RequiresRotatingPin ?? false),
   };
 }
 
@@ -70,11 +72,12 @@ export async function getRoleById(id: number): Promise<AppRole> {
   }
 }
 
-export async function createRole(name: string, companyId?: number): Promise<number> {
+export async function createRole(name: string, companyId?: number, requiresRotatingPin?: boolean): Promise<number> {
   try {
     const response = await api.post<unknown>("/roles", {
       name: name.trim(),
       companyId,
+      requiresRotatingPin: Boolean(requiresRotatingPin),
     });
     if (response.data && typeof response.data === "object" && (response.data as { success?: boolean }).success === false) {
       const o = response.data as { message?: string };
@@ -90,9 +93,12 @@ export async function createRole(name: string, companyId?: number): Promise<numb
   }
 }
 
-export async function updateRole(id: number, name: string): Promise<void> {
+export async function updateRole(id: number, name: string, requiresRotatingPin?: boolean): Promise<void> {
   try {
-    const response = await api.put<unknown>(`/roles/${id}`, { name: name.trim() });
+    const response = await api.put<unknown>(`/roles/${id}`, {
+      name: name.trim(),
+      requiresRotatingPin: Boolean(requiresRotatingPin),
+    });
     if (response.data && typeof response.data === "object" && (response.data as { success?: boolean }).success === false) {
       const o = response.data as { message?: string };
       throw new ApiFormError(o.message || "Could not update role.", parseFieldErrors(response.data) ?? {});

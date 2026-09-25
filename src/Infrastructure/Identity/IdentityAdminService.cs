@@ -491,7 +491,8 @@ public class IdentityAdminService : IIdentityAdminService
                 Id = r.Id,
                 Name = r.Name ?? "",
                 NormalizedName = r.NormalizedName,
-                CompanyId = r.CompanyId
+                CompanyId = r.CompanyId,
+                RequiresRotatingPin = r.RequiresRotatingPin
             })
             .ToListAsync(cancellationToken);
     }
@@ -518,7 +519,8 @@ public class IdentityAdminService : IIdentityAdminService
             Id = r.Id,
             Name = r.Name ?? "",
             NormalizedName = r.NormalizedName,
-            CompanyId = r.CompanyId
+            CompanyId = r.CompanyId,
+            RequiresRotatingPin = r.RequiresRotatingPin
         };
     }
 
@@ -548,7 +550,13 @@ public class IdentityAdminService : IIdentityAdminService
             r => r.CompanyId == companyId && r.NormalizedName == normalized, cancellationToken);
         if (exists) return (false, null, "A role with this name already exists.");
 
-        var r = new AppRole { Name = name, NormalizedName = normalized, CompanyId = companyId };
+        var r = new AppRole
+        {
+            Name = name,
+            NormalizedName = normalized,
+            CompanyId = companyId,
+            RequiresRotatingPin = request.RequiresRotatingPin
+        };
         await CreateRoleDirectAsync(r, cancellationToken);
         return (true, r.Id, null);
     }
@@ -567,6 +575,7 @@ public class IdentityAdminService : IIdentityAdminService
         if (nameTaken) return (false, "A role with this name already exists.");
         r.Name = newName;
         r.NormalizedName = newNormalized;
+        r.RequiresRotatingPin = request.RequiresRotatingPin;
         var res = await _roleManager.UpdateAsync(r);
         if (!res.Succeeded) return (false, string.Join(" ", res.Errors.Select(x => x.Description)));
         return (true, null);
