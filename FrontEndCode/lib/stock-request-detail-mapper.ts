@@ -56,6 +56,8 @@ export function mergeWarehousesForDocument(
         restaurantName: null,
         driverUserId: null,
         driverFullName: null,
+        responsibleEmployeeId: null,
+        responsibleEmployeeFullName: null,
       });
     }
   };

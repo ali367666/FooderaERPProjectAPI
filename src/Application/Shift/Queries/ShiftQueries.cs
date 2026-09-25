@@ -41,15 +41,18 @@ public class GetZReportQueryHandler : IRequestHandler<GetZReportQuery, ZReportRe
 {
     private readonly IShiftRepository _shiftRepository;
     private readonly IOrderRepository _orderRepository;
+    private readonly ISaleReturnRepository _saleReturnRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public GetZReportQueryHandler(
         IShiftRepository shiftRepository,
         IOrderRepository orderRepository,
+        ISaleReturnRepository saleReturnRepository,
         ICurrentUserService currentUserService)
     {
         _shiftRepository = shiftRepository;
         _orderRepository = orderRepository;
+        _saleReturnRepository = saleReturnRepository;
         _currentUserService = currentUserService;
     }
 
@@ -63,6 +66,9 @@ public class GetZReportQueryHandler : IRequestHandler<GetZReportQuery, ZReportRe
         var to = shift.ClosedAt ?? DateTime.UtcNow;
         var paidOrders = await _orderRepository.GetPaidBetweenAsync(companyId, shift.RestaurantId, shift.OpenedAt, to, cancellationToken);
 
-        return ZReportBuilder.Build(shift, paidOrders);
+        var returns = await _saleReturnRepository.GetBetweenAsync(
+            companyId, shift.RestaurantId, shift.OpenedAt, to, cancellationToken);
+
+        return ZReportBuilder.Build(shift, paidOrders, returns);
     }
 }

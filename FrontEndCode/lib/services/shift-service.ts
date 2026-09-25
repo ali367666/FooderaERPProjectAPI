@@ -33,6 +33,10 @@ export type ZReport = {
   totalDiscount: number;
   totalServiceCharge: number;
   paymentBreakdown: ZReportPaymentBreakdown[];
+  returnCount: number;
+  totalReturns: number;
+  netTotal: number;
+  returnBreakdown: ZReportPaymentBreakdown[];
 };
 
 function pick<T>(o: Record<string, unknown>, camel: string, pascal: string): T | undefined {
@@ -76,6 +80,15 @@ function normalizeZReport(item: unknown): ZReport | null {
   if (!item || typeof item !== "object") return null;
   const raw = item as Record<string, unknown>;
   const breakdownRaw = pick<unknown[]>(raw, "paymentBreakdown", "PaymentBreakdown") ?? [];
+  const returnBreakdownRaw = pick<unknown[]>(raw, "returnBreakdown", "ReturnBreakdown") ?? [];
+  const mapBreakdown = (b: unknown): ZReportPaymentBreakdown => {
+    const r = b as Record<string, unknown>;
+    return {
+      paymentMethod: String(pick(r, "paymentMethod", "PaymentMethod") ?? ""),
+      orderCount: Number(pick(r, "orderCount", "OrderCount") ?? 0),
+      totalAmount: Number(pick(r, "totalAmount", "TotalAmount") ?? 0),
+    };
+  };
   return {
     shiftId: Number(pick(raw, "shiftId", "ShiftId") ?? 0),
     restaurantId: Number(pick(raw, "restaurantId", "RestaurantId") ?? 0),
@@ -90,14 +103,11 @@ function normalizeZReport(item: unknown): ZReport | null {
     grossTotal: Number(pick(raw, "grossTotal", "GrossTotal") ?? 0),
     totalDiscount: Number(pick(raw, "totalDiscount", "TotalDiscount") ?? 0),
     totalServiceCharge: Number(pick(raw, "totalServiceCharge", "TotalServiceCharge") ?? 0),
-    paymentBreakdown: breakdownRaw.map((b) => {
-      const r = b as Record<string, unknown>;
-      return {
-        paymentMethod: String(pick(r, "paymentMethod", "PaymentMethod") ?? ""),
-        orderCount: Number(pick(r, "orderCount", "OrderCount") ?? 0),
-        totalAmount: Number(pick(r, "totalAmount", "TotalAmount") ?? 0),
-      };
-    }),
+    paymentBreakdown: breakdownRaw.map(mapBreakdown),
+    returnCount: Number(pick(raw, "returnCount", "ReturnCount") ?? 0),
+    totalReturns: Number(pick(raw, "totalReturns", "TotalReturns") ?? 0),
+    netTotal: Number(pick(raw, "netTotal", "NetTotal") ?? pick(raw, "grossTotal", "GrossTotal") ?? 0),
+    returnBreakdown: returnBreakdownRaw.map(mapBreakdown),
   };
 }
 

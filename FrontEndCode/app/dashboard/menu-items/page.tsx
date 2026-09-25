@@ -535,7 +535,7 @@ export default function MenuItemsPage() {
       setIsTimeBased(item.isTimeBased);
       setAllowQuantityPromptOverride(item.allowQuantityPromptOverride);
       setPrinterId(item.printerId ? String(item.printerId) : "");
-      setSetPrinterId(item.setPrinterId ? String(item.setPrinterId) : "");
+      setSetItemPrinterId(item.setPrinterId ? String(item.setPrinterId) : "");
 
       setIsSet(item.isSet);
       if (item.isSet) {
@@ -708,7 +708,7 @@ export default function MenuItemsPage() {
       isTimeBased,
       allowQuantityPromptOverride,
       printerId: printerId ? Number(printerId) : null,
-      setPrinterId: setPrinterId ? Number(setPrinterId) : null,
+      setPrinterId: isSet && setItemPrinterId ? Number(setItemPrinterId) : null,
 
       isSet,
 
@@ -1244,8 +1244,8 @@ export default function MenuItemsPage() {
                     Set printeri (boş qalsa, yuxarıdakı Printer sahəsi işlədilir)
                   </label>
                   <select
-                    value={setPrinterId}
-                    onChange={(e) => setSetPrinterId(e.target.value)}
+                    value={setItemPrinterId}
+                    onChange={(e) => setSetItemPrinterId(e.target.value)}
                     className={selectClass}
                   >
                     <option value="">Adi Printer sahəsindən istifadə et</option>

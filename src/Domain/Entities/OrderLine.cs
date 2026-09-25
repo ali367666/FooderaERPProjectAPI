@@ -1,4 +1,4 @@
-﻿using Domain.Common;
+using Domain.Common;
 using Domain.Enums;
 
 namespace Domain.Entities;
@@ -29,6 +29,9 @@ public class OrderLine : CompanyEntity<int>
     public DateTime? TimeBasedStoppedAt { get; set; }
 
     public OrderLineStatus Status { get; set; } = OrderLineStatus.Pending;
+
+    /// <summary>How much of Quantity has been given back via SaleReturn (same unit as Quantity).</summary>
+    public int ReturnedQuantity { get; set; }
 
     public int? ParentLineId { get; set; }
     public OrderLine? ParentLine { get; set; }

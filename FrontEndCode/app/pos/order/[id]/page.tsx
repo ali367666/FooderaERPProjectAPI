@@ -58,6 +58,8 @@ import {
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
 import { getPrinters, printToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
+import { escPosBarcode, receiptBarcodeValue } from "@/lib/receipt-barcode";
+import { BarcodeSvg } from "@/components/barcode-svg";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getStoredAuthUser } from "@/lib/auth-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
@@ -370,6 +372,7 @@ export default function PosOrderPage() {
     }
     if (branding?.slogan) lines.push(branding.slogan);
     if (branding?.contactPhoneNumber) lines.push(branding.contactPhoneNumber);
+    if (order) lines.push("", escPosBarcode(receiptBarcodeValue(order.id)));
     return lines.join("\n");
   };
 
@@ -1883,6 +1886,11 @@ export default function PosOrderPage() {
                   {branding?.slogan && <p>{branding.slogan}</p>}
                   {branding?.contactPhoneNumber && <p>{branding.contactPhoneNumber}</p>}
                   {branding?.socialLinks && <p>{branding.socialLinks}</p>}
+                </div>
+              )}
+              {order && receipt && (
+                <div className="mt-3 flex justify-center">
+                  <BarcodeSvg value={receiptBarcodeValue(order.id)} height={40} />
                 </div>
               )}
             </div>

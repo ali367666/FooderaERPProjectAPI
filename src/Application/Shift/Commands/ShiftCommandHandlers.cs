@@ -54,15 +54,18 @@ public class CloseShiftCommandHandler : IRequestHandler<CloseShiftCommand, ZRepo
 {
     private readonly IShiftRepository _shiftRepository;
     private readonly IOrderRepository _orderRepository;
+    private readonly ISaleReturnRepository _saleReturnRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public CloseShiftCommandHandler(
         IShiftRepository shiftRepository,
         IOrderRepository orderRepository,
+        ISaleReturnRepository saleReturnRepository,
         ICurrentUserService currentUserService)
     {
         _shiftRepository = shiftRepository;
         _orderRepository = orderRepository;
+        _saleReturnRepository = saleReturnRepository;
         _currentUserService = currentUserService;
     }
 
@@ -87,6 +90,9 @@ public class CloseShiftCommandHandler : IRequestHandler<CloseShiftCommand, ZRepo
         var paidOrders = await _orderRepository.GetPaidBetweenAsync(
             companyId, shift.RestaurantId, shift.OpenedAt, shift.ClosedAt.Value, cancellationToken);
 
-        return ZReportBuilder.Build(shift, paidOrders);
+        var returns = await _saleReturnRepository.GetBetweenAsync(
+            companyId, shift.RestaurantId, shift.OpenedAt, shift.ClosedAt.Value, cancellationToken);
+
+        return ZReportBuilder.Build(shift, paidOrders, returns);
     }
 }

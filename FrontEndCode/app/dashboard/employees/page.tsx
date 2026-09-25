@@ -279,7 +279,7 @@ export default function EmployeesPage() {
   const sortedDepartmentOptions = useMemo(
     () =>
       [...departmentsForFilters]
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
         .map((d) => ({ value: String(d.id), label: d.name })),
     [departmentsForFilters],
   );
@@ -287,7 +287,7 @@ export default function EmployeesPage() {
   const sortedPositionOptions = useMemo(
     () =>
       [...positionsForFilters]
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
         .map((p) => {
           const pid = Number(p.id ?? p.positionId ?? 0);
           const label = String(p.name ?? p.positionName ?? "");

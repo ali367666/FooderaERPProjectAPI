@@ -613,7 +613,7 @@ function buildDashboardData(input: {
       sku: stockItemById.get(stock.stockItemId)?.barcode ?? `ITEM-${stock.stockItemId}`,
       currentStock: stock.quantity,
       minimumStock: getThreshold(stock),
-      alertType: stock.quantity <= 0 ? 'critical' : 'low_stock',
+      alertType: (stock.quantity <= 0 ? 'critical' : 'low_stock') as DashboardInventoryAlert['alertType'],
       unit: stock.unitLabel,
     }))
     .sort((a, b) => a.currentStock - b.currentStock);
@@ -670,7 +670,7 @@ function buildDashboardData(input: {
       details: order.restaurantName ?? 'Restaurant order',
       user: order.waiterName ?? 'System',
       timestamp: order.openedAt,
-      status: order.status === 'paid' || order.status === 'served' ? 'completed' : 'in_progress' as const,
+      status: (order.status === 'paid' || order.status === 'served' ? 'completed' : 'in_progress') as DashboardRecentActivity['status'],
     })),
     ...visibleStockRequests.map((request) => ({
       id: `stock-request-${request.id}`,
@@ -679,7 +679,7 @@ function buildDashboardData(input: {
       details: `${request.requestingWarehouseName} -> ${request.supplyingWarehouseName}`,
       user: request.requestingWarehouseName || 'System',
       timestamp: request.createdAtUtc ?? new Date().toISOString(),
-      status: request.status === StockRequestStatus.Approved ? 'completed' : 'pending' as const,
+      status: (request.status === StockRequestStatus.Approved ? 'completed' : 'pending') as DashboardRecentActivity['status'],
     })),
   ]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())

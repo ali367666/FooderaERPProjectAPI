@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 using Domain.Entities.WarehouseAndStock;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -38,6 +38,8 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<ScaleDevice> ScaleDevices { get; set; } = null!;
     public DbSet<DeliveryIntegration> DeliveryIntegrations { get; set; } = null!;
     public DbSet<CashMovement> CashMovements { get; set; } = null!;
+    public DbSet<SaleReturn> SaleReturns { get; set; } = null!;
+    public DbSet<SaleReturnLine> SaleReturnLines { get; set; } = null!;
     public DbSet<PrinterStationType> PrinterStationTypes { get; set; } = null!;
     public DbSet<Counterparty> Counterparties { get; set; } = null!;
     public DbSet<CounterpartyCategory> CounterpartyCategories { get; set; } = null!;
