@@ -176,9 +176,11 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
             <span>{terminal?.restaurantName ?? terminal?.companyName ?? "POS"}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="tabular-nums text-sm font-semibold text-muted-foreground">
-              {clockNow.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
+            {branding?.posShowClock !== false && (
+              <span className="tabular-nums text-sm font-semibold text-muted-foreground">
+                {clockNow.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+            )}
             <button
               type="button"
               onClick={() => setShiftDialogOpen(true)}

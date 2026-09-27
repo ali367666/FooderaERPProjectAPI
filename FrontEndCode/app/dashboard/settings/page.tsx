@@ -98,6 +98,19 @@ const DEFAULTS: CompanySettingsInput = {
   waiterCanCancel: true,
   lockOrderAfterBill: false,
   printKitchenSeparateTickets: false,
+  posShowChangePanel: true,
+  posShowWeighWindow: true,
+  posShowCustomerSelect: true,
+  posShowHoldButton: true,
+  posShowClock: true,
+  tableShowWaiter: true,
+  tableShowNote: true,
+  tableShowTime: true,
+  tableShowAmount: true,
+  tableBusyWarning: true,
+  tableReservationWarning: true,
+  tablePricesFromStation: true,
+  priceFromWarehouseSale: true,
   askGuestCountOnOpen: false,
   singleWaiterMode: false,
   defaultVatPercent: null,
@@ -133,6 +146,24 @@ const POS_SALE_FIELDS: Array<{ key: BoolSettingKey; label: string; hint: string 
     label: "Hesab verildikdən sonra müdaxilə edilə bilməz",
     hint: "\"Qəbz çap et\" (hesab) basılandan sonra sifarişə məhsul əlavə etmək, dəyişmək, silmək və endirim olmaz. Kilidi yalnız icazəsi olan açır.",
   },
+];
+
+const POS1_PANEL_FIELDS: Array<{ key: BoolSettingKey; label: string }> = [
+  { key: "posShowChangePanel", label: "Pul qalığı paneli (ödənişdə alınan məbləğ və qalıq)" },
+  { key: "posShowWeighWindow", label: "Tartım pəncərəsi (çəkili məhsul seçiləndə çəki soruşulsun)" },
+  { key: "posShowCustomerSelect", label: "Satışda müştəri seç" },
+  { key: "posShowHoldButton", label: "Gözlətmə düyməsi" },
+  { key: "posShowClock", label: "Satış ekranında saat" },
+];
+
+const TABLE_PANEL_FIELDS: Array<{ key: BoolSettingKey; label: string }> = [
+  { key: "tableShowWaiter", label: "Masada ofisiantı göstər" },
+  { key: "tableShowNote", label: "Masa qeydi" },
+  { key: "tableShowTime", label: "Masada vaxtı göstər" },
+  { key: "tableShowAmount", label: "Masada məbləği göstər" },
+  { key: "tableBusyWarning", label: "Masa məşğul xəbərdarlığı (vaxt keçəndə qırmızı çərçivə və səs)" },
+  { key: "tableReservationWarning", label: "Rezervasiya xəbərdarlığı (rezerv olunmuş masanı açarkən)" },
+  { key: "tablePricesFromStation", label: "Masa və paket qiymətləri dəzgahdan" },
 ];
 
 const PAYMENT_METHOD_FIELDS: Array<{ key: BoolSettingKey; label: string }> = [
@@ -584,6 +615,16 @@ export default function SettingsPage() {
             menecer də daxil, heç kim başqasının masasına müdaxilə edə bilməz.
           </p>
         </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {POS1_PANEL_FIELDS.map((f) => (
+            <div key={f.key} className="flex items-center gap-2">
+              <Checkbox id={f.key} checked={form[f.key] === true} onCheckedChange={(v) => update(f.key, v === true)} />
+              <Label htmlFor={f.key} className="text-sm font-normal">
+                {f.label}
+              </Label>
+            </div>
+          ))}
+        </div>
         {POS_SALE_FIELDS.map((f) => (
           <div key={f.key}>
             <div className="flex items-center gap-2">
@@ -615,6 +656,32 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Masa paneli */}
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">Masa paneli</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {TABLE_PANEL_FIELDS.map((f) => (
+            <div key={f.key} className="flex items-center gap-2">
+              <Checkbox id={f.key} checked={form[f.key] === true} onCheckedChange={(v) => update(f.key, v === true)} />
+              <Label htmlFor={f.key} className="text-sm font-normal">
+                {f.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+        <h3 className="pt-2 text-sm font-semibold">Neytral</h3>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="priceFromWarehouseSale"
+            checked={form.priceFromWarehouseSale}
+            onCheckedChange={(v) => update("priceFromWarehouseSale", v === true)}
+          />
+          <Label htmlFor="priceFromWarehouseSale" className="text-sm font-normal">
+            Anbar satış qiymətindən (dəzgah qiyməti yoxdursa)
+          </Label>
         </div>
       </section>
 

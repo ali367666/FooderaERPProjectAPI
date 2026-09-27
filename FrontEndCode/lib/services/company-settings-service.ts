@@ -75,6 +75,19 @@ export type CompanySettings = {
   waiterCanCancel: boolean;
   lockOrderAfterBill: boolean;
   printKitchenSeparateTickets: boolean;
+  posShowChangePanel: boolean;
+  posShowWeighWindow: boolean;
+  posShowCustomerSelect: boolean;
+  posShowHoldButton: boolean;
+  posShowClock: boolean;
+  tableShowWaiter: boolean;
+  tableShowNote: boolean;
+  tableShowTime: boolean;
+  tableShowAmount: boolean;
+  tableBusyWarning: boolean;
+  tableReservationWarning: boolean;
+  tablePricesFromStation: boolean;
+  priceFromWarehouseSale: boolean;
 
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
@@ -186,6 +199,19 @@ function normalize(item: unknown): CompanySettings | null {
     waiterCanCancel: bool("waiterCanCancel", "WaiterCanCancel", true),
     lockOrderAfterBill: bool("lockOrderAfterBill", "LockOrderAfterBill"),
     printKitchenSeparateTickets: bool("printKitchenSeparateTickets", "PrintKitchenSeparateTickets"),
+    posShowChangePanel: bool("posShowChangePanel", "PosShowChangePanel", true),
+    posShowWeighWindow: bool("posShowWeighWindow", "PosShowWeighWindow", true),
+    posShowCustomerSelect: bool("posShowCustomerSelect", "PosShowCustomerSelect", true),
+    posShowHoldButton: bool("posShowHoldButton", "PosShowHoldButton", true),
+    posShowClock: bool("posShowClock", "PosShowClock", true),
+    tableShowWaiter: bool("tableShowWaiter", "TableShowWaiter", true),
+    tableShowNote: bool("tableShowNote", "TableShowNote", true),
+    tableShowTime: bool("tableShowTime", "TableShowTime", true),
+    tableShowAmount: bool("tableShowAmount", "TableShowAmount", true),
+    tableBusyWarning: bool("tableBusyWarning", "TableBusyWarning", true),
+    tableReservationWarning: bool("tableReservationWarning", "TableReservationWarning", true),
+    tablePricesFromStation: bool("tablePricesFromStation", "TablePricesFromStation", true),
+    priceFromWarehouseSale: bool("priceFromWarehouseSale", "PriceFromWarehouseSale", true),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
@@ -294,6 +320,19 @@ export type CompanySettingsBranding = {
   waiterCanCancel: boolean;
   lockOrderAfterBill: boolean;
   printKitchenSeparateTickets: boolean;
+  posShowChangePanel: boolean;
+  posShowWeighWindow: boolean;
+  posShowCustomerSelect: boolean;
+  posShowHoldButton: boolean;
+  posShowClock: boolean;
+  tableShowWaiter: boolean;
+  tableShowNote: boolean;
+  tableShowTime: boolean;
+  tableShowAmount: boolean;
+  tableBusyWarning: boolean;
+  tableReservationWarning: boolean;
+  tablePricesFromStation: boolean;
+  priceFromWarehouseSale: boolean;
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
   defaultVatPercent: number | null;
@@ -378,6 +417,19 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     waiterCanCancel: bool("waiterCanCancel", "WaiterCanCancel", true),
     lockOrderAfterBill: bool("lockOrderAfterBill", "LockOrderAfterBill"),
     printKitchenSeparateTickets: bool("printKitchenSeparateTickets", "PrintKitchenSeparateTickets"),
+    posShowChangePanel: bool("posShowChangePanel", "PosShowChangePanel", true),
+    posShowWeighWindow: bool("posShowWeighWindow", "PosShowWeighWindow", true),
+    posShowCustomerSelect: bool("posShowCustomerSelect", "PosShowCustomerSelect", true),
+    posShowHoldButton: bool("posShowHoldButton", "PosShowHoldButton", true),
+    posShowClock: bool("posShowClock", "PosShowClock", true),
+    tableShowWaiter: bool("tableShowWaiter", "TableShowWaiter", true),
+    tableShowNote: bool("tableShowNote", "TableShowNote", true),
+    tableShowTime: bool("tableShowTime", "TableShowTime", true),
+    tableShowAmount: bool("tableShowAmount", "TableShowAmount", true),
+    tableBusyWarning: bool("tableBusyWarning", "TableBusyWarning", true),
+    tableReservationWarning: bool("tableReservationWarning", "TableReservationWarning", true),
+    tablePricesFromStation: bool("tablePricesFromStation", "TablePricesFromStation", true),
+    priceFromWarehouseSale: bool("priceFromWarehouseSale", "PriceFromWarehouseSale", true),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),

@@ -153,7 +153,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             ? 0
             : request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
                 ? request.Request.UnitPrice.Value
-                : line.MenuItem.StationPrice ?? line.MenuItem.Price;
+                : line.UnitPrice;
 
         if (_currentUserService.HasPermission(Domain.Constants.AppPermissions.DiscountApply))
         {

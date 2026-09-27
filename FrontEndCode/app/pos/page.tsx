@@ -192,7 +192,7 @@ export default function PosTablesPage() {
       if (elapsedMinutes >= warningMinutes) stillOverdueIds.add(table.id);
     }
     const newlyOverdue = [...stillOverdueIds].some((id) => !alertedTableIds.current.has(id));
-    if (newlyOverdue) playPosAlert(branding);
+    if (newlyOverdue && branding?.tableBusyWarning !== false) playPosAlert(branding);
     alertedTableIds.current = stillOverdueIds;
   }, [tables, now, warningMinutes, branding]);
 
@@ -336,7 +336,7 @@ export default function PosTablesPage() {
     }
     if (!terminal) return;
 
-    const conflict = findConflictingReservation(table.id);
+    const conflict = branding?.tableReservationWarning === false ? null : findConflictingReservation(table.id);
     if (conflict) {
       setReservationWarning({ table, reservation: conflict });
       return;
@@ -476,7 +476,7 @@ export default function PosTablesPage() {
 
           const order = table.activeOrder;
           const elapsedMinutes = order ? Math.floor((now.getTime() - new Date(order.openedAt).getTime()) / 60000) : 0;
-          const isOverdue = occupied && elapsedMinutes >= warningMinutes;
+          const isOverdue = branding?.tableBusyWarning !== false && occupied && elapsedMinutes >= warningMinutes;
           const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
           const isOtherWaiterTable =
             occupied && !canOverrideOwnership && currentEmployeeId != null && order!.waiterId !== currentEmployeeId;
@@ -501,7 +501,7 @@ export default function PosTablesPage() {
               {isOtherWaiterTable && (
                 <Lock className="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-white/90" />
               )}
-              {table.note && (
+              {table.note && branding?.tableShowNote !== false && (
                 <span className="absolute left-1.5 top-1.5" title={table.note}>
                   <StickyNote
                     className={cn("h-3.5 w-3.5", occupied ? "text-white/90" : "text-amber-600")}
@@ -521,15 +521,19 @@ export default function PosTablesPage() {
               {occupied ? (
                 <>
                   <span className="text-xs font-medium text-white/90">{statusLabel(status!)}</span>
-                  {order?.waiterName && (
+                  {order?.waiterName && branding?.tableShowWaiter !== false && (
                     <span className="max-w-full truncate text-[11px] text-white/80">{order.waiterName}</span>
                   )}
                   {order?.guestCount != null && (
                     <span className="text-[11px] text-white/80">{order.guestCount} nəfər</span>
                   )}
-                  <span className="text-[11px] text-white/80">{formatElapsed(order!.openedAt, now.getTime())}</span>
-                  <span className="text-xs font-semibold text-white">{order!.totalAmount.toFixed(2)} ₼</span>
-                  {order?.note && (
+                  {branding?.tableShowTime !== false && (
+                    <span className="text-[11px] text-white/80">{formatElapsed(order!.openedAt, now.getTime())}</span>
+                  )}
+                  {branding?.tableShowAmount !== false && (
+                    <span className="text-xs font-semibold text-white">{order!.totalAmount.toFixed(2)} ₼</span>
+                  )}
+                  {order?.note && branding?.tableShowNote !== false && (
                     <span className="max-w-full truncate text-[10px] italic text-white/70">{order.note}</span>
                   )}
                 </>

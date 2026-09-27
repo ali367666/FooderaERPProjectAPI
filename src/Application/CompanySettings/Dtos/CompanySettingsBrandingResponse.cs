@@ -70,6 +70,19 @@ public class CompanySettingsBrandingResponse
     public bool WaiterCanCancel { get; set; } = true;
     public bool LockOrderAfterBill { get; set; }
     public bool PrintKitchenSeparateTickets { get; set; }
+    public bool PosShowChangePanel { get; set; } = true;
+    public bool PosShowWeighWindow { get; set; } = true;
+    public bool PosShowCustomerSelect { get; set; } = true;
+    public bool PosShowHoldButton { get; set; } = true;
+    public bool PosShowClock { get; set; } = true;
+    public bool TableShowWaiter { get; set; } = true;
+    public bool TableShowNote { get; set; } = true;
+    public bool TableShowTime { get; set; } = true;
+    public bool TableShowAmount { get; set; } = true;
+    public bool TableBusyWarning { get; set; } = true;
+    public bool TableReservationWarning { get; set; } = true;
+    public bool TablePricesFromStation { get; set; } = true;
+    public bool PriceFromWarehouseSale { get; set; } = true;
 
     public bool AskGuestCountOnOpen { get; set; }
     public bool SingleWaiterMode { get; set; }

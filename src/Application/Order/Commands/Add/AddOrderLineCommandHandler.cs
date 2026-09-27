@@ -21,6 +21,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<AddOrderLineCommandHandler> _logger;
+    private readonly ICompanySettingsRepository _companySettingsRepository;
 
     public AddOrderLineCommandHandler(
         IOrderRepository orderRepository,
@@ -29,7 +30,8 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
-        ILogger<AddOrderLineCommandHandler> logger)
+        ILogger<AddOrderLineCommandHandler> logger,
+        ICompanySettingsRepository companySettingsRepository)
     {
         _orderRepository = orderRepository;
         _orderLineRepository = orderLineRepository;
@@ -38,6 +40,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
+        _companySettingsRepository = companySettingsRepository;
     }
 
     public async Task<OrderResponse> Handle(AddOrderLineCommand request, CancellationToken cancellationToken)
@@ -97,15 +100,10 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             order.TotalAmount
         });
 
-        // When a menu item has no Station price of its own, fall back to its linked warehouse
-        // item's own sale price before finally falling back to the item's general Price.
-        var warehouseSalePrice = menuItem.StockItem?.SalePrice;
-
         // Delivery orders (the restaurant's own courier delivery, not third-party Wolt/Bolt/189)
         // price from the item's Package price when one is configured, falling back like normal.
-        var effectivePrice = order.IsDelivery
-            ? menuItem.PackagePrice ?? menuItem.StationPrice ?? warehouseSalePrice ?? menuItem.Price
-            : menuItem.StationPrice ?? warehouseSalePrice ?? menuItem.Price;
+        var settings = await _companySettingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
+        var effectivePrice = OrderLinePricing.ResolveUnitPrice(menuItem, order.IsDelivery, settings);
         var quantity = menuItem.IsTimeBased ? 1 : request.Request.Quantity;
 
         var orderLine = new OrderLine

@@ -482,11 +482,11 @@ export default function PosOrderPage() {
     }
   };
 
-  const handleAddItem = async (menuItemId: number) => {
+  const handleAddItem = async (menuItemId: number, quantity = 1) => {
     if (!order || busy || outOfStockIds.has(menuItemId)) return;
     setBusy(true);
     try {
-      const updated = await addOrderLine({ orderId: order.id, menuItemId, quantity: 1 });
+      const updated = await addOrderLine({ orderId: order.id, menuItemId, quantity });
       setOrder(updated);
       void loadAvailability(order.restaurantId);
     } catch (err) {
@@ -506,6 +506,11 @@ export default function PosOrderPage() {
     !(isWeightBasedItem(item) && item.weightCode?.trim());
 
   const handleItemClick = (item: MenuItem) => {
+    // Weigh window switched off: add 1 kg (1000 g) straight away — it can be re-weighed on the line.
+    if (isWeightBasedItem(item) && branding?.posShowWeighWindow === false) {
+      void handleAddItem(item.id, 1000);
+      return;
+    }
     if (isWeightBasedItem(item)) {
       setWeightDialogItem(item);
       setWeightDialogLineId(null);
@@ -1109,7 +1114,7 @@ export default function PosOrderPage() {
             </span>
           )}
           <div className="ml-auto flex items-center gap-1">
-            {!isPaid && (
+            {!isPaid && branding?.posShowCustomerSelect !== false && (
               <Button variant="outline" size="sm" onClick={() => void openCounterpartyDialog()} disabled={busy}>
                 <User className="mr-1 h-3.5 w-3.5" />
                 Müştəri seç
@@ -1145,7 +1150,7 @@ export default function PosOrderPage() {
                 Ofisiantı dəyiş
               </Button>
             )}
-            {!isPaid && canEditProduct && (
+            {!isPaid && canEditProduct && (branding?.posShowHoldButton !== false || order.holdUntilUtc) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1495,6 +1500,7 @@ export default function PosOrderPage() {
                         </button>
                       )}
                       {canEditProduct &&
+                        (branding?.posShowHoldButton !== false || isHeld) &&
                         line.status !== "InPreparation" &&
                         line.status !== "Ready" &&
                         line.status !== "Served" && (
@@ -1866,7 +1872,7 @@ export default function PosOrderPage() {
                 .
               </p>
             )}
-            {paymentMethod === "Cash" && (
+            {paymentMethod === "Cash" && branding?.posShowChangePanel !== false && (
               <div className="space-y-2">
                 <Label htmlFor="paid-amount">Alınan məbləğ</Label>
                 <Input

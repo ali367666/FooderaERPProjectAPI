@@ -127,6 +127,45 @@ public class CompanySettings : CompanyEntity<int>
     /// <summary>Mətbəxdə hər məhsul ayrıca qəbzdə çıxsın.</summary>
     public bool PrintKitchenSeparateTickets { get; set; }
 
+    /// <summary>POS-1 — ödənişdə pul qalığı paneli (alınan məbləğ / qaytarılan).</summary>
+    public bool PosShowChangePanel { get; set; } = true;
+
+    /// <summary>POS-1 — çəkili məhsul seçiləndə tartım pəncərəsi açılsın.</summary>
+    public bool PosShowWeighWindow { get; set; } = true;
+
+    /// <summary>POS-1 — satışda müştəri seçmə düyməsi.</summary>
+    public bool PosShowCustomerSelect { get; set; } = true;
+
+    /// <summary>POS-1 — gözlətmə düymələri (sifariş və məhsul).</summary>
+    public bool PosShowHoldButton { get; set; } = true;
+
+    /// <summary>POS-1 — satış ekranında saat.</summary>
+    public bool PosShowClock { get; set; } = true;
+
+    /// <summary>Masa paneli — masada ofisiantın adı.</summary>
+    public bool TableShowWaiter { get; set; } = true;
+
+    /// <summary>Masa paneli — masa/sifariş qeydi.</summary>
+    public bool TableShowNote { get; set; } = true;
+
+    /// <summary>Masa paneli — masanın açıq qaldığı vaxt.</summary>
+    public bool TableShowTime { get; set; } = true;
+
+    /// <summary>Masa paneli — masadakı məbləğ.</summary>
+    public bool TableShowAmount { get; set; } = true;
+
+    /// <summary>Masa paneli — vaxt keçəndə məşğul masa xəbərdarlığı (qırmızı çərçivə + səs).</summary>
+    public bool TableBusyWarning { get; set; } = true;
+
+    /// <summary>Masa paneli — rezerv olunmuş masanı açarkən xəbərdarlıq.</summary>
+    public bool TableReservationWarning { get; set; } = true;
+
+    /// <summary>Masa və paket qiymətləri dəzgah qiymətindən götürülsün.</summary>
+    public bool TablePricesFromStation { get; set; } = true;
+
+    /// <summary>Neytral — dəzgah qiyməti yoxdursa anbar satış qiymətindən istifadə olunsun.</summary>
+    public bool PriceFromWarehouseSale { get; set; } = true;
+
     // POS-1 paneli
     public bool AskGuestCountOnOpen { get; set; }
 
