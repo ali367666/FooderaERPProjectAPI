@@ -151,6 +151,19 @@ export default function ZReportPage() {
             <SummaryCard label="Çek sayı" value={String(report.orderCount)} />
           </div>
 
+          {(report.returnCount ?? 0) > 0 && (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+              <SummaryCard
+                label={`Geri qaytarma (${report.returnCount})`}
+                value={`−${formatCurrency(report.totalReturns ?? 0)}`}
+              />
+              <SummaryCard label="Qaytarma: nağd" value={`−${formatCurrency(report.cashReturns ?? 0)}`} />
+              <SummaryCard label="Qaytarma: kart" value={`−${formatCurrency(report.cardReturns ?? 0)}`} />
+              <SummaryCard label="Qaytarma: borc" value={`−${formatCurrency(report.creditReturns ?? 0)}`} />
+              <SummaryCard label="Xalis satış" value={formatCurrency(report.netRevenue ?? report.totalRevenue)} />
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ReportTable
               title="Məhsul satışları"
@@ -173,6 +186,19 @@ export default function ZReportPage() {
               emptyText="Bu dövrdə satış yoxdur."
             />
           </div>
+
+          {(report.returnedProducts?.length ?? 0) > 0 && (
+            <ReportTable
+              title="Geri qaytarılan məhsullar"
+              rows={report.returnedProducts ?? []}
+              columns={[
+                { key: "name", label: "Məhsul" },
+                { key: "quantity", label: "Miqdar", align: "right" },
+                { key: "amount", label: "Məbləğ", align: "right", money: true },
+              ]}
+              emptyText="Bu dövrdə qaytarma yoxdur."
+            />
+          )}
 
           <ReportTable
             title="Kateqoriya üzrə satış"

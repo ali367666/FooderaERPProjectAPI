@@ -128,6 +128,20 @@ export type ZReport = {
   products: ZReportProductLine[];
   waiters: ZReportWaiterLine[];
   categories: ZReportCategoryLine[];
+  returnCount?: number;
+  totalReturns?: number;
+  cashReturns?: number;
+  cardReturns?: number;
+  creditReturns?: number;
+  netRevenue?: number;
+  returnedProducts?: ZReportReturnLine[];
+};
+
+export type ZReportReturnLine = {
+  menuItemId: number;
+  name: string;
+  quantity: number;
+  amount: number;
 };
 
 export async function getZReport(from: Date, to: Date): Promise<ZReport> {

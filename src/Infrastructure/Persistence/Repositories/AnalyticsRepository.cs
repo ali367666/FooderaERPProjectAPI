@@ -214,11 +214,40 @@ public class AnalyticsRepository : IAnalyticsRepository
             .OrderByDescending(x => x.Revenue)
             .ToList();
 
+        var returns = await _context.SaleReturns
+            .Where(r => r.CompanyId == companyId && r.CreatedAtUtc >= from && r.CreatedAtUtc < to)
+            .Select(r => new { r.PaymentMethod, r.TotalAmount })
+            .ToListAsync(cancellationToken);
+
+        var returnedProducts = await _context.SaleReturnLines
+            .Where(l => l.SaleReturn.CompanyId == companyId
+                && l.SaleReturn.CreatedAtUtc >= from && l.SaleReturn.CreatedAtUtc < to)
+            .GroupBy(l => new { l.MenuItemId, l.MenuItem.Name })
+            .Select(g => new SalesReportReturnLineDto
+            {
+                MenuItemId = g.Key.MenuItemId,
+                Name = g.Key.Name,
+                Quantity = g.Sum(l => l.Quantity),
+                Amount = g.Sum(l => l.Amount),
+            })
+            .OrderByDescending(x => x.Amount)
+            .ToListAsync(cancellationToken);
+
+        var totalRevenue = paidOrders.Sum(o => o.TotalAmount);
+        var totalReturns = returns.Sum(r => r.TotalAmount);
+
         return new SalesReportResponse
         {
             From = from,
             To = to,
-            TotalRevenue = paidOrders.Sum(o => o.TotalAmount),
+            ReturnCount = returns.Count,
+            TotalReturns = totalReturns,
+            CashReturns = returns.Where(r => r.PaymentMethod == PaymentMethod.Cash).Sum(r => r.TotalAmount),
+            CardReturns = returns.Where(r => r.PaymentMethod == PaymentMethod.Card).Sum(r => r.TotalAmount),
+            CreditReturns = returns.Where(r => r.PaymentMethod == PaymentMethod.Credit).Sum(r => r.TotalAmount),
+            NetRevenue = totalRevenue - totalReturns,
+            ReturnedProducts = returnedProducts,
+            TotalRevenue = totalRevenue,
             TotalDiscount = paidOrders.Sum(o => o.DiscountAmount),
             CashTotal = paidOrders.Where(o => o.PaymentMethod == PaymentMethod.Cash).Sum(o => o.TotalAmount),
             CardTotal = paidOrders.Where(o => o.PaymentMethod == PaymentMethod.Card).Sum(o => o.TotalAmount),
