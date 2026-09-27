@@ -127,6 +127,7 @@ public class UpdateCompanySettingsCommandHandler
         settings.TableReservationWarning = dto.TableReservationWarning;
         settings.TablePricesFromStation = dto.TablePricesFromStation;
         settings.PriceFromWarehouseSale = dto.PriceFromWarehouseSale;
+        settings.TouchScreenMode = dto.TouchScreenMode;
         settings.ThemePrimaryColor = string.IsNullOrWhiteSpace(dto.ThemePrimaryColor) ? null : dto.ThemePrimaryColor.Trim();
         settings.ThemeRadius = dto.ThemeRadius is "square" or "medium" or "round" ? dto.ThemeRadius : null;
         settings.ReceiptPaperWidth = dto.ReceiptPaperWidth == 58 ? 58 : 80;

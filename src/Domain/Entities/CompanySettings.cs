@@ -182,6 +182,9 @@ public class CompanySettings : CompanyEntity<int>
     /// <summary>Line order on the customer receipt: "order" (as ordered), "name" (A–Z) or "category" (grouped by category).</summary>
     public string ReceiptSortMode { get; set; } = "order";
 
+    /// <summary>Toxunuşlu ekran — larger POS controls and on-screen number pads, for touch terminals without a keyboard.</summary>
+    public bool TouchScreenMode { get; set; }
+
     // POS-1 paneli
     public bool AskGuestCountOnOpen { get; set; }
 

@@ -96,6 +96,7 @@ public class CompanySettingsResponse
     public string? ReceiptHeaderText { get; set; }
     public string? ReceiptFooterText { get; set; }
     public string ReceiptSortMode { get; set; } = "order";
+    public bool TouchScreenMode { get; set; }
 
     public bool AskGuestCountOnOpen { get; set; }
     public bool SingleWaiterMode { get; set; }

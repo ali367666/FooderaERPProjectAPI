@@ -167,7 +167,13 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <PosAuthGuard>
-      <div className={cn("flex min-h-screen flex-col", !branding?.wallpaperUrl && "bg-muted/30")}>
+      <div
+        className={cn(
+          "flex min-h-screen flex-col",
+          !branding?.wallpaperUrl && "bg-muted/30",
+          branding?.touchScreenMode === true && "touch-mode",
+        )}
+      >
         {branding?.wallpaperUrl && (
           <div
             className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"

@@ -94,6 +94,7 @@ export type CompanySettings = {
   receiptHeaderText: string | null;
   receiptFooterText: string | null;
   receiptSortMode: string;
+  touchScreenMode: boolean;
 
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
@@ -224,6 +225,7 @@ function normalize(item: unknown): CompanySettings | null {
     receiptHeaderText: strOrNull("receiptHeaderText", "ReceiptHeaderText"),
     receiptFooterText: strOrNull("receiptFooterText", "ReceiptFooterText"),
     receiptSortMode: strOrNull("receiptSortMode", "ReceiptSortMode") ?? "order",
+    touchScreenMode: bool("touchScreenMode", "TouchScreenMode"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
@@ -351,6 +353,7 @@ export type CompanySettingsBranding = {
   receiptHeaderText: string | null;
   receiptFooterText: string | null;
   receiptSortMode: string;
+  touchScreenMode: boolean;
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
   defaultVatPercent: number | null;
@@ -454,6 +457,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     receiptHeaderText: strOrNull("receiptHeaderText", "ReceiptHeaderText"),
     receiptFooterText: strOrNull("receiptFooterText", "ReceiptFooterText"),
     receiptSortMode: strOrNull("receiptSortMode", "ReceiptSortMode") ?? "order",
+    touchScreenMode: bool("touchScreenMode", "TouchScreenMode"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),

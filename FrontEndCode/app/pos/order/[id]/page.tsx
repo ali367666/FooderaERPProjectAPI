@@ -64,6 +64,7 @@ import { getPosTerminalContext } from "@/lib/pos-terminal-client";
 import { escPosBarcode, receiptBarcodeValue } from "@/lib/receipt-barcode";
 import { arrangeReceiptLines, centerText, formatReceiptTextLine, receiptCharsPerLine } from "@/lib/receipt-format";
 import { BarcodeSvg } from "@/components/barcode-svg";
+import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getStoredAuthUser } from "@/lib/auth-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
@@ -1812,6 +1813,7 @@ export default function PosOrderPage() {
               onChange={(e) => setPinInput(e.target.value)}
               placeholder="Ofisiant kodu"
             />
+            {branding?.touchScreenMode === true && <TouchNumpad value={pinInput} onChange={setPinInput} />}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setPinPrinter(null)}>
                 İmtina et
@@ -1906,6 +1908,9 @@ export default function PosOrderPage() {
                   value={paidAmountInput}
                   onChange={(e) => setPaidAmountInput(e.target.value)}
                 />
+                {branding?.touchScreenMode === true && (
+                  <TouchNumpad value={paidAmountInput} onChange={setPaidAmountInput} allowDecimal />
+                )}
                 <p className="text-sm text-muted-foreground">Qalıq: {changeAmount.toFixed(2)} ₼</p>
               </div>
             )}
@@ -2234,6 +2239,9 @@ export default function PosOrderPage() {
               if (e.key === "Enter") void handleConfirmWeight();
             }}
           />
+          {branding?.touchScreenMode === true && (
+            <TouchNumpad value={weightKgInput} onChange={setWeightKgInput} allowDecimal />
+          )}
           {weightDialogItem && Number(weightKgInput) > 0 && (
             <p className="text-sm text-muted-foreground">
               Cəm: {((weightDialogItem.stationPrice ?? weightDialogItem.price) * Number(weightKgInput)).toFixed(2)} ₼

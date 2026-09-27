@@ -1,5 +1,6 @@
 "use client";
 
+import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -565,6 +566,9 @@ export default function PosTablesPage() {
                 if (e.key === "Enter") handleConfirmGuestCount();
               }}
             />
+            {branding?.touchScreenMode === true && (
+              <TouchNumpad value={guestCountInput} onChange={setGuestCountInput} />
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGuestCountTable(null)}>

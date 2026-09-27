@@ -119,6 +119,7 @@ const DEFAULTS: CompanySettingsInput = {
   receiptHeaderText: null,
   receiptFooterText: null,
   receiptSortMode: "order",
+  touchScreenMode: false,
   askGuestCountOnOpen: false,
   singleWaiterMode: false,
   defaultVatPercent: null,
@@ -458,6 +459,22 @@ export default function SettingsPage() {
             <Label>Masa vaxt xəbərdarlığı (dəqiqə)</Label>
             <div className="mt-1">{numberField("tableTimeWarningMinutes", form.tableTimeWarningMinutes)}</div>
           </div>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="touchScreenMode"
+              checked={form.touchScreenMode}
+              onCheckedChange={(v) => update("touchScreenMode", v === true)}
+            />
+            <Label htmlFor="touchScreenMode" className="text-sm font-normal">
+              Toxunuşlu ekran (touch screen) rejimi
+            </Label>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            POS-da düymələr və sahələr böyüyür, məbləğ/çəki/say/kod sahələrinin altında ekran klaviaturası çıxır.
+          </p>
         </div>
 
         <div>

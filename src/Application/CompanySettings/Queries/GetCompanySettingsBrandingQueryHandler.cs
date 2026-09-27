@@ -120,6 +120,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 ReceiptHeaderText = settings.ReceiptHeaderText,
                 ReceiptFooterText = settings.ReceiptFooterText,
                 ReceiptSortMode = settings.ReceiptSortMode,
+                TouchScreenMode = settings.TouchScreenMode,
                 AskGuestCountOnOpen = settings.AskGuestCountOnOpen,
                 SingleWaiterMode = settings.SingleWaiterMode,
                 DefaultVatPercent = settings.DefaultVatPercent
