@@ -30,6 +30,7 @@ export type PaymentMethod = "Cash" | "Card" | "Credit";
 
 export type OrderReceiptLineDto = {
   menuItemName: string;
+  menuCategoryId: number | null;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
@@ -330,6 +331,7 @@ function normalizeReceipt(raw: unknown): OrderReceiptDto | null {
             const l = line as Record<string, unknown>;
             return {
               menuItemName: String(pick(l, "menuItemName", "MenuItemName") ?? ""),
+              menuCategoryId: Number(pick(l, "menuCategoryId", "MenuCategoryId") ?? 0) || null,
               quantity: Number(pick(l, "quantity", "Quantity") ?? 0),
               unitPrice: Number(pick(l, "unitPrice", "UnitPrice") ?? 0),
               lineTotal: Number(pick(l, "lineTotal", "LineTotal") ?? 0),

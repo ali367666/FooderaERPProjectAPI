@@ -20,6 +20,7 @@ public class OrderReceiptResponse
 public class OrderReceiptLineResponse
 {
     public string MenuItemName { get; set; } = default!;
+    public int MenuCategoryId { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }

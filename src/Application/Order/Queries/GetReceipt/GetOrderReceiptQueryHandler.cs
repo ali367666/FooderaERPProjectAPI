@@ -85,6 +85,7 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
                 .Select(x => new OrderReceiptLineResponse
                 {
                     MenuItemName = x.MenuItem.Name,
+                    MenuCategoryId = x.MenuItem.MenuCategoryId,
                     Quantity = x.Quantity,
                     UnitPrice = x.UnitPrice,
                     LineTotal = x.LineTotal,
@@ -94,10 +95,11 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
         }
 
         return activeLines
-            .GroupBy(x => new { x.MenuItem.Name, x.UnitPrice, VatPercent = x.MenuItem.VatPercent })
+            .GroupBy(x => new { x.MenuItem.Name, x.MenuItem.MenuCategoryId, x.UnitPrice, VatPercent = x.MenuItem.VatPercent })
             .Select(g => new OrderReceiptLineResponse
             {
                 MenuItemName = g.Key.Name,
+                MenuCategoryId = g.Key.MenuCategoryId,
                 Quantity = g.Sum(x => x.Quantity),
                 UnitPrice = g.Key.UnitPrice,
                 LineTotal = g.Sum(x => x.LineTotal),

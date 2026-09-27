@@ -1,5 +1,6 @@
 "use client";
 
+import { applyTheme } from "@/lib/theme";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -54,6 +55,10 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [terminal, setTerminal] = useState<PosTerminalContext | null>(null);
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
+
+  useEffect(() => {
+    applyTheme(branding);
+  }, [branding]);
 
   useEffect(() => {
     setTerminal(getPosTerminalContext());

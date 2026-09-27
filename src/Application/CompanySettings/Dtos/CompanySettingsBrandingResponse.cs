@@ -83,6 +83,12 @@ public class CompanySettingsBrandingResponse
     public bool TableReservationWarning { get; set; } = true;
     public bool TablePricesFromStation { get; set; } = true;
     public bool PriceFromWarehouseSale { get; set; } = true;
+    public string? ThemePrimaryColor { get; set; }
+    public string? ThemeRadius { get; set; }
+    public int ReceiptPaperWidth { get; set; } = 80;
+    public string? ReceiptHeaderText { get; set; }
+    public string? ReceiptFooterText { get; set; }
+    public string ReceiptSortMode { get; set; } = "order";
 
     public bool AskGuestCountOnOpen { get; set; }
     public bool SingleWaiterMode { get; set; }

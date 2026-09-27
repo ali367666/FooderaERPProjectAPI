@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Repositories;
+using Application.Abstractions.Repositories;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -31,6 +31,7 @@ public static class InfrastructureServiceRegistration
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IIdentityAdminService, IdentityAdminService>();
+        services.AddScoped<ICompanyDefaultsSeeder, Infrastructure.Persistence.Seeds.CompanyDefaultsSeeder>();
         services.AddScoped<IRestaurantRepository, RestaurantRepository>();
 
         // 🔹 Identity

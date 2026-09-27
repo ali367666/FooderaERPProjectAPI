@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ import {
 import { uploadFile } from "@/lib/services/file-service";
 import { ApiFormError } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
+import { applyTheme } from "@/lib/theme";
+import { arrangeReceiptLines, centerText, formatReceiptTextLine, receiptCharsPerLine } from "@/lib/receipt-format";
 
 const INTEGRATION_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "integrationWolt", label: "Wolt" },
@@ -111,6 +113,12 @@ const DEFAULTS: CompanySettingsInput = {
   tableReservationWarning: true,
   tablePricesFromStation: true,
   priceFromWarehouseSale: true,
+  themePrimaryColor: null,
+  themeRadius: null,
+  receiptPaperWidth: 80,
+  receiptHeaderText: null,
+  receiptFooterText: null,
+  receiptSortMode: "order",
   askGuestCountOnOpen: false,
   singleWaiterMode: false,
   defaultVatPercent: null,
@@ -206,6 +214,41 @@ const RECEIPT_SIMPLE_FIELD_TOGGLES: Array<{ key: keyof CompanySettingsInput; lab
   { key: "receiptSimpleShowFooter", label: "Slogan / əlaqə / sosial media" },
 ];
 
+const PREVIEW_LINES = [
+  { menuItemName: "Plov", menuCategoryId: 1, quantity: 2, lineTotal: 24 },
+  { menuItemName: "Ayran", menuCategoryId: 2, quantity: 2, lineTotal: 4 },
+  { menuItemName: "Dolma", menuCategoryId: 1, quantity: 1, lineTotal: 9.5 },
+  { menuItemName: "Çay dəsti", menuCategoryId: 2, quantity: 1, lineTotal: 6 },
+];
+const PREVIEW_CATEGORIES: Record<number, string> = { 1: "İsti yeməklər", 2: "İçkilər" };
+
+/** Live "Çek dizaynı" preview — the same layout the POS sends to the receipt printer. */
+function buildReceiptPreview(form: CompanySettingsInput): string {
+  const width = receiptCharsPerLine(form.receiptPaperWidth);
+  const out: string[] = [];
+  if (form.receiptShowBusinessName) out.push(centerText("RESTORAN ADI", width));
+  if (form.receiptHeaderText) for (const t of form.receiptHeaderText.split("\n")) out.push(centerText(t, width));
+  out.push("");
+  if (form.receiptShowOrderNumber) out.push("Sifariş: 000123");
+  if (form.receiptShowTableName) out.push("Masa: 5");
+  if (form.receiptShowWaiterName) out.push("Ofisiant: Əli Məmmədov");
+  if (form.receiptShowTime) out.push("Vaxt: 27.09.2026 19:45");
+  out.push("-".repeat(width));
+  for (const row of arrangeReceiptLines(PREVIEW_LINES, form.receiptSortMode, (id) => (id ? PREVIEW_CATEGORIES[id] ?? "" : ""))) {
+    if (row.kind === "header") out.push(`[${row.title}]`);
+    else out.push(formatReceiptTextLine(row.line.quantity, row.line.menuItemName, row.line.lineTotal, width));
+  }
+  out.push("-".repeat(width));
+  out.push("Cəm: 43.50 ₼");
+  if (form.receiptFooterText) {
+    out.push("");
+    for (const t of form.receiptFooterText.split("\n")) out.push(centerText(t, width));
+  }
+  if (form.slogan) out.push(form.slogan);
+  if (form.contactPhoneNumber) out.push(form.contactPhoneNumber);
+  return out.join("\n");
+}
+
 export default function SettingsPage() {
   const { selectedCompanyId } = useSelectedCompany();
   const [form, setForm] = useState<CompanySettingsInput>(DEFAULTS);
@@ -232,6 +275,17 @@ export default function SettingsPage() {
       }
     })();
   }, [selectedCompanyId]);
+
+  useEffect(() => {
+    applyTheme(form);
+  }, [form.themePrimaryColor, form.themeRadius]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Leaving the page with an unsaved colour must not keep that colour on the rest of the panel.
+  const savedFormRef = useRef(savedForm);
+  savedFormRef.current = savedForm;
+  useEffect(() => () => applyTheme(savedFormRef.current), []);
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm);
 
   const update = <K extends keyof CompanySettingsInput>(key: K, value: CompanySettingsInput[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -685,6 +739,112 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* Rənglər və dizayn */}
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">Rənglər və dizayn</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label>Əsas rəng</Label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="color"
+                aria-label="Əsas rəng"
+                value={form.themePrimaryColor ?? "#0f3d2e"}
+                onChange={(e) => update("themePrimaryColor", e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded border bg-background p-1"
+              />
+              <Input
+                value={form.themePrimaryColor ?? ""}
+                onChange={(e) => update("themePrimaryColor", e.target.value || null)}
+                placeholder="Standart"
+                className="max-w-[140px]"
+              />
+              {form.themePrimaryColor && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => update("themePrimaryColor", null)}>
+                  Standart
+                </Button>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Düymələr və seçilmiş elementlər bu rəngdə olur (panel və POS).</p>
+          </div>
+          <div>
+            <Label>Künc forması</Label>
+            <select
+              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={form.themeRadius ?? "medium"}
+              onChange={(e) => update("themeRadius", e.target.value === "medium" ? null : e.target.value)}
+            >
+              <option value="square">Kvadrat</option>
+              <option value="medium">Orta (standart)</option>
+              <option value="round">Yuvarlaq</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Önizləmə:</span>
+          <Button type="button" size="sm">Əsas düymə</Button>
+          <Button type="button" size="sm" variant="outline">İkinci düymə</Button>
+        </div>
+      </section>
+
+      {/* Çek dizaynı */}
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">Çek dizaynı</h2>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Kağız eni</Label>
+                <select
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.receiptPaperWidth}
+                  onChange={(e) => update("receiptPaperWidth", Number(e.target.value))}
+                >
+                  <option value={58}>58 mm</option>
+                  <option value={80}>80 mm</option>
+                </select>
+              </div>
+              <div>
+                <Label>Qəbzdə sıralama</Label>
+                <select
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.receiptSortMode}
+                  onChange={(e) => update("receiptSortMode", e.target.value)}
+                >
+                  <option value="order">Sifariş ardıcıllığı</option>
+                  <option value="name">Ada görə (A–Z)</option>
+                  <option value="category">Kateqoriyaya görə qruplaşdır</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <Label>Yuxarı mətn</Label>
+              <textarea
+                className="mt-1 flex min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.receiptHeaderText ?? ""}
+                onChange={(e) => update("receiptHeaderText", e.target.value || null)}
+                placeholder="məs. Xoş gəlmisiniz!"
+              />
+            </div>
+            <div>
+              <Label>Aşağı mətn</Label>
+              <textarea
+                className="mt-1 flex min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.receiptFooterText ?? ""}
+                onChange={(e) => update("receiptFooterText", e.target.value || null)}
+                placeholder="məs. Wi-Fi: resto_guest / 12345678"
+              />
+            </div>
+          </div>
+          <div>
+            <Label className="mb-1 block">Önizləmə</Label>
+            <pre className="overflow-x-auto rounded-md border bg-white p-3 font-mono text-[11px] leading-snug text-black">
+              {buildReceiptPreview(form)}
+            </pre>
+          </div>
+        </div>
+      </section>
+
       {/* ƏDV */}
       <section className="space-y-4 rounded-xl border bg-card p-6">
         <h2 className="text-lg font-semibold">ƏDV</h2>
@@ -698,9 +858,19 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <Button onClick={() => void handleSave()} disabled={saving} className="h-11 px-8">
-        {saving ? "Saxlanılır..." : "Yadda saxla"}
-      </Button>
+      {isDirty && (
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-3 shadow-lg">
+          <span className="text-sm font-medium">Yadda saxlanmamış dəyişikliklər var</span>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={saving} onClick={() => setForm(savedForm)}>
+              İmtina et
+            </Button>
+            <Button onClick={() => void handleSave()} disabled={saving}>
+              {saving ? "Saxlanılır..." : "Təsdiq et"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

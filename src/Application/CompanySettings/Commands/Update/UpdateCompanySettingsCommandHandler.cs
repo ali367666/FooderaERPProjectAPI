@@ -127,6 +127,12 @@ public class UpdateCompanySettingsCommandHandler
         settings.TableReservationWarning = dto.TableReservationWarning;
         settings.TablePricesFromStation = dto.TablePricesFromStation;
         settings.PriceFromWarehouseSale = dto.PriceFromWarehouseSale;
+        settings.ThemePrimaryColor = string.IsNullOrWhiteSpace(dto.ThemePrimaryColor) ? null : dto.ThemePrimaryColor.Trim();
+        settings.ThemeRadius = dto.ThemeRadius is "square" or "medium" or "round" ? dto.ThemeRadius : null;
+        settings.ReceiptPaperWidth = dto.ReceiptPaperWidth == 58 ? 58 : 80;
+        settings.ReceiptHeaderText = string.IsNullOrWhiteSpace(dto.ReceiptHeaderText) ? null : dto.ReceiptHeaderText.Trim();
+        settings.ReceiptFooterText = string.IsNullOrWhiteSpace(dto.ReceiptFooterText) ? null : dto.ReceiptFooterText.Trim();
+        settings.ReceiptSortMode = dto.ReceiptSortMode is "name" or "category" ? dto.ReceiptSortMode : "order";
         settings.AskGuestCountOnOpen = dto.AskGuestCountOnOpen;
         settings.SingleWaiterMode = dto.SingleWaiterMode;
         settings.DefaultVatPercent = dto.DefaultVatPercent;

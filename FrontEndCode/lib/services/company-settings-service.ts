@@ -88,6 +88,12 @@ export type CompanySettings = {
   tableReservationWarning: boolean;
   tablePricesFromStation: boolean;
   priceFromWarehouseSale: boolean;
+  themePrimaryColor: string | null;
+  themeRadius: string | null;
+  receiptPaperWidth: number;
+  receiptHeaderText: string | null;
+  receiptFooterText: string | null;
+  receiptSortMode: string;
 
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
@@ -212,6 +218,12 @@ function normalize(item: unknown): CompanySettings | null {
     tableReservationWarning: bool("tableReservationWarning", "TableReservationWarning", true),
     tablePricesFromStation: bool("tablePricesFromStation", "TablePricesFromStation", true),
     priceFromWarehouseSale: bool("priceFromWarehouseSale", "PriceFromWarehouseSale", true),
+    themePrimaryColor: strOrNull("themePrimaryColor", "ThemePrimaryColor"),
+    themeRadius: strOrNull("themeRadius", "ThemeRadius"),
+    receiptPaperWidth: numOrNull("receiptPaperWidth", "ReceiptPaperWidth") === 58 ? 58 : 80,
+    receiptHeaderText: strOrNull("receiptHeaderText", "ReceiptHeaderText"),
+    receiptFooterText: strOrNull("receiptFooterText", "ReceiptFooterText"),
+    receiptSortMode: strOrNull("receiptSortMode", "ReceiptSortMode") ?? "order",
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
@@ -333,6 +345,12 @@ export type CompanySettingsBranding = {
   tableReservationWarning: boolean;
   tablePricesFromStation: boolean;
   priceFromWarehouseSale: boolean;
+  themePrimaryColor: string | null;
+  themeRadius: string | null;
+  receiptPaperWidth: number;
+  receiptHeaderText: string | null;
+  receiptFooterText: string | null;
+  receiptSortMode: string;
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
   defaultVatPercent: number | null;
@@ -430,6 +448,12 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     tableReservationWarning: bool("tableReservationWarning", "TableReservationWarning", true),
     tablePricesFromStation: bool("tablePricesFromStation", "TablePricesFromStation", true),
     priceFromWarehouseSale: bool("priceFromWarehouseSale", "PriceFromWarehouseSale", true),
+    themePrimaryColor: strOrNull("themePrimaryColor", "ThemePrimaryColor"),
+    themeRadius: strOrNull("themeRadius", "ThemeRadius"),
+    receiptPaperWidth: numOrNull("receiptPaperWidth", "ReceiptPaperWidth") === 58 ? 58 : 80,
+    receiptHeaderText: strOrNull("receiptHeaderText", "ReceiptHeaderText"),
+    receiptFooterText: strOrNull("receiptFooterText", "ReceiptFooterText"),
+    receiptSortMode: strOrNull("receiptSortMode", "ReceiptSortMode") ?? "order",
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),

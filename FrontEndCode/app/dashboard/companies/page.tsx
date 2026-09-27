@@ -38,7 +38,6 @@ const MODULE_FIELDS: Array<{ key: keyof CompanyModules; label: string }> = [
   { key: "modulePaket", label: "Paket" },
   { key: "moduleOtel", label: "Otel" },
   { key: "moduleFitnes", label: "Fitnes" },
-  { key: "moduleDataSecimi", label: "Mağaza" },
   { key: "moduleQiymetSor", label: "Qiymət Sor" },
   { key: "moduleKompleks", label: "İstirahət Kompleksi" },
 ];
@@ -643,6 +642,29 @@ export default function CompaniesPage() {
                 </p>
               )}
             </div>
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Biznes tipi</Label>
+            <div className="flex gap-2">
+              {[
+                { value: false, label: "Restoran" },
+                { value: true, label: "Mağaza" },
+              ].map((opt) => (
+                <Button
+                  key={opt.label}
+                  type="button"
+                  size="sm"
+                  variant={modules.moduleDataSecimi === opt.value ? "default" : "outline"}
+                  onClick={() => setModules((m) => ({ ...m, moduleDataSecimi: opt.value }))}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Mağaza rejimində masa, mətbəx və rezervasiya bölmələri gizlənir, POS birbaşa satış ekranı ilə işləyir.
+            </p>
           </div>
 
           <div>

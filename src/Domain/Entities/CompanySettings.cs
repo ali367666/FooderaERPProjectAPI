@@ -166,6 +166,22 @@ public class CompanySettings : CompanyEntity<int>
     /// <summary>Neytral — dəzgah qiyməti yoxdursa anbar satış qiymətindən istifadə olunsun.</summary>
     public bool PriceFromWarehouseSale { get; set; } = true;
 
+    // Tema
+    /// <summary>Main brand colour (hex, e.g. #2563eb) used for buttons and highlights in the panel and POS.</summary>
+    public string? ThemePrimaryColor { get; set; }
+    /// <summary>Corner style: "square", "medium" (default) or "round".</summary>
+    public string? ThemeRadius { get; set; }
+
+    // Çek dizaynı
+    /// <summary>Receipt paper width in mm — 58 (32 characters per line) or 80 (48).</summary>
+    public int ReceiptPaperWidth { get; set; } = 80;
+    /// <summary>Free text printed at the top of the customer receipt.</summary>
+    public string? ReceiptHeaderText { get; set; }
+    /// <summary>Free text printed at the bottom of the customer receipt.</summary>
+    public string? ReceiptFooterText { get; set; }
+    /// <summary>Line order on the customer receipt: "order" (as ordered), "name" (A–Z) or "category" (grouped by category).</summary>
+    public string ReceiptSortMode { get; set; } = "order";
+
     // POS-1 paneli
     public bool AskGuestCountOnOpen { get; set; }
 

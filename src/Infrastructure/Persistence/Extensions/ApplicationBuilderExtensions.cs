@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Domain.Entities;
 using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
@@ -22,6 +22,7 @@ public static class ApplicationBuilderExtensions
         var roleManager = services.GetRequiredService<RoleManager<AppRole>>();
         var userManager = services.GetRequiredService<UserManager<User>>();
         var identityAdminService = services.GetRequiredService<IIdentityAdminService>();
+        var defaultsSeeder = services.GetRequiredService<ICompanyDefaultsSeeder>();
         var configuration = services.GetRequiredService<IConfiguration>();
 
         var companyId = await CompanySeeder.SeedDefaultCompanyAsync(context);
@@ -33,7 +34,10 @@ public static class ApplicationBuilderExtensions
         // normal CreateCompany flow.
         var allCompanyIds = await context.Companies.Select(c => c.Id).ToListAsync();
         foreach (var id in allCompanyIds)
+        {
             await identityAdminService.CloneDefaultRolesForCompanyAsync(id);
+            await defaultsSeeder.EnsureDefaultsAsync(id);
+        }
 
         return app;
     }

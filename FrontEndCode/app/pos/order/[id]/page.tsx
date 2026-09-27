@@ -62,6 +62,7 @@ import { getEmployees, type Employee } from "@/lib/services/employee-service";
 import { getPrinters, printToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
 import { escPosBarcode, receiptBarcodeValue } from "@/lib/receipt-barcode";
+import { arrangeReceiptLines, centerText, formatReceiptTextLine, receiptCharsPerLine } from "@/lib/receipt-format";
 import { BarcodeSvg } from "@/components/barcode-svg";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getStoredAuthUser } from "@/lib/auth-client";
@@ -359,6 +360,15 @@ export default function PosOrderPage() {
     [receipt, branding?.printGroupQuantities],
   );
 
+  const receiptCategoryName = (id: number | null | undefined) =>
+    id == null ? "" : categories.find((c) => c.id === id)?.name ?? "";
+
+  const arrangedReceiptRows = useMemo(
+    () => arrangeReceiptLines(groupedReceiptLines, branding?.receiptSortMode, receiptCategoryName),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [groupedReceiptLines, branding?.receiptSortMode, categories],
+  );
+
   const handleMars = async () => {
     if (!order) return;
     setMarsBusy(true);
@@ -386,11 +396,15 @@ export default function PosOrderPage() {
 
   const buildReceiptContent = (r: OrderReceiptDto | null = receipt) => {
     if (!r) return "";
+    const width = receiptCharsPerLine(branding?.receiptPaperWidth);
     const lines: string[] = [];
     if (branding?.receiptShowBusinessName !== false) {
-      lines.push((order?.restaurantName ?? r.restaurantName ?? "").toUpperCase());
-      lines.push("");
+      lines.push(centerText((order?.restaurantName ?? r.restaurantName ?? "").toUpperCase(), width));
     }
+    if (branding?.receiptHeaderText) {
+      for (const t of branding.receiptHeaderText.split("\n")) lines.push(centerText(t, width));
+    }
+    lines.push("");
     if (branding?.receiptShowOrderNumber !== false) lines.push(`Sifariş: ${r.orderNumber}`);
     if (branding?.receiptShowTableName !== false) lines.push(`Masa: ${r.tableName}`);
     if (branding?.receiptShowWaiterName !== false) lines.push(`Ofisiant: ${r.waiterName}`);
@@ -398,16 +412,26 @@ export default function PosOrderPage() {
       lines.push(`Vaxt: ${new Date(r.paidAt ?? r.openedAt).toLocaleString("az-AZ")}`);
     }
     if (branding?.receiptShowPaymentMethod !== false) lines.push(`Ödəniş: ${r.paymentMethod}`);
-    lines.push("-".repeat(32));
-    for (const line of groupReceiptLines(r.lines, branding?.printGroupQuantities !== false)) {
-      lines.push(`${line.quantity} x ${line.menuItemName}`.padEnd(24) + `${line.lineTotal.toFixed(2)} ₼`);
+    lines.push("-".repeat(width));
+    const rows = arrangeReceiptLines(
+      groupReceiptLines(r.lines, branding?.printGroupQuantities !== false),
+      branding?.receiptSortMode,
+      receiptCategoryName,
+    );
+    for (const row of rows) {
+      if (row.kind === "header") lines.push(`[${row.title}]`);
+      else lines.push(formatReceiptTextLine(row.line.quantity, row.line.menuItemName, row.line.lineTotal, width));
     }
-    lines.push("-".repeat(32));
+    lines.push("-".repeat(width));
     lines.push(`Cəm: ${r.totalAmount.toFixed(2)} ₼`);
     if (r.vatAmount > 0) lines.push(`ƏDV daxildir: ${r.vatAmount.toFixed(2)} ₼`);
     if (r.paymentMethod === "Cash") {
       lines.push(`Alınan: ${r.paidAmount.toFixed(2)} ₼`);
       lines.push(`Qalıq: ${r.changeAmount.toFixed(2)} ₼`);
+    }
+    if (branding?.receiptFooterText) {
+      lines.push("");
+      for (const t of branding.receiptFooterText.split("\n")) lines.push(centerText(t, width));
     }
     if (branding?.slogan) lines.push(branding.slogan);
     if (branding?.contactPhoneNumber) lines.push(branding.contactPhoneNumber);
@@ -1953,6 +1977,9 @@ export default function PosOrderPage() {
                   {receipt?.restaurantName}
                 </p>
               )}
+              {branding?.receiptHeaderText && (
+                <p className="whitespace-pre-line text-center text-xs">{branding.receiptHeaderText}</p>
+              )}
               <DialogTitle className="sr-only">Qəbz</DialogTitle>
               {(branding?.receiptShowTableName !== false && receipt?.tableName) || branding?.floorLabel ? (
                 <DialogDescription className="text-center">
@@ -1976,14 +2003,20 @@ export default function PosOrderPage() {
                 )}
             </DialogHeader>
             <div className="space-y-1 text-sm">
-              {groupedReceiptLines.map((line, i) => (
-                <div key={i} className="flex justify-between">
-                  <span>
-                    {line.quantity} × {line.menuItemName}
-                  </span>
-                  <span>{line.lineTotal.toFixed(2)} ₼</span>
-                </div>
-              ))}
+              {arrangedReceiptRows.map((row, i) =>
+                row.kind === "header" ? (
+                  <p key={i} className="pt-1 text-xs font-semibold uppercase text-muted-foreground">
+                    {row.title}
+                  </p>
+                ) : (
+                  <div key={i} className="flex justify-between">
+                    <span>
+                      {row.line.quantity} × {row.line.menuItemName}
+                    </span>
+                    <span>{row.line.lineTotal.toFixed(2)} ₼</span>
+                  </div>
+                ),
+              )}
               <div
                 className="mt-2 border-t pt-2 font-semibold"
                 style={branding?.productColor ? { color: branding.productColor } : undefined}
@@ -2023,6 +2056,9 @@ export default function PosOrderPage() {
                   {branding?.contactPhoneNumber && <p>{branding.contactPhoneNumber}</p>}
                   {branding?.socialLinks && <p>{branding.socialLinks}</p>}
                 </div>
+              )}
+              {branding?.receiptFooterText && (
+                <p className="mt-3 whitespace-pre-line text-center text-xs">{branding.receiptFooterText}</p>
               )}
               {order && receipt && (
                 <div className="mt-3 flex justify-center">

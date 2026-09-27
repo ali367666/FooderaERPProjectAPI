@@ -114,6 +114,12 @@ public class GetCompanySettingsBrandingQueryHandler
                 TableReservationWarning = settings.TableReservationWarning,
                 TablePricesFromStation = settings.TablePricesFromStation,
                 PriceFromWarehouseSale = settings.PriceFromWarehouseSale,
+                ThemePrimaryColor = settings.ThemePrimaryColor,
+                ThemeRadius = settings.ThemeRadius,
+                ReceiptPaperWidth = settings.ReceiptPaperWidth,
+                ReceiptHeaderText = settings.ReceiptHeaderText,
+                ReceiptFooterText = settings.ReceiptFooterText,
+                ReceiptSortMode = settings.ReceiptSortMode,
                 AskGuestCountOnOpen = settings.AskGuestCountOnOpen,
                 SingleWaiterMode = settings.SingleWaiterMode,
                 DefaultVatPercent = settings.DefaultVatPercent
