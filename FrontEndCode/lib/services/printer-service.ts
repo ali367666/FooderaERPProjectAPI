@@ -113,3 +113,30 @@ export async function printToPrinter(id: number, content: string): Promise<void>
     throw toApiFormError(error, "Printerə çap göndərilmədi");
   }
 }
+
+export type DiscoveredPrinter = {
+  name: string;
+  /** Null for a locally attached (USB) printer — it can't be used over the network. */
+  ipAddress: string | null;
+  port: number;
+  source: "installed" | "network";
+};
+
+/** "Lupa" — printers installed on the API computer and raw-TCP printers found on the local network. */
+export async function discoverPrinters(): Promise<DiscoveredPrinter[]> {
+  try {
+    const response = await api.get<unknown>("/Printers/discover", { timeout: 60000 });
+    return unwrapList<unknown>(response.data).map((item) => {
+      const raw = item as Record<string, unknown>;
+      const ip = pick(raw, "ipAddress", "IpAddress");
+      return {
+        name: String(pick(raw, "name", "Name") ?? "Printer"),
+        ipAddress: ip == null || ip === "" ? null : String(ip),
+        port: Number(pick(raw, "port", "Port") ?? 9100),
+        source: pick(raw, "source", "Source") === "installed" ? "installed" : "network",
+      };
+    });
+  } catch (error) {
+    throw toApiFormError(error, "Printerlər axtarıla bilmədi");
+  }
+}

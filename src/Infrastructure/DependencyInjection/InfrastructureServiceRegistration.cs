@@ -106,6 +106,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IMenuItemSetComponentRepository, MenuItemSetComponentRepository>();
         services.AddScoped<IShiftRepository, ShiftRepository>();
         services.AddScoped<INetworkPrinterService, NetworkPrinterService>();
+        services.AddScoped<IPrinterDiscoveryService, PrinterDiscoveryService>();
 
         services.AddHttpClient<ICbarExchangeRateService, CbarExchangeRateService>();
 

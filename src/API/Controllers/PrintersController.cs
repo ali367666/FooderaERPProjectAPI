@@ -1,5 +1,6 @@
 using Application.Printer.Commands;
 using Application.Printer.Dtos;
+using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Application.Printer.Queries;
 using Domain.Constants;
 using MediatR;
@@ -25,6 +26,14 @@ public class PrintersController : ControllerBase
     public async Task<ActionResult<List<PrinterResponse>>> GetAll([FromQuery] int restaurantId)
     {
         var result = await _mediator.Send(new GetAllPrintersQuery(restaurantId));
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.PrinterCreate)]
+    [HttpGet("discover")]
+    public async Task<ActionResult<List<DiscoveredPrinter>>> Discover()
+    {
+        var result = await _mediator.Send(new DiscoverPrintersQuery());
         return Ok(result);
     }
 
