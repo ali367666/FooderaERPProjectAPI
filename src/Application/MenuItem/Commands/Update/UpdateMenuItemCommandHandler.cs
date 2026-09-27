@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Application.Common.Exceptions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -195,7 +195,9 @@ public class UpdateMenuItemCommandHandler
                 {
                     SetMenuItemId = entity.Id,
                     ComponentMenuItemId = c.ComponentMenuItemId,
-                    Quantity = c.Quantity < 1 ? 1 : c.Quantity
+                    Quantity = c.Quantity < 1 ? 1 : c.Quantity,
+                    // A limit below the default quantity would make the set invalid from the start.
+                    Limit = c.Limit is > 0 ? Math.Max(c.Limit.Value, c.Quantity < 1 ? 1 : c.Quantity) : null
                 }, cancellationToken);
             }
         }

@@ -89,10 +89,57 @@ const DEFAULTS: CompanySettingsInput = {
   printTransferDocAuto: false,
   printTransferDocDouble: false,
   printChiefCopy: false,
+  posMarsEnabled: false,
+  requireProductCode: false,
+  paymentCashEnabled: true,
+  paymentCardEnabled: true,
+  paymentCreditEnabled: true,
+  waiterConfirmWithPin: false,
+  waiterCanCancel: true,
+  lockOrderAfterBill: false,
+  printKitchenSeparateTickets: false,
   askGuestCountOnOpen: false,
   singleWaiterMode: false,
   defaultVatPercent: null,
 };
+
+type BoolSettingKey = {
+  [K in keyof CompanySettingsInput]: CompanySettingsInput[K] extends boolean ? K : never;
+}[keyof CompanySettingsInput];
+
+const POS_SALE_FIELDS: Array<{ key: BoolSettingKey; label: string; hint: string }> = [
+  {
+    key: "posMarsEnabled",
+    label: "Marş",
+    hint: "Satış ekranında \"Marş\" düyməsi: gözləmələri açır və mətbəxə \"MARŞ — indi hazırlayın\" çeki göndərir.",
+  },
+  {
+    key: "requireProductCode",
+    label: "Məhsul kodu zorunlu",
+    hint: "Barkodu olmayan məhsul satıla və yadda saxlanıla bilməz (çəki ilə satılan məhsullarda çəki kodu kifayətdir).",
+  },
+  {
+    key: "waiterConfirmWithPin",
+    label: "Ofisiant təsdiqlə",
+    hint: "Mətbəxə göndərəndə sifarişin ofisiantı öz kodunu daxil edib təsdiqləməlidir.",
+  },
+  {
+    key: "waiterCanCancel",
+    label: "Ofisiant ləğv edə bilsin",
+    hint: "Söndürülsə, ofisiant rolu məhsulu silə və sifarişi ləğv edə bilməz.",
+  },
+  {
+    key: "lockOrderAfterBill",
+    label: "Hesab verildikdən sonra müdaxilə edilə bilməz",
+    hint: "\"Qəbz çap et\" (hesab) basılandan sonra sifarişə məhsul əlavə etmək, dəyişmək, silmək və endirim olmaz. Kilidi yalnız icazəsi olan açır.",
+  },
+];
+
+const PAYMENT_METHOD_FIELDS: Array<{ key: BoolSettingKey; label: string }> = [
+  { key: "paymentCashEnabled", label: "Nağd" },
+  { key: "paymentCardEnabled", label: "Kart" },
+  { key: "paymentCreditEnabled", label: "Borca yaz" },
+];
 
 const PRINT_TOGGLE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "printAutoOnPayment", label: "Ödəniş bitəndə qəbz avtomatik çap olunsun" },
@@ -107,6 +154,7 @@ const PRINT_TOGGLE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: strin
   { key: "printTransferDocAuto", label: "Köçürmə sənədi avtomatik (masa köçürüləndə mətbəxə çap)" },
   { key: "printTransferDocDouble", label: "Köçürmə sənədinin ikili çapı" },
   { key: "printChiefCopy", label: "ChiefPrint (mətbəx çeklərinin nüsxəsi şef printerinə)" },
+  { key: "printKitchenSeparateTickets", label: "Mətbəx qəbzində hər məhsul ayrı qəbzdə çıxsın" },
   { key: "receiptSimpleMode", label: "Sadə qəbz rejimi aktiv olsun" },
 ];
 
@@ -535,6 +583,38 @@ export default function SettingsPage() {
             Açıqsa, bir masanı yalnız onu açan ofisiant görə/redaktə edə bilər — "bütün masaları gör" icazəsi olan
             menecer də daxil, heç kim başqasının masasına müdaxilə edə bilməz.
           </p>
+        </div>
+        {POS_SALE_FIELDS.map((f) => (
+          <div key={f.key}>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={f.key}
+                checked={form[f.key] === true}
+                onCheckedChange={(v) => update(f.key, v === true)}
+              />
+              <Label htmlFor={f.key} className="text-sm font-normal">
+                {f.label}
+              </Label>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>
+          </div>
+        ))}
+        <div>
+          <Label className="mb-2 block">Ödəniş siyahısı (POS-da görünən ödəniş üsulları)</Label>
+          <div className="flex flex-wrap gap-4">
+            {PAYMENT_METHOD_FIELDS.map((f) => (
+              <div key={f.key} className="flex items-center gap-2">
+                <Checkbox
+                  id={f.key}
+                  checked={form[f.key] === true}
+                  onCheckedChange={(v) => update(f.key, v === true)}
+                />
+                <Label htmlFor={f.key} className="text-sm font-normal">
+                  {f.label}
+                </Label>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

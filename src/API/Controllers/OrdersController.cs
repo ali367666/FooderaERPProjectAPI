@@ -18,6 +18,7 @@ using Application.Orders.Commands.SetCounterparty;
 using Application.Orders.Commands.SetOrderHold;
 using Application.Orders.Commands.SetDeliveryDriver;
 using Application.Orders.Commands.PrintKitchenTicket;
+using Application.Orders.Commands.Bill;
 using Application.Orders.Commands.Start;
 using Application.Orders.Commands.Submit;
 using Application.Orders.Commands.Update;
@@ -81,10 +82,36 @@ public class OrdersController : ControllerBase
 
     [Authorize(Policy = AppPermissions.PrinterPrint)]
     [HttpPost("{id:int}/print-kitchen")]
-    public async Task<ActionResult<int>> PrintKitchenTicket(int id, [FromQuery] int printerId)
+    public async Task<ActionResult<int>> PrintKitchenTicket(int id, [FromQuery] int printerId, [FromQuery] string? pin)
     {
-        var result = await _mediator.Send(new PrintKitchenTicketCommand(id, printerId));
+        var result = await _mediator.Send(new PrintKitchenTicketCommand(id, printerId, pin));
         return Ok(result);
+    }
+
+    /// <summary>"Marş" — releases holds and tells the kitchen to prepare the order now.</summary>
+    [Authorize(Policy = AppPermissions.PrinterPrint)]
+    [HttpPost("{id:int}/mars")]
+    public async Task<ActionResult<int>> SendMars(int id)
+    {
+        var result = await _mediator.Send(new SendMarsCommand(id));
+        return Ok(result);
+    }
+
+    /// <summary>Customer bill printed before payment; locks the order when LockOrderAfterBill is on.</summary>
+    [Authorize(Policy = AppPermissions.OrdersView)]
+    [HttpPost("{id:int}/bill-printed")]
+    public async Task<ActionResult<bool>> MarkBillPrinted(int id)
+    {
+        var result = await _mediator.Send(new MarkBillPrintedCommand(id));
+        return Ok(result);
+    }
+
+    [Authorize(Policy = AppPermissions.PosUnlockBill)]
+    [HttpPost("{id:int}/unlock-bill")]
+    public async Task<IActionResult> UnlockBill(int id)
+    {
+        await _mediator.Send(new UnlockBillCommand(id));
+        return NoContent();
     }
 
     [Authorize(Policy = AppPermissions.OrdersCreate)]

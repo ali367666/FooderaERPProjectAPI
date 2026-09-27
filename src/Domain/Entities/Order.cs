@@ -1,4 +1,4 @@
-﻿using Domain.Common;
+using Domain.Common;
 using Domain.Enums;
 
 namespace Domain.Entities;
@@ -46,6 +46,13 @@ public class Order : CompanyEntity<int>
     /// excluded from kitchen ticket printing until released, regardless of any per-line hold.
     /// </summary>
     public DateTime? HoldUntilUtc { get; set; }
+
+    /// <summary>When the customer bill ("Hesab") was last printed before payment.</summary>
+    public DateTime? BillPrintedAt { get; set; }
+
+    /// <summary>Set when the bill is printed while LockOrderAfterBill is on — the order can no longer
+    /// be changed until someone with Pos.UnlockBill unlocks it.</summary>
+    public bool IsBillLocked { get; set; }
 
     /// <summary>
     /// The restaurant's own courier delivery (as opposed to a third-party integration like

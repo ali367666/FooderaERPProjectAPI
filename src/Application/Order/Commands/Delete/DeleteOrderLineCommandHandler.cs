@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using System.Text.Json;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -81,6 +82,8 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
 
             throw new Exception("Bu sifarişin line-ı silinə bilməz.");
         }
+
+        OrderGuards.EnsureNotBillLocked(order);
 
         if (line.Status is OrderLineStatus.InPreparation or OrderLineStatus.Ready or OrderLineStatus.Served)
         {
@@ -230,6 +233,8 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
             TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
             TableRentalAmount = updatedOrder.TableRentalAmount,
             HoldUntilUtc = updatedOrder.HoldUntilUtc,
+            BillPrintedAt = updatedOrder.BillPrintedAt,
+            IsBillLocked = updatedOrder.IsBillLocked,
             IsDelivery = updatedOrder.IsDelivery,
             DeliveryAddress = updatedOrder.DeliveryAddress,
             DeliveryPhone = updatedOrder.DeliveryPhone,

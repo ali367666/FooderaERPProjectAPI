@@ -105,6 +105,15 @@ public class UpdateCompanySettingsCommandHandler
         settings.PrintTransferDocAuto = dto.PrintTransferDocAuto;
         settings.PrintTransferDocDouble = dto.PrintTransferDocDouble;
         settings.PrintChiefCopy = dto.PrintChiefCopy;
+        settings.PosMarsEnabled = dto.PosMarsEnabled;
+        settings.RequireProductCode = dto.RequireProductCode;
+        settings.PaymentCashEnabled = dto.PaymentCashEnabled;
+        settings.PaymentCardEnabled = dto.PaymentCardEnabled;
+        settings.PaymentCreditEnabled = dto.PaymentCreditEnabled;
+        settings.WaiterConfirmWithPin = dto.WaiterConfirmWithPin;
+        settings.WaiterCanCancel = dto.WaiterCanCancel;
+        settings.LockOrderAfterBill = dto.LockOrderAfterBill;
+        settings.PrintKitchenSeparateTickets = dto.PrintKitchenSeparateTickets;
         settings.AskGuestCountOnOpen = dto.AskGuestCountOnOpen;
         settings.SingleWaiterMode = dto.SingleWaiterMode;
         settings.DefaultVatPercent = dto.DefaultVatPercent;

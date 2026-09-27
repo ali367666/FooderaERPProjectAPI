@@ -223,6 +223,8 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, Ord
             TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
             TableRentalAmount = updatedOrder.TableRentalAmount,
             HoldUntilUtc = updatedOrder.HoldUntilUtc,
+            BillPrintedAt = updatedOrder.BillPrintedAt,
+            IsBillLocked = updatedOrder.IsBillLocked,
             IsDelivery = updatedOrder.IsDelivery,
             DeliveryAddress = updatedOrder.DeliveryAddress,
             DeliveryPhone = updatedOrder.DeliveryPhone,

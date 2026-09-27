@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Clock, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Trash2, User, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Clock, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Trash2, User, UserCog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,9 @@ import {
   setOrderDeliveryDriver,
   setOrderCounterparty,
   printKitchenTicket,
+  sendMars,
+  markBillPrinted,
+  unlockBill,
   startTimeBasedLine,
   stopTimeBasedLine,
   startTableRental,
@@ -174,9 +177,13 @@ export default function PosOrderPage() {
   const canPrint = useHasPermission("Printer.Print");
   const canPay = useHasPermission("Orders.Pay");
   const canPrintBill = useHasPermission("Pos.PrintReceipt");
+  const canUnlockBill = useHasPermission("Pos.UnlockBill");
 
   const [printers, setPrinters] = useState<PrinterProfile[]>([]);
   const [printingId, setPrintingId] = useState<number | null>(null);
+  const [pinPrinter, setPinPrinter] = useState<PrinterProfile | null>(null);
+  const [pinInput, setPinInput] = useState("");
+  const [marsBusy, setMarsBusy] = useState(false);
   const [outOfStockIds, setOutOfStockIds] = useState<Set<number>>(new Set());
 
   const loadAvailability = useCallback(async (restaurantId: number) => {
@@ -326,11 +333,18 @@ export default function PosOrderPage() {
     return Array.from(groups.values());
   }, [order, items, printers]);
 
-  const handlePrintGroup = async (printer: PrinterProfile) => {
+  const handlePrintGroup = async (printer: PrinterProfile, pin?: string) => {
     if (!order) return;
+    // "Ofisiant təsdiqlə" — ask the order's waiter for their code before the kitchen gets it.
+    if (branding?.waiterConfirmWithPin === true && pin === undefined) {
+      setPinInput("");
+      setPinPrinter(printer);
+      return;
+    }
     setPrintingId(printer.id);
     try {
-      const count = await printKitchenTicket(order.id, printer.id);
+      const count = await printKitchenTicket(order.id, printer.id, pin);
+      setPinPrinter(null);
       toast.success(count > 0 ? `${printer.name}-ə ${count} məhsul göndərildi` : "Yeni məhsul yoxdur");
       await load();
     } catch (err) {
@@ -344,6 +358,31 @@ export default function PosOrderPage() {
     () => groupReceiptLines(receipt?.lines ?? [], branding?.printGroupQuantities !== false),
     [receipt, branding?.printGroupQuantities],
   );
+
+  const handleMars = async () => {
+    if (!order) return;
+    setMarsBusy(true);
+    try {
+      const count = await sendMars(order.id);
+      toast.success(`Marş ${count} mətbəx printerinə göndərildi`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Marş göndərilmədi");
+    } finally {
+      setMarsBusy(false);
+    }
+  };
+
+  const handleUnlockBill = async () => {
+    if (!order) return;
+    try {
+      await unlockBill(order.id);
+      toast.success("Hesab kilidi açıldı");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Hesab kilidi açılmadı");
+    }
+  };
 
   const buildReceiptContent = (r: OrderReceiptDto | null = receipt) => {
     if (!r) return "";
@@ -459,6 +498,12 @@ export default function PosOrderPage() {
 
   const isWeightBasedItem = (item: MenuItem) =>
     item.unitId === UnitOfMeasure.Kg || item.unitId === UnitOfMeasure.Gram;
+
+  /** "Məhsul kodu zorunlu" — the barcode is the product code; weight-sold items may use their weight code. */
+  const lacksProductCode = (item: MenuItem) =>
+    branding?.requireProductCode === true &&
+    !item.barcode?.trim() &&
+    !(isWeightBasedItem(item) && item.weightCode?.trim());
 
   const handleItemClick = (item: MenuItem) => {
     if (isWeightBasedItem(item)) {
@@ -595,7 +640,9 @@ export default function PosOrderPage() {
       toast.error("Əvvəlcə icarə taymerini dayandırın");
       return;
     }
-    setPaymentMethod("Cash");
+    setPaymentMethod(
+      branding?.paymentCashEnabled !== false ? "Cash" : branding?.paymentCardEnabled !== false ? "Card" : "Credit",
+    );
     setServiceChargeInput("");
     setPaidAmountInput((order.totalAmount + (order.tableRentalAmount ?? 0)).toFixed(2));
     setPayOpen(true);
@@ -632,9 +679,11 @@ export default function PosOrderPage() {
     if (!order || order.lines.length === 0) return;
     setBusy(true);
     try {
+      const locked = await markBillPrinted(order.id);
       const r = await getOrderReceipt(order.id);
       setReceipt(r);
       maybeAutoPrint(false);
+      if (locked) await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Qəbz alına bilmədi");
     } finally {
@@ -1122,6 +1171,16 @@ export default function PosOrderPage() {
             )}
           </div>
         </div>
+        {order.isBillLocked && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+            <span>Hesab verilib — sifarişə dəyişiklik etmək olmaz.</span>
+            {canUnlockBill && (
+              <Button size="sm" variant="outline" onClick={() => void handleUnlockBill()}>
+                Kilidi aç
+              </Button>
+            )}
+          </div>
+        )}
         {order.holdUntilUtc && (
           <div className="flex items-center gap-2 border-b bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
             <Clock className="h-4 w-4" />
@@ -1254,15 +1313,16 @@ export default function PosOrderPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {searchResults.map((item) => {
                 const isOutOfStock = outOfStockIds.has(item.id);
+                const isMissingCode = lacksProductCode(item);
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    disabled={busy || isOutOfStock}
+                    disabled={busy || isOutOfStock || isMissingCode}
                     onClick={() => handleItemClick(item)}
                     className={cn(
                       "relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50",
-                      isOutOfStock && "bg-muted grayscale",
+                      (isOutOfStock || isMissingCode) && "bg-muted grayscale",
                     )}
                   >
                     {isOutOfStock && (
@@ -1270,7 +1330,15 @@ export default function PosOrderPage() {
                         Bitib
                       </span>
                     )}
+                    {isMissingCode && !isOutOfStock && (
+                      <span className="absolute right-1 top-1 rounded-full bg-muted-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
+                        Kodsuz
+                      </span>
+                    )}
                     <span className="text-sm font-semibold leading-tight">{item.name}</span>
+                    {isWeightBasedItem(item) && (
+                      <Scale className="absolute left-1.5 top-1.5 h-3.5 w-3.5 text-violet-700" aria-label="Çəki ilə satılır" />
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {(item.stationPrice ?? item.price).toFixed(2)} ₼
                     </span>
@@ -1315,15 +1383,16 @@ export default function PosOrderPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {itemsInCategory.map((item) => {
               const isOutOfStock = outOfStockIds.has(item.id);
+                const isMissingCode = lacksProductCode(item);
               return (
                 <button
                   key={item.id}
                   type="button"
-                  disabled={busy || isOutOfStock}
+                  disabled={busy || isOutOfStock || isMissingCode}
                   onClick={() => handleItemClick(item)}
                   className={cn(
                     "relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50",
-                    isOutOfStock && "bg-muted grayscale",
+                    (isOutOfStock || isMissingCode) && "bg-muted grayscale",
                   )}
                 >
                   {isOutOfStock && (
@@ -1331,7 +1400,15 @@ export default function PosOrderPage() {
                       Bitib
                     </span>
                   )}
+                  {isMissingCode && !isOutOfStock && (
+                    <span className="absolute right-1 top-1 rounded-full bg-muted-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
+                      Kodsuz
+                    </span>
+                  )}
                   <span className="text-sm font-semibold leading-tight">{item.name}</span>
+                    {isWeightBasedItem(item) && (
+                      <Scale className="absolute left-1.5 top-1.5 h-3.5 w-3.5 text-violet-700" aria-label="Çəki ilə satılır" />
+                    )}
                   <span className="text-xs text-muted-foreground">
                     {(item.stationPrice ?? item.price).toFixed(2)} ₼
                   </span>
@@ -1611,6 +1688,19 @@ export default function PosOrderPage() {
             })}
           </div>
         </div>
+        {canPrint && !isPaid && branding?.posMarsEnabled === true && order.lines.some((l) => l.kitchenPrintedAt != null) && (
+          <div className="border-t p-3">
+            <Button
+              variant="outline"
+              className="w-full border-orange-300 text-orange-700 hover:bg-orange-50"
+              disabled={marsBusy}
+              onClick={() => void handleMars()}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Marş — mətbəx indi hazırlasın
+            </Button>
+          </div>
+        )}
         {canPrint && printerGroups.length > 0 && !isPaid && (
           <div className="flex flex-wrap gap-2 border-t p-3">
             {printerGroups.map(({ printer, lines }) => (
@@ -1668,6 +1758,42 @@ export default function PosOrderPage() {
         </div>
       </div>
 
+      {/* Waiter PIN — "Ofisiant təsdiqlə" */}
+      <Dialog open={pinPrinter !== null} onOpenChange={(o) => !o && setPinPrinter(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Ofisiant təsdiqi</DialogTitle>
+            <DialogDescription>
+              {pinPrinter?.name}-ə göndərmək üçün sifarişin ofisiantı öz kodunu daxil etsin.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pinPrinter && pinInput.trim()) void handlePrintGroup(pinPrinter, pinInput.trim());
+            }}
+          >
+            <Input
+              type="password"
+              inputMode="numeric"
+              autoFocus
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              placeholder="Ofisiant kodu"
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPinPrinter(null)}>
+                İmtina et
+              </Button>
+              <Button type="submit" disabled={!pinInput.trim() || printingId !== null}>
+                Təsdiqlə
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Payment dialog */}
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent className="sm:max-w-sm">
@@ -1696,25 +1822,29 @@ export default function PosOrderPage() {
                 />
               </div>
             )}
-            <div className={cn("grid gap-2", order.counterpartyId != null ? "grid-cols-3" : "grid-cols-2")}>
-              <Button
-                type="button"
-                variant={paymentMethod === "Cash" ? "default" : "outline"}
-                onClick={() => setPaymentMethod("Cash")}
-              >
-                Nəğd
-              </Button>
-              <Button
-                type="button"
-                variant={paymentMethod === "Card" ? "default" : "outline"}
-                onClick={() => {
-                  setPaymentMethod("Card");
-                  setPaidAmountInput(totalWithService.toFixed(2));
-                }}
-              >
-                Kart
-              </Button>
-              {order.counterpartyId != null && (
+            <div className="grid auto-cols-fr grid-flow-col gap-2">
+              {branding?.paymentCashEnabled !== false && (
+                <Button
+                  type="button"
+                  variant={paymentMethod === "Cash" ? "default" : "outline"}
+                  onClick={() => setPaymentMethod("Cash")}
+                >
+                  Nəğd
+                </Button>
+              )}
+              {branding?.paymentCardEnabled !== false && (
+                <Button
+                  type="button"
+                  variant={paymentMethod === "Card" ? "default" : "outline"}
+                  onClick={() => {
+                    setPaymentMethod("Card");
+                    setPaidAmountInput(totalWithService.toFixed(2));
+                  }}
+                >
+                  Kart
+                </Button>
+              )}
+              {order.counterpartyId != null && branding?.paymentCreditEnabled !== false && (
                 <Button
                   type="button"
                   variant={paymentMethod === "Credit" ? "default" : "outline"}

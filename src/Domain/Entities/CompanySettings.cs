@@ -99,6 +99,34 @@ public class CompanySettings : CompanyEntity<int>
     /// (Printer.IsChiefPrinter).</summary>
     public bool PrintChiefCopy { get; set; }
 
+    /// <summary>Satış ekranında "Marş" düyməsi — mətbəxə marş çeki göndərir və gözləmələri açır.</summary>
+    public bool PosMarsEnabled { get; set; }
+
+    /// <summary>Barkodu/çəki kodu olmayan məhsul satıla bilməz, menyu formasında kod məcburidir.</summary>
+    public bool RequireProductCode { get; set; }
+
+    /// <summary>Ödəniş siyahısı — POS-da Nağd ödəniş üsulu görünsün.</summary>
+    public bool PaymentCashEnabled { get; set; } = true;
+
+    /// <summary>Ödəniş siyahısı — POS-da Kart ödəniş üsulu görünsün.</summary>
+    public bool PaymentCardEnabled { get; set; } = true;
+
+    /// <summary>Ödəniş siyahısı — POS-da Borca yaz üsulu görünsün.</summary>
+    public bool PaymentCreditEnabled { get; set; } = true;
+
+    /// <summary>Mətbəxə göndərəndə sifarişin ofisiantı öz kodu ilə təsdiqləməlidir.</summary>
+    public bool WaiterConfirmWithPin { get; set; }
+
+    /// <summary>Waiter rolu məhsulu silə / sifarişi ləğv edə bilsin.</summary>
+    public bool WaiterCanCancel { get; set; } = true;
+
+
+    /// <summary>Hesab (qəbz) verildikdən sonra sifarişə müdaxilə edilə bilməz.</summary>
+    public bool LockOrderAfterBill { get; set; }
+
+    /// <summary>Mətbəxdə hər məhsul ayrıca qəbzdə çıxsın.</summary>
+    public bool PrintKitchenSeparateTickets { get; set; }
+
     // POS-1 paneli
     public bool AskGuestCountOnOpen { get; set; }
 

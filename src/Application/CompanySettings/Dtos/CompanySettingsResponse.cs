@@ -68,6 +68,15 @@ public class CompanySettingsResponse
     public bool PrintTransferDocAuto { get; set; }
     public bool PrintTransferDocDouble { get; set; }
     public bool PrintChiefCopy { get; set; }
+    public bool PosMarsEnabled { get; set; }
+    public bool RequireProductCode { get; set; }
+    public bool PaymentCashEnabled { get; set; } = true;
+    public bool PaymentCardEnabled { get; set; } = true;
+    public bool PaymentCreditEnabled { get; set; } = true;
+    public bool WaiterConfirmWithPin { get; set; }
+    public bool WaiterCanCancel { get; set; } = true;
+    public bool LockOrderAfterBill { get; set; }
+    public bool PrintKitchenSeparateTickets { get; set; }
 
     public bool AskGuestCountOnOpen { get; set; }
     public bool SingleWaiterMode { get; set; }

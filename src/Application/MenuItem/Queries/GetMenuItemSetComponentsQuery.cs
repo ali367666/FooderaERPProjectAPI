@@ -10,6 +10,7 @@ public class SetComponentResponse
     public int ComponentMenuItemId { get; set; }
     public string ComponentMenuItemName { get; set; } = default!;
     public int Quantity { get; set; }
+    public int? Limit { get; set; }
 }
 
 public class GetMenuItemSetComponentsQueryHandler : IRequestHandler<GetMenuItemSetComponentsQuery, List<SetComponentResponse>>
@@ -28,7 +29,8 @@ public class GetMenuItemSetComponentsQueryHandler : IRequestHandler<GetMenuItemS
         {
             ComponentMenuItemId = c.ComponentMenuItemId,
             ComponentMenuItemName = c.ComponentMenuItem.Name,
-            Quantity = c.Quantity
+            Quantity = c.Quantity,
+            Limit = c.Limit
         }).ToList();
     }
 }

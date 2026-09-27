@@ -1,4 +1,4 @@
-﻿namespace Application.Orders.Dtos;
+namespace Application.Orders.Dtos;
 
 public class OrderResponse
 {
@@ -39,6 +39,8 @@ public class OrderResponse
     public decimal? TableRentalAmount { get; set; }
 
     public DateTime? HoldUntilUtc { get; set; }
+    public DateTime? BillPrintedAt { get; set; }
+    public bool IsBillLocked { get; set; }
 
     public bool IsDelivery { get; set; }
     public string? DeliveryAddress { get; set; }

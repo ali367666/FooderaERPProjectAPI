@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Orders.Dtos;
@@ -27,6 +28,8 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
         var order = await _orderRepository.GetByIdAsync(request.OrderId, companyId, cancellationToken);
         if (order is null)
             throw new Exception("Order not found.");
+
+        OrderGuards.EnsureNotBillLocked(order);
 
         if (order.Status is OrderStatus.InPreparation or OrderStatus.Ready or OrderStatus.Served
             or OrderStatus.Paid or OrderStatus.Cancelled)
@@ -82,6 +85,8 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
             TableRentalStoppedAt = order.TableRentalStoppedAt,
             TableRentalAmount = order.TableRentalAmount,
             HoldUntilUtc = order.HoldUntilUtc,
+            BillPrintedAt = order.BillPrintedAt,
+            IsBillLocked = order.IsBillLocked,
             IsDelivery = order.IsDelivery,
             DeliveryAddress = order.DeliveryAddress,
             DeliveryPhone = order.DeliveryPhone,

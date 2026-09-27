@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 
@@ -60,6 +60,8 @@ public class CurrentUserService : ICurrentUserService
     {
         return User?.HasClaim("Permission", permission) == true;
     }
+
+    public bool IsInRole(string role) => User?.IsInRole(role) == true;
 
     public bool IsSuperAdmin => User?.IsInRole(Domain.Constants.AppRoles.SuperAdmin) == true;
 }

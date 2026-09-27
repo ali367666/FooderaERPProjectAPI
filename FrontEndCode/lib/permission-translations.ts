@@ -136,6 +136,7 @@ const PERMISSION_LABELS: Record<string, string> = {
   "Pos.WarehouseAmountChange": "Anbar məbləğini dəyiş",
   "Pos.PrintOldReceipt": "Köhnə qəbzi çap et",
   "Pos.ReturnSale": "Satışı geri qaytar (barkodla)",
+  "Pos.UnlockBill": "Verilmiş hesabın kilidini aç",
 
   "RestaurantSection.View": "Filial bölmələrinə bax",
   "RestaurantSection.Create": "Filial bölməsi yarat",

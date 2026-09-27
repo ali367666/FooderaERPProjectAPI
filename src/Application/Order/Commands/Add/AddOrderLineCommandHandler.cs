@@ -74,6 +74,8 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             throw new Exception("Bu sifarişə məhsul əlavə etmək olmaz.");
         }
 
+        OrderGuards.EnsureNotBillLocked(order);
+
         var menuItem = await _menuItemRepository.GetByIdAsync(
             request.Request.MenuItemId,
             companyId,
@@ -270,6 +272,8 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
             TableRentalAmount = updatedOrder.TableRentalAmount,
             HoldUntilUtc = updatedOrder.HoldUntilUtc,
+            BillPrintedAt = updatedOrder.BillPrintedAt,
+            IsBillLocked = updatedOrder.IsBillLocked,
             IsDelivery = updatedOrder.IsDelivery,
             DeliveryAddress = updatedOrder.DeliveryAddress,
             DeliveryPhone = updatedOrder.DeliveryPhone,

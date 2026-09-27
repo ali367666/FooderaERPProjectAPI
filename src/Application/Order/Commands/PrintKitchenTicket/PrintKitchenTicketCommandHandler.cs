@@ -1,4 +1,5 @@
 using System.Text;
+using Application.Common.Exceptions;
 using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.İnterfaces;
@@ -15,19 +16,22 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
     private readonly INetworkPrinterService _networkPrinterService;
     private readonly ICompanySettingsRepository _companySettingsRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IUserRepository _userRepository;
 
     public PrintKitchenTicketCommandHandler(
         IOrderRepository orderRepository,
         IPrinterRepository printerRepository,
         INetworkPrinterService networkPrinterService,
         ICompanySettingsRepository companySettingsRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IUserRepository userRepository)
     {
         _orderRepository = orderRepository;
         _printerRepository = printerRepository;
         _networkPrinterService = networkPrinterService;
         _companySettingsRepository = companySettingsRepository;
         _currentUserService = currentUserService;
+        _userRepository = userRepository;
     }
 
     public async Task<int> Handle(PrintKitchenTicketCommand request, CancellationToken cancellationToken)
@@ -43,6 +47,11 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
 
         if (isOnHold && settings?.PrintKitchenOnHold != true)
             throw new Exception("Sifariş gözlədədir — mətbəxə göndərmək üçün əvvəlcə gözləməni ləğv edin.");
+
+        // "Ofisiant təsdiqlə" — on a shared terminal the order's own waiter confirms with their code.
+        // Kitchen tickets sent automatically after payment are not asked again.
+        if (settings?.WaiterConfirmWithPin == true && order.Status != OrderStatus.Paid)
+            await EnsureWaiterPinAsync(order, request.Pin, companyId, cancellationToken);
 
         var printer = await _printerRepository.GetByIdAsync(request.PrinterId, companyId, cancellationToken);
         if (printer is null)
@@ -66,9 +75,18 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
         var showBusinessName = settings?.PrintKitchenShowBusinessName ?? true;
 
         var now = DateTime.UtcNow;
-        var content = BuildTicketContent(order, linesToPrint, now, groupQuantities, showBusinessName, isOnHold, chiefCopyOf: null);
 
-        await _networkPrinterService.PrintAsync(printer.IpAddress, printer.Port, content, cancellationToken);
+        // "Mətbəx sifariş qəbzində məhsulları ayrı qəbzlərdə çıxsın" — one ticket per item; a SET
+        // stays on one ticket together with its component lines.
+        var tickets = settings?.PrintKitchenSeparateTickets == true
+            ? linesToPrint.GroupBy(x => x.ParentLineId ?? x.Id).Select(g => g.ToList()).ToList()
+            : new List<List<Domain.Entities.OrderLine>> { linesToPrint };
+
+        foreach (var ticketLines in tickets)
+        {
+            var content = BuildTicketContent(order, ticketLines, now, groupQuantities, showBusinessName, isOnHold, chiefCopyOf: null);
+            await _networkPrinterService.PrintAsync(printer.IpAddress, printer.Port, content, cancellationToken);
+        }
 
         // ChiefPrint — the head chef gets a copy of every station's ticket on the branch's chief printer.
         if (settings?.PrintChiefCopy == true)
@@ -95,6 +113,17 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
         await _orderRepository.SaveChangesAsync(cancellationToken);
 
         return linesToPrint.Count;
+    }
+
+    private async Task EnsureWaiterPinAsync(
+        Domain.Entities.Order order, string? pin, int companyId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(pin))
+            throw new BadRequestException("Ofisiant kodunu daxil edin.");
+
+        var user = await _userRepository.GetByCompanyAndCodeAsync(companyId, pin.Trim(), cancellationToken);
+        if (user is null || !user.IsActive || order.Waiter?.UserId != user.Id)
+            throw new BadRequestException("Kod bu sifarişin ofisiantına aid deyil.");
     }
 
     private static string BuildTicketContent(

@@ -91,6 +91,8 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
             TableRentalStoppedAt = order.TableRentalStoppedAt,
             TableRentalAmount = order.TableRentalAmount,
             HoldUntilUtc = order.HoldUntilUtc,
+            BillPrintedAt = order.BillPrintedAt,
+            IsBillLocked = order.IsBillLocked,
             IsDelivery = order.IsDelivery,
             DeliveryAddress = order.DeliveryAddress,
             DeliveryPhone = order.DeliveryPhone,

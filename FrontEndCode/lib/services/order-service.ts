@@ -89,6 +89,8 @@ export type OrderDto = {
   tableRentalStoppedAt: string | null;
   tableRentalAmount: number | null;
   holdUntilUtc: string | null;
+  billPrintedAt: string | null;
+  isBillLocked: boolean;
   isDelivery: boolean;
   deliveryAddress: string | null;
   deliveryPhone: string | null;
@@ -294,6 +296,8 @@ function normalizeOrder(raw: unknown): OrderDto | null {
       return v == null ? null : Number(v);
     })(),
     holdUntilUtc: (pick(o, "holdUntilUtc", "HoldUntilUtc") as string | null | undefined) ?? null,
+    billPrintedAt: (pick(o, "billPrintedAt", "BillPrintedAt") as string | null | undefined) ?? null,
+    isBillLocked: Boolean(pick(o, "isBillLocked", "IsBillLocked") ?? false),
     isDelivery: Boolean(pick(o, "isDelivery", "IsDelivery") ?? false),
     deliveryAddress: (pick(o, "deliveryAddress", "DeliveryAddress") as string | null | undefined) ?? null,
     deliveryPhone: (pick(o, "deliveryPhone", "DeliveryPhone") as string | null | undefined) ?? null,
@@ -471,16 +475,47 @@ export async function setOrderCounterparty(id: number, counterpartyId: number | 
   }
 }
 
-export async function printKitchenTicket(id: number, printerId: number): Promise<number> {
+export async function printKitchenTicket(id: number, printerId: number, pin?: string): Promise<number> {
   try {
     const response = await api.post<unknown>(`/Orders/${id}/print-kitchen`, null, {
-      params: { printerId },
+      params: { printerId, pin: pin || undefined },
     });
     const data = unwrapData<unknown>(response.data);
     const count = Number(data ?? response.data);
     return Number.isFinite(count) ? count : 0;
   } catch (error) {
     throw toApiFormError(error, "Failed to print kitchen ticket");
+  }
+}
+
+/** "Marş" — releases holds and prints a MARŞ ticket to every kitchen printer. Returns printers reached. */
+export async function sendMars(id: number): Promise<number> {
+  try {
+    const response = await api.post<unknown>(`/Orders/${id}/mars`);
+    const data = unwrapData<unknown>(response.data);
+    const count = Number(data ?? response.data);
+    return Number.isFinite(count) ? count : 0;
+  } catch (error) {
+    throw toApiFormError(error, "Marş göndərilmədi");
+  }
+}
+
+/** Records that the bill was printed; returns whether the order is now locked. */
+export async function markBillPrinted(id: number): Promise<boolean> {
+  try {
+    const response = await api.post<unknown>(`/Orders/${id}/bill-printed`);
+    const data = unwrapData<unknown>(response.data);
+    return Boolean(data ?? response.data);
+  } catch (error) {
+    throw toApiFormError(error, "Hesab qeydə alınmadı");
+  }
+}
+
+export async function unlockBill(id: number): Promise<void> {
+  try {
+    await api.post(`/Orders/${id}/unlock-bill`);
+  } catch (error) {
+    throw toApiFormError(error, "Hesab kilidi açılmadı");
   }
 }
 

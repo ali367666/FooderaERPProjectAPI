@@ -9,7 +9,10 @@ public static class ApplicationServiceRegistration
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddMediatR(cfg =>
-            cfg.RegisterServicesFromAssembly(typeof(ApplicationServiceRegistration).Assembly));
+        {
+            cfg.RegisterServicesFromAssembly(typeof(ApplicationServiceRegistration).Assembly);
+            cfg.AddOpenBehavior(typeof(Application.Common.Behaviors.OrderPolicyBehavior<,>));
+        });
 
         services.AddValidatorsFromAssembly(typeof(ApplicationServiceRegistration).Assembly);
 

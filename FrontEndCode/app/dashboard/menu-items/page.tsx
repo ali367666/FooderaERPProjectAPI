@@ -8,7 +8,8 @@ import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Scale, Trash2, X } from "lucide-react";
+import { ScaleExportDialog, isWeightSold } from "@/components/menu-items/scale-export-dialog";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,7 @@ type MenuItemRow = {
   isSet: boolean;
   isActive: boolean;
   statusLabel: string;
+  weightCode: string | null;
 };
 
 const selectClass =
@@ -172,6 +174,9 @@ export default function MenuItemsPage() {
   const [setComponentNames, setSetComponentNames] = useState<Record<number, string>>({});
   const [newComponentId, setNewComponentId] = useState("");
   const [newComponentQty, setNewComponentQty] = useState("1");
+  const [newComponentLimit, setNewComponentLimit] = useState("");
+  const [componentSearch, setComponentSearch] = useState("");
+  const [scaleExportOpen, setScaleExportOpen] = useState(false);
 
   // Inline category creation
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
@@ -312,6 +317,7 @@ export default function MenuItemsPage() {
         preparationLabel: preparationTypeLabel(item.preparationType),
         itemTypeLabel: item.itemTypeName || `#${item.itemTypeId}`,
         isSet: item.isSet,
+        weightCode: isWeightSold(item) ? item.weightCode : null,
         isActive: item.isActive,
         statusLabel: item.isActive ? "Active" : "Inactive",
       })),
@@ -413,7 +419,24 @@ export default function MenuItemsPage() {
 
   const columns = [
     { key: "itemId" as const, label: "ID" },
-    { key: "name" as const, label: "Item Name" },
+    {
+      key: "name" as const,
+      label: "Item Name",
+      render: (value: string, row: MenuItemRow) => (
+        <span className="flex items-center gap-1.5">
+          {value}
+          {row.weightCode && (
+            <span
+              title={`Çəki kodu: ${row.weightCode}`}
+              className="inline-flex items-center gap-1 rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-medium text-violet-800"
+            >
+              <Scale className="h-3 w-3" />
+              {row.weightCode}
+            </span>
+          )}
+        </span>
+      ),
+    },
     { key: "menuCategoryName" as const, label: "Category" },
     { key: "itemTypeLabel" as const, label: "Type" },
     { key: "priceDisplay" as const, label: "Price" },
@@ -540,7 +563,9 @@ export default function MenuItemsPage() {
       setIsSet(item.isSet);
       if (item.isSet) {
         const components = await getMenuItemSetComponents(item.id);
-        setSetComponents(components.map((c) => ({ componentMenuItemId: c.componentMenuItemId, quantity: c.quantity })));
+        setSetComponents(
+          components.map((c) => ({ componentMenuItemId: c.componentMenuItemId, quantity: c.quantity, limit: c.limit })),
+        );
         setSetComponentNames(
           Object.fromEntries(components.map((c) => [c.componentMenuItemId, c.componentMenuItemName])),
         );
@@ -591,11 +616,16 @@ export default function MenuItemsPage() {
     if (editingId != null && componentId === editingId) return;
     if (setComponents.some((c) => c.componentMenuItemId === componentId)) return;
 
+    const limitValue = Number(newComponentLimit);
+    const limit = newComponentLimit.trim() && Number.isFinite(limitValue) && limitValue > 0 ? Math.max(limitValue, qty) : null;
+
     const component = items.find((i) => i.id === componentId);
-    setSetComponents((prev) => [...prev, { componentMenuItemId: componentId, quantity: qty }]);
+    setSetComponents((prev) => [...prev, { componentMenuItemId: componentId, quantity: qty, limit }]);
     setSetComponentNames((prev) => ({ ...prev, [componentId]: component?.name ?? `#${componentId}` }));
     setNewComponentId("");
     setNewComponentQty("1");
+    setNewComponentLimit("");
+    setComponentSearch("");
   };
 
   const handleRemoveSetComponent = (componentMenuItemId: number) => {
@@ -834,6 +864,10 @@ export default function MenuItemsPage() {
           >
             {bulkResetBusy ? "Sıfırlanır…" : "Bütün çəki kodlarını sıfırla"}
           </Button>
+          <Button variant="outline" size="sm" className="ml-2" onClick={() => setScaleExportOpen(true)}>
+            <Scale className="mr-1 h-4 w-4" />
+            Tərəziyə yüklə
+          </Button>
         </div>
       )}
 
@@ -1048,7 +1082,10 @@ export default function MenuItemsPage() {
 
                 {isEditMode && (
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-foreground">Weight Code</label>
+                    <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <Scale className="h-4 w-4 text-violet-700" />
+                      Weight Code
+                    </label>
                     <div className="flex items-center gap-2">
                       <Input value={weightCode ?? ""} disabled className="bg-muted" />
                       <Button
@@ -1269,8 +1306,13 @@ export default function MenuItemsPage() {
               {isSet && isEditMode && (
                 <div className="space-y-3">
                   <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label className="mb-2 block text-sm font-medium text-foreground">Tərkib məhsulu</label>
+                    <div className="flex-1 space-y-2">
+                      <label className="block text-sm font-medium text-foreground">Tərkib məhsulu</label>
+                      <Input
+                        value={componentSearch}
+                        onChange={(e) => setComponentSearch(e.target.value)}
+                        placeholder="Məhsul axtar…"
+                      />
                       <select
                         value={newComponentId}
                         onChange={(e) => setNewComponentId(e.target.value)}
@@ -1279,6 +1321,12 @@ export default function MenuItemsPage() {
                         <option value="">Seçin</option>
                         {items
                           .filter((i) => i.id !== editingId && !i.isSet)
+                          .filter(
+                            (i) =>
+                              !componentSearch.trim() ||
+                              i.name.toLowerCase().includes(componentSearch.trim().toLowerCase()) ||
+                              String(i.id) === newComponentId,
+                          )
                           .map((i) => (
                             <option key={i.id} value={String(i.id)}>
                               {i.name}
@@ -1293,6 +1341,18 @@ export default function MenuItemsPage() {
                         min={1}
                         value={newComponentQty}
                         onChange={(e) => setNewComponentQty(e.target.value)}
+                      />
+                    </div>
+                    <div className="w-24">
+                      <label className="mb-2 block text-sm font-medium text-foreground" title="Bir SET-də bu məhsuldan ən çox neçə ola bilər (boş = limitsiz)">
+                        Limit
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={newComponentLimit}
+                        onChange={(e) => setNewComponentLimit(e.target.value)}
+                        placeholder="—"
                       />
                     </div>
                     <Button type="button" variant="outline" onClick={handleAddSetComponent}>
@@ -1311,6 +1371,9 @@ export default function MenuItemsPage() {
                         >
                           <span>
                             {setComponentNames[c.componentMenuItemId] ?? `#${c.componentMenuItemId}`} × {c.quantity}
+                            {c.limit != null && (
+                              <span className="ml-2 text-xs text-muted-foreground">(limit: {c.limit})</span>
+                            )}
                           </span>
                           <button
                             type="button"
@@ -1488,6 +1551,7 @@ export default function MenuItemsPage() {
           }
         }
       `}</style>
+      <ScaleExportDialog open={scaleExportOpen} onOpenChange={setScaleExportOpen} items={items} />
     </div>
   );
 }

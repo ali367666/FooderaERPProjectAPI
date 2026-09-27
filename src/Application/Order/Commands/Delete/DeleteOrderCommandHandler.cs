@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+using Application.Common.Helpers;
+using System.Text.Json;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -50,6 +51,8 @@ public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, str
 
             throw new Exception("Sifariş tapılmadı.");
         }
+
+        OrderGuards.EnsureNotBillLocked(order);
 
         var oldValues = JsonSerializer.Serialize(new
         {

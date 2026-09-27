@@ -71,11 +71,14 @@ export type SetComponent = {
   componentMenuItemId: number;
   componentMenuItemName: string;
   quantity: number;
+  limit: number | null;
 };
 
 export type SetComponentInput = {
   componentMenuItemId: number;
   quantity: number;
+  /** Most of this component one SET may hold (per set); null = no cap. */
+  limit: number | null;
 };
 
 export type MenuItemCreateInput = {
@@ -220,6 +223,10 @@ function normalizeSetComponent(item: unknown): SetComponent | null {
     componentMenuItemId,
     componentMenuItemName: String(raw.componentMenuItemName ?? raw.ComponentMenuItemName ?? ""),
     quantity: Number(raw.quantity ?? raw.Quantity ?? 1),
+    limit: (() => {
+      const v = raw.limit ?? raw.Limit;
+      return v == null ? null : Number(v);
+    })(),
   };
 }
 

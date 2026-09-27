@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Orders.Dtos;
@@ -28,6 +29,8 @@ public class ApplyDiscountToOrderCommandHandler : IRequestHandler<ApplyDiscountT
 
         var order = await _orderRepository.GetByIdWithLinesAsync(request.OrderId, companyId, cancellationToken)
             ?? throw new Exception("Sifariş tapılmadı.");
+
+        OrderGuards.EnsureNotBillLocked(order);
 
         if (order.IsPaid || order.Status == OrderStatus.Paid || order.Status == OrderStatus.Cancelled)
             throw new Exception("Ödənilmiş və ya ləğv edilmiş sifarişə endirim tətbiq etmək olmaz.");
@@ -136,6 +139,8 @@ public class ApplyDiscountToOrderCommandHandler : IRequestHandler<ApplyDiscountT
             TableRentalStoppedAt = order.TableRentalStoppedAt,
             TableRentalAmount = order.TableRentalAmount,
             HoldUntilUtc = order.HoldUntilUtc,
+            BillPrintedAt = order.BillPrintedAt,
+            IsBillLocked = order.IsBillLocked,
             IsDelivery = order.IsDelivery,
             DeliveryAddress = order.DeliveryAddress,
             DeliveryPhone = order.DeliveryPhone,

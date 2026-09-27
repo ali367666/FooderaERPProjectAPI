@@ -139,6 +139,7 @@ public static class AppPermissions
     public const string PosWarehouseAmountChange = "Pos.WarehouseAmountChange";
     public const string PosPrintOldReceipt = "Pos.PrintOldReceipt";
     public const string PosReturnSale = "Pos.ReturnSale";
+    public const string PosUnlockBill = "Pos.UnlockBill";
 
     public const string RestaurantSectionView = "RestaurantSection.View";
     public const string RestaurantSectionCreate = "RestaurantSection.Create";

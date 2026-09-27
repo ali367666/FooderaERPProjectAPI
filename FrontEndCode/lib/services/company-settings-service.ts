@@ -66,6 +66,15 @@ export type CompanySettings = {
   printTransferDocAuto: boolean;
   printTransferDocDouble: boolean;
   printChiefCopy: boolean;
+  posMarsEnabled: boolean;
+  requireProductCode: boolean;
+  paymentCashEnabled: boolean;
+  paymentCardEnabled: boolean;
+  paymentCreditEnabled: boolean;
+  waiterConfirmWithPin: boolean;
+  waiterCanCancel: boolean;
+  lockOrderAfterBill: boolean;
+  printKitchenSeparateTickets: boolean;
 
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
@@ -168,6 +177,15 @@ function normalize(item: unknown): CompanySettings | null {
     printTransferDocAuto: bool("printTransferDocAuto", "PrintTransferDocAuto"),
     printTransferDocDouble: bool("printTransferDocDouble", "PrintTransferDocDouble"),
     printChiefCopy: bool("printChiefCopy", "PrintChiefCopy"),
+    posMarsEnabled: bool("posMarsEnabled", "PosMarsEnabled"),
+    requireProductCode: bool("requireProductCode", "RequireProductCode"),
+    paymentCashEnabled: bool("paymentCashEnabled", "PaymentCashEnabled", true),
+    paymentCardEnabled: bool("paymentCardEnabled", "PaymentCardEnabled", true),
+    paymentCreditEnabled: bool("paymentCreditEnabled", "PaymentCreditEnabled", true),
+    waiterConfirmWithPin: bool("waiterConfirmWithPin", "WaiterConfirmWithPin"),
+    waiterCanCancel: bool("waiterCanCancel", "WaiterCanCancel", true),
+    lockOrderAfterBill: bool("lockOrderAfterBill", "LockOrderAfterBill"),
+    printKitchenSeparateTickets: bool("printKitchenSeparateTickets", "PrintKitchenSeparateTickets"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
@@ -267,6 +285,15 @@ export type CompanySettingsBranding = {
   printTransferDocAuto: boolean;
   printTransferDocDouble: boolean;
   printChiefCopy: boolean;
+  posMarsEnabled: boolean;
+  requireProductCode: boolean;
+  paymentCashEnabled: boolean;
+  paymentCardEnabled: boolean;
+  paymentCreditEnabled: boolean;
+  waiterConfirmWithPin: boolean;
+  waiterCanCancel: boolean;
+  lockOrderAfterBill: boolean;
+  printKitchenSeparateTickets: boolean;
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
   defaultVatPercent: number | null;
@@ -342,6 +369,15 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     printTransferDocAuto: bool("printTransferDocAuto", "PrintTransferDocAuto"),
     printTransferDocDouble: bool("printTransferDocDouble", "PrintTransferDocDouble"),
     printChiefCopy: bool("printChiefCopy", "PrintChiefCopy"),
+    posMarsEnabled: bool("posMarsEnabled", "PosMarsEnabled"),
+    requireProductCode: bool("requireProductCode", "RequireProductCode"),
+    paymentCashEnabled: bool("paymentCashEnabled", "PaymentCashEnabled", true),
+    paymentCardEnabled: bool("paymentCardEnabled", "PaymentCardEnabled", true),
+    paymentCreditEnabled: bool("paymentCreditEnabled", "PaymentCreditEnabled", true),
+    waiterConfirmWithPin: bool("waiterConfirmWithPin", "WaiterConfirmWithPin"),
+    waiterCanCancel: bool("waiterCanCancel", "WaiterCanCancel", true),
+    lockOrderAfterBill: bool("lockOrderAfterBill", "LockOrderAfterBill"),
+    printKitchenSeparateTickets: bool("printKitchenSeparateTickets", "PrintKitchenSeparateTickets"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
