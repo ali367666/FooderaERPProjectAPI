@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
@@ -16,6 +17,7 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateWarehouseCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public UpdateWarehouseCommandHandler(
         IWarehouseRepository warehouseRepository,
@@ -24,8 +26,10 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
         IUserRepository userRepository,
         IEmployeeRepository employeeRepository,
         IAuditLogService auditLogService,
-        ILogger<UpdateWarehouseCommandHandler> logger)
+        ILogger<UpdateWarehouseCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _warehouseRepository = warehouseRepository;
         _companyRepository = companyRepository;
         _restaurantRepository = restaurantRepository;
@@ -39,6 +43,7 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
         UpdateWarehouseCommand request,
         CancellationToken cancellationToken)
     {
+        request.Request.CompanyId = _currentUserService.ResolveCompanyId(request.Request.CompanyId);
         _logger.LogInformation(
             "UpdateWarehouseCommand started. WarehouseId: {WarehouseId}, Name: {Name}, Type: {Type}, CompanyId: {CompanyId}, RestaurantId: {RestaurantId}, ResponsibleEmployeeId: {ResponsibleEmployeeId}, DriverUserId: {DriverUserId}",
             request.Id,
@@ -51,7 +56,7 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
 
         var warehouse = await _warehouseRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (warehouse is null)
+        if (warehouse is null || !_currentUserService.CanAccessCompany(warehouse.CompanyId))
         {
             _logger.LogWarning("Warehouse not found. WarehouseId: {WarehouseId}", request.Id);
             return BaseResponse.Fail("Warehouse not found.");
@@ -89,7 +94,7 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
                 request.Request.DriverUserId.Value,
                 cancellationToken);
 
-            if (user is null)
+            if (user is null || !_currentUserService.CanAccessCompany(user.CompanyId))
             {
                 _logger.LogWarning("Driver user not found. DriverUserId: {DriverUserId}", request.Request.DriverUserId.Value);
                 return BaseResponse.Fail("Driver user not found.");
@@ -103,7 +108,7 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
                 request.Request.CompanyId,
                 cancellationToken);
 
-            if (responsible is null)
+            if (responsible is null || !_currentUserService.CanAccessCompany(responsible.CompanyId))
             {
                 _logger.LogWarning(
                     "Responsible employee not found. ResponsibleEmployeeId: {ResponsibleEmployeeId}, CompanyId: {CompanyId}",

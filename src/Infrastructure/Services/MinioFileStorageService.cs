@@ -84,7 +84,11 @@ public class MinioFileStorageService : IFileStorageService
                 .WithContentType(contentType),
             cancellationToken);
 
-        var endpoint = _configuration["Minio:Endpoint"]!;
+        // Inside Docker the API talks to "minio:9000", but browsers need an address they can reach
+        // (e.g. the restaurant server's LAN IP) — Minio:PublicEndpoint, when set.
+        var endpoint = _configuration["Minio:PublicEndpoint"] is { Length: > 0 } publicEndpoint
+            ? publicEndpoint
+            : _configuration["Minio:Endpoint"]!;
         var useSsl = bool.TryParse(_configuration["Minio:UseSSL"], out var ssl) && ssl;
         var scheme = useSsl ? "https" : "http";
 

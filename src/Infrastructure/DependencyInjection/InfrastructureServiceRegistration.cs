@@ -101,6 +101,14 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IDeliveryIntegrationRepository, DeliveryIntegrationRepository>();
         services.AddScoped<ICashMovementRepository, CashMovementRepository>();
         services.AddScoped<ISaleReturnRepository, SaleReturnRepository>();
+        services.AddScoped<ILicenseRepository, LicenseRepository>();
+        services.AddScoped<IDeviceAccessService, DeviceAccessService>();
+        services.Configure<Infrastructure.Options.LicensingOptions>(configuration.GetSection("Licensing"));
+        services.Configure<Infrastructure.Options.DeploymentOptions>(configuration.GetSection("Deployment"));
+        services.AddSingleton<ILicenseKeyService, LicenseKeyService>();
+        services.AddSingleton<IDeploymentInfo, DeploymentInfo>();
+        services.AddMemoryCache();
+        services.AddHostedService<LicenseExpiryNotifier>();
         services.AddScoped<ICounterpartyRepository, CounterpartyRepository>();
         services.AddScoped<ICounterpartyCategoryRepository, CounterpartyCategoryRepository>();
         services.AddScoped<IMenuItemTypeRepository, MenuItemTypeRepository>();

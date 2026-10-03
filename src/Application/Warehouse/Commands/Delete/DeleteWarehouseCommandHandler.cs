@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
@@ -13,13 +14,16 @@ public class DeleteWarehouseCommandHandler : IRequestHandler<DeleteWarehouseComm
     private readonly IUserRepository _userRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<DeleteWarehouseCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public DeleteWarehouseCommandHandler(
         IWarehouseRepository warehouseRepository,
         IUserRepository userRepository,
         IAuditLogService auditLogService,
-        ILogger<DeleteWarehouseCommandHandler> logger)
+        ILogger<DeleteWarehouseCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _warehouseRepository = warehouseRepository;
         _userRepository = userRepository;
         _auditLogService = auditLogService;
@@ -38,7 +42,7 @@ public class DeleteWarehouseCommandHandler : IRequestHandler<DeleteWarehouseComm
             request.Id,
             cancellationToken);
 
-        if (warehouse is null)
+        if (warehouse is null || !_currentUserService.CanAccessCompany(warehouse.CompanyId))
         {
             _logger.LogWarning(
                 "Warehouse not found. WarehouseId: {WarehouseId}",

@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
@@ -13,12 +14,15 @@ public class DeleteStockItemCommandHandler
     private readonly IStockItemRepository _stockItemRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<DeleteStockItemCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public DeleteStockItemCommandHandler(
         IStockItemRepository stockItemRepository,
         IAuditLogService auditLogService,
-        ILogger<DeleteStockItemCommandHandler> logger)
+        ILogger<DeleteStockItemCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockItemRepository = stockItemRepository;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -32,7 +36,7 @@ public class DeleteStockItemCommandHandler
 
         var stockItem = await _stockItemRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (stockItem is null)
+        if (stockItem is null || !_currentUserService.CanAccessCompany(stockItem.CompanyId))
         {
             _logger.LogWarning("Stock item not found. Id: {Id}", request.Id);
             return BaseResponse.Fail("Stock item not found.");

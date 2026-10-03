@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -42,14 +42,16 @@ public class CreateStockItemCommandHandler
         CreateStockItemCommand request,
         CancellationToken cancellationToken)
     {
+        request.Request.CompanyId = _currentUserService.ResolveCompanyId(request.Request.CompanyId);
         _logger.LogInformation(
             "Creating stock item. Name: {Name}, CompanyId: {CompanyId}, CategoryId: {CategoryId}",
             request.Request.Name,
             request.Request.CompanyId,
             request.Request.CategoryId);
 
-        var categoryExists = await _stockCategoryRepository.ExistsAsync(
+        var categoryExists = await _stockCategoryRepository.ExistsInCompanyAsync(
             request.Request.CategoryId,
+            request.Request.CompanyId,
             cancellationToken);
 
         if (!categoryExists)
@@ -67,7 +69,7 @@ public class CreateStockItemCommandHandler
                 request.Request.RestaurantId.Value,
                 cancellationToken);
 
-            if (restaurant is null)
+            if (restaurant is null || !_currentUserService.CanAccessCompany(restaurant.CompanyId))
             {
                 _logger.LogWarning(
                     "Restaurant not found. RestaurantId: {RestaurantId}",

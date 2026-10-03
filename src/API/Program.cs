@@ -9,6 +9,16 @@ using Infrastructure.Extensions;
 using MediatR;
 using Serilog;
 
+if (args.Contains("--generate-license-keypair"))
+{
+    var (privatePem, publicPem) = Infrastructure.Services.LicenseKeyService.GenerateKeyPair();
+    Console.WriteLine("# Licensing:PrivateKeyPem — central server ONLY, keep secret:");
+    Console.WriteLine(privatePem);
+    Console.WriteLine("# Licensing:PublicKeyPem — every installation:");
+    Console.WriteLine(publicPem);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
@@ -44,16 +54,20 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        if (builder.Environment.IsDevelopment())
+        var isLocalInstallation = string.Equals(builder.Configuration["Deployment:Mode"], "Local", StringComparison.OrdinalIgnoreCase);
+        if (builder.Environment.IsDevelopment() || isLocalInstallation)
         {
-            // Allow any origin in dev so the frontend can be reached from a phone's
-            // LAN IP (e.g. scanning a QR menu code) without knowing that IP in advance.
+            // Dev, and a restaurant's Local installation (reachable only inside its own network):
+            // terminals open the app via the server's LAN IP, which isn't known in advance.
             policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod();
         }
         else
         {
+            var origins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() is { Length: > 0 } configured
+                ? configured
+                : new[] { "http://localhost:3000" };
             policy
-                .WithOrigins("http://localhost:3000")
+                .WithOrigins(origins)
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         }
@@ -81,6 +95,7 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
+app.UseMiddleware<DeviceAccessMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 

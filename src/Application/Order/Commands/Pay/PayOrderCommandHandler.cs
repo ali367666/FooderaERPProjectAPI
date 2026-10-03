@@ -29,7 +29,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
     public async Task<OrderResponse> Handle(PayOrderCommand request, CancellationToken cancellationToken)
     {
         var order = await _orderRepository.GetByIdWithLinesAsync(request.OrderId, cancellationToken);
-        if (order is null)
+        if (order is null || !_currentUserService.CanAccessCompany(order.CompanyId))
             throw new NotFoundException("Order not found.");
 
         if (order.IsPaid || order.Status == OrderStatus.Paid)

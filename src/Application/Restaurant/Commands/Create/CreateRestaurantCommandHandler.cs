@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -41,6 +41,7 @@ public sealed class CreateRestaurantCommandHandler
         CancellationToken cancellationToken)
     {
         var dto = request.Request;
+        dto.CompanyId = _currentUserService.ResolveCompanyId(dto.CompanyId);
 
         _logger.LogInformation(
             "CreateRestaurantCommand başladı. Name: {Name}, CompanyId: {CompanyId}",

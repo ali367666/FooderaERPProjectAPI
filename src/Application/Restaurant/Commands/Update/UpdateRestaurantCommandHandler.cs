@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -36,6 +36,7 @@ public sealed class UpdateRestaurantCommandHandler
         CancellationToken cancellationToken)
     {
         var dto = request.Request;
+        dto.CompanyId = _currentUserService.ResolveCompanyId(dto.CompanyId);
 
         _logger.LogInformation(
             "UpdateRestaurantCommand başladı. RestaurantId: {RestaurantId}, Name: {Name}, CompanyId: {CompanyId}",
@@ -44,7 +45,7 @@ public sealed class UpdateRestaurantCommandHandler
             dto.CompanyId);
 
         var restaurant = await _restaurantRepository.GetByIdAsync(request.Id, cancellationToken);
-        if (restaurant is null)
+        if (restaurant is null || !_currentUserService.CanAccessCompany(restaurant.CompanyId))
         {
             _logger.LogWarning(
                 "Restaurant update olunmadı. Restaurant tapılmadı. RestaurantId: {RestaurantId}",

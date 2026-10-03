@@ -1,5 +1,6 @@
 "use client";
 
+import { LicenseStatusBadge } from "@/components/license-status-badge";
 import AuthGuard from "@/components/auth-guard";
 import { AppSidebar } from "@/components/app-sidebar";
 import { DashboardCompanyToolbar } from "@/components/dashboard-company-toolbar";
@@ -21,6 +22,9 @@ export default function DashboardLayout({
           <div className="min-h-screen bg-background">
             <AppSidebar />
             <main className="lg:pl-64 min-h-screen p-6">
+              <div className="mb-2 flex justify-end">
+                <LicenseStatusBadge />
+              </div>
               <DashboardCompanyToolbar />
               <DashboardBranchToolbar />
               <Toaster richColors closeButton position="top-center" />

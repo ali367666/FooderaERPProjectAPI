@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -19,6 +19,7 @@ public class RejectStockRequestCommandHandler
     private readonly IAuditLogService _auditLogService;
     private readonly IEmailService _emailService;
     private readonly ILogger<RejectStockRequestCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public RejectStockRequestCommandHandler(
         IStockRequestRepository stockRequestRepository,
@@ -26,8 +27,10 @@ public class RejectStockRequestCommandHandler
         IUnitOfWork unitOfWork,
         IAuditLogService auditLogService,
         IEmailService emailService,
-        ILogger<RejectStockRequestCommandHandler> logger)
+        ILogger<RejectStockRequestCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockRequestRepository = stockRequestRepository;
         _warehouseRepository = warehouseRepository;
         _unitOfWork = unitOfWork;
@@ -48,7 +51,7 @@ public class RejectStockRequestCommandHandler
             request.Id,
             cancellationToken);
 
-        if (entity is null)
+        if (entity is null || !_currentUserService.CanAccessCompany(entity.CompanyId))
         {
             _logger.LogWarning(
                 "Stock request reject olunmadı. StockRequest tapılmadı. StockRequestId: {StockRequestId}",

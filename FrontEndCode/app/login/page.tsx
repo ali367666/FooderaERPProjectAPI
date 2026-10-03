@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveApiBaseUrl } from "@/lib/api";
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -21,9 +22,8 @@ import { cn } from "@/lib/utils";
 import { getPermissionClaimsFromToken, getRoleClaimsFromToken } from "@/lib/jwt-permissions";
 import { persistAuthUser } from "@/lib/auth-client";
 
-const LOGIN_URL =
-  process.env.NEXT_PUBLIC_AUTH_LOGIN_URL ??
-  "https://localhost:7145/api/Auth/login";
+// Same API address as every other request (works from the server PC and from LAN terminals).
+const loginUrl = () => process.env.NEXT_PUBLIC_AUTH_LOGIN_URL ?? `${resolveApiBaseUrl()}/Auth/login`;
 
 const LS_REMEMBER = "foodera_login_remember";
 const LS_EMAIL = "foodera_login_email";
@@ -232,7 +232,7 @@ export default function LoginPage() {
     }
 
     try {
-      const res = await fetch(LOGIN_URL, {
+      const res = await fetch(loginUrl(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

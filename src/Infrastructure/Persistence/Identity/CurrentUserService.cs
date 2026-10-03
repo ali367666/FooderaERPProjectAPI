@@ -42,10 +42,20 @@ public class CurrentUserService : ICurrentUserService
         }
     }
 
+    /// <summary>
+    /// The company the request acts on. Always the company in the caller's JWT — except for the
+    /// platform SuperAdmin, who may pick any company with the X-Company-Id header (the dashboard's
+    /// company filter). The header is ignored for everyone else, so a tenant can never switch company.
+    /// </summary>
     public int CompanyId
     {
         get
         {
+            if (IsSuperAdmin
+                && int.TryParse(_httpContextAccessor.HttpContext?.Request.Headers["X-Company-Id"].ToString(), out var selected)
+                && selected > 0)
+                return selected;
+
             var companyId =
                 User?.FindFirst("companyId")?.Value
                 ?? User?.FindFirst("CompanyId")?.Value

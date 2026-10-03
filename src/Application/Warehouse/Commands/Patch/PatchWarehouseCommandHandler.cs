@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
@@ -14,13 +15,16 @@ public class PatchWarehouseCommandHandler
     private readonly IRestaurantRepository _restaurantRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<PatchWarehouseCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public PatchWarehouseCommandHandler(
         IWarehouseRepository warehouseRepository,
         IRestaurantRepository restaurantRepository,
         IAuditLogService auditLogService,
-        ILogger<PatchWarehouseCommandHandler> logger)
+        ILogger<PatchWarehouseCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _warehouseRepository = warehouseRepository;
         _restaurantRepository = restaurantRepository;
         _auditLogService = auditLogService;
@@ -37,7 +41,7 @@ public class PatchWarehouseCommandHandler
 
         var warehouse = await _warehouseRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (warehouse is null)
+        if (warehouse is null || !_currentUserService.CanAccessCompany(warehouse.CompanyId))
         {
             _logger.LogWarning(
                 "PatchWarehouse failed. Warehouse not found. WarehouseId: {WarehouseId}",

@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Helpers;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -18,14 +19,17 @@ public class CreateWarehouseStockDocumentCommandHandler
     private readonly IStockItemRepository _stockItemRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<CreateWarehouseStockDocumentCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public CreateWarehouseStockDocumentCommandHandler(
         IWarehouseStockDocumentRepository documentRepository,
         IWarehouseRepository warehouseRepository,
         IStockItemRepository stockItemRepository,
         IAuditLogService auditLogService,
-        ILogger<CreateWarehouseStockDocumentCommandHandler> logger)
+        ILogger<CreateWarehouseStockDocumentCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _documentRepository = documentRepository;
         _warehouseRepository = warehouseRepository;
         _stockItemRepository = stockItemRepository;
@@ -45,7 +49,7 @@ public class CreateWarehouseStockDocumentCommandHandler
             req.Lines?.Count ?? 0);
 
         var warehouse = await _warehouseRepository.GetByIdAsync(req.WarehouseId, cancellationToken);
-        if (warehouse is null)
+        if (warehouse is null || !_currentUserService.CanAccessCompany(warehouse.CompanyId))
         {
             _logger.LogWarning("Warehouse not found. WarehouseId: {WarehouseId}", req.WarehouseId);
             return BaseResponse<int>.Fail("Warehouse not found.");

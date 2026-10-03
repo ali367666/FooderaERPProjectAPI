@@ -54,6 +54,13 @@ public sealed class LoginCommandHandler
             return BaseResponse<LoginResponse>.Fail("Email/username or password is incorrect");
         }
 
+        // Checked after the password so the answer never reveals which accounts exist.
+        if (!user.CanAccessAdminPanel)
+        {
+            _logger.LogWarning("Login failed. User {UserId} has no admin panel access", user.Id);
+            return BaseResponse<LoginResponse>.Fail("Bu hesabın idarə panelinə girişi yoxdur — POS-a kodla daxil olun.");
+        }
+
         var tokenResponse = await _authTokenIssuer.IssueForUserAsync(user, request.IpAddress, cancellationToken);
 
         _logger.LogInformation("Login successful for user {UserId}", user.Id);

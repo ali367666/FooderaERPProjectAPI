@@ -11,6 +11,7 @@ public static class ApplicationServiceRegistration
         services.AddMediatR(cfg =>
         {
             cfg.RegisterServicesFromAssembly(typeof(ApplicationServiceRegistration).Assembly);
+            cfg.AddOpenBehavior(typeof(Application.Common.Behaviors.RestaurantOwnershipBehavior<,>));
             cfg.AddOpenBehavior(typeof(Application.Common.Behaviors.OrderPolicyBehavior<,>));
         });
 

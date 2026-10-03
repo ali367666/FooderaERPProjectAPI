@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -16,13 +17,16 @@ public class UpdateStockRequestCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateStockRequestCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public UpdateStockRequestCommandHandler(
         IStockRequestRepository stockRequestRepository,
         IUnitOfWork unitOfWork,
         IAuditLogService auditLogService,
-        ILogger<UpdateStockRequestCommandHandler> logger)
+        ILogger<UpdateStockRequestCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockRequestRepository = stockRequestRepository;
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
@@ -41,7 +45,7 @@ public class UpdateStockRequestCommandHandler
             request.Id,
             cancellationToken);
 
-        if (entity is null)
+        if (entity is null || !_currentUserService.CanAccessCompany(entity.CompanyId))
         {
             _logger.LogWarning(
                 "Stock request update olunmadı. StockRequest tapılmadı. StockRequestId: {StockRequestId}",

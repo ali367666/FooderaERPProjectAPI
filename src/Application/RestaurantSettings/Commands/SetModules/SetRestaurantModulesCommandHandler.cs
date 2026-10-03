@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using MediatR;
@@ -10,12 +11,15 @@ public class SetRestaurantModulesCommandHandler
     private readonly IRestaurantRepository _restaurantRepository;
     private readonly ICompanySettingsRepository _companySettingsRepository;
     private readonly IRestaurantSettingsRepository _restaurantSettingsRepository;
+    private readonly ICurrentUserService _currentUserService;
 
     public SetRestaurantModulesCommandHandler(
         IRestaurantRepository restaurantRepository,
         ICompanySettingsRepository companySettingsRepository,
-        IRestaurantSettingsRepository restaurantSettingsRepository)
+        IRestaurantSettingsRepository restaurantSettingsRepository,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _restaurantRepository = restaurantRepository;
         _companySettingsRepository = companySettingsRepository;
         _restaurantSettingsRepository = restaurantSettingsRepository;
@@ -24,7 +28,7 @@ public class SetRestaurantModulesCommandHandler
     public async Task<BaseResponse> Handle(SetRestaurantModulesCommand request, CancellationToken cancellationToken)
     {
         var restaurant = await _restaurantRepository.GetByIdAsync(request.RestaurantId, cancellationToken);
-        if (restaurant is null)
+        if (restaurant is null || !_currentUserService.CanAccessCompany(restaurant.CompanyId))
             return BaseResponse.Fail("Filial tapılmadı.");
 
         var companySettings = await _companySettingsRepository.GetByCompanyIdAsync(restaurant.CompanyId, cancellationToken);

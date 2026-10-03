@@ -58,6 +58,7 @@ export default function DepartmentsPage() {
   const loadDepartments = async () => {
     if (companies.length === 0) {
       setDepts([]);
+      setLoading(false);
       return;
     }
     try {

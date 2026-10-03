@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+using Application.Common.Interfaces;
+using System.Text.Json;
 using Application.Common.Exceptions;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -14,12 +15,15 @@ public class UpdateMenuCategoryCommandHandler
     private readonly IMenuCategoryRepository _menuCategoryRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateMenuCategoryCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public UpdateMenuCategoryCommandHandler(
         IMenuCategoryRepository menuCategoryRepository,
         IAuditLogService auditLogService,
-        ILogger<UpdateMenuCategoryCommandHandler> logger)
+        ILogger<UpdateMenuCategoryCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _menuCategoryRepository = menuCategoryRepository;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -27,14 +31,15 @@ public class UpdateMenuCategoryCommandHandler
 
     public async Task Handle(UpdateMenuCategoryCommand request, CancellationToken cancellationToken)
     {
+        var companyId = _currentUserService.ResolveCompanyId(request.CompanyId);
         _logger.LogInformation(
             "UpdateMenuCategoryCommand başladı. Id: {Id}, CompanyId: {CompanyId}",
             request.Id,
-            request.CompanyId);
+            companyId);
 
         var entity = await _menuCategoryRepository.GetByIdAsync(
             request.Id,
-            request.CompanyId,
+            companyId,
             cancellationToken);
 
         if (entity is null)
@@ -42,7 +47,7 @@ public class UpdateMenuCategoryCommandHandler
             _logger.LogWarning(
                 "MenuCategory update olunmadı. Tapılmadı. Id: {Id}, CompanyId: {CompanyId}",
                 request.Id,
-                request.CompanyId);
+                companyId);
 
             throw new NotFoundException("Menu kateqoriyası tapılmadı.");
         }
@@ -50,7 +55,7 @@ public class UpdateMenuCategoryCommandHandler
         var normalizedName = request.Request.Name.Trim();
 
         var duplicateExists = await _menuCategoryRepository.ExistsByNameAsync(
-            request.CompanyId,
+            companyId,
             normalizedName,
             cancellationToken);
 

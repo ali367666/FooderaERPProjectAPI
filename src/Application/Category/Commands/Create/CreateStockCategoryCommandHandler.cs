@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
@@ -18,14 +19,17 @@ public class CreateStockCategoryCommandHandler
     private readonly IAuditLogService _auditLogService;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateStockCategoryCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public CreateStockCategoryCommandHandler(
         IStockCategoryRepository stockCategoryRepository,
         ICompanyRepository companyRepository,
         IAuditLogService auditLogService,
         IMapper mapper,
-        ILogger<CreateStockCategoryCommandHandler> logger)
+        ILogger<CreateStockCategoryCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockCategoryRepository = stockCategoryRepository;
         _companyRepository = companyRepository;
         _auditLogService = auditLogService;
@@ -38,6 +42,7 @@ public class CreateStockCategoryCommandHandler
         CancellationToken cancellationToken)
     {
         var dto = request.Request;
+        dto.CompanyId = _currentUserService.ResolveCompanyId(dto.CompanyId);
 
         _logger.LogInformation(
             "CreateStockCategoryCommand started. Name: {Name}, CompanyId: {CompanyId}, ParentId: {ParentId}",

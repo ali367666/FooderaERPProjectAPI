@@ -1,5 +1,6 @@
 "use client";
 
+import { LicenseStatusBadge } from "@/components/license-status-badge";
 import { applyTheme } from "@/lib/theme";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -187,6 +188,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
             <span>{terminal?.restaurantName ?? terminal?.companyName ?? "POS"}</span>
           </div>
           <div className="flex items-center gap-3">
+            <LicenseStatusBadge />
             {branding?.posShowClock !== false && (
               <span className="tabular-nums text-sm font-semibold text-muted-foreground">
                 {clockNow.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}

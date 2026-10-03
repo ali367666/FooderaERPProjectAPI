@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+using Application.Common.Interfaces;
+using System.Text.Json;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -18,14 +19,17 @@ public class UpdateStockCategoryCommandHandler
     private readonly IAuditLogService _auditLogService;
     private readonly IMapper _mapper;
     private readonly ILogger<UpdateStockCategoryCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public UpdateStockCategoryCommandHandler(
         IStockCategoryRepository stockCategoryRepository,
         ICompanyRepository companyRepository,
         IAuditLogService auditLogService,
         IMapper mapper,
-        ILogger<UpdateStockCategoryCommandHandler> logger)
+        ILogger<UpdateStockCategoryCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockCategoryRepository = stockCategoryRepository;
         _companyRepository = companyRepository;
         _auditLogService = auditLogService;
@@ -38,6 +42,7 @@ public class UpdateStockCategoryCommandHandler
         CancellationToken cancellationToken)
     {
         var dto = request.Request;
+        dto.CompanyId = _currentUserService.ResolveCompanyId(dto.CompanyId);
 
         _logger.LogInformation(
             "UpdateStockCategoryCommand started. Id: {Id}, Name: {Name}, CompanyId: {CompanyId}",
@@ -47,7 +52,7 @@ public class UpdateStockCategoryCommandHandler
 
         var stockCategory = await _stockCategoryRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (stockCategory is null)
+        if (stockCategory is null || !_currentUserService.CanAccessCompany(stockCategory.CompanyId))
         {
             _logger.LogWarning(
                 "UpdateStockCategoryCommand failed. Category not found. Id: {Id}",

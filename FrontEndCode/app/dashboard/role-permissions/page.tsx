@@ -14,6 +14,9 @@ import {
 } from "@/lib/services/role-permission-service";
 import { toApiFormError } from "@/lib/api-error";
 import { translatePermissionLabel, translateModuleLabel } from "@/lib/permission-translations";
+import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
+import { getStoredToken } from "@/lib/auth-client";
+import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
 
 export default function RolePermissionsPage() {
   const { companies, selectedCompanyId } = useSelectedCompany();
@@ -24,6 +27,19 @@ export default function RolePermissionsPage() {
   const [loading, setLoading] = useState(true);
   const [rolePermissionsLoading, setRolePermissionsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [storeMode, setStoreMode] = useState(false);
+
+  // Mağaza (store) companies see "Məhsullar" instead of "Menyu", the same as in the sidebar.
+  useEffect(() => {
+    const companyId = selectedCompanyId ?? getCompanyIdFromToken(getStoredToken());
+    if (!companyId) {
+      setStoreMode(false);
+      return;
+    }
+    getCompanySettingsBranding(companyId)
+      .then((b) => setStoreMode(b.moduleDataSecimi === true))
+      .catch(() => setStoreMode(false));
+  }, [selectedCompanyId]);
 
   const loadData = useCallback(async () => {
     try {
@@ -81,9 +97,9 @@ export default function RolePermissionsPage() {
       map.get(key)!.push(permission);
     }
     return Array.from(map.entries()).sort((a, b) =>
-      translateModuleLabel(a[0]).localeCompare(translateModuleLabel(b[0]), "az"),
+      translateModuleLabel(a[0], storeMode).localeCompare(translateModuleLabel(b[0], storeMode), "az"),
     );
-  }, [permissions]);
+  }, [permissions, storeMode]);
 
   const togglePermission = (permissionId: number) => {
     setSelectedPermissionIds((prev) => {
@@ -165,7 +181,7 @@ export default function RolePermissionsPage() {
       {selectedRoleId && grouped.map(([moduleName, modulePermissions]) => (
         <Card key={moduleName}>
           <CardHeader>
-            <CardTitle>{translateModuleLabel(moduleName)}</CardTitle>
+            <CardTitle>{translateModuleLabel(moduleName, storeMode)}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
@@ -180,6 +196,7 @@ export default function RolePermissionsPage() {
                     {translatePermissionLabel(
                       permission.name,
                       permission.displayName || `${permission.module}.${permission.action}`,
+                      storeMode,
                     )}
                   </span>
                 </label>

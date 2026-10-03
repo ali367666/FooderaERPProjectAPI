@@ -40,6 +40,7 @@ export default function StockMovementsPage() {
   const loadData = async (silent = false) => {
     if (companies.length === 0) {
       setMovements([]);
+      setLoading(false);
       return;
     }
     try {

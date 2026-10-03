@@ -139,7 +139,7 @@ export async function getUserById(id: number): Promise<AppUser> {
   }
 }
 
-export async function createUser(input: AppUserInput & { password: string }): Promise<number> {
+export async function createUser(input: AppUserInput & { password?: string }): Promise<number> {
   try {
     const response = await api.post<unknown>("/Users", {
       fullName: input.fullName.trim(),

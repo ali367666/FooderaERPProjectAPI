@@ -79,8 +79,9 @@ public class IdentityAdminService : IIdentityAdminService
     public async Task<List<UserListItemDto>> GetUsersAsync(int? companyIdFilter, CancellationToken cancellationToken = default)
     {
         var q = _db.Users.AsNoTracking().Include(u => u.Company).Include(u => u.Restaurant).Include(u => u.Warehouse).AsQueryable();
-        if (companyIdFilter is > 0)
-            q = q.Where(u => u.CompanyId == companyIdFilter);
+        var effectiveCompanyId = IsSuperAdmin ? companyIdFilter : _currentUserService.CompanyId;
+        if (effectiveCompanyId is > 0)
+            q = q.Where(u => u.CompanyId == effectiveCompanyId);
 
         var users = await q.OrderBy(u => u.Id).ToListAsync(cancellationToken);
         var result = new List<UserListItemDto>();
@@ -127,7 +128,7 @@ public class IdentityAdminService : IIdentityAdminService
             .Include(x => x.Restaurant)
             .Include(x => x.Warehouse)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (u is null) return null;
+        if (u is null || !_currentUserService.CanAccessCompany(u.CompanyId)) return null;
 
         var trackUser = await _userManager.FindByIdAsync(id.ToString());
         if (trackUser is null) return null;
@@ -163,6 +164,7 @@ public class IdentityAdminService : IIdentityAdminService
         CreateUserAdminRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.CompanyId = _currentUserService.ResolveCompanyId(request.CompanyId);
         if (!await _companyRepository.ExistsAsync(request.CompanyId, cancellationToken))
             return (false, null, "Company was not found.", null);
 
@@ -178,7 +180,9 @@ public class IdentityAdminService : IIdentityAdminService
         if (string.IsNullOrEmpty(email))
             return (false, null, "Email is required.",
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Email"] = new[] { "Email is required." } });
-        if (string.IsNullOrEmpty(request.Password))
+        // POS-only staff (waiters, cashiers) sign in with their 4-digit code / RFID card — a password
+        // is only needed for the admin panel.
+        if (request.CanAccessAdminPanel && string.IsNullOrEmpty(request.Password))
             return (false, null, "Password is required.",
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Password"] = new[] { "Password is required." } });
 
@@ -254,7 +258,9 @@ public class IdentityAdminService : IIdentityAdminService
             CanAccessFrontOffice = request.CanAccessFrontOffice
         };
 
-        var res = await _userManager.CreateAsync(user, request.Password);
+        var res = string.IsNullOrEmpty(request.Password)
+            ? await _userManager.CreateAsync(user)
+            : await _userManager.CreateAsync(user, request.Password);
         if (!res.Succeeded)
         {
             var fe = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
@@ -291,11 +297,12 @@ public class IdentityAdminService : IIdentityAdminService
         UpdateUserAdminRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.CompanyId = _currentUserService.ResolveCompanyId(request.CompanyId);
         if (!await _companyRepository.ExistsAsync(request.CompanyId, cancellationToken))
             return (false, "Company was not found.", null);
 
         var user = await _userManager.FindByIdAsync(id.ToString());
-        if (user is null) return (false, "User was not found.", null);
+        if (user is null || !_currentUserService.CanAccessCompany(user.CompanyId)) return (false, "User was not found.", null);
 
         var email = request.Email.Trim();
         var userName = request.UserName.Trim();
@@ -353,6 +360,10 @@ public class IdentityAdminService : IIdentityAdminService
         user.CompanyId = request.CompanyId;
         user.Code = code;
         user.RfidCardId = string.IsNullOrWhiteSpace(request.RfidCardId) ? null : request.RfidCardId.Trim();
+        if (request.CanAccessAdminPanel && string.IsNullOrEmpty(request.Password) && !await _userManager.HasPasswordAsync(user))
+            return (false, "Set a password to give this user admin panel access.",
+                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Password"] = new[] { "Password is required for admin panel access." } });
+
         user.CanAccessAdminPanel = request.CanAccessAdminPanel;
         user.CanAccessFrontOffice = request.CanAccessFrontOffice;
         user.WorkplaceType = request.WorkplaceType;
@@ -458,7 +469,7 @@ public class IdentityAdminService : IIdentityAdminService
     public async Task<(bool Ok, string? Error)> DeleteUserAsync(int id, CancellationToken cancellationToken = default)
     {
         var user = await _userManager.FindByIdAsync(id.ToString());
-        if (user is null) return (false, "User was not found.");
+        if (user is null || !_currentUserService.CanAccessCompany(user.CompanyId)) return (false, "User was not found.");
         var emps = await _db.Employees.Where(e => e.UserId == id).ToListAsync(cancellationToken);
         foreach (var e in emps)
         {
@@ -594,11 +605,10 @@ public class IdentityAdminService : IIdentityAdminService
 
     public async Task<List<PermissionDto>> GetPermissionsAsync(CancellationToken cancellationToken = default)
     {
-        var query = _db.Permissions.AsNoTracking();
-        if (!IsSuperAdmin)
-            query = query.Where(x => !PlatformOnlyPermissions.Contains(x.Name));
+        var hidden = await GetHiddenPermissionPredicateAsync(cancellationToken);
 
-        return await query
+        var permissions = await _db.Permissions
+            .AsNoTracking()
             .OrderBy(x => x.Module)
             .ThenBy(x => x.Action)
             .Select(x => new PermissionDto
@@ -610,6 +620,68 @@ public class IdentityAdminService : IIdentityAdminService
                 Action = x.Action
             })
             .ToListAsync(cancellationToken);
+
+        return permissions.Where(x => !hidden(x.Name)).ToList();
+    }
+
+    private static readonly HashSet<string> KnownPermissions = typeof(AppPermissions)
+        .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+        .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+        .Select(f => (string)f.GetRawConstantValue()!)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Which permissions the role editor must not offer: leftovers of removed modules (e.g. BscInvoice)
+    /// for everyone; for a tenant also platform-only permissions and those of modules the company
+    /// doesn't use — a store (Mağaza) sees no tables/kitchen/reservations, a company without the
+    /// warehouse module sees no stock permissions, and so on. The SuperAdmin sees everything that exists.
+    /// </summary>
+    private async Task<Func<string, bool>> GetHiddenPermissionPredicateAsync(CancellationToken cancellationToken)
+    {
+        if (IsSuperAdmin)
+            return name => !KnownPermissions.Contains(name);
+
+        var s = await _db.CompanySettings.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CompanyId == _currentUserService.CompanyId, cancellationToken);
+
+        // No settings row yet = defaults (restaurant, core modules on).
+        var isStore = s?.ModuleDataSecimi == true;
+        var anbar = s?.ModuleAnbar ?? true;
+        var rezervasyon = s?.ModuleRezervasyon ?? true;
+        var masaBolge = s?.ModuleMasaBolge ?? true;
+        var filial = s?.ModuleFilial ?? true;
+        var delivery = s is not null && (s.IntegrationWolt || s.IntegrationBolt || s.Integration189Delivery);
+
+        return name =>
+        {
+            if (!KnownPermissions.Contains(name) || PlatformOnlyPermissions.Contains(name))
+                return true;
+
+            var group = name.Split('.')[0];
+
+            if (isStore && (group is "RestaurantTable" or "RestaurantSection" or "Kitchen" or "Reservation"
+                    || name is AppPermissions.OrdersServe or AppPermissions.PosMoveTable
+                        or AppPermissions.PosTableServiceCharge or AppPermissions.PosRedirectUser))
+                return true;
+
+            if (!anbar && (group is "Warehouse" or "WarehouseStock" or "StockItem" or "StockCategory"
+                    or "StockRequest" or "StockPurchase" || name == AppPermissions.PosWarehouseAmountChange))
+                return true;
+
+            if (!rezervasyon && group == "Reservation")
+                return true;
+
+            if (!masaBolge && group == "RestaurantSection")
+                return true;
+
+            if (!filial && name is AppPermissions.RestaurantCreate or AppPermissions.RestaurantDelete)
+                return true;
+
+            if (!delivery && group == "DeliveryIntegration")
+                return true;
+
+            return false;
+        };
     }
 
     public async Task<List<int>> GetRolePermissionIdsAsync(int roleId, CancellationToken cancellationToken = default)
@@ -657,6 +729,21 @@ public class IdentityAdminService : IIdentityAdminService
         var existing = await _db.RolePermissions
             .Where(x => x.RoleId == roleId)
             .ToListAsync(cancellationToken);
+
+        // The page only shows permissions that fit the company's business type and modules. The
+        // ones it can't show are kept exactly as they were, so switching a module off and on again
+        // doesn't strip roles of what they had — and nothing hidden can be granted through here.
+        var hidden = await GetHiddenPermissionPredicateAsync(cancellationToken);
+        var nameById = await _db.Permissions.AsNoTracking()
+            .ToDictionaryAsync(x => x.Id, x => x.Name, cancellationToken);
+        var keptHidden = existing
+            .Where(x => nameById.TryGetValue(x.PermissionId, out var n) && hidden(n))
+            .Select(x => x.PermissionId);
+        distinctIds = distinctIds
+            .Where(id => !hidden(nameById[id]))
+            .Concat(keptHidden)
+            .Distinct()
+            .ToList();
 
         _db.RolePermissions.RemoveRange(existing);
         foreach (var permissionId in distinctIds)

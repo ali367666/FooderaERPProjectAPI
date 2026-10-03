@@ -95,6 +95,7 @@ export default function StockItemsPage() {
       setItems([]);
       setCategories([]);
       setRestaurants([]);
+      setLoading(false);
       return;
     }
     try {

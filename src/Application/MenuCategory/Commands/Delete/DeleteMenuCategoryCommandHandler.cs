@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+using Application.Common.Interfaces;
+using System.Text.Json;
 using Application.Common.Exceptions;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -14,12 +15,15 @@ public class DeleteMenuCategoryCommandHandler
     private readonly IMenuCategoryRepository _menuCategoryRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<DeleteMenuCategoryCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public DeleteMenuCategoryCommandHandler(
         IMenuCategoryRepository menuCategoryRepository,
         IAuditLogService auditLogService,
-        ILogger<DeleteMenuCategoryCommandHandler> logger)
+        ILogger<DeleteMenuCategoryCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _menuCategoryRepository = menuCategoryRepository;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -27,14 +31,15 @@ public class DeleteMenuCategoryCommandHandler
 
     public async Task Handle(DeleteMenuCategoryCommand request, CancellationToken cancellationToken)
     {
+        var companyId = _currentUserService.ResolveCompanyId(request.CompanyId);
         _logger.LogInformation(
             "DeleteMenuCategoryCommand başladı. Id: {Id}, CompanyId: {CompanyId}",
             request.Id,
-            request.CompanyId);
+            companyId);
 
         var entity = await _menuCategoryRepository.GetByIdAsync(
             request.Id,
-            request.CompanyId,
+            companyId,
             cancellationToken);
 
         if (entity is null)
@@ -42,7 +47,7 @@ public class DeleteMenuCategoryCommandHandler
             _logger.LogWarning(
                 "MenuCategory silinmədi. Tapılmadı. Id: {Id}, CompanyId: {CompanyId}",
                 request.Id,
-                request.CompanyId);
+                companyId);
 
             throw new NotFoundException("Menu kateqoriyası tapılmadı.");
         }

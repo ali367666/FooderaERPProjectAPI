@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -16,13 +17,16 @@ public class RecallStockRequestCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<RecallStockRequestCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public RecallStockRequestCommandHandler(
         IStockRequestRepository stockRequestRepository,
         IUnitOfWork unitOfWork,
         IAuditLogService auditLogService,
-        ILogger<RecallStockRequestCommandHandler> logger)
+        ILogger<RecallStockRequestCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockRequestRepository = stockRequestRepository;
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
@@ -41,7 +45,7 @@ public class RecallStockRequestCommandHandler
             request.Id,
             cancellationToken);
 
-        if (entity is null)
+        if (entity is null || !_currentUserService.CanAccessCompany(entity.CompanyId))
         {
             _logger.LogWarning(
                 "Stock request recall olunmadı. StockRequest tapılmadı. StockRequestId: {StockRequestId}",

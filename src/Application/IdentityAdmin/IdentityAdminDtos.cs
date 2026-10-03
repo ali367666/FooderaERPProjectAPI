@@ -32,7 +32,8 @@ public class CreateUserAdminRequest
     public string FullName { get; set; } = default!;
     public string UserName { get; set; } = default!;
     public string Email { get; set; } = default!;
-    public string Password { get; set; } = default!;
+    /// <summary>Only required when CanAccessAdminPanel — POS-only staff sign in with their code or RFID card.</summary>
+    public string? Password { get; set; }
     public string? PhoneNumber { get; set; }
     public bool IsActive { get; set; } = true;
     public int CompanyId { get; set; }

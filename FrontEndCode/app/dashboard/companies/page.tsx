@@ -1,5 +1,7 @@
 "use client";
 
+import { KeyRound } from "lucide-react";
+import { LicenseDialog } from "@/components/companies/license-dialog";
 import { useEffect, useMemo, useState } from "react";
 import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +131,7 @@ export default function CompaniesPage() {
   const [form, setForm] = useState<CompanyFormState>(emptyCompanyForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [modules, setModules] = useState<CompanyModules>(emptyCompanyModules);
+  const [licenseCompany, setLicenseCompany] = useState<{ id: number; name: string } | null>(null);
 
   const loadCompanies = async (silent = false) => {
     try {
@@ -281,6 +284,23 @@ export default function CompaniesPage() {
         <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
           Active
         </Badge>
+      ),
+    },
+    {
+      key: "description" as const,
+      label: "Lisenziya",
+      render: (_: string, row: CompanyRow) => (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={(e) => {
+            e.stopPropagation();
+            setLicenseCompany({ id: row.companyId, name: row.name });
+          }}
+        >
+          <KeyRound className="mr-1 h-3.5 w-3.5" />
+          Lisenziya
+        </Button>
       ),
     },
   ];
@@ -706,6 +726,7 @@ export default function CompaniesPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <LicenseDialog company={licenseCompany} onOpenChange={(o) => !o && setLicenseCompany(null)} />
     </div>
   );
 }

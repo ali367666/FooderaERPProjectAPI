@@ -25,6 +25,11 @@ public static class ApplicationBuilderExtensions
         var defaultsSeeder = services.GetRequiredService<ICompanyDefaultsSeeder>();
         var configuration = services.GetRequiredService<IConfiguration>();
 
+        // Local installations bring their database up to date on their own — nobody runs
+        // "dotnet ef database update" on a restaurant's computer.
+        if (configuration.GetValue<bool>("Database:MigrateOnStartup"))
+            await context.Database.MigrateAsync();
+
         var companyId = await CompanySeeder.SeedDefaultCompanyAsync(context);
         await IdentitySeeder.SeedRolesAndPermissionsAsync(roleManager, context);
         await AdminSeeder.SeedAdminAsync(userManager, configuration, companyId);

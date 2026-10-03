@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
@@ -14,13 +15,16 @@ public class PatchStockItemCommandHandler
     private readonly IStockCategoryRepository _stockCategoryRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<PatchStockItemCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public PatchStockItemCommandHandler(
         IStockItemRepository stockItemRepository,
         IStockCategoryRepository stockCategoryRepository,
         IAuditLogService auditLogService,
-        ILogger<PatchStockItemCommandHandler> logger)
+        ILogger<PatchStockItemCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockItemRepository = stockItemRepository;
         _stockCategoryRepository = stockCategoryRepository;
         _auditLogService = auditLogService;
@@ -35,7 +39,7 @@ public class PatchStockItemCommandHandler
 
         var stockItem = await _stockItemRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (stockItem is null)
+        if (stockItem is null || !_currentUserService.CanAccessCompany(stockItem.CompanyId))
         {
             _logger.LogWarning("Stock item not found. Id: {Id}", request.Id);
             return BaseResponse.Fail("Stock item not found.");
@@ -43,8 +47,9 @@ public class PatchStockItemCommandHandler
 
         if (request.Request.CategoryId.HasValue)
         {
-            var categoryExists = await _stockCategoryRepository.ExistsAsync(
+            var categoryExists = await _stockCategoryRepository.ExistsInCompanyAsync(
                 request.Request.CategoryId.Value,
+                stockItem.CompanyId,
                 cancellationToken);
 
             if (!categoryExists)

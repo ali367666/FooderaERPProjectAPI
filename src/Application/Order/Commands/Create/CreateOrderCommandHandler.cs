@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -50,7 +50,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             companyId,
             cancellationToken);
 
-        if (waiter is null)
+        if (waiter is null || !_currentUserService.CanAccessCompany(waiter.CompanyId))
         {
             _logger.LogWarning(
                 "Order yaradılmadı. Garson tapılmadı. WaiterId: {WaiterId}, CompanyId: {CompanyId}",

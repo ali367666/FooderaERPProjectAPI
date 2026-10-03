@@ -77,7 +77,7 @@ public class UpdateOrderCommandHandler : IRequestHandler<UpdateOrderCommand, Ord
             companyId,
             cancellationToken);
 
-        if (waiter is null)
+        if (waiter is null || !_currentUserService.CanAccessCompany(waiter.CompanyId))
         {
             _logger.LogWarning(
                 "Order update olunmadı. Garson tapılmadı. WaiterId: {WaiterId}",

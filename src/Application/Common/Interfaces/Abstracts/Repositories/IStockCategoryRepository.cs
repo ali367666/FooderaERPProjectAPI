@@ -1,4 +1,4 @@
-﻿namespace Application.Common.Interfaces.Abstracts.Repositories;
+namespace Application.Common.Interfaces.Abstracts.Repositories;
 
 public interface IStockCategoryRepository
 {
@@ -11,6 +11,7 @@ public interface IStockCategoryRepository
     Task<List<Domain.Entities.WarehouseAndStock.StockCategory>> GetChildrenByParentIdAsync(int parentId, CancellationToken cancellationToken);
 
     Task<bool> ExistsAsync(int id, CancellationToken cancellationToken);
+    Task<bool> ExistsInCompanyAsync(int id, int companyId, CancellationToken cancellationToken);
     Task<bool> ExistsByNameAsync(string name, int companyId, CancellationToken cancellationToken);
     Task<bool> ExistsByNameAsync(string name, int companyId, int excludeId, CancellationToken cancellationToken);
     Task<bool> BelongsToCompanyAsync(int categoryId, int companyId, CancellationToken cancellationToken);

@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Domain.Enums;
@@ -9,9 +10,11 @@ public class RejectStockPurchaseCommandHandler
     : IRequestHandler<RejectStockPurchaseCommand, BaseResponse>
 {
     private readonly IStockPurchaseRepository _purchaseRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public RejectStockPurchaseCommandHandler(IStockPurchaseRepository purchaseRepository)
+    public RejectStockPurchaseCommandHandler(IStockPurchaseRepository purchaseRepository, ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _purchaseRepository = purchaseRepository;
     }
 
@@ -19,7 +22,7 @@ public class RejectStockPurchaseCommandHandler
     {
         var purchase = await _purchaseRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (purchase is null)
+        if (purchase is null || !_currentUserService.CanAccessCompany(purchase.CompanyId))
             return new BaseResponse { Success = false, Message = "Stok alışı tapılmadı." };
 
         if (purchase.Status != StockPurchaseStatus.Pending)

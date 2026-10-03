@@ -291,8 +291,8 @@ export default function UsersPage() {
       toast.error("Company is required.");
       return;
     }
-    if (editingId == null && !password.trim()) {
-      toast.error("Password is required for a new user.");
+    if (editingId == null && canAccessAdminPanel && !password.trim()) {
+      toast.error("Admin panelə giriş üçün şifrə lazımdır.");
       return;
     }
     if (code.trim() && !/^\d{4}$/.test(code.trim())) {
@@ -547,7 +547,12 @@ export default function UsersPage() {
             </div>
             {editingId == null && (
               <div className="sm:col-span-2">
-                <Label htmlFor="u-password">Password</Label>
+                <Label htmlFor="u-password">
+                  Password{" "}
+                  {!canAccessAdminPanel && (
+                    <span className="font-normal text-muted-foreground">(lazım deyil — yalnız POS istifadəçisi)</span>
+                  )}
+                </Label>
                 <Input
                   id="u-password"
                   type="password"
@@ -555,7 +560,11 @@ export default function UsersPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
+                  placeholder={canAccessAdminPanel ? "Admin panelə giriş şifrəsi" : "Könüllü"}
                 />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Şifrə idarə panelinə (dashboard) giriş üçündür. POS-a istifadəçi 4 rəqəmli kod və ya RFID kartla daxil olur.
+                </p>
                 {getFieldErrorMessage(fieldErrors, "password") && (
                   <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "password")}</p>
                 )}

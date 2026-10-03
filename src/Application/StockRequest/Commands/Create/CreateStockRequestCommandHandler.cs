@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -20,6 +20,7 @@ public class CreateStockRequestCommandHandler
     private readonly IAuthenticatedUserAccessor _authenticatedUserAccessor;
     private readonly INotificationService _notificationService;
     private readonly ILogger<CreateStockRequestCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public CreateStockRequestCommandHandler(
         IStockRequestRepository stockRequestRepository,
@@ -27,8 +28,10 @@ public class CreateStockRequestCommandHandler
         IAuditLogService auditLogService,
         IAuthenticatedUserAccessor authenticatedUserAccessor,
         INotificationService notificationService,
-        ILogger<CreateStockRequestCommandHandler> logger)
+        ILogger<CreateStockRequestCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockRequestRepository = stockRequestRepository;
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
@@ -41,6 +44,7 @@ public class CreateStockRequestCommandHandler
         CreateStockRequestCommand request,
         CancellationToken cancellationToken)
     {
+        request.Request.CompanyId = _currentUserService.ResolveCompanyId(request.Request.CompanyId);
         _logger.LogInformation(
             "CreateStockRequestCommand başladı. CompanyId: {CompanyId}, RequestingWarehouseId: {RequestingWarehouseId}, SupplyingWarehouseId: {SupplyingWarehouseId}",
             request.Request.CompanyId,
