@@ -47,6 +47,27 @@ public class IdentityAdminService : IIdentityAdminService
 
     private bool IsSuperAdmin => _currentUserService.IsSuperAdmin;
 
+    private static readonly string SuperAdminNormalizedName = AppRoles.SuperAdmin.ToUpperInvariant();
+
+    /// <summary>Users holding the global (CompanyId = null) SuperAdmin role.</summary>
+    private IQueryable<int> PlatformSuperAdminUserIds =>
+        from ur in _db.UserRoles
+        join r in _db.Roles on ur.RoleId equals r.Id
+        where r.CompanyId == null && r.NormalizedName == SuperAdminNormalizedName
+        select ur.UserId;
+
+    /// <summary>
+    /// The platform SuperAdmin is seeded into a regular company, so tenant users of that company
+    /// would otherwise see it in their Users list and could edit, delete or strip its roles.
+    /// Only another SuperAdmin may manage it.
+    /// </summary>
+    private async Task<bool> CanManageUserAsync(User user, CancellationToken cancellationToken)
+    {
+        if (!_currentUserService.CanAccessCompany(user.CompanyId)) return false;
+        if (IsSuperAdmin) return true;
+        return !await PlatformSuperAdminUserIds.AnyAsync(id => id == user.Id, cancellationToken);
+    }
+
     private async Task<int> AddUserToRoleAsync(User user, AppRole role, CancellationToken cancellationToken)
     {
         var exists = await _db.UserRoles.AnyAsync(
@@ -82,6 +103,8 @@ public class IdentityAdminService : IIdentityAdminService
         var effectiveCompanyId = IsSuperAdmin ? companyIdFilter : _currentUserService.CompanyId;
         if (effectiveCompanyId is > 0)
             q = q.Where(u => u.CompanyId == effectiveCompanyId);
+        if (!IsSuperAdmin)
+            q = q.Where(u => !PlatformSuperAdminUserIds.Contains(u.Id));
 
         var users = await q.OrderBy(u => u.Id).ToListAsync(cancellationToken);
         var result = new List<UserListItemDto>();
@@ -128,10 +151,10 @@ public class IdentityAdminService : IIdentityAdminService
             .Include(x => x.Restaurant)
             .Include(x => x.Warehouse)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (u is null || !_currentUserService.CanAccessCompany(u.CompanyId)) return null;
+        if (u is null) return null;
 
         var trackUser = await _userManager.FindByIdAsync(id.ToString());
-        if (trackUser is null) return null;
+        if (trackUser is null || !await CanManageUserAsync(trackUser, cancellationToken)) return null;
         var roles = (await _userManager.GetRolesAsync(trackUser)).ToList();
         var emp = await _db.Employees.AsNoTracking()
             .FirstOrDefaultAsync(e => e.UserId == u.Id, cancellationToken);
@@ -302,7 +325,7 @@ public class IdentityAdminService : IIdentityAdminService
             return (false, "Company was not found.", null);
 
         var user = await _userManager.FindByIdAsync(id.ToString());
-        if (user is null || !_currentUserService.CanAccessCompany(user.CompanyId)) return (false, "User was not found.", null);
+        if (user is null || !await CanManageUserAsync(user, cancellationToken)) return (false, "User was not found.", null);
 
         var email = request.Email.Trim();
         var userName = request.UserName.Trim();
@@ -437,9 +460,14 @@ public class IdentityAdminService : IIdentityAdminService
         {
             // Diffed by RoleId (not name) — role names are only unique within a company, so a
             // name-based diff could pick up or drop another tenant's same-named role by mistake.
-            var currentRoleIds = await _db.UserRoles
-                .Where(ur => ur.UserId == user.Id)
-                .Select(ur => ur.RoleId)
+            // Only the user's company roles are edited here. Global roles (CompanyId = null, i.e. the
+            // platform SuperAdmin) can never be in the target list, so diffing against them would
+            // silently strip them on every save.
+            var currentRoleIds = await (
+                    from ur in _db.UserRoles
+                    join r in _db.Roles on ur.RoleId equals r.Id
+                    where ur.UserId == user.Id && r.CompanyId == user.CompanyId
+                    select ur.RoleId)
                 .ToListAsync(cancellationToken);
             var targetRoles = await _roleManager.Roles
                 .Where(r => request.RoleIds.Contains(r.Id) && r.CompanyId == user.CompanyId)
@@ -469,7 +497,7 @@ public class IdentityAdminService : IIdentityAdminService
     public async Task<(bool Ok, string? Error)> DeleteUserAsync(int id, CancellationToken cancellationToken = default)
     {
         var user = await _userManager.FindByIdAsync(id.ToString());
-        if (user is null || !_currentUserService.CanAccessCompany(user.CompanyId)) return (false, "User was not found.");
+        if (user is null || !await CanManageUserAsync(user, cancellationToken)) return (false, "User was not found.");
         var emps = await _db.Employees.Where(e => e.UserId == id).ToListAsync(cancellationToken);
         foreach (var e in emps)
         {
@@ -806,7 +834,7 @@ public class IdentityAdminService : IIdentityAdminService
                      select new { u, role };
 
         if (!IsSuperAdmin)
-            query = query.Where(x => x.u.CompanyId == companyId);
+            query = query.Where(x => x.u.CompanyId == companyId && !PlatformSuperAdminUserIds.Contains(x.u.Id));
 
         return await query
             .OrderBy(x => x.u.Id).ThenBy(x => x.role.Name)
@@ -828,7 +856,7 @@ public class IdentityAdminService : IIdentityAdminService
         if (user is null) return (false, "User was not found.");
         var role = await FindOwnedRoleAsync(request.RoleId, cancellationToken);
         if (role is null) return (false, "Role was not found.");
-        if (user.CompanyId != _currentUserService.CompanyId) return (false, "User was not found.");
+        if (user.CompanyId != _currentUserService.CompanyId || !await CanManageUserAsync(user, cancellationToken)) return (false, "User was not found.");
         var alreadyAssigned = await _db.UserRoles.AnyAsync(
             ur => ur.UserId == user.Id && ur.RoleId == role.Id, cancellationToken);
         if (alreadyAssigned) return (false, "The user already has this role.");
@@ -842,7 +870,7 @@ public class IdentityAdminService : IIdentityAdminService
         if (user is null) return (false, "User was not found.");
         var role = await FindOwnedRoleAsync(request.RoleId, cancellationToken);
         if (role is null) return (false, "Role was not found.");
-        if (user.CompanyId != _currentUserService.CompanyId) return (false, "User was not found.");
+        if (user.CompanyId != _currentUserService.CompanyId || !await CanManageUserAsync(user, cancellationToken)) return (false, "User was not found.");
         await RemoveUserFromRoleAsync(user, role, cancellationToken);
         return (true, null);
     }

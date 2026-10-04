@@ -21,7 +21,13 @@ public static class AdminSeeder
 
         var existingUser = await userManager.FindByEmailAsync(email);
         if (existingUser is not null)
+        {
+            // Self-heal: the platform SuperAdmin must never end up without its role (e.g. after its
+            // user row was edited through the Users screen), or nobody can manage companies anymore.
+            if (!await userManager.IsInRoleAsync(existingUser, AppRoles.SuperAdmin))
+                await userManager.AddToRoleAsync(existingUser, AppRoles.SuperAdmin);
             return;
+        }
 
         var user = new User
         {
