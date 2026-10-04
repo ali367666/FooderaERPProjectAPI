@@ -15,6 +15,7 @@ public static class IdentitySeeder
         AppDbContext dbContext)
     {
         await NormalizePermissionNamesAsync(dbContext);
+        await RepairGlobalRolesAsync(dbContext);
 
         var permissionConstants = typeof(AppPermissions)
             .GetFields(BindingFlags.Public | BindingFlags.Static)
@@ -57,7 +58,7 @@ public static class IdentitySeeder
 
             if (role is null)
             {
-                role = new AppRole(roleName) { CompanyId = null };
+                role = new AppRole(roleName) { NormalizedName = roleName.ToUpperInvariant(), CompanyId = null };
                 dbContext.Roles.Add(role);
                 await dbContext.SaveChangesAsync();
             }
@@ -103,6 +104,50 @@ public static class IdentitySeeder
         Domain.Constants.AppPermissions.CompanyUpdate,
         Domain.Constants.AppPermissions.CompanyDelete,
     ];
+
+    /// <summary>
+    /// Global roles used to be inserted without a NormalizedName, so every lookup by name missed
+    /// them: each startup added another copy, UserManager.AddToRoleAsync threw "Role ... does not
+    /// exist", the SuperAdmin user was left without its role, and new companies got no Admin role
+    /// cloned. Fills the missing names in and merges the duplicates into the oldest copy.
+    /// </summary>
+    private static async Task RepairGlobalRolesAsync(AppDbContext dbContext)
+    {
+        var globalRoles = await dbContext.Roles.Where(r => r.CompanyId == null).ToListAsync();
+        foreach (var role in globalRoles.Where(r => r.NormalizedName == null && r.Name != null))
+            role.NormalizedName = role.Name!.ToUpperInvariant();
+        await dbContext.SaveChangesAsync();
+
+        foreach (var group in globalRoles.Where(r => r.NormalizedName != null).GroupBy(r => r.NormalizedName))
+        {
+            var keeper = group.OrderBy(r => r.Id).First();
+            var duplicateIds = group.Where(r => r.Id != keeper.Id).Select(r => r.Id).ToList();
+            if (duplicateIds.Count == 0)
+                continue;
+
+            var keeperUserIds = await dbContext.UserRoles.Where(x => x.RoleId == keeper.Id).Select(x => x.UserId).ToListAsync();
+            var keeperPermissionIds = await dbContext.RolePermissions.Where(x => x.RoleId == keeper.Id).Select(x => x.PermissionId).ToListAsync();
+            var keeperClaimValues = await dbContext.RoleClaims.Where(x => x.RoleId == keeper.Id).Select(x => x.ClaimType + "|" + x.ClaimValue).ToListAsync();
+
+            var userRoles = await dbContext.UserRoles.Where(x => duplicateIds.Contains(x.RoleId)).ToListAsync();
+            foreach (var userId in userRoles.Select(x => x.UserId).Distinct().Except(keeperUserIds))
+                dbContext.UserRoles.Add(new IdentityUserRole<int> { UserId = userId, RoleId = keeper.Id });
+            dbContext.UserRoles.RemoveRange(userRoles);
+
+            var rolePermissions = await dbContext.RolePermissions.Where(x => duplicateIds.Contains(x.RoleId)).ToListAsync();
+            foreach (var permissionId in rolePermissions.Select(x => x.PermissionId).Distinct().Except(keeperPermissionIds))
+                dbContext.RolePermissions.Add(new RolePermission { RoleId = keeper.Id, PermissionId = permissionId });
+            dbContext.RolePermissions.RemoveRange(rolePermissions);
+
+            var roleClaims = await dbContext.RoleClaims.Where(x => duplicateIds.Contains(x.RoleId)).ToListAsync();
+            foreach (var claim in roleClaims.GroupBy(x => x.ClaimType + "|" + x.ClaimValue).Where(g => !keeperClaimValues.Contains(g.Key)))
+                dbContext.RoleClaims.Add(new IdentityRoleClaim<int> { RoleId = keeper.Id, ClaimType = claim.First().ClaimType, ClaimValue = claim.First().ClaimValue });
+            dbContext.RoleClaims.RemoveRange(roleClaims);
+
+            dbContext.Roles.RemoveRange(group.Where(r => r.Id != keeper.Id));
+            await dbContext.SaveChangesAsync();
+        }
+    }
 
     private static async Task NormalizePermissionNamesAsync(AppDbContext dbContext)
     {
@@ -209,7 +254,7 @@ public static class IdentitySeeder
             .FirstOrDefaultAsync(r => r.NormalizedName == AppRoles.SuperAdmin.ToUpperInvariant() && r.CompanyId == null);
         if (superAdminRole is null)
         {
-            superAdminRole = new AppRole(AppRoles.SuperAdmin) { CompanyId = null };
+            superAdminRole = new AppRole(AppRoles.SuperAdmin) { NormalizedName = AppRoles.SuperAdmin.ToUpperInvariant(), CompanyId = null };
             dbContext.Roles.Add(superAdminRole);
             await dbContext.SaveChangesAsync();
         }
@@ -231,7 +276,7 @@ public static class IdentitySeeder
             .FirstOrDefaultAsync(r => r.NormalizedName == AppRoles.Admin.ToUpperInvariant() && r.CompanyId == null);
         if (adminTemplateRole is null)
         {
-            adminTemplateRole = new AppRole(AppRoles.Admin) { CompanyId = null };
+            adminTemplateRole = new AppRole(AppRoles.Admin) { NormalizedName = AppRoles.Admin.ToUpperInvariant(), CompanyId = null };
             dbContext.Roles.Add(adminTemplateRole);
             await dbContext.SaveChangesAsync();
         }
