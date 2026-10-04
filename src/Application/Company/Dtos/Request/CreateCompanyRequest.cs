@@ -16,4 +16,10 @@ public class CreateCompanyRequest
     public string? SecondaryPhoneNumber { get; set; }
     public string? Email { get; set; }
     public Country Country { get; set; }
+
+    // The company's own SuperAdmin account, created together with the company.
+    public string OwnerFullName { get; set; } = default!;
+    public string OwnerUserName { get; set; } = default!;
+    public string OwnerEmail { get; set; } = default!;
+    public string OwnerPassword { get; set; } = default!;
 }

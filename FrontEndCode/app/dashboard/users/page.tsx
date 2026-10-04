@@ -28,9 +28,13 @@ import {
   type AppUser,
 } from "@/lib/services/user-admin-service";
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
+import { getDepartmentsForAllCompanies, type Department } from "@/lib/services/department-service";
+import { getPositionsForAllCompanies, type Position } from "@/lib/services/position-service";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
 import { getRoles, type AppRole } from "@/lib/services/role-service";
 import { getWarehouses, type Warehouse } from "@/lib/services/warehouse-service";
+import { isProtectedAccount, roleDisplayName } from "@/lib/role-labels";
+import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 import { toast } from "sonner";
 
 const selectClass =
@@ -47,7 +51,19 @@ type UserRow = {
   companyId: number;
   companyName: string;
   statusLabel: string;
+  protectedAccount: boolean;
+  /** From the linked employee — users without one have no department/position. */
+  departmentId: number | null;
+  departmentName: string;
+  positionId: number | null;
+  positionName: string;
 };
+
+/** Today's month and day (MMdd) — the suffix staff add to their code for the admin panel. */
+function todayMonthDay(): string {
+  const now = new Date();
+  return String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
+}
 
 function formatEmployeeName(e: Employee): string {
   const n = e.fullName?.trim();
@@ -67,6 +83,7 @@ function friendlyError(err: unknown, fallback: string): string {
 
 export default function UsersPage() {
   const { companies, companiesLoading, selectedCompanyId } = useSelectedCompany();
+  const isSuperAdmin = useIsSuperAdmin();
   const [list, setList] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,10 +92,10 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  const [fullName, setFullName] = useState("");
   const [userName, setUserName] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  /** Editing a SuperAdmin account — those keep a real password instead of the code login. */
+  const [editingProtected, setEditingProtected] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [companyId, setCompanyId] = useState("");
@@ -127,6 +144,30 @@ export default function UsersPage() {
     if (companiesLoading) return;
     void loadUsers();
   }, [companiesLoading, loadUsers]);
+
+  // Filter options list every department/position of the visible companies, the same as on the
+  // Employees page — not just the ones already linked to a user.
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
+  useEffect(() => {
+    if (companiesLoading || companies.length === 0) return;
+    let cancelled = false;
+    const ids = companies.map((c) => c.id);
+    Promise.all([getDepartmentsForAllCompanies(ids), getPositionsForAllCompanies(ids)])
+      .then(([d, p]) => {
+        if (cancelled) return;
+        setDepartments(d);
+        setPositions(p);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDepartments([]);
+        setPositions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companiesLoading, companies]);
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -214,10 +255,9 @@ export default function UsersPage() {
 
   const resetForm = () => {
     setEditingId(null);
-    setFullName("");
     setUserName("");
-    setEmail("");
     setPassword("");
+    setEditingProtected(false);
     setPhoneNumber("");
     setIsActive(true);
     setCompanyId(defaultFormCompanyId(companies, selectedCompanyId));
@@ -240,14 +280,17 @@ export default function UsersPage() {
   };
 
   const handleEdit = async (row: UserRow) => {
+    if (row.protectedAccount && !isSuperAdmin) {
+      toast.error("Bu hesabı yalnız platforma SuperAdmin-i redaktə edə bilər.");
+      return;
+    }
     try {
       setFieldErrors({});
       const u = await getUserById(row.userId);
       setEditingId(u.id);
-      setFullName(u.fullName);
       setUserName(u.userName || "");
-      setEmail(u.email || "");
       setPassword("");
+      setEditingProtected(row.protectedAccount);
       setPhoneNumber(u.phoneNumber || "");
       setIsActive(u.isActive);
       setCompanyId(String(u.companyId));
@@ -267,6 +310,10 @@ export default function UsersPage() {
   };
 
   const handleDelete = async (row: UserRow) => {
+    if (row.protectedAccount && !isSuperAdmin) {
+      toast.error("Bu hesabı yalnız platforma SuperAdmin-i silə bilər.");
+      return;
+    }
     if (!window.confirm(`Delete user "${row.fullName}"?`)) return;
     try {
       await deleteUserApi(row.userId);
@@ -279,24 +326,20 @@ export default function UsersPage() {
 
   const handleSave = async () => {
     const comp = Number(companyId);
-    if (!fullName.trim()) {
-      toast.error("Full name is required.");
-      return;
-    }
-    if (!userName.trim() || !email.trim()) {
-      toast.error("Username and email are required.");
+    if (!userName.trim()) {
+      toast.error("İstifadəçi adı tələb olunur.");
       return;
     }
     if (!Number.isFinite(comp) || comp <= 0) {
       toast.error("Company is required.");
       return;
     }
-    if (editingId == null && canAccessAdminPanel && !password.trim()) {
-      toast.error("Admin panelə giriş üçün şifrə lazımdır.");
+    if (code.trim() && !/^\d{4}$/.test(code.trim())) {
+      toast.error("Kod dəqiq 4 rəqəm olmalıdır.");
       return;
     }
-    if (code.trim() && !/^\d{4}$/.test(code.trim())) {
-      toast.error("Code must be exactly 4 digits.");
+    if (!editingProtected && !code.trim() && (canAccessAdminPanel || canAccessFrontOffice)) {
+      toast.error("POS və ya admin panel girişi üçün 4 rəqəmli kod tələb olunur.");
       return;
     }
     if (workplaceType === "2" && !restaurantId) {
@@ -308,10 +351,10 @@ export default function UsersPage() {
     setFieldErrors({});
     try {
       const empN = employeeId ? Number(employeeId) : NaN;
+      // Full name and email are no longer asked for — the backend keeps existing values and
+      // shows staff by username.
       const payload = {
-        fullName: fullName.trim(),
         userName: userName.trim(),
-        email: email.trim(),
         phoneNumber: phoneNumber.trim() || null,
         isActive,
         companyId: comp,
@@ -326,12 +369,13 @@ export default function UsersPage() {
         roleIds: selectedRoleIds,
       };
       if (editingId == null) {
-        await createUser({ ...payload, password: password.trim() });
+        await createUser(payload);
         toast.success("User created.");
       } else {
         await updateUser(editingId, {
           ...payload,
-          password: password.trim() || undefined,
+          // Only the SuperAdmin accounts still sign in with a real password.
+          password: editingProtected ? password.trim() || undefined : undefined,
         });
         toast.success("User updated.");
       }
@@ -346,21 +390,53 @@ export default function UsersPage() {
     }
   };
 
+  const employeeById = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
+
   const rows: UserRow[] = useMemo(
     () =>
-      list.map((u) => ({
+      list.map((u) => {
+        const emp = u.linkedEmployeeId != null ? employeeById.get(u.linkedEmployeeId) : undefined;
+        return {
         id: String(u.id),
         userId: u.id,
         fullName: u.fullName,
         userName: u.userName || "—",
         email: u.email || "—",
-        rolesLabel: u.roles.length ? u.roles.join(", ") : "—",
+        rolesLabel: u.roles.length ? u.roles.map(roleDisplayName).join(", ") : "—",
         isActive: u.isActive,
         companyId: u.companyId,
         companyName: u.companyName || companyNameById.get(u.companyId) || `Company #${u.companyId}`,
         statusLabel: u.isActive ? "Active" : "Inactive",
-      })),
-    [list, companyNameById],
+        protectedAccount: isProtectedAccount(u.roles),
+        departmentId: emp?.departmentId || null,
+        departmentName: emp?.departmentName || "—",
+        positionId: emp?.positionId || null,
+        positionName: emp?.positionName || "—",
+        };
+      }),
+    [list, companyNameById, employeeById],
+  );
+
+  const departmentOptions = useMemo(
+    () =>
+      departments
+        .filter((d) => selectedCompanyId == null || d.companyId === selectedCompanyId)
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+        .map((d) => ({ value: String(d.id), label: d.name })),
+    [departments, selectedCompanyId],
+  );
+  const positionOptions = useMemo(
+    () =>
+      positions
+        .map((p) => ({
+          id: Number(p.id ?? p.positionId ?? 0),
+          name: String(p.name ?? p.positionName ?? ""),
+          companyId: p.companyId,
+        }))
+        .filter((p) => p.id > 0 && (selectedCompanyId == null || p.companyId === selectedCompanyId))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((p) => ({ value: String(p.id), label: p.name })),
+    [positions, selectedCompanyId],
   );
 
   const scopedRows = useMemo(
@@ -399,13 +475,25 @@ export default function UsersPage() {
         },
       },
       {
-        id: "email",
-        label: "Email",
-        ui: "text",
+        id: "department",
+        label: "Department",
+        ui: "select",
+        options: departmentOptions,
         match: (row, get) => {
-          const q = get("email").trim().toLowerCase();
-          if (!q) return true;
-          return row.email.toLowerCase().includes(q);
+          const v = get("department");
+          if (!v) return true;
+          return row.departmentId === Number(v);
+        },
+      },
+      {
+        id: "position",
+        label: "Position",
+        ui: "select",
+        options: positionOptions,
+        match: (row, get) => {
+          const v = get("position");
+          if (!v) return true;
+          return row.positionId === Number(v);
         },
       },
       {
@@ -431,15 +519,16 @@ export default function UsersPage() {
         },
       },
     ],
-    [companyOptions],
+    [companyOptions, departmentOptions, positionOptions],
   );
 
   const columns = [
     { key: "userId" as const, label: "ID" },
     { key: "fullName" as const, label: "Full name" },
     { key: "userName" as const, label: "Username" },
-    { key: "email" as const, label: "Email" },
     { key: "rolesLabel" as const, label: "Roles" },
+    { key: "departmentName" as const, label: "Department" },
+    { key: "positionName" as const, label: "Position" },
     {
       key: "statusLabel" as const,
       label: "Status",
@@ -488,7 +577,7 @@ export default function UsersPage() {
               data={filtered}
               idSortKey="userId"
               searchPlaceholder="Search users…"
-              searchableFields={["fullName", "userName", "email", "rolesLabel", "companyName", "id"]}
+              searchableFields={["fullName", "userName", "rolesLabel", "departmentName", "positionName", "companyName", "id"]}
               onAdd={handleAdd}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -504,21 +593,7 @@ export default function UsersPage() {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label htmlFor="u-fullname">Full name</Label>
-              <Input
-                id="u-fullname"
-                className="mt-1"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-              />
-              {getFieldErrorMessage(fieldErrors, "fullname", "fullName") && (
-                <p className="mt-1 text-xs text-destructive">
-                  {getFieldErrorMessage(fieldErrors, "fullname", "fullName")}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="u-username">Username</Label>
+              <Label htmlFor="u-username">İstifadəçi adı</Label>
               <Input
                 id="u-username"
                 className="mt-1"
@@ -532,47 +607,9 @@ export default function UsersPage() {
                 </p>
               )}
             </div>
-            <div>
-              <Label htmlFor="u-email">Email</Label>
-              <Input
-                id="u-email"
-                type="email"
-                className="mt-1"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              {getFieldErrorMessage(fieldErrors, "email") && (
-                <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "email")}</p>
-              )}
-            </div>
-            {editingId == null && (
+            {editingProtected && (
               <div className="sm:col-span-2">
-                <Label htmlFor="u-password">
-                  Password{" "}
-                  {!canAccessAdminPanel && (
-                    <span className="font-normal text-muted-foreground">(lazım deyil — yalnız POS istifadəçisi)</span>
-                  )}
-                </Label>
-                <Input
-                  id="u-password"
-                  type="password"
-                  className="mt-1"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
-                  placeholder={canAccessAdminPanel ? "Admin panelə giriş şifrəsi" : "Könüllü"}
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Şifrə idarə panelinə (dashboard) giriş üçündür. POS-a istifadəçi 4 rəqəmli kod və ya RFID kartla daxil olur.
-                </p>
-                {getFieldErrorMessage(fieldErrors, "password") && (
-                  <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "password")}</p>
-                )}
-              </div>
-            )}
-            {editingId != null && (
-              <div className="sm:col-span-2">
-                <Label htmlFor="u-newpassword">New password (optional)</Label>
+                <Label htmlFor="u-newpassword">Yeni şifrə (könüllü)</Label>
                 <Input
                   id="u-newpassword"
                   type="password"
@@ -662,7 +699,7 @@ export default function UsersPage() {
               </Label>
             </div>
             <div>
-              <Label htmlFor="u-code">POS code (4 digits)</Label>
+              <Label htmlFor="u-code">Kod (4 rəqəm)</Label>
               <Input
                 id="u-code"
                 className="mt-1"
@@ -691,25 +728,36 @@ export default function UsersPage() {
                 <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "rfidCardId")}</p>
               )}
             </div>
-            <div className="sm:col-span-2 flex items-center gap-2 pt-1">
-              <Checkbox
-                id="u-front-office"
-                checked={canAccessFrontOffice}
-                onCheckedChange={(v) => setCanAccessFrontOffice(v === true)}
-              />
-              <Label htmlFor="u-front-office" className="text-sm font-normal">
-                Can access POS (front office)
-              </Label>
-            </div>
-            <div className="sm:col-span-2 flex items-center gap-2 pt-1">
-              <Checkbox
-                id="u-admin-panel"
-                checked={canAccessAdminPanel}
-                onCheckedChange={(v) => setCanAccessAdminPanel(v === true)}
-              />
-              <Label htmlFor="u-admin-panel" className="text-sm font-normal">
-                Can access admin panel (elevated POS code: date + code)
-              </Label>
+            <div className="sm:col-span-2">
+              <Label htmlFor="u-access">Giriş</Label>
+              {/* A staff member works either on the POS or in the admin panel — never both. */}
+              <select
+                id="u-access"
+                className={selectClass + " mt-1"}
+                value={canAccessAdminPanel ? "admin" : "pos"}
+                onChange={(e) => {
+                  const admin = e.target.value === "admin";
+                  setCanAccessAdminPanel(admin);
+                  setCanAccessFrontOffice(!admin);
+                }}
+              >
+                <option value="pos">POS</option>
+                <option value="admin">Admin panel</option>
+              </select>
+              {!editingProtected && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {canAccessAdminPanel ? (
+                    <>
+                      İstifadəçi adı və şifrə yerinə kod + bu günün ayı və günü — bu gün{" "}
+                      <span className="font-mono">{(code || "1234") + todayMonthDay()}</span>.
+                    </>
+                  ) : (
+                    <>
+                      POS-da 4 rəqəmli kod ilə: <span className="font-mono">{code || "1234"}</span>.
+                    </>
+                  )}
+                </p>
+              )}
             </div>
             <div className="sm:col-span-2">
               <Label htmlFor="u-emp">Linked employee (optional)</Label>
@@ -749,26 +797,21 @@ export default function UsersPage() {
               </select>
             </div>
             <div className="sm:col-span-2">
-              <Label>Rollar</Label>
-              <div className="mt-1 grid grid-cols-1 gap-2 rounded-md border border-input p-3 sm:grid-cols-2">
-                {rolesLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-                {!rolesLoading && roles.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Rol tapılmadı.</p>
-                )}
+              <Label htmlFor="u-role">Rol</Label>
+              <select
+                id="u-role"
+                className={selectClass + " mt-1"}
+                value={String(selectedRoleIds.find((id) => roles.some((r) => r.id === id)) ?? "")}
+                onChange={(e) => setSelectedRoleIds(e.target.value ? [Number(e.target.value)] : [])}
+                disabled={rolesLoading}
+              >
+                <option value="">{rolesLoading ? "Loading…" : roles.length === 0 ? "Rol tapılmadı" : "Rol seçin"}</option>
                 {roles.map((r) => (
-                  <label key={r.id} className="flex items-center gap-2 text-sm font-normal">
-                    <Checkbox
-                      checked={selectedRoleIds.includes(r.id)}
-                      onCheckedChange={(v) =>
-                        setSelectedRoleIds((prev) =>
-                          v === true ? [...prev, r.id] : prev.filter((id) => id !== r.id),
-                        )
-                      }
-                    />
-                    {r.name}
-                  </label>
+                  <option key={r.id} value={String(r.id)}>
+                    {roleDisplayName(r.name)}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
           </div>
 

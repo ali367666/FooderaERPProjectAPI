@@ -29,10 +29,14 @@ public class UserDetailDto : UserListItemDto
 
 public class CreateUserAdminRequest
 {
-    public string FullName { get; set; } = default!;
+    /// <summary>Optional — company staff are shown by their username (or linked employee name).</summary>
+    public string? FullName { get; set; }
     public string UserName { get; set; } = default!;
-    public string Email { get; set; } = default!;
-    /// <summary>Only required when CanAccessAdminPanel — POS-only staff sign in with their code or RFID card.</summary>
+    public string? Email { get; set; }
+    /// <summary>
+    /// Only for accounts that sign in with a real password (the SuperAdmins). Company staff use
+    /// their 4-digit Code: as-is on the POS, Code + MMdd of the day for the admin panel.
+    /// </summary>
     public string? Password { get; set; }
     public string? PhoneNumber { get; set; }
     public bool IsActive { get; set; } = true;
@@ -50,9 +54,11 @@ public class CreateUserAdminRequest
 
 public class UpdateUserAdminRequest
 {
-    public string FullName { get; set; } = default!;
+    /// <summary>Empty keeps the current value.</summary>
+    public string? FullName { get; set; }
     public string UserName { get; set; } = default!;
-    public string Email { get; set; } = default!;
+    /// <summary>Empty keeps the current value.</summary>
+    public string? Email { get; set; }
     public string? Password { get; set; }
     public string? PhoneNumber { get; set; }
     public bool IsActive { get; set; } = true;

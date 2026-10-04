@@ -32,6 +32,7 @@ import {
   type PermissionDto,
 } from "@/lib/services/role-permission-service";
 import { toast } from "sonner";
+import { roleDisplayName } from "@/lib/role-labels";
 
 type RoleRow = {
   id: string;
@@ -135,8 +136,9 @@ export default function RolesPage() {
       list.map((r) => ({
         id: String(r.id),
         roleId: r.id,
-        name: r.name,
-        companyName: r.companyId != null ? companyNameById.get(r.companyId) || `#${r.companyId}` : "-",
+        name: roleDisplayName(r.name),
+        companyName:
+          r.companyId != null ? companyNameById.get(r.companyId) || `#${r.companyId}` : "Bütün şirkətlər (şablon)",
         requiresRotatingPin: r.requiresRotatingPin,
       })),
     [list, companyNameById],
@@ -189,6 +191,10 @@ export default function RolesPage() {
     resetForm();
     setDialogOpen(true);
   };
+
+  // Global system roles (e.g. the shared Şirkət SuperAdmin template) keep their name; only their
+  // permissions are edited here.
+  const editingGlobalRole = editingId != null && list.find((x) => x.id === editingId)?.companyId == null;
 
   const handleEdit = async (row: RoleRow) => {
     const r = list.find((x) => x.id === row.roleId);
@@ -307,16 +313,22 @@ export default function RolesPage() {
             <Input
               id="role-name"
               className="mt-1"
-              value={name}
+              value={editingGlobalRole ? roleDisplayName(name) : name}
               onChange={(e) => setName(e.target.value)}
               placeholder="məs. Kassir"
+              disabled={editingGlobalRole}
             />
+            {editingGlobalRole && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Bütün şirkətlərin SuperAdmin-ləri üçün ortaq şablon. Burada söndürdüyünüz icazə heç bir şirkətdə heç kimdə olmayacaq.
+              </p>
+            )}
             {getFieldErrorMessage(fieldErrors, "name") && (
               <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "name")}</p>
             )}
           </div>
 
-          {companies.length > 0 && (
+          {companies.length > 0 && !editingGlobalRole && (
             <div className="mt-4">
               <Label htmlFor="role-company">Company</Label>
               {editingId != null ? (

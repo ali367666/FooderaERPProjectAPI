@@ -121,7 +121,15 @@ export async function getCompanyById(id: number): Promise<Company> {
   }
 }
 
-export async function createCompany(data: CompanyMutationInput): Promise<number> {
+/** The company's own SuperAdmin account, created together with the company. */
+export type CompanyOwnerInput = {
+  ownerFullName: string;
+  ownerUserName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+};
+
+export async function createCompany(data: CompanyMutationInput & CompanyOwnerInput): Promise<number> {
   try {
     const response = await api.post<ApiResponse<{ id?: number; Id?: number }>>("/companies", data);
     const payload = response.data;

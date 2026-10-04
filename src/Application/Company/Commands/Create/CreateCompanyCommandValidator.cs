@@ -6,6 +6,21 @@ public class CreateCompanyCommandValidator : AbstractValidator<CreateCompanyComm
 {
     public CreateCompanyCommandValidator()
     {
+        RuleFor(x => x.Request.OwnerFullName)
+            .NotEmpty().WithMessage("Şirkət SuperAdmin-inin adı boş ola bilməz.")
+            .MaximumLength(100).WithMessage("Ad ən çox 100 simvol ola bilər.");
+
+        RuleFor(x => x.Request.OwnerUserName)
+            .NotEmpty().WithMessage("Şirkət SuperAdmin-inin istifadəçi adı boş ola bilməz.")
+            .MaximumLength(64).WithMessage("İstifadəçi adı ən çox 64 simvol ola bilər.");
+
+        RuleFor(x => x.Request.OwnerEmail)
+            .NotEmpty().WithMessage("Şirkət SuperAdmin-inin email-i boş ola bilməz.")
+            .EmailAddress().WithMessage("Email formatı düzgün deyil.");
+
+        RuleFor(x => x.Request.OwnerPassword)
+            .NotEmpty().WithMessage("Şirkət SuperAdmin-inin şifrəsi boş ola bilməz.");
+
         RuleFor(x => x.Request.CompanyCode)
             .NotEmpty().WithMessage("CompanyCode boş ola bilməz.")
             .MaximumLength(50).WithMessage("CompanyCode ən çox 50 simvol ola bilər.");

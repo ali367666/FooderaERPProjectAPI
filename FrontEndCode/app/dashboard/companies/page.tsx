@@ -82,6 +82,10 @@ type CompanyFormState = {
   taxNumber: string;
   taxOfficeCode: string;
   country: string;
+  ownerFullName: string;
+  ownerUserName: string;
+  ownerEmail: string;
+  ownerPassword: string;
 };
 
 const COUNTRY_OPTIONS = [
@@ -117,6 +121,10 @@ function emptyCompanyForm(): CompanyFormState {
     taxNumber: "",
     taxOfficeCode: "",
     country: "",
+    ownerFullName: "",
+    ownerUserName: "",
+    ownerEmail: "",
+    ownerPassword: "",
   };
 }
 
@@ -319,6 +327,7 @@ export default function CompaniesPage() {
       const company = await getCompanyById(row.companyId);
 
       setForm({
+        ...emptyCompanyForm(),
         id: company.id,
         companyCode: company.companyCode || "",
         name: company.name || "",
@@ -397,6 +406,16 @@ export default function CompaniesPage() {
       return;
     }
 
+    if (
+      !isEditMode &&
+      (!form.ownerFullName.trim() || !form.ownerUserName.trim() || !form.ownerEmail.trim() || !form.ownerPassword)
+    ) {
+      const msg = "Şirkət SuperAdmin-inin ad, istifadəçi adı, email və şifrəsi tələb olunur.";
+      setError(msg);
+      window.alert(msg);
+      return;
+    }
+
     const payload: CompanyMutationInput = {
       companyCode: code,
       name,
@@ -419,7 +438,13 @@ export default function CompaniesPage() {
       if (isEditMode && form.id) {
         await updateCompany(form.id, payload);
       } else {
-        companyId = await createCompany(payload);
+        companyId = await createCompany({
+          ...payload,
+          ownerFullName: form.ownerFullName.trim(),
+          ownerUserName: form.ownerUserName.trim(),
+          ownerEmail: form.ownerEmail.trim(),
+          ownerPassword: form.ownerPassword,
+        });
       }
 
       if (companyId) {
@@ -663,6 +688,40 @@ export default function CompaniesPage() {
               )}
             </div>
           </div>
+
+          {!isEditMode && (
+            <div className="space-y-3 rounded-md border p-3">
+              <div>
+                <Label className="block">Şirkət SuperAdmin-i</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Şirkətin baş hesabı — şirkətlə birlikdə yaradılır. İcazələrini yalnız siz idarə edirsiniz.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {(
+                  [
+                    { key: "ownerFullName", label: "Ad Soyad", type: "text", field: "ownerfullname" },
+                    { key: "ownerUserName", label: "İstifadəçi adı", type: "text", field: "ownerusername" },
+                    { key: "ownerEmail", label: "Email", type: "email", field: "owneremail" },
+                    { key: "ownerPassword", label: "Şifrə", type: "password", field: "ownerpassword" },
+                  ] as const
+                ).map((f) => (
+                  <div key={f.key}>
+                    <label className="mb-2 block text-sm font-medium text-foreground">{f.label}</label>
+                    <Input
+                      type={f.type}
+                      value={form[f.key]}
+                      onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                      autoComplete={f.type === "password" ? "new-password" : "off"}
+                    />
+                    {getFieldErrorMessage(fieldErrors, f.field) && (
+                      <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, f.field)}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <Label className="mb-2 block">Biznes tipi</Label>

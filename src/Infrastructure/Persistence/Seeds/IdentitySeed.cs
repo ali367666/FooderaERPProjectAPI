@@ -24,11 +24,13 @@ public static class IdentitySeeder
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        var newPermissionNames = new List<string>();
         foreach (var permissionName in permissionConstants)
         {
             var permission = await dbContext.Permissions.FirstOrDefaultAsync(x => x.Name == permissionName);
             if (permission is null)
             {
+                newPermissionNames.Add(permissionName);
                 var (module, action) = ParseModuleAction(permissionName);
                 dbContext.Permissions.Add(new Permission
                 {
@@ -92,6 +94,7 @@ public static class IdentitySeeder
 
         await EnsureSuperAdminHasAllPermissionsAsync(roleManager, dbContext);
         await EnsureAdminTemplateHasBroadPermissionsAsync(roleManager, dbContext);
+        await EnsureCompanySuperAdminTemplateAsync(roleManager, dbContext, newPermissionNames);
 
         await dbContext.SaveChangesAsync();
     }
@@ -286,6 +289,45 @@ public static class IdentitySeeder
             .Where(x => !PlatformOnlyPermissions.Contains(x.Name))
             .ToListAsync();
         await GrantRolePermissionsAsync(roleManager, dbContext, adminTemplateRole, tenantPermissions);
+    }
+
+    /// <summary>
+    /// The shared "CompanySuperAdmin" template (CompanyId = null). Its permissions are the ceiling
+    /// for every company and are owned by the platform SuperAdmin from the Roles screen, so they're
+    /// NOT re-granted on every startup — only when the role is first created (every tenant
+    /// permission) and when a brand-new permission appears in code (so new features aren't
+    /// silently unavailable to all companies until someone ticks them).
+    /// </summary>
+    private static async Task EnsureCompanySuperAdminTemplateAsync(
+        RoleManager<AppRole> roleManager,
+        AppDbContext dbContext,
+        List<string> newPermissionNames)
+    {
+        var normalized = AppRoles.CompanySuperAdmin.ToUpperInvariant();
+        var role = await roleManager.Roles
+            .FirstOrDefaultAsync(r => r.NormalizedName == normalized && r.CompanyId == null);
+
+        List<Permission> toGrant;
+        if (role is null)
+        {
+            role = new AppRole(AppRoles.CompanySuperAdmin) { NormalizedName = normalized, CompanyId = null };
+            dbContext.Roles.Add(role);
+            await dbContext.SaveChangesAsync();
+
+            toGrant = await dbContext.Permissions.AsNoTracking()
+                .Where(x => !PlatformOnlyPermissions.Contains(x.Name))
+                .ToListAsync();
+        }
+        else
+        {
+            if (newPermissionNames.Count == 0)
+                return;
+            toGrant = await dbContext.Permissions.AsNoTracking()
+                .Where(x => newPermissionNames.Contains(x.Name) && !PlatformOnlyPermissions.Contains(x.Name))
+                .ToListAsync();
+        }
+
+        await GrantRolePermissionsAsync(roleManager, dbContext, role, toGrant);
     }
 
     private static async Task GrantRolePermissionsAsync(

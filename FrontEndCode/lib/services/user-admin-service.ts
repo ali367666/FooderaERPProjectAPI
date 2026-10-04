@@ -26,9 +26,11 @@ export type AppUser = {
 };
 
 export type AppUserInput = {
-  fullName: string;
+  /** Optional — staff are shown by username; empty keeps the current value on update. */
+  fullName?: string;
   userName: string;
-  email: string;
+  /** Optional — empty keeps the current value on update. */
+  email?: string;
   /** Only for create, or when changing password on update */
   password?: string;
   phoneNumber: string | null;
@@ -142,9 +144,9 @@ export async function getUserById(id: number): Promise<AppUser> {
 export async function createUser(input: AppUserInput & { password?: string }): Promise<number> {
   try {
     const response = await api.post<unknown>("/Users", {
-      fullName: input.fullName.trim(),
+      fullName: input.fullName?.trim() || null,
       userName: input.userName.trim(),
-      email: input.email.trim(),
+      email: input.email?.trim() || null,
       password: input.password,
       phoneNumber: input.phoneNumber?.trim() || null,
       isActive: input.isActive,
@@ -183,9 +185,9 @@ export async function createUser(input: AppUserInput & { password?: string }): P
 export async function updateUser(id: number, input: AppUserInput): Promise<void> {
   try {
     const body: Record<string, unknown> = {
-      fullName: input.fullName.trim(),
+      fullName: input.fullName?.trim() || null,
       userName: input.userName.trim(),
-      email: input.email.trim(),
+      email: input.email?.trim() || null,
       phoneNumber: input.phoneNumber?.trim() || null,
       isActive: input.isActive,
       companyId: input.companyId,

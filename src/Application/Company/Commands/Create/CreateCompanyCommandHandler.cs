@@ -88,6 +88,11 @@ public sealed class CreateCompanyCommandHandler
                 return BaseResponse<CreateCompanyResponse>.Fail("Ölkə düzgün seçilməyib.");
             }
 
+            var ownerError = await _identityAdminService.ValidateCompanySuperAdminAsync(
+                dto.OwnerUserName, dto.OwnerEmail, dto.OwnerPassword, cancellationToken);
+            if (ownerError is not null)
+                return BaseResponse<CreateCompanyResponse>.Fail(ownerError);
+
             var company = _mapper.Map<Domain.Entities.Company>(dto);
             company.CountryCode = dto.Country.GetCode();
 
@@ -95,6 +100,13 @@ public sealed class CreateCompanyCommandHandler
             await _repository.SaveChangesAsync(cancellationToken);
 
             await _identityAdminService.CloneDefaultRolesForCompanyAsync(company.Id, cancellationToken);
+
+            var (ownerOk, ownerCreateError) = await _identityAdminService.CreateCompanySuperAdminAsync(
+                company.Id, dto.OwnerFullName, dto.OwnerUserName, dto.OwnerEmail, dto.OwnerPassword, cancellationToken);
+            if (!ownerOk)
+                _logger.LogError(
+                    "Şirkət SuperAdmin-i yaradılmadı. CompanyId: {CompanyId}, Xəta: {Error}",
+                    company.Id, ownerCreateError);
             await _companyDefaultsSeeder.EnsureDefaultsAsync(company.Id, cancellationToken);
 
             // Tək-filiallı biznes üçün Filiallar səhifəsinə əlavə addım atmasın deyə, şirkətin adı

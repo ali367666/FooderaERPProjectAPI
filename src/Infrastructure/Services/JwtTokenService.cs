@@ -5,6 +5,7 @@ using System.Text;
 using Application.Auth.Dtos.Responce;
 using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Domain.Constants;
 using Domain.Entities;
 using Infrastructure.Persistence.Context;
 using Microsoft.Extensions.Configuration;
@@ -77,6 +78,29 @@ public class JwtTokenService : IJwtTokenService
 
                 foreach (var permission in rolePermissions)
                     effectivePermissions.Add(permission);
+            }
+        }
+
+        // Ceiling: inside a company nobody — the company SuperAdmin included — can hold a
+        // permission the platform SuperAdmin removed from the shared CompanySuperAdmin template.
+        var isPlatformSuperAdmin = roleList.Contains(AppRoles.SuperAdmin, StringComparer.OrdinalIgnoreCase);
+        if (!isPlatformSuperAdmin)
+        {
+            var templateNormalized = AppRoles.CompanySuperAdmin.ToUpperInvariant();
+            var templateRoleId = await _dbContext.Roles
+                .AsNoTracking()
+                .Where(r => r.CompanyId == null && r.NormalizedName == templateNormalized)
+                .Select(r => (int?)r.Id)
+                .FirstOrDefaultAsync();
+
+            if (templateRoleId is not null)
+            {
+                var ceiling = await _dbContext.RolePermissions
+                    .AsNoTracking()
+                    .Where(x => x.RoleId == templateRoleId)
+                    .Select(x => x.Permission.Name)
+                    .ToListAsync();
+                effectivePermissions.IntersectWith(ceiling);
             }
         }
 

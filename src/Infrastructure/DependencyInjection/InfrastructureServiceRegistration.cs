@@ -45,7 +45,9 @@ public static class InfrastructureServiceRegistration
             options.Password.RequiredLength = 6;
 
             // 👤 User settings
-            options.User.RequireUniqueEmail = true;
+            // Company staff have no email (username + 4-digit code). Uniqueness of the emails that
+            // ARE set is checked by IdentityAdminService itself.
+            options.User.RequireUniqueEmail = false;
 
             // 🔒 Lockout (optional amma faydalıdır)
             options.Lockout.MaxFailedAccessAttempts = 5;
