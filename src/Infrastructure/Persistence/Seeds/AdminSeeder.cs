@@ -1,7 +1,9 @@
 ﻿using Domain.Constants;
 using Domain.Entities;
 using Domain.Enums;
+using Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace Infrastructure.Identity;
@@ -10,6 +12,7 @@ public static class AdminSeeder
 {
     public static async Task SeedAdminAsync(
         UserManager<User> userManager,
+        AppDbContext dbContext,
         IConfiguration configuration,
         int companyId)
     {
@@ -24,8 +27,7 @@ public static class AdminSeeder
         {
             // Self-heal: the platform SuperAdmin must never end up without its role (e.g. after its
             // user row was edited through the Users screen), or nobody can manage companies anymore.
-            if (!await userManager.IsInRoleAsync(existingUser, AppRoles.SuperAdmin))
-                await userManager.AddToRoleAsync(existingUser, AppRoles.SuperAdmin);
+            await EnsureSuperAdminRoleAsync(dbContext, existingUser.Id);
             return;
         }
 
@@ -48,12 +50,27 @@ public static class AdminSeeder
             throw new Exception($"Admin user could not be seeded: {errors}");
         }
 
-        var roleResult = await userManager.AddToRoleAsync(user, AppRoles.SuperAdmin);
+        await EnsureSuperAdminRoleAsync(dbContext, user.Id);
+    }
 
-        if (!roleResult.Succeeded)
-        {
-            var errors = string.Join(", ", roleResult.Errors.Select(x => x.Description));
-            throw new Exception($"Admin role could not be assigned: {errors}");
-        }
+    /// <summary>
+    /// Assigns the global (CompanyId = null) SuperAdmin role straight through the database —
+    /// UserManager.AddToRoleAsync looks roles up by name across every company and can miss or
+    /// mis-pick it now that role names are only unique per company.
+    /// </summary>
+    private static async Task EnsureSuperAdminRoleAsync(AppDbContext dbContext, int userId)
+    {
+        var normalized = AppRoles.SuperAdmin.ToUpperInvariant();
+        var role = await dbContext.Roles
+            .Where(r => r.CompanyId == null && (r.NormalizedName == normalized || r.Name == AppRoles.SuperAdmin))
+            .OrderBy(r => r.Id)
+            .FirstOrDefaultAsync()
+            ?? throw new Exception("The global SuperAdmin role was not found — role seeding must run first.");
+
+        if (await dbContext.UserRoles.AnyAsync(ur => ur.UserId == userId && ur.RoleId == role.Id))
+            return;
+
+        dbContext.UserRoles.Add(new IdentityUserRole<int> { UserId = userId, RoleId = role.Id });
+        await dbContext.SaveChangesAsync();
     }
 }

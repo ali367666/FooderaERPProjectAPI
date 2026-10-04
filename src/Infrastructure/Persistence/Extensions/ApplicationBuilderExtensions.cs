@@ -32,7 +32,7 @@ public static class ApplicationBuilderExtensions
 
         var companyId = await CompanySeeder.SeedDefaultCompanyAsync(context);
         await IdentitySeeder.SeedRolesAndPermissionsAsync(roleManager, context);
-        await AdminSeeder.SeedAdminAsync(userManager, configuration, companyId);
+        await AdminSeeder.SeedAdminAsync(userManager, context, configuration, companyId);
 
         // Every existing company must have its own role set (no-ops once already provisioned) —
         // covers companies created before per-tenant roles existed, and any created outside the
