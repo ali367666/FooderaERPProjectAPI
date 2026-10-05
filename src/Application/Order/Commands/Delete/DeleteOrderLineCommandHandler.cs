@@ -18,6 +18,7 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
     private readonly IRecipeStockDeductionService _recipeStockDeductionService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
+    private readonly IOrderCancellationRepository _cancellationRepository;
     private readonly ILogger<DeleteOrderLineCommandHandler> _logger;
 
     public DeleteOrderLineCommandHandler(
@@ -26,6 +27,7 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
         IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
+        IOrderCancellationRepository cancellationRepository,
         ILogger<DeleteOrderLineCommandHandler> logger)
     {
         _orderLineRepository = orderLineRepository;
@@ -33,6 +35,7 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
         _recipeStockDeductionService = recipeStockDeductionService;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
+        _cancellationRepository = cancellationRepository;
         _logger = logger;
     }
 
@@ -94,6 +97,17 @@ public class DeleteOrderLineCommandHandler : IRequestHandler<DeleteOrderLineComm
 
             throw new Exception("Bu məhsul artıq hazırlanmağa başlayıb, sifarişdən çıxarıla bilməz.");
         }
+
+        // Every removal lands in the cancellations report. A product already sent to the kitchen
+        // needs a reason; one removed before that (a mis-tap) is logged without asking.
+        var beforeKitchen = line.KitchenPrintedAt is null;
+        var reason = OrderCancellations.Clean(request.Reason);
+        if (reason is null && !beforeKitchen)
+            throw new Exception("Mətbəxə göndərilmiş məhsulu silmək üçün ləğv səbəbi seçin.");
+        await _cancellationRepository.AddAsync(
+            OrderCancellations.ForLine(order, line, reason ?? OrderCancellations.RemovedBeforeKitchenReason,
+                request.Note, beforeKitchen, _currentUserService.UserId),
+            cancellationToken);
 
         var oldOrderLineValues = JsonSerializer.Serialize(new
         {

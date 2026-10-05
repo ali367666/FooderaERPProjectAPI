@@ -68,4 +68,13 @@ public class PrintersController : ControllerBase
         await _mediator.Send(new PrintToPrinterCommand(id, request.Content));
         return Ok();
     }
+
+    [Authorize(Policy = AppPermissions.PrinterPrint)]
+    [HttpPost("{id:int}/print-image")]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<IActionResult> PrintImage(int id, [FromBody] PrintImageRequest request)
+    {
+        await _mediator.Send(new PrintImageToPrinterCommand(id, request.WidthDots, request.Height, request.Data, request.Trailer));
+        return Ok();
+    }
 }

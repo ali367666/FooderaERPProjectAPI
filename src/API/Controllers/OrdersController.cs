@@ -66,9 +66,9 @@ public class OrdersController : ControllerBase
 
     [Authorize(Policy = AppPermissions.PosDeleteReceipt)]
     [HttpDelete("{id:int}")]
-    public async Task<ActionResult<string>> Delete(int id)
+    public async Task<ActionResult<string>> Delete(int id, [FromQuery] string? reason, [FromQuery] string? note)
     {
-        var result = await _mediator.Send(new DeleteOrderCommand(id));
+        var result = await _mediator.Send(new DeleteOrderCommand(id, reason, note));
         return Ok(result);
     }
 
@@ -172,9 +172,9 @@ public class OrdersController : ControllerBase
     }
     [Authorize(Policy = AppPermissions.PosDeleteProductInSale)]
     [HttpDelete("lines/{id}")]
-    public async Task<ActionResult<OrderResponse>> DeleteLine(int id)
+    public async Task<ActionResult<OrderResponse>> DeleteLine(int id, [FromQuery] string? reason, [FromQuery] string? note)
     {
-        var result = await _mediator.Send(new DeleteOrderLineCommand(id));
+        var result = await _mediator.Send(new DeleteOrderLineCommand(id, reason, note));
         return Ok(result);
     }
     [Authorize(Policy = AppPermissions.PosEditProductInSale)]
@@ -232,9 +232,9 @@ public class OrdersController : ControllerBase
 
     [Authorize(Policy = AppPermissions.PosDeleteOrder)]
     [HttpPost("{id:int}/cancel")]
-    public async Task<ActionResult<OrderResponse>> Cancel(int id)
+    public async Task<ActionResult<OrderResponse>> Cancel(int id, [FromQuery] string? reason, [FromQuery] string? note)
     {
-        var result = await _mediator.Send(new CancelOrderCommand(id));
+        var result = await _mediator.Send(new CancelOrderCommand(id, reason, note));
         return Ok(result);
     }
 

@@ -182,6 +182,17 @@ public class CompanySettings : CompanyEntity<int>
     /// <summary>Line order on the customer receipt: "order" (as ordered), "name" (A–Z) or "category" (grouped by category).</summary>
     public string ReceiptSortMode { get; set; } = "order";
 
+    /// <summary>Print the company logo (ReportLogoUrl, else LoginLogoUrl) at the top of the receipt.</summary>
+    public bool ReceiptShowLogo { get; set; } = true;
+    /// <summary>Logo width on the receipt, as a percentage of the paper width (20–100).</summary>
+    public int ReceiptLogoWidth { get; set; } = 50;
+    /// <summary>Where the social links are printed: "top" (under the address) or "bottom" (above the footer note).</summary>
+    public string ReceiptSocialPosition { get; set; } = "top";
+    /// <summary>Note printed under every gifted product, e.g. "Müəssisədən hədiyyə".</summary>
+    public string? ReceiptGiftNote { get; set; }
+    /// <summary>Font size (px on the printed image) of the gift note.</summary>
+    public int ReceiptGiftNoteFontSize { get; set; } = 18;
+
     /// <summary>Toxunuşlu ekran — larger POS controls and on-screen number pads, for touch terminals without a keyboard.</summary>
     public bool TouchScreenMode { get; set; }
 

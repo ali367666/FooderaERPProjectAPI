@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,10 @@ import { uploadFile } from "@/lib/services/file-service";
 import { ApiFormError } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { applyTheme } from "@/lib/theme";
-import { arrangeReceiptLines, centerText, formatReceiptTextLine, receiptCharsPerLine } from "@/lib/receipt-format";
+import { designFromBranding } from "@/lib/receipt-render";
+import { ReceiptPreview } from "@/components/receipt-preview";
+import type { CompanySettingsBranding } from "@/lib/services/company-settings-service";
+import type { OrderReceiptDto } from "@/lib/services/order-service";
 
 const INTEGRATION_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "integrationWolt", label: "Wolt" },
@@ -119,6 +122,11 @@ const DEFAULTS: CompanySettingsInput = {
   receiptHeaderText: null,
   receiptFooterText: null,
   receiptSortMode: "order",
+  receiptShowLogo: true,
+  receiptLogoWidth: 50,
+  receiptSocialPosition: "top",
+  receiptGiftNote: null,
+  receiptGiftNoteFontSize: 18,
   touchScreenMode: false,
   askGuestCountOnOpen: false,
   singleWaiterMode: false,
@@ -215,40 +223,37 @@ const RECEIPT_SIMPLE_FIELD_TOGGLES: Array<{ key: keyof CompanySettingsInput; lab
   { key: "receiptSimpleShowFooter", label: "Slogan / əlaqə / sosial media" },
 ];
 
-const PREVIEW_LINES = [
-  { menuItemName: "Plov", menuCategoryId: 1, quantity: 2, lineTotal: 24 },
-  { menuItemName: "Ayran", menuCategoryId: 2, quantity: 2, lineTotal: 4 },
-  { menuItemName: "Dolma", menuCategoryId: 1, quantity: 1, lineTotal: 9.5 },
-  { menuItemName: "Çay dəsti", menuCategoryId: 2, quantity: 1, lineTotal: 6 },
-];
 const PREVIEW_CATEGORIES: Record<number, string> = { 1: "İsti yeməklər", 2: "İçkilər" };
+const previewCategoryName = (id: number | null | undefined) => (id ? PREVIEW_CATEGORIES[id] ?? "" : "");
 
-/** Live "Çek dizaynı" preview — the same layout the POS sends to the receipt printer. */
-function buildReceiptPreview(form: CompanySettingsInput): string {
-  const width = receiptCharsPerLine(form.receiptPaperWidth);
-  const out: string[] = [];
-  if (form.receiptShowBusinessName) out.push(centerText("RESTORAN ADI", width));
-  if (form.receiptHeaderText) for (const t of form.receiptHeaderText.split("\n")) out.push(centerText(t, width));
-  out.push("");
-  if (form.receiptShowOrderNumber) out.push("Sifariş: 000123");
-  if (form.receiptShowTableName) out.push("Masa: 5");
-  if (form.receiptShowWaiterName) out.push("Ofisiant: Əli Məmmədov");
-  if (form.receiptShowTime) out.push("Vaxt: 27.09.2026 19:45");
-  out.push("-".repeat(width));
-  for (const row of arrangeReceiptLines(PREVIEW_LINES, form.receiptSortMode, (id) => (id ? PREVIEW_CATEGORIES[id] ?? "" : ""))) {
-    if (row.kind === "header") out.push(`[${row.title}]`);
-    else out.push(formatReceiptTextLine(row.line.quantity, row.line.menuItemName, row.line.lineTotal, width));
-  }
-  out.push("-".repeat(width));
-  out.push("Cəm: 43.50 ₼");
-  if (form.receiptFooterText) {
-    out.push("");
-    for (const t of form.receiptFooterText.split("\n")) out.push(centerText(t, width));
-  }
-  if (form.slogan) out.push(form.slogan);
-  if (form.contactPhoneNumber) out.push(form.contactPhoneNumber);
-  return out.join("\n");
-}
+/** Sample bill for the live "Çek dizaynı" preview — includes a gift and a service charge. */
+const PREVIEW_RECEIPT: OrderReceiptDto = {
+  receiptNumber: "RCPT-000123",
+  orderNumber: "000123",
+  restaurantName: "Restoran adı",
+  restaurantAddress: "Bakı şəhəri, Nizami küçəsi 10",
+  tableName: "Masa 5",
+  sectionName: "Əsas zal",
+  waiterName: "Əli Məmmədov",
+  openedAt: "2026-09-27T15:10:00Z",
+  paidAt: "2026-09-27T16:45:00Z",
+  closedAt: "2026-09-27T16:45:00Z",
+  paymentMethod: "Cash",
+  lines: [
+    { menuItemName: "Plov", menuCategoryId: 1, quantity: 2, unitPrice: 12, lineTotal: 24, vatAmount: 0, isGift: false },
+    { menuItemName: "Ayran", menuCategoryId: 2, quantity: 2, unitPrice: 2, lineTotal: 4, vatAmount: 0, isGift: false },
+    { menuItemName: "Dolma", menuCategoryId: 1, quantity: 1, unitPrice: 9.5, lineTotal: 9.5, vatAmount: 0, isGift: false },
+    { menuItemName: "Çay dəsti (Hədiyyə)", menuCategoryId: 2, quantity: 1, unitPrice: 6, lineTotal: 0, vatAmount: 0, isGift: true },
+  ],
+  totalAmount: 37.5,
+  discountAmount: 0,
+  serviceChargeAmount: 0.75,
+  tableRentalAmount: 0,
+  grandTotal: 38.25,
+  paidAmount: 40,
+  changeAmount: 1.75,
+  vatAmount: 0,
+};
 
 export default function SettingsPage() {
   const { selectedCompanyId } = useSelectedCompany();
@@ -287,6 +292,11 @@ export default function SettingsPage() {
   useEffect(() => () => applyTheme(savedFormRef.current), []);
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm);
+
+  const receiptDesign = useMemo(
+    () => designFromBranding(form as unknown as CompanySettingsBranding),
+    [form],
+  );
 
   const update = <K extends keyof CompanySettingsInput>(key: K, value: CompanySettingsInput[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -849,15 +859,72 @@ export default function SettingsPage() {
                 className="mt-1 flex min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={form.receiptFooterText ?? ""}
                 onChange={(e) => update("receiptFooterText", e.target.value || null)}
-                placeholder="məs. Wi-Fi: resto_guest / 12345678"
+                placeholder="məs. Bizi seçdiyiniz üçün təşəkkürlər!"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={form.receiptShowLogo}
+                    onCheckedChange={(v) => update("receiptShowLogo", v === true)}
+                  />
+                  Loqonu çap et
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">Hesabat loqosu, yoxdursa giriş loqosu istifadə olunur.</p>
+              </div>
+              <div>
+                <Label>Loqonun eni: {form.receiptLogoWidth}%</Label>
+                <input
+                  type="range"
+                  min={20}
+                  max={100}
+                  step={5}
+                  className="mt-2 w-full"
+                  value={form.receiptLogoWidth}
+                  disabled={!form.receiptShowLogo}
+                  onChange={(e) => update("receiptLogoWidth", Number(e.target.value))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Sosial şəbəkələrin yeri</Label>
+              <select
+                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.receiptSocialPosition}
+                onChange={(e) => update("receiptSocialPosition", e.target.value)}
+              >
+                <option value="top">Yuxarıda — ünvanın altında</option>
+                <option value="bottom">Ən aşağıda — son qeydin üstündə</option>
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">Linklərin özü "Sosial şəbəkələr" sahəsindən götürülür (vergül və ya yeni sətirlə ayırın).</p>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2">
+                <Label>Hədiyyə məhsulun altındakı qeyd</Label>
+                <Input
+                  className="mt-1"
+                  value={form.receiptGiftNote ?? ""}
+                  onChange={(e) => update("receiptGiftNote", e.target.value || null)}
+                  placeholder="məs. Müəssisədən hədiyyə"
+                />
+              </div>
+              <div>
+                <Label>Qeydin şrifti</Label>
+                <Input
+                  className="mt-1"
+                  type="number"
+                  min={12}
+                  max={40}
+                  value={form.receiptGiftNoteFontSize}
+                  onChange={(e) => update("receiptGiftNoteFontSize", Number(e.target.value) || 18)}
+                />
+              </div>
             </div>
           </div>
           <div>
-            <Label className="mb-1 block">Önizləmə</Label>
-            <pre className="overflow-x-auto rounded-md border bg-white p-3 font-mono text-[11px] leading-snug text-black">
-              {buildReceiptPreview(form)}
-            </pre>
+            <Label className="mb-1 block">Önizləmə (printerə gedən şəkil)</Label>
+            <ReceiptPreview receipt={PREVIEW_RECEIPT} design={receiptDesign} categoryName={previewCategoryName} />
           </div>
         </div>
       </section>

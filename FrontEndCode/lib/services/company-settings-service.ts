@@ -94,6 +94,15 @@ export type CompanySettings = {
   receiptHeaderText: string | null;
   receiptFooterText: string | null;
   receiptSortMode: string;
+  /** Print the company logo at the top of the receipt. */
+  receiptShowLogo: boolean;
+  /** Logo width as a % of the paper width (20–100). */
+  receiptLogoWidth: number;
+  /** Social links under the address ("top") or above the closing note ("bottom"). */
+  receiptSocialPosition: string;
+  /** Note printed under every gifted product. */
+  receiptGiftNote: string | null;
+  receiptGiftNoteFontSize: number;
   touchScreenMode: boolean;
 
   askGuestCountOnOpen: boolean;
@@ -225,6 +234,11 @@ function normalize(item: unknown): CompanySettings | null {
     receiptHeaderText: strOrNull("receiptHeaderText", "ReceiptHeaderText"),
     receiptFooterText: strOrNull("receiptFooterText", "ReceiptFooterText"),
     receiptSortMode: strOrNull("receiptSortMode", "ReceiptSortMode") ?? "order",
+    receiptShowLogo: bool("receiptShowLogo", "ReceiptShowLogo", true),
+    receiptLogoWidth: numOrNull("receiptLogoWidth", "ReceiptLogoWidth") ?? 50,
+    receiptSocialPosition: strOrNull("receiptSocialPosition", "ReceiptSocialPosition") ?? "top",
+    receiptGiftNote: strOrNull("receiptGiftNote", "ReceiptGiftNote"),
+    receiptGiftNoteFontSize: numOrNull("receiptGiftNoteFontSize", "ReceiptGiftNoteFontSize") ?? 18,
     touchScreenMode: bool("touchScreenMode", "TouchScreenMode"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
@@ -353,6 +367,15 @@ export type CompanySettingsBranding = {
   receiptHeaderText: string | null;
   receiptFooterText: string | null;
   receiptSortMode: string;
+  /** Print the company logo at the top of the receipt. */
+  receiptShowLogo: boolean;
+  /** Logo width as a % of the paper width (20–100). */
+  receiptLogoWidth: number;
+  /** Social links under the address ("top") or above the closing note ("bottom"). */
+  receiptSocialPosition: string;
+  /** Note printed under every gifted product. */
+  receiptGiftNote: string | null;
+  receiptGiftNoteFontSize: number;
   touchScreenMode: boolean;
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
@@ -457,6 +480,11 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     receiptHeaderText: strOrNull("receiptHeaderText", "ReceiptHeaderText"),
     receiptFooterText: strOrNull("receiptFooterText", "ReceiptFooterText"),
     receiptSortMode: strOrNull("receiptSortMode", "ReceiptSortMode") ?? "order",
+    receiptShowLogo: bool("receiptShowLogo", "ReceiptShowLogo", true),
+    receiptLogoWidth: numOrNull("receiptLogoWidth", "ReceiptLogoWidth") ?? 50,
+    receiptSocialPosition: strOrNull("receiptSocialPosition", "ReceiptSocialPosition") ?? "top",
+    receiptGiftNote: strOrNull("receiptGiftNote", "ReceiptGiftNote"),
+    receiptGiftNoteFontSize: numOrNull("receiptGiftNoteFontSize", "ReceiptGiftNoteFontSize") ?? 18,
     touchScreenMode: bool("touchScreenMode", "TouchScreenMode"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),

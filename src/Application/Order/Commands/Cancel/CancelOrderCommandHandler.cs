@@ -11,13 +11,16 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
 {
     private readonly IOrderRepository _orderRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IOrderCancellationRepository _cancellationRepository;
 
     public CancelOrderCommandHandler(
         IOrderRepository orderRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IOrderCancellationRepository cancellationRepository)
     {
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
+        _cancellationRepository = cancellationRepository;
     }
 
     public async Task<OrderResponse> Handle(CancelOrderCommand request, CancellationToken cancellationToken)
@@ -37,6 +40,11 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
 
         if (order.ProcessedByUserId.HasValue && order.ProcessedByUserId != userId)
             throw new Exception("Only the assigned processor can cancel this order.");
+
+        var reason = OrderCancellations.Clean(request.Reason)
+            ?? throw new Exception("Sifarişi ləğv etmək üçün səbəb seçin.");
+        await _cancellationRepository.AddAsync(
+            OrderCancellations.ForOrder(order, reason, request.Note, userId), cancellationToken);
 
         order.Status = OrderStatus.Cancelled;
         order.ClosedAt = DateTime.UtcNow;

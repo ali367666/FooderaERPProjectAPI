@@ -46,9 +46,9 @@ import {
   type OrderDto,
   type OrderLineDto,
   type OrderReceiptDto,
-  type OrderReceiptLineDto,
   type PaymentMethod,
 } from "@/lib/services/order-service";
+import { useCancelReason } from "@/components/cancel-reason-dialog";
 import { getCounterparties, type Counterparty } from "@/lib/services/counterparty-service";
 import { getMenuCategories, type MenuCategory } from "@/lib/services/menu-category-service";
 import { getMenuItems, getMenuItemAvailability, UnitOfMeasure, type MenuItem } from "@/lib/services/menu-item-service";
@@ -59,10 +59,11 @@ import {
   type RestaurantTable,
 } from "@/lib/services/restaurant-table-service";
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
-import { getPrinters, printToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
+import { getPrinters, printImageToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
+import { canvasToRaster, designFromBranding, renderReceipt } from "@/lib/receipt-render";
+import { ReceiptPreview } from "@/components/receipt-preview";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
 import { escPosBarcode, receiptBarcodeValue } from "@/lib/receipt-barcode";
-import { arrangeReceiptLines, centerText, formatReceiptTextLine, receiptCharsPerLine } from "@/lib/receipt-format";
 import { BarcodeSvg } from "@/components/barcode-svg";
 import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
@@ -82,25 +83,6 @@ function formatEmployeeName(e: Employee): string {
   const n = e.fullName?.trim();
   if (n) return n;
   return `${e.firstName} ${e.lastName}`.trim() || `Employee #${e.id}`;
-}
-
-function groupReceiptLines(lines: OrderReceiptLineDto[], group: boolean): OrderReceiptLineDto[] {
-  if (!group) return lines;
-  const grouped: OrderReceiptLineDto[] = [];
-  const indexByKey = new Map<string, number>();
-  for (const line of lines) {
-    const key = `${line.menuItemName}__${line.unitPrice}`;
-    const existingIndex = indexByKey.get(key);
-    if (existingIndex === undefined) {
-      indexByKey.set(key, grouped.length);
-      grouped.push({ ...line });
-    } else {
-      grouped[existingIndex].quantity += line.quantity;
-      grouped[existingIndex].lineTotal += line.lineTotal;
-      grouped[existingIndex].vatAmount += line.vatAmount;
-    }
-  }
-  return grouped;
 }
 
 function formatDuration(ms: number): string {
@@ -135,6 +117,7 @@ export default function PosOrderPage() {
   const [rateBusy, setRateBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [reasonDialog, askCancelReason] = useCancelReason();
   const [orderHoldBusy, setOrderHoldBusy] = useState(false);
   const [confirmPrintOpen, setConfirmPrintOpen] = useState(false);
 
@@ -356,19 +339,9 @@ export default function PosOrderPage() {
     }
   };
 
-  const groupedReceiptLines = useMemo<OrderReceiptLineDto[]>(
-    () => groupReceiptLines(receipt?.lines ?? [], branding?.printGroupQuantities !== false),
-    [receipt, branding?.printGroupQuantities],
-  );
-
   const receiptCategoryName = (id: number | null | undefined) =>
     id == null ? "" : categories.find((c) => c.id === id)?.name ?? "";
 
-  const arrangedReceiptRows = useMemo(
-    () => arrangeReceiptLines(groupedReceiptLines, branding?.receiptSortMode, receiptCategoryName),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groupedReceiptLines, branding?.receiptSortMode, categories],
-  );
 
   const handleMars = async () => {
     if (!order) return;
@@ -395,55 +368,19 @@ export default function PosOrderPage() {
     }
   };
 
-  const buildReceiptContent = (r: OrderReceiptDto | null = receipt) => {
-    if (!r) return "";
-    const width = receiptCharsPerLine(branding?.receiptPaperWidth);
-    const lines: string[] = [];
-    if (branding?.receiptShowBusinessName !== false) {
-      lines.push(centerText((order?.restaurantName ?? r.restaurantName ?? "").toUpperCase(), width));
-    }
-    if (branding?.receiptHeaderText) {
-      for (const t of branding.receiptHeaderText.split("\n")) lines.push(centerText(t, width));
-    }
-    lines.push("");
-    if (branding?.receiptShowOrderNumber !== false) lines.push(`Sifariş: ${r.orderNumber}`);
-    if (branding?.receiptShowTableName !== false) lines.push(`Masa: ${r.tableName}`);
-    if (branding?.receiptShowWaiterName !== false) lines.push(`Ofisiant: ${r.waiterName}`);
-    if (branding?.receiptShowTime !== false) {
-      lines.push(`Vaxt: ${new Date(r.paidAt ?? r.openedAt).toLocaleString("az-AZ")}`);
-    }
-    if (branding?.receiptShowPaymentMethod !== false) lines.push(`Ödəniş: ${r.paymentMethod}`);
-    lines.push("-".repeat(width));
-    const rows = arrangeReceiptLines(
-      groupReceiptLines(r.lines, branding?.printGroupQuantities !== false),
-      branding?.receiptSortMode,
-      receiptCategoryName,
-    );
-    for (const row of rows) {
-      if (row.kind === "header") lines.push(`[${row.title}]`);
-      else lines.push(formatReceiptTextLine(row.line.quantity, row.line.menuItemName, row.line.lineTotal, width));
-    }
-    lines.push("-".repeat(width));
-    lines.push(`Cəm: ${r.totalAmount.toFixed(2)} ₼`);
-    if (r.vatAmount > 0) lines.push(`ƏDV daxildir: ${r.vatAmount.toFixed(2)} ₼`);
-    if (r.paymentMethod === "Cash") {
-      lines.push(`Alınan: ${r.paidAmount.toFixed(2)} ₼`);
-      lines.push(`Qalıq: ${r.changeAmount.toFixed(2)} ₼`);
-    }
-    if (branding?.receiptFooterText) {
-      lines.push("");
-      for (const t of branding.receiptFooterText.split("\n")) lines.push(centerText(t, width));
-    }
-    if (branding?.slogan) lines.push(branding.slogan);
-    if (branding?.contactPhoneNumber) lines.push(branding.contactPhoneNumber);
-    if (order) lines.push("", escPosBarcode(receiptBarcodeValue(order.id)));
-    return lines.join("\n");
-  };
+  // The customer receipt is drawn as an image (logo, every Azerbaijani letter, adjustable fonts)
+  // — the dialog shows that same image, and network printers receive it as ESC/POS raster.
+  const receiptDesign = useMemo(() => designFromBranding(branding), [branding]);
 
   const handlePrintReceiptToPrinter = async (printer: PrinterProfile, r?: OrderReceiptDto) => {
+    const target = r ?? receipt;
+    if (!target) return;
     setPrintingId(printer.id);
     try {
-      await printToPrinter(printer.id, buildReceiptContent(r ?? receipt));
+      const canvas = await renderReceipt(target, receiptDesign, receiptCategoryName);
+      const trailer = order ? `
+${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
+      await printImageToPrinter(printer.id, canvasToRaster(canvas), trailer);
       toast.success(`${printer.name}-ə göndərildi`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Printerə qoşulmaq mümkün olmadı");
@@ -578,14 +515,30 @@ export default function PosOrderPage() {
     }
   };
 
+  /**
+   * Removing a product that was already sent to the kitchen needs a reason (ləğvlər hesabatı);
+   * one still only on the screen is removed straight away. Returns false if the user backed out.
+   */
+  const removeLineWithReason = async (lineId: number): Promise<boolean> => {
+    if (!order) return false;
+    const line = order.lines.find((l) => l.id === lineId);
+    let cancel;
+    if (line?.kitchenPrintedAt) {
+      cancel = await askCancelReason(`"${line.menuItemName}" ləğv et`);
+      if (!cancel) return false;
+    }
+    const updated = await deleteOrderLine(lineId, cancel ?? undefined);
+    setOrder(updated);
+    return true;
+  };
+
   const handleQuantityChange = async (lineId: number, currentQty: number, delta: number) => {
     if (!order || busy) return;
     const newQty = currentQty + delta;
     setBusy(true);
     try {
       if (newQty <= 0) {
-        const updated = await deleteOrderLine(lineId);
-        setOrder(updated);
+        await removeLineWithReason(lineId);
       } else {
         const updated = await updateOrderLine({ id: lineId, quantity: newQty });
         setOrder(updated);
@@ -601,8 +554,7 @@ export default function PosOrderPage() {
     if (!order || busy) return;
     setBusy(true);
     try {
-      const updated = await deleteOrderLine(lineId);
-      setOrder(updated);
+      await removeLineWithReason(lineId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sətir silinmədi");
     } finally {
@@ -770,10 +722,11 @@ export default function PosOrderPage() {
 
   const handleDeleteOrder = async () => {
     if (!order || busy) return;
-    if (!window.confirm("Sifarişi ləğv etmək istədiyinizə əminsiniz?")) return;
+    const cancel = await askCancelReason("Sifarişi ləğv et");
+    if (!cancel) return;
     setBusy(true);
     try {
-      await cancelOrder(order.id);
+      await cancelOrder(order.id, cancel);
       toast.success("Sifariş ləğv edildi");
       router.replace("/pos");
     } catch (err) {
@@ -1071,22 +1024,6 @@ export default function PosOrderPage() {
 
   // Simple-receipt mode uses its own independently-configured field toggles instead of the
   // normal receipt's — each company decides separately what appears in each mode.
-  const receiptSimpleMode = branding?.receiptSimpleMode === true;
-  const showReceiptOrderNumber = receiptSimpleMode
-    ? branding?.receiptSimpleShowOrderNumber === true
-    : branding?.receiptShowOrderNumber !== false;
-  const showReceiptWaiterName = receiptSimpleMode
-    ? branding?.receiptSimpleShowWaiterName === true
-    : branding?.receiptShowWaiterName !== false;
-  const showReceiptTime = receiptSimpleMode
-    ? branding?.receiptSimpleShowTime === true
-    : branding?.receiptShowTime !== false;
-  const showReceiptPaymentMethod = receiptSimpleMode
-    ? branding?.receiptSimpleShowPaymentMethod === true
-    : branding?.receiptShowPaymentMethod !== false;
-  const showReceiptVat = receiptSimpleMode ? branding?.receiptSimpleShowVat === true : true;
-  const showReceiptFooter = receiptSimpleMode ? branding?.receiptSimpleShowFooter === true : true;
-
   const isRentalRunning =
     order.tableHourlyRate != null && order.tableRentalStartedAt != null && order.tableRentalStoppedAt == null;
   const rentalElapsedMs = isRentalRunning ? now - new Date(order.tableRentalStartedAt!).getTime() : 0;
@@ -1096,6 +1033,7 @@ export default function PosOrderPage() {
 
   return (
     <div className="flex h-full flex-col md:flex-row">
+      {reasonDialog}
       {/* Menu */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
@@ -1960,110 +1898,13 @@ export default function PosOrderPage() {
             id="receipt-print-area"
             style={branding?.receiptFontSize ? { fontSize: `${branding.receiptFontSize}px` } : undefined}
           >
-            <DialogHeader>
-              {branding?.reportLogoUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={branding.reportLogoUrl}
-                  alt=""
-                  className="mx-auto mb-1 h-12 w-auto object-contain"
-                />
-              )}
-              {branding?.receiptShowBusinessName !== false && (
-                <p
-                  className="text-center font-bold uppercase tracking-wide"
-                  style={{
-                    fontSize: branding?.receiptRestaurantNameFontSize
-                      ? `${branding.receiptRestaurantNameFontSize}px`
-                      : "18px",
-                    color: branding?.productColor || undefined,
-                  }}
-                >
-                  {receipt?.restaurantName}
-                </p>
-              )}
-              {branding?.receiptHeaderText && (
-                <p className="whitespace-pre-line text-center text-xs">{branding.receiptHeaderText}</p>
-              )}
-              <DialogTitle className="sr-only">Qəbz</DialogTitle>
-              {(branding?.receiptShowTableName !== false && receipt?.tableName) || branding?.floorLabel ? (
-                <DialogDescription className="text-center">
-                  {branding?.receiptShowTableName !== false && receipt?.tableName}
-                  {branding?.floorLabel &&
-                    (branding?.receiptShowTableName !== false && receipt?.tableName
-                      ? ` — ${branding.floorLabel}`
-                      : branding.floorLabel)}
-                </DialogDescription>
-              ) : null}
-              {receipt &&
-                (showReceiptOrderNumber || showReceiptWaiterName || showReceiptTime || showReceiptPaymentMethod) && (
-                  <div className="space-y-0.5 text-xs text-muted-foreground">
-                    {showReceiptOrderNumber && <p>Sifariş: {receipt.orderNumber}</p>}
-                    {showReceiptWaiterName && <p>Ofisiant: {receipt.waiterName}</p>}
-                    {showReceiptTime && (
-                      <p>Vaxt: {new Date(receipt.paidAt ?? receipt.openedAt).toLocaleString("az-AZ")}</p>
-                    )}
-                    {showReceiptPaymentMethod && <p>Ödəniş: {receipt.paymentMethod}</p>}
-                  </div>
-                )}
+            <DialogHeader className="sr-only">
+              <DialogTitle>Qəbz</DialogTitle>
+              <DialogDescription>{receipt?.tableName}</DialogDescription>
             </DialogHeader>
             <div className="space-y-1 text-sm">
-              {arrangedReceiptRows.map((row, i) =>
-                row.kind === "header" ? (
-                  <p key={i} className="pt-1 text-xs font-semibold uppercase text-muted-foreground">
-                    {row.title}
-                  </p>
-                ) : (
-                  <div key={i} className="flex justify-between">
-                    <span>
-                      {row.line.quantity} × {row.line.menuItemName}
-                    </span>
-                    <span>{row.line.lineTotal.toFixed(2)} ₼</span>
-                  </div>
-                ),
-              )}
-              <div
-                className="mt-2 border-t pt-2 font-semibold"
-                style={branding?.productColor ? { color: branding.productColor } : undefined}
-              >
-                {(order.serviceChargeAmount ?? 0) > 0 && (
-                  <div className="flex justify-between font-normal text-muted-foreground">
-                    <span>Servis haqqı</span>
-                    <span>{(order.serviceChargeAmount ?? 0).toFixed(2)} ₼</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Cəm</span>
-                  <span>{receipt?.totalAmount.toFixed(2)} ₼</span>
-                </div>
-                {receipt && receipt.vatAmount > 0 && showReceiptVat && (
-                  <div className="flex justify-between font-normal text-muted-foreground">
-                    <span>ƏDV daxildir</span>
-                    <span>{receipt.vatAmount.toFixed(2)} ₼</span>
-                  </div>
-                )}
-                {receipt && receipt.paymentMethod === "Cash" && (
-                  <>
-                    <div className="flex justify-between font-normal text-muted-foreground">
-                      <span>Alınan</span>
-                      <span>{receipt.paidAmount.toFixed(2)} ₼</span>
-                    </div>
-                    <div className="flex justify-between font-normal text-muted-foreground">
-                      <span>Qalıq</span>
-                      <span>{receipt.changeAmount.toFixed(2)} ₼</span>
-                    </div>
-                  </>
-                )}
-              </div>
-              {showReceiptFooter && (branding?.slogan || branding?.contactPhoneNumber || branding?.socialLinks) && (
-                <div className="mt-3 border-t pt-2 text-center text-xs text-muted-foreground">
-                  {branding?.slogan && <p>{branding.slogan}</p>}
-                  {branding?.contactPhoneNumber && <p>{branding.contactPhoneNumber}</p>}
-                  {branding?.socialLinks && <p>{branding.socialLinks}</p>}
-                </div>
-              )}
-              {branding?.receiptFooterText && (
-                <p className="mt-3 whitespace-pre-line text-center text-xs">{branding.receiptFooterText}</p>
+              {receipt && (
+                <ReceiptPreview receipt={receipt} design={receiptDesign} categoryName={receiptCategoryName} />
               )}
               {order && receipt && (
                 <div className="mt-3 flex justify-center">

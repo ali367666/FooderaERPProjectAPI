@@ -128,6 +128,7 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
                 IsTimeBased = x.MenuItem.IsTimeBased,
                 IsWeightBased = Application.Common.Helpers.OrderLinePricing.IsWeightBased(x.MenuItem.UnitId),
                 IsGift = x.IsGift,
+                CreatedAtUtc = x.CreatedAtUtc,
                 DiscountAmount = x.DiscountAmount,
                 PreparationType = x.PreparationType,
                 Note = x.Note,

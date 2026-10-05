@@ -79,7 +79,7 @@ export const navGroups: NavGroup[] = [
       },
       {
         title: "Hesabatlar",
-        href: "/dashboard/z-report",
+        href: "/dashboard/reports",
         icon: Calculator,
         permission: "Pos.ZReport",
       },

@@ -114,6 +114,19 @@ export async function printToPrinter(id: number, content: string): Promise<void>
   }
 }
 
+/** Prints a 1-bit image (see lib/receipt-render) — the customer receipt goes this way. */
+export async function printImageToPrinter(
+  id: number,
+  image: { widthDots: number; height: number; data: string },
+  trailer?: string,
+): Promise<void> {
+  try {
+    await api.post<unknown>(`/Printers/${id}/print-image`, { ...image, trailer: trailer ?? null });
+  } catch (error) {
+    throw toApiFormError(error, "Printerə çap göndərilmədi");
+  }
+}
+
 export type DiscoveredPrinter = {
   name: string;
   /** Null for a locally attached (USB) printer — it can't be used over the network. */

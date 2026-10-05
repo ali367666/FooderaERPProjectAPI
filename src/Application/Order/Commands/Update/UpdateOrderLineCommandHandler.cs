@@ -157,8 +157,13 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
 
         if (_currentUserService.HasPermission(Domain.Constants.AppPermissions.DiscountApply))
         {
-            if (request.Request.IsGift.HasValue)
+            if (request.Request.IsGift.HasValue && request.Request.IsGift.Value != line.IsGift)
+            {
                 line.IsGift = request.Request.IsGift.Value;
+                // Who gave the gift, and when — for the gifts report.
+                line.GiftedByUserId = line.IsGift ? _currentUserService.UserId : null;
+                line.GiftedAtUtc = line.IsGift ? DateTime.UtcNow : null;
+            }
             if (request.Request.DiscountAmount.HasValue)
                 line.DiscountAmount = Math.Max(0, request.Request.DiscountAmount.Value);
         }

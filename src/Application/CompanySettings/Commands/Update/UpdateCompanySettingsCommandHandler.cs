@@ -134,6 +134,11 @@ public class UpdateCompanySettingsCommandHandler
         settings.ReceiptHeaderText = string.IsNullOrWhiteSpace(dto.ReceiptHeaderText) ? null : dto.ReceiptHeaderText.Trim();
         settings.ReceiptFooterText = string.IsNullOrWhiteSpace(dto.ReceiptFooterText) ? null : dto.ReceiptFooterText.Trim();
         settings.ReceiptSortMode = dto.ReceiptSortMode is "name" or "category" ? dto.ReceiptSortMode : "order";
+        settings.ReceiptShowLogo = dto.ReceiptShowLogo;
+        settings.ReceiptLogoWidth = Math.Clamp(dto.ReceiptLogoWidth, 20, 100);
+        settings.ReceiptSocialPosition = dto.ReceiptSocialPosition == "bottom" ? "bottom" : "top";
+        settings.ReceiptGiftNote = string.IsNullOrWhiteSpace(dto.ReceiptGiftNote) ? null : dto.ReceiptGiftNote.Trim();
+        settings.ReceiptGiftNoteFontSize = Math.Clamp(dto.ReceiptGiftNoteFontSize, 12, 40);
         settings.AskGuestCountOnOpen = dto.AskGuestCountOnOpen;
         settings.SingleWaiterMode = dto.SingleWaiterMode;
         settings.DefaultVatPercent = dto.DefaultVatPercent;

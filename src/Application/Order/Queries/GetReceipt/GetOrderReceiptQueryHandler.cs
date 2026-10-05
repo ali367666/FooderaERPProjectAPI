@@ -49,7 +49,16 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
             ReceiptNumber = order.ReceiptNumber ?? $"RCPT-{order.Id}",
             OrderNumber = order.OrderNumber,
             RestaurantName = order.Restaurant?.Name ?? "-",
+            RestaurantAddress = order.Restaurant?.Address,
             TableName = order.Table?.Name ?? "-",
+            SectionName = order.Table?.Section?.Name,
+            ClosedAt = order.PaidAt ?? order.ClosedAt,
+            DiscountAmount = order.DiscountAmount,
+            ServiceChargeAmount = order.ServiceChargeAmount ?? 0,
+            TableRentalAmount = order.TableRentalAmount ?? 0,
+            GrandTotal = order.IsPaid
+                ? order.TotalAmount
+                : Math.Max(0, totalAmount - order.DiscountAmount + (order.ServiceChargeAmount ?? 0) + (order.TableRentalAmount ?? 0)),
             WaiterName = order.Waiter != null ? $"{order.Waiter.FirstName} {order.Waiter.LastName}" : "-",
             OpenedAt = order.OpenedAt,
             PaidAt = order.PaidAt,
@@ -61,6 +70,9 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
             Lines = lines
         };
     }
+
+    /// <summary>The customer receipt says plainly that a gifted item was on the house.</summary>
+    private static string ReceiptName(string name, bool isGift) => isGift ? $"{name} (Hədiyyə)" : name;
 
     private static decimal ComputeVatAmount(decimal lineTotal, decimal? vatPercent)
     {
@@ -84,7 +96,8 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
             return activeLines
                 .Select(x => new OrderReceiptLineResponse
                 {
-                    MenuItemName = x.MenuItem.Name,
+                    MenuItemName = ReceiptName(x.MenuItem.Name, x.IsGift),
+                    IsGift = x.IsGift,
                     MenuCategoryId = x.MenuItem.MenuCategoryId,
                     Quantity = x.Quantity,
                     UnitPrice = x.UnitPrice,
@@ -95,10 +108,11 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
         }
 
         return activeLines
-            .GroupBy(x => new { x.MenuItem.Name, x.MenuItem.MenuCategoryId, x.UnitPrice, VatPercent = x.MenuItem.VatPercent })
+            .GroupBy(x => new { x.MenuItem.Name, x.MenuItem.MenuCategoryId, x.UnitPrice, VatPercent = x.MenuItem.VatPercent, x.IsGift })
             .Select(g => new OrderReceiptLineResponse
             {
-                MenuItemName = g.Key.Name,
+                MenuItemName = ReceiptName(g.Key.Name, g.Key.IsGift),
+                IsGift = g.Key.IsGift,
                 MenuCategoryId = g.Key.MenuCategoryId,
                 Quantity = g.Sum(x => x.Quantity),
                 UnitPrice = g.Key.UnitPrice,

@@ -24,6 +24,8 @@ export type OrderLineDto = {
   isWeightBased: boolean;
   isGift: boolean;
   discountAmount: number;
+  /** When the line was rung up (UTC). */
+  createdAtUtc: string | null;
 };
 
 export type PaymentMethod = "Cash" | "Card" | "Credit";
@@ -35,19 +37,32 @@ export type OrderReceiptLineDto = {
   unitPrice: number;
   lineTotal: number;
   vatAmount: number;
+  /** Gift — the backend also appends " (Hədiyyə)" to menuItemName for plain-text receipts. */
+  isGift: boolean;
 };
 
 export type OrderReceiptDto = {
   receiptNumber: string;
   orderNumber: string;
   restaurantName: string;
+  restaurantAddress: string | null;
   tableName: string;
+  /** Hall / section of the table. */
+  sectionName: string | null;
   waiterName: string;
   openedAt: string;
   paidAt: string | null;
+  /** When the guests left (payment time, else close time). */
+  closedAt: string | null;
   paymentMethod: string;
   lines: OrderReceiptLineDto[];
+  /** Sum of the product lines, before discount and service charge. */
   totalAmount: number;
+  discountAmount: number;
+  serviceChargeAmount: number;
+  tableRentalAmount: number;
+  /** What the customer pays. */
+  grandTotal: number;
   paidAmount: number;
   changeAmount: number;
   vatAmount: number;
@@ -234,6 +249,7 @@ function normalizeOrder(raw: unknown): OrderDto | null {
             isWeightBased: Boolean(pick(l, "isWeightBased", "IsWeightBased") ?? false),
             isGift: Boolean(pick(l, "isGift", "IsGift") ?? false),
             discountAmount: Number(pick(l, "discountAmount", "DiscountAmount") ?? 0),
+            createdAtUtc: (pick(l, "createdAtUtc", "CreatedAtUtc") as string | null | undefined) ?? null,
           } satisfies OrderLineDto;
         })
         .filter((line): line is OrderLineDto => line !== null)
@@ -319,10 +335,13 @@ function normalizeReceipt(raw: unknown): OrderReceiptDto | null {
     receiptNumber: String(pick(o, "receiptNumber", "ReceiptNumber") ?? ""),
     orderNumber: String(pick(o, "orderNumber", "OrderNumber") ?? ""),
     restaurantName: String(pick(o, "restaurantName", "RestaurantName") ?? ""),
+    restaurantAddress: (pick(o, "restaurantAddress", "RestaurantAddress") as string | null | undefined) ?? null,
     tableName: String(pick(o, "tableName", "TableName") ?? ""),
+    sectionName: (pick(o, "sectionName", "SectionName") as string | null | undefined) ?? null,
     waiterName: String(pick(o, "waiterName", "WaiterName") ?? ""),
     openedAt: String(pick(o, "openedAt", "OpenedAt") ?? ""),
     paidAt: (pick(o, "paidAt", "PaidAt") as string | null | undefined) ?? null,
+    closedAt: (pick(o, "closedAt", "ClosedAt") as string | null | undefined) ?? null,
     paymentMethod: String(pick(o, "paymentMethod", "PaymentMethod") ?? ""),
     lines: Array.isArray(rawLines)
       ? rawLines
@@ -336,11 +355,16 @@ function normalizeReceipt(raw: unknown): OrderReceiptDto | null {
               unitPrice: Number(pick(l, "unitPrice", "UnitPrice") ?? 0),
               lineTotal: Number(pick(l, "lineTotal", "LineTotal") ?? 0),
               vatAmount: Number(pick(l, "vatAmount", "VatAmount") ?? 0),
+              isGift: Boolean(pick(l, "isGift", "IsGift") ?? false),
             } satisfies OrderReceiptLineDto;
           })
           .filter((x): x is OrderReceiptLineDto => x !== null)
       : [],
     totalAmount: Number(pick(o, "totalAmount", "TotalAmount") ?? 0),
+    discountAmount: Number(pick(o, "discountAmount", "DiscountAmount") ?? 0),
+    serviceChargeAmount: Number(pick(o, "serviceChargeAmount", "ServiceChargeAmount") ?? 0),
+    tableRentalAmount: Number(pick(o, "tableRentalAmount", "TableRentalAmount") ?? 0),
+    grandTotal: Number(pick(o, "grandTotal", "GrandTotal") ?? pick(o, "totalAmount", "TotalAmount") ?? 0),
     paidAmount: Number(pick(o, "paidAmount", "PaidAmount") ?? 0),
     changeAmount: Number(pick(o, "changeAmount", "ChangeAmount") ?? 0),
     vatAmount: Number(pick(o, "vatAmount", "VatAmount") ?? 0),
@@ -621,9 +645,14 @@ export async function stopTableRental(orderId: number): Promise<OrderDto> {
   }
 }
 
-export async function deleteOrderLine(id: number): Promise<OrderDto> {
+/** Why an order/product was cancelled — required for products already sent to the kitchen. */
+export type CancelReason = { reason: string; note?: string };
+
+export async function deleteOrderLine(id: number, cancel?: CancelReason): Promise<OrderDto> {
   try {
-    const response = await api.delete<unknown>(`/Orders/lines/${id}`);
+    const response = await api.delete<unknown>(`/Orders/lines/${id}`, {
+      params: cancel ? { reason: cancel.reason, note: cancel.note || undefined } : undefined,
+    });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
     if (!row) throw new Error("Invalid delete line response");
@@ -636,9 +665,10 @@ export async function deleteOrderLine(id: number): Promise<OrderDto> {
 async function runWorkflow(
   id: number,
   action: "start" | "complete" | "cancel" | "submit",
+  params?: Record<string, string | undefined>,
 ): Promise<OrderDto> {
   try {
-    const response = await api.post<unknown>(`/Orders/${id}/${action}`);
+    const response = await api.post<unknown>(`/Orders/${id}/${action}`, null, { params });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
     if (!row) {
@@ -658,17 +688,19 @@ export function completeOrder(id: number): Promise<OrderDto> {
   return runWorkflow(id, "complete");
 }
 
-export function cancelOrder(id: number): Promise<OrderDto> {
-  return runWorkflow(id, "cancel");
+export function cancelOrder(id: number, cancel: CancelReason): Promise<OrderDto> {
+  return runWorkflow(id, "cancel", { reason: cancel.reason, note: cancel.note || undefined });
 }
 
 export function submitOrder(id: number): Promise<OrderDto> {
   return runWorkflow(id, "submit");
 }
 
-export async function deleteOrder(id: number): Promise<void> {
+export async function deleteOrder(id: number, cancel?: CancelReason): Promise<void> {
   try {
-    const response = await api.delete<unknown>(`/Orders/${id}`);
+    const response = await api.delete<unknown>(`/Orders/${id}`, {
+      params: cancel ? { reason: cancel.reason, note: cancel.note || undefined } : undefined,
+    });
     assertApiSuccess(response.data);
   } catch (error) {
     throw toApiFormError(error, "Failed to delete order");

@@ -103,6 +103,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IDeliveryIntegrationRepository, DeliveryIntegrationRepository>();
         services.AddScoped<ICashMovementRepository, CashMovementRepository>();
         services.AddScoped<ISaleReturnRepository, SaleReturnRepository>();
+        services.AddScoped<IOrderCancellationRepository, OrderCancellationRepository>();
         services.AddScoped<ILicenseRepository, LicenseRepository>();
         services.AddScoped<IDeviceAccessService, DeviceAccessService>();
         services.Configure<Infrastructure.Options.LicensingOptions>(configuration.GetSection("Licensing"));

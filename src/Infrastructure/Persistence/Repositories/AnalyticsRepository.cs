@@ -171,6 +171,14 @@ public class AnalyticsRepository : IAnalyticsRepository
                 WaiterName = o.Waiter != null
                     ? (o.Waiter.FirstName + " " + o.Waiter.LastName).Trim()
                     : "Naməlum",
+                o.ServiceChargeAmount,
+                o.TableId,
+                TableName = o.Table != null ? o.Table.Name : "",
+                o.OrderNumber,
+                o.ReceiptNumber,
+                o.GuestCount,
+                o.OpenedAt,
+                o.PaidAt,
             })
             .ToListAsync(cancellationToken);
 
@@ -210,9 +218,109 @@ public class AnalyticsRepository : IAnalyticsRepository
                 WaiterName = g.Key.WaiterName,
                 OrderCount = g.Count(),
                 Revenue = g.Sum(o => o.TotalAmount),
+                ServiceCharge = g.Sum(o => o.ServiceChargeAmount ?? 0),
             })
             .OrderByDescending(x => x.Revenue)
             .ToList();
+
+        var receipts = paidOrders
+            .Select(o => new SalesReportReceiptDto
+            {
+                OrderId = o.Id,
+                OrderNumber = o.OrderNumber,
+                ReceiptNumber = o.ReceiptNumber,
+                TableId = o.TableId,
+                TableName = string.IsNullOrEmpty(o.TableName) ? $"#{o.TableId}" : o.TableName,
+                WaiterName = o.WaiterName,
+                GuestCount = o.GuestCount,
+                OpenedAt = o.OpenedAt,
+                PaidAt = o.PaidAt,
+                PaymentMethod = o.PaymentMethod?.ToString(),
+                Amount = o.TotalAmount,
+                DiscountAmount = o.DiscountAmount,
+                ServiceCharge = o.ServiceChargeAmount ?? 0,
+            })
+            .OrderByDescending(r => r.PaidAt)
+            .ToList();
+
+        var tables = receipts
+            .GroupBy(r => new { r.TableId, r.TableName })
+            .Select(g => new SalesReportTableLineDto
+            {
+                TableId = g.Key.TableId,
+                TableName = g.Key.TableName,
+                OrderCount = g.Count(),
+                Revenue = g.Sum(r => r.Amount),
+                Sessions = g.OrderBy(r => r.OpenedAt).ToList(),
+            })
+            .OrderByDescending(x => x.Revenue)
+            .ToList();
+
+        var cancellations = await _context.OrderCancellations
+            .AsNoTracking()
+            .Where(c => c.CompanyId == companyId && c.CreatedAtUtc >= from && c.CreatedAtUtc < to)
+            .OrderByDescending(c => c.CreatedAtUtc)
+            .Select(c => new SalesReportCancellationDto
+            {
+                OrderId = c.OrderId,
+                CancelledAt = c.CreatedAtUtc,
+                TableName = c.TableName,
+                OrderNumber = c.ReceiptNumber ?? c.OrderNumber,
+                IsWholeOrder = c.IsWholeOrder,
+                MenuItemName = c.MenuItemName,
+                Quantity = c.Quantity,
+                Amount = c.Amount,
+                Reason = c.Reason,
+                Note = c.Note,
+                BeforeKitchen = c.BeforeKitchen,
+                CancelledBy = c.CancelledByName,
+            })
+            .ToListAsync(cancellationToken);
+
+        var giftRows = await _context.OrderLines
+            .AsNoTracking()
+            .Where(l => l.CompanyId == companyId && orderIds.Contains(l.OrderId) && l.IsGift
+                && l.Status != OrderLineStatus.Cancelled)
+            .Select(l => new
+            {
+                l.OrderId,
+                l.Order.OrderNumber,
+                l.Order.ReceiptNumber,
+                TableName = l.Order.Table != null ? l.Order.Table.Name : "",
+                MenuItemName = l.MenuItem.Name,
+                l.Quantity,
+                l.UnitPrice,
+                l.GiftedAtUtc,
+                l.GiftedByUserId,
+                OrderPaidAt = l.Order.PaidAt,
+            })
+            .ToListAsync(cancellationToken);
+        var gifterIds = giftRows.Where(g => g.GiftedByUserId != null).Select(g => g.GiftedByUserId!.Value).Distinct().ToList();
+        var gifterNames = await _context.Users.AsNoTracking()
+            .Where(u => gifterIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.FullName ?? u.UserName ?? "", cancellationToken);
+        var gifts = giftRows
+            .Select(g => new SalesReportGiftDto
+            {
+                OrderId = g.OrderId,
+                OrderNumber = g.OrderNumber,
+                ReceiptNumber = g.ReceiptNumber,
+                TableName = string.IsNullOrEmpty(g.TableName) ? "—" : g.TableName,
+                MenuItemName = g.MenuItemName,
+                Quantity = g.Quantity,
+                Value = g.UnitPrice * g.Quantity,
+                GiftedAt = g.GiftedAtUtc,
+                GiftedBy = g.GiftedByUserId is int id && gifterNames.TryGetValue(id, out var name) ? name : "—",
+            })
+            .OrderByDescending(g => g.GiftedAt ?? DateTime.MinValue)
+            .ToList();
+
+        var productTotal = products.Sum(p => p.Revenue);
+        foreach (var p in products)
+            p.Percent = productTotal > 0 ? Math.Round(p.Revenue / productTotal * 100, 1) : 0;
+        var categoryTotal = categories.Sum(c => c.Revenue);
+        foreach (var c in categories)
+            c.Percent = categoryTotal > 0 ? Math.Round(c.Revenue / categoryTotal * 100, 1) : 0;
 
         var returns = await _context.SaleReturns
             .Where(r => r.CompanyId == companyId && r.CreatedAtUtc >= from && r.CreatedAtUtc < to)
@@ -255,6 +363,11 @@ public class AnalyticsRepository : IAnalyticsRepository
             Products = products,
             Waiters = waiters,
             Categories = categories,
+            Tables = tables,
+            Receipts = receipts,
+            TotalServiceCharge = paidOrders.Sum(o => o.ServiceChargeAmount ?? 0),
+            Cancellations = cancellations,
+            Gifts = gifts,
         };
     }
 

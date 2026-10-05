@@ -101,6 +101,8 @@ export type ZReportProductLine = {
   name: string;
   quantity: number;
   revenue: number;
+  /** Share of product revenue in the period, 0–100. */
+  percent?: number;
 };
 
 export type ZReportWaiterLine = {
@@ -108,6 +110,8 @@ export type ZReportWaiterLine = {
   waiterName: string;
   orderCount: number;
   revenue: number;
+  /** Service charge collected on this waiter's orders — owed to the waiter. */
+  serviceCharge?: number;
 };
 
 export type ZReportCategoryLine = {
@@ -115,6 +119,63 @@ export type ZReportCategoryLine = {
   categoryName: string;
   quantity: number;
   revenue: number;
+  /** Share of category revenue in the period, 0–100. */
+  percent?: number;
+};
+
+/** One paid order (one customer sitting). */
+export type ZReportReceipt = {
+  orderId: number;
+  orderNumber: string;
+  receiptNumber: string | null;
+  tableId: number;
+  tableName: string;
+  waiterName: string;
+  guestCount: number | null;
+  openedAt: string;
+  paidAt: string | null;
+  paymentMethod: string | null;
+  amount: number;
+  discountAmount: number;
+  serviceCharge: number;
+};
+
+export type ZReportCancellation = {
+  orderId: number;
+  cancelledAt: string;
+  tableName: string;
+  orderNumber: string;
+  isWholeOrder: boolean;
+  /** Removed product, or null when the whole order was cancelled. */
+  menuItemName: string | null;
+  quantity: number;
+  amount: number;
+  reason: string;
+  note: string | null;
+  beforeKitchen: boolean;
+  cancelledBy: string;
+};
+
+export type ZReportGift = {
+  orderId: number;
+  orderNumber: string;
+  receiptNumber: string | null;
+  tableName: string;
+  menuItemName: string;
+  quantity: number;
+  /** Menu value of the gifted items. */
+  value: number;
+  /** Null for gifts made before tracking started. */
+  giftedAt: string | null;
+  giftedBy: string;
+};
+
+export type ZReportTableLine = {
+  tableId: number;
+  tableName: string;
+  orderCount: number;
+  revenue: number;
+  sessions: ZReportReceipt[];
 };
 
 export type ZReport = {
@@ -128,6 +189,11 @@ export type ZReport = {
   products: ZReportProductLine[];
   waiters: ZReportWaiterLine[];
   categories: ZReportCategoryLine[];
+  tables?: ZReportTableLine[];
+  receipts?: ZReportReceipt[];
+  totalServiceCharge?: number;
+  cancellations?: ZReportCancellation[];
+  gifts?: ZReportGift[];
   returnCount?: number;
   totalReturns?: number;
   cashReturns?: number;

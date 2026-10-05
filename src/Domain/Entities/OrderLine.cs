@@ -19,6 +19,9 @@ public class OrderLine : CompanyEntity<int>
 
     /// <summary>Complimentary item — printed/shown, but contributes 0 to the order total.</summary>
     public bool IsGift { get; set; }
+    /// <summary>Who marked the line as a gift, and when — for the gifts report.</summary>
+    public int? GiftedByUserId { get; set; }
+    public DateTime? GiftedAtUtc { get; set; }
 
     /// <summary>Manual per-line discount (AZN) applied to this line only.</summary>
     public decimal DiscountAmount { get; set; }
