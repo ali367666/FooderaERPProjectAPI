@@ -18,5 +18,6 @@ public class CompanyMappingProfile : Profile
             .ForMember(d => d.CompanyId, o => o.MapFrom(s => s.Id))
             .ForMember(d => d.CompanyName, o => o.MapFrom(s => s.Name));
         CreateMap<Domain.Entities.Restaurant, GetCompanyByCodeResponse.RestaurantLookupItem>();
+        CreateMap<Domain.Entities.Workstation, GetCompanyByCodeResponse.WorkstationLookupItem>();
     }
 }

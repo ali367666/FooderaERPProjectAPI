@@ -6,10 +6,17 @@ export type RestaurantLookupItem = {
   name: string;
 };
 
+export type WorkstationLookupItem = {
+  id: number;
+  name: string;
+  restaurantId: number | null;
+};
+
 export type CompanyLookup = {
   companyId: number;
   companyName: string;
   restaurants: RestaurantLookupItem[];
+  workstations: WorkstationLookupItem[];
 };
 
 type ApiResponse<T> = {
@@ -50,7 +57,22 @@ function normalizeCompanyLookup(item: unknown): CompanyLookup | null {
         .filter((r): r is RestaurantLookupItem => r !== null)
     : [];
 
-  return { companyId, companyName: String(companyName), restaurants };
+  const workstationsRaw = pickFirst(raw.workstations, raw.Workstations);
+  const workstations: WorkstationLookupItem[] = Array.isArray(workstationsRaw)
+    ? workstationsRaw
+        .map((t): WorkstationLookupItem | null => {
+          if (!t || typeof t !== "object") return null;
+          const tt = t as Record<string, unknown>;
+          const id = Number(pickFirst(tt.id, tt.Id));
+          const name = pickFirst(tt.name, tt.Name);
+          if (!Number.isFinite(id) || id <= 0 || !name) return null;
+          const rid = pickFirst(tt.restaurantId, tt.RestaurantId);
+          return { id, name: String(name), restaurantId: typeof rid === "number" ? rid : null };
+        })
+        .filter((t): t is WorkstationLookupItem => t !== null)
+    : [];
+
+  return { companyId, companyName: String(companyName), restaurants, workstations };
 }
 
 export async function lookupCompanyByCode(companyCode: string): Promise<CompanyLookup> {
@@ -75,6 +97,7 @@ export async function lookupCompanyByCode(companyCode: string): Promise<CompanyL
 export type PosLoginPayload = {
   companyId: number;
   restaurantId?: number | null;
+  workstationId?: number | null;
   code?: string;
   rfidCardId?: string;
 };

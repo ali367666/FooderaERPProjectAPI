@@ -30,6 +30,7 @@ import {
   LayoutTemplate,
   Landmark,
   Scale,
+  Monitor,
   Gamepad2,
   Truck,
   Wallet,
@@ -334,6 +335,12 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/fiscal-devices",
         icon: Landmark,
         permission: "FiscalDevice.View",
+      },
+      {
+        title: "POS terminalları",
+        href: "/dashboard/workstations",
+        icon: Monitor,
+        permission: "Workstation.View",
       },
       {
         title: "Tərəzilər",

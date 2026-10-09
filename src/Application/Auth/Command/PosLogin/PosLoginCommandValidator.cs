@@ -14,9 +14,9 @@ public sealed class PosLoginCommandValidator : AbstractValidator<PosLoginCommand
             .WithMessage("Provide either Code or RfidCardId, not both");
 
         RuleFor(x => x.Request.Code)
-            .Matches(@"^\d{4,24}$")
+            .Matches(@"^\d{1,24}$")
             .When(x => !string.IsNullOrWhiteSpace(x.Request.Code))
-            .WithMessage("Code must be 4 to 24 digits");
+            .WithMessage("Code must be 1 to 24 digits");
 
         RuleFor(x => x.Request.RfidCardId)
             .MaximumLength(64)

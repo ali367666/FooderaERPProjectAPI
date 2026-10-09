@@ -8,6 +8,8 @@ export type PosTerminalContext = {
   companyName: string;
   restaurantId: number | null;
   restaurantName: string | null;
+  workstationId: number | null;
+  workstationName: string | null;
 };
 
 export function getPosTerminalContext(): PosTerminalContext | null {
@@ -25,6 +27,8 @@ export function getPosTerminalContext(): PosTerminalContext | null {
       companyName: parsed.companyName,
       restaurantId: typeof parsed.restaurantId === "number" ? parsed.restaurantId : null,
       restaurantName: typeof parsed.restaurantName === "string" ? parsed.restaurantName : null,
+      workstationId: typeof parsed.workstationId === "number" ? parsed.workstationId : null,
+      workstationName: typeof parsed.workstationName === "string" ? parsed.workstationName : null,
     };
   } catch {
     return null;

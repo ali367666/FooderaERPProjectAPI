@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ChefHat, CreditCard, Delete, RotateCw, Store } from "lucide-react";
+import { ChefHat, CreditCard, Delete, Monitor, RotateCw, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { persistAuthUser } from "@/lib/auth-client";
 import {
@@ -27,13 +27,14 @@ import {
   lookupCompanyByCode,
   posLogin,
   type RestaurantLookupItem,
+  type WorkstationLookupItem,
 } from "@/lib/services/pos-auth-service";
 import {
   getCompanySettingsBranding,
   type CompanySettingsBranding,
 } from "@/lib/services/company-settings-service";
 
-const MAX_CODE_LENGTH = 16;
+const MAX_CODE_LENGTH = 24;
 
 // Hard restart for a frozen terminal: drop service-worker/HTTP caches, then reload the page.
 // Terminal context and auth live in localStorage, so the terminal stays configured.
@@ -144,7 +145,11 @@ function TerminalSetupView({
     companyId: number;
     companyName: string;
     restaurants: RestaurantLookupItem[];
+    workstations: WorkstationLookupItem[];
   } | null>(null);
+  // Set once a branch is chosen and the admin registered workstations for it: the operator still has
+  // to pick which monitor this is.
+  const [pendingRestaurant, setPendingRestaurant] = useState<RestaurantLookupItem | null | undefined>(undefined);
 
   const handleLookup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -157,13 +162,19 @@ function TerminalSetupView({
       const result = await lookupCompanyByCode(trimmed);
       setLookup(result);
       if (result.restaurants.length === 0) {
-        onDone({
-          companyId: result.companyId,
-          companyCode: trimmed,
-          companyName: result.companyName,
-          restaurantId: null,
-          restaurantName: null,
-        });
+        if (result.workstations.length === 0) {
+          onDone({
+            companyId: result.companyId,
+            companyCode: trimmed,
+            companyName: result.companyName,
+            restaurantId: null,
+            restaurantName: null,
+            workstationId: null,
+            workstationName: null,
+          });
+        } else {
+          setPendingRestaurant(null);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Company was not found");
@@ -172,7 +183,10 @@ function TerminalSetupView({
     }
   };
 
-  const selectRestaurant = (restaurant: RestaurantLookupItem | null) => {
+  const workstationsFor = (restaurant: RestaurantLookupItem | null) =>
+    (lookup?.workstations ?? []).filter((t) => t.restaurantId === null || t.restaurantId === restaurant?.id);
+
+  const finishSetup = (restaurant: RestaurantLookupItem | null, workstation: WorkstationLookupItem | null) => {
     if (!lookup) return;
     onDone({
       companyId: lookup.companyId,
@@ -180,7 +194,17 @@ function TerminalSetupView({
       companyName: lookup.companyName,
       restaurantId: restaurant?.id ?? null,
       restaurantName: restaurant?.name ?? null,
+      workstationId: workstation?.id ?? null,
+      workstationName: workstation?.name ?? null,
     });
+  };
+
+  const selectRestaurant = (restaurant: RestaurantLookupItem | null) => {
+    if (workstationsFor(restaurant).length === 0) {
+      finishSetup(restaurant, null);
+      return;
+    }
+    setPendingRestaurant(restaurant);
   };
 
   return (
@@ -191,7 +215,9 @@ function TerminalSetupView({
         </div>
         <CardTitle>Terminal quraşdırılması</CardTitle>
         <CardDescription>
-          {lookup
+          {pendingRestaurant !== undefined
+            ? "Bu monitorun adını seçin"
+            : lookup
             ? "Bu terminalın işləyəcəyi filialı seçin"
             : "Bu terminalın aid olduğu biznesin kodunu daxil edin"}
         </CardDescription>
@@ -219,6 +245,41 @@ function TerminalSetupView({
               {isLoading ? "Axtarılır..." : "Davam et"}
             </Button>
           </form>
+        ) : pendingRestaurant !== undefined ? (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-foreground">
+              {lookup.companyName}
+              {pendingRestaurant ? ` · ${pendingRestaurant.name}` : ""}
+            </p>
+            <div className="grid gap-2">
+              {workstationsFor(pendingRestaurant).map((workstation) => (
+                <Button
+                  key={workstation.id}
+                  type="button"
+                  variant="outline"
+                  className="h-12 justify-start text-base"
+                  onClick={() => finishSetup(pendingRestaurant, workstation)}
+                >
+                  <Monitor className="mr-2 h-4 w-4" />
+                  {workstation.name}
+                </Button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={() => {
+                if (lookup.restaurants.length === 0) {
+                  setLookup(null);
+                }
+                setPendingRestaurant(undefined);
+                setError(null);
+              }}
+            >
+              Geri
+            </Button>
+          </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm font-medium text-foreground">{lookup.companyName}</p>
@@ -300,13 +361,14 @@ function PosLoginView({
   };
 
   const submitCode = async (value: string) => {
-    if (value.length < 4) return;
+    if (value.length < 1) return;
     setError(null);
     setIsLoading(true);
     try {
       const result = await posLogin({
         companyId: terminal.companyId,
         restaurantId: terminal.restaurantId,
+        workstationId: terminal.workstationId,
         code: value,
       });
       finishLogin(result);
@@ -369,6 +431,12 @@ function PosLoginView({
         {terminal.restaurantName && (
           <CardDescription>{terminal.restaurantName}</CardDescription>
         )}
+        {terminal.workstationName && (
+          <p className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-foreground">
+            <Monitor className="h-4 w-4 text-muted-foreground" />
+            {terminal.workstationName}
+          </p>
+        )}
         {location && <p className="text-xs text-muted-foreground">{location}</p>}
       </CardHeader>
       <CardContent className="space-y-5">
@@ -424,7 +492,7 @@ function PosLoginView({
           </Button>
           <Button
             type="button"
-            disabled={isLoading || code.length < 4}
+            disabled={isLoading || code.length < 1}
             className="h-14 text-sm font-semibold"
             onClick={() => submitCode(code)}
           >

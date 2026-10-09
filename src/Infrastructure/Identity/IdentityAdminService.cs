@@ -227,13 +227,13 @@ public class IdentityAdminService : IIdentityAdminService
         var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
         // The code is the staff member's only secret: as-is on the POS, Code + MMdd for the admin panel.
         if (code is null && (request.CanAccessAdminPanel || request.CanAccessFrontOffice))
-            return (false, null, "Kod tələb olunur (4-12 rəqəm).",
-                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Kod tələb olunur (4-12 rəqəm)." } });
+            return (false, null, "Kod tələb olunur.",
+                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Kod tələb olunur." } });
         if (code is not null)
         {
-            if (code.Length is < 4 or > 12 || !code.All(char.IsDigit))
-                return (false, null, "Code must be 4 to 12 digits.",
-                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be 4 to 12 digits." } });
+            if (code.Length is < 1 or > 20 || !code.All(char.IsDigit))
+                return (false, null, "Code must be 1 to 20 digits.",
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be 1 to 20 digits." } });
 
             var codeTaken = await _db.Users.AsNoTracking()
                 .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code, cancellationToken);
@@ -369,9 +369,9 @@ public class IdentityAdminService : IIdentityAdminService
         var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
         if (code is not null)
         {
-            if (code.Length is < 4 or > 12 || !code.All(char.IsDigit))
-                return (false, "Code must be 4 to 12 digits.",
-                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be 4 to 12 digits." } });
+            if (code.Length is < 1 or > 20 || !code.All(char.IsDigit))
+                return (false, "Code must be 1 to 20 digits.",
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be 1 to 20 digits." } });
 
             var codeTaken = await _db.Users.AsNoTracking()
                 .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code && x.Id != id, cancellationToken);
@@ -411,8 +411,8 @@ public class IdentityAdminService : IIdentityAdminService
         if (!isProtectedAccount && request.CanAccessAdminPanel && request.CanAccessFrontOffice)
             return (false, "İstifadəçi ya POS-a, ya admin panelə giriş ala bilər — ikisi birlikdə yox.", null);
         if (!isProtectedAccount && code is null && (request.CanAccessAdminPanel || request.CanAccessFrontOffice))
-            return (false, "Kod tələb olunur (4-12 rəqəm).",
-                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Kod tələb olunur (4-12 rəqəm)." } });
+            return (false, "Kod tələb olunur.",
+                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Kod tələb olunur." } });
 
         user.CanAccessAdminPanel = request.CanAccessAdminPanel;
         user.CanAccessFrontOffice = request.CanAccessFrontOffice;

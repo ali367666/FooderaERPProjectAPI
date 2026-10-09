@@ -167,6 +167,11 @@ public static class AppPermissions
     public const string ScaleDeviceUpdate = "ScaleDevice.Update";
     public const string ScaleDeviceDelete = "ScaleDevice.Delete";
 
+    public const string WorkstationView = "Workstation.View";
+    public const string WorkstationCreate = "Workstation.Create";
+    public const string WorkstationUpdate = "Workstation.Update";
+    public const string WorkstationDelete = "Workstation.Delete";
+
     public const string DeliveryIntegrationView = "DeliveryIntegration.View";
     public const string DeliveryIntegrationCreate = "DeliveryIntegration.Create";
     public const string DeliveryIntegrationUpdate = "DeliveryIntegration.Update";

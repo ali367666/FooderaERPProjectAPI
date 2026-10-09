@@ -334,12 +334,12 @@ export default function UsersPage() {
       toast.error("Company is required.");
       return;
     }
-    if (code.trim() && !/^\d{4,12}$/.test(code.trim())) {
-      toast.error("Kod 4-12 rəqəm olmalıdır.");
+    if (code.trim() && !/^\d{1,20}$/.test(code.trim())) {
+      toast.error("Kod yalnız rəqəmlərdən ibarət olmalıdır (maks. 20).");
       return;
     }
     if (!editingProtected && !code.trim() && (canAccessAdminPanel || canAccessFrontOffice)) {
-      toast.error("POS və ya admin panel girişi üçün kod (4-12 rəqəm) tələb olunur.");
+      toast.error("POS və ya admin panel girişi üçün kod tələb olunur.");
       return;
     }
     if (workplaceType === "2" && !restaurantId) {
@@ -699,15 +699,15 @@ export default function UsersPage() {
               </Label>
             </div>
             <div>
-              <Label htmlFor="u-code">Kod (4-12 rəqəm)</Label>
+              <Label htmlFor="u-code">Kod (rəqəm)</Label>
               <Input
                 id="u-code"
                 className="mt-1"
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 20))}
                 placeholder="e.g. 0002"
                 inputMode="numeric"
-                maxLength={12}
+                maxLength={20}
                 autoComplete="off"
               />
               {getFieldErrorMessage(fieldErrors, "code") && (

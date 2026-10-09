@@ -13,6 +13,7 @@ public sealed class PosLoginCommandHandler
     : IRequestHandler<PosLoginCommand, BaseResponse<LoginResponse>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IWorkstationRepository _workstationRepository;
     private readonly ICompanySettingsRepository _companySettingsRepository;
     private readonly UserManager<Domain.Entities.User> _userManager;
     private readonly IAuthTokenIssuer _authTokenIssuer;
@@ -20,12 +21,14 @@ public sealed class PosLoginCommandHandler
 
     public PosLoginCommandHandler(
         IUserRepository userRepository,
+        IWorkstationRepository workstationRepository,
         ICompanySettingsRepository companySettingsRepository,
         UserManager<Domain.Entities.User> userManager,
         IAuthTokenIssuer authTokenIssuer,
         ILogger<PosLoginCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _workstationRepository = workstationRepository;
         _companySettingsRepository = companySettingsRepository;
         _userManager = userManager;
         _authTokenIssuer = authTokenIssuer;
@@ -67,6 +70,9 @@ public sealed class PosLoginCommandHandler
         }
 
         await _userManager.ResetAccessFailedCountAsync(user);
+
+        if (dto.WorkstationId is > 0)
+            await _workstationRepository.TouchLastSeenAsync(dto.WorkstationId.Value, dto.CompanyId, cancellationToken);
 
         var tokenResponse = await _authTokenIssuer.IssueForUserAsync(user, request.IpAddress, cancellationToken);
 

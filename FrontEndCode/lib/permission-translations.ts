@@ -171,6 +171,11 @@ const PERMISSION_LABELS: Record<string, string> = {
   "ScaleDevice.Create": "Tərəzi əlavə et",
   "ScaleDevice.Update": "Tərəzini redaktə et",
   "ScaleDevice.Delete": "Tərəzini sil",
+
+  "Workstation.View": "POS terminallarına bax",
+  "Workstation.Create": "POS terminalı əlavə et",
+  "Workstation.Update": "POS terminalını redaktə et",
+  "Workstation.Delete": "POS terminalını sil",
 };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -205,6 +210,7 @@ const MODULE_LABELS: Record<string, string> = {
   Counterparty: "Kontragentlər",
   FiscalDevice: "Fiskal kassalar",
   ScaleDevice: "Tərəzilər",
+  Workstation: "POS terminalları",
   CashRegister: "Kassa",
   DeliveryIntegration: "Çatdırılma inteqrasiyaları",
 };
