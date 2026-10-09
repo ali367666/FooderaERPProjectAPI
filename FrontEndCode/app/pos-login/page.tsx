@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ChefHat, CreditCard, Delete, Store } from "lucide-react";
+import { ChefHat, CreditCard, Delete, RotateCw, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { persistAuthUser } from "@/lib/auth-client";
 import {
@@ -34,6 +34,24 @@ import {
 } from "@/lib/services/company-settings-service";
 
 const MAX_CODE_LENGTH = 16;
+
+// Hard restart for a frozen terminal: drop service-worker/HTTP caches, then reload the page.
+// Terminal context and auth live in localStorage, so the terminal stays configured.
+async function restartTerminal() {
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch {
+    // Reload regardless — a failed cache cleanup must not block the restart.
+  }
+  window.location.reload();
+}
 
 export default function PosLoginPage() {
   const router = useRouter();
@@ -79,6 +97,16 @@ export default function PosLoginPage() {
           aria-hidden
         />
       )}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="absolute right-4 top-4 z-20 gap-2"
+        onClick={() => void restartTerminal()}
+      >
+        <RotateCw className="h-4 w-4" />
+        Yenidən başlat
+      </Button>
       <div className="relative z-10 w-full max-w-md">
         {terminal ? (
           <PosLoginView
