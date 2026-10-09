@@ -1,6 +1,8 @@
+using Application.Common.Exceptions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
+using Domain.Constants;
 using Application.Common.Models;
 using Application.Orders.Dtos;
 using Domain.Enums;
@@ -14,22 +16,43 @@ public class ReassignOrderWaiterCommandHandler : IRequestHandler<ReassignOrderWa
     private readonly IEmployeeRepository _employeeRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
+    private readonly IStaffCodeResolver _staffCodeResolver;
+    private readonly IUserRepository _userRepository;
 
     public ReassignOrderWaiterCommandHandler(
         IOrderRepository orderRepository,
         IEmployeeRepository employeeRepository,
         ICurrentUserService currentUserService,
-        IAuditLogService auditLogService)
+        IAuditLogService auditLogService,
+        IStaffCodeResolver staffCodeResolver,
+        IUserRepository userRepository)
     {
         _orderRepository = orderRepository;
         _employeeRepository = employeeRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
+        _staffCodeResolver = staffCodeResolver;
+        _userRepository = userRepository;
     }
 
     public async Task<OrderResponse> Handle(ReassignOrderWaiterCommand request, CancellationToken cancellationToken)
     {
         var companyId = _currentUserService.CompanyId;
+
+        // Anyone may press "Ofisiant dəyiş", but only someone with Pos.RedirectUser may approve it:
+        // either the caller themselves or a supervisor who types their code.
+        string? approvedBy = null;
+        if (!_currentUserService.HasPermission(AppPermissions.PosRedirectUser))
+        {
+            if (string.IsNullOrWhiteSpace(request.SupervisorCode))
+                throw new BadRequestException("Ofisiantı dəyişmək üçün səlahiyyətli şəxsin kodunu daxil edin.");
+
+            var approver = await _staffCodeResolver.ResolveAsync(companyId, request.SupervisorCode.Trim(), cancellationToken);
+            if (approver is null || !await _userRepository.HasPermissionAsync(approver.Id, AppPermissions.PosRedirectUser, cancellationToken))
+                throw new BadRequestException("Kod yanlışdır və ya bu əməliyyat üçün icazəniz yoxdur.");
+
+            approvedBy = approver.UserName;
+        }
 
         var order = await _orderRepository.GetByIdAsync(request.OrderId, companyId, cancellationToken);
         if (order is null)
@@ -56,7 +79,8 @@ public class ReassignOrderWaiterCommandHandler : IRequestHandler<ReassignOrderWa
                     EntityName = "Order",
                     EntityId = order.Id.ToString(),
                     ActionType = "ReassignWaiter",
-                    Message = $"Order {order.Id} ofisiantı dəyişdirildi: {oldWaiterId} -> {newEmployee.Id}",
+                    Message = $"Order {order.Id} ofisiantı dəyişdirildi: {oldWaiterId} -> {newEmployee.Id}"
+                        + (approvedBy is null ? "" : $" (təsdiq edən: {approvedBy})"),
                     IsSuccess = true
                 },
                 cancellationToken);

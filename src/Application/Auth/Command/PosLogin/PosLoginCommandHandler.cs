@@ -13,6 +13,7 @@ public sealed class PosLoginCommandHandler
     : IRequestHandler<PosLoginCommand, BaseResponse<LoginResponse>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IStaffCodeResolver _staffCodeResolver;
     private readonly IWorkstationRepository _workstationRepository;
     private readonly ICompanySettingsRepository _companySettingsRepository;
     private readonly UserManager<Domain.Entities.User> _userManager;
@@ -21,6 +22,7 @@ public sealed class PosLoginCommandHandler
 
     public PosLoginCommandHandler(
         IUserRepository userRepository,
+        IStaffCodeResolver staffCodeResolver,
         IWorkstationRepository workstationRepository,
         ICompanySettingsRepository companySettingsRepository,
         UserManager<Domain.Entities.User> userManager,
@@ -28,6 +30,7 @@ public sealed class PosLoginCommandHandler
         ILogger<PosLoginCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _staffCodeResolver = staffCodeResolver;
         _workstationRepository = workstationRepository;
         _companySettingsRepository = companySettingsRepository;
         _userManager = userManager;
@@ -81,37 +84,8 @@ public sealed class PosLoginCommandHandler
         return BaseResponse<LoginResponse>.Ok(tokenResponse, "Login successful");
     }
 
-    private async Task<Domain.Entities.User?> HandleCodeLoginAsync(int companyId, string submittedCode, CancellationToken cancellationToken)
-    {
-        // Fixed code: the submitted value is the staff code itself. Rotating-PIN roles submit
-        // ddMM + code, so the code is whatever follows the 4-char date prefix.
-        var user = await _userRepository.GetByCompanyAndCodeAsync(companyId, submittedCode, cancellationToken);
-        if (user is not null && await _userRepository.HasRotatingPinRoleAsync(user.Id, cancellationToken))
-            user = null;
-
-        if (user is null && submittedCode.Length > 4 && submittedCode[..4] == BusinessTime.Now.ToString("ddMM"))
-        {
-            var candidate = await _userRepository.GetByCompanyAndCodeAsync(companyId, submittedCode[4..], cancellationToken);
-            if (candidate is not null && await _userRepository.HasRotatingPinRoleAsync(candidate.Id, cancellationToken))
-            {
-                user = candidate;
-            }
-        }
-
-        if (user is null)
-        {
-            _logger.LogWarning("POS login failed. No user found for CompanyId {CompanyId} and submitted code", companyId);
-            return null;
-        }
-
-        if (await _userManager.IsLockedOutAsync(user))
-        {
-            _logger.LogWarning("POS login failed. User {UserId} is locked out", user.Id);
-            return null;
-        }
-
-        return user;
-    }
+    private Task<Domain.Entities.User?> HandleCodeLoginAsync(int companyId, string submittedCode, CancellationToken cancellationToken)
+        => _staffCodeResolver.ResolveAsync(companyId, submittedCode, cancellationToken);
 
     private async Task<Domain.Entities.User?> HandleRfidLoginAsync(int companyId, string rfidCardId, CancellationToken cancellationToken)
     {

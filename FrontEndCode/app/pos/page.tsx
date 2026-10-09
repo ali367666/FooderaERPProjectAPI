@@ -4,7 +4,7 @@ import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Lock, Receipt, RefreshCw, StickyNote, Users } from "lucide-react";
+import { ArrowLeftRight, Lock, Receipt, RefreshCw, StickyNote, UserCog, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,16 @@ import {
   RestaurantTableType,
   type RestaurantTable,
 } from "@/lib/services/restaurant-table-service";
-import { getOrders, createOrder, type OrderDto, type OrderWorkflowStatus } from "@/lib/services/order-service";
+import {
+  getOrders,
+  createOrder,
+  moveOrderTable,
+  reassignOrderWaiter,
+  verifyRedirectCode,
+  type OrderDto,
+  type OrderWorkflowStatus,
+} from "@/lib/services/order-service";
+import { getEmployees, type Employee } from "@/lib/services/employee-service";
 import { getRestaurantSections, type RestaurantSection } from "@/lib/services/restaurant-section-service";
 import { getReservations, type ReservationDto } from "@/lib/services/reservation-service";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
@@ -93,10 +102,30 @@ export default function PosTablesPage() {
   const canChangeSection = useHasPermission("Pos.ChangeDepartment");
   const canViewAllTables = useHasPermission("Pos.RedirectUser");
   const canPrintBill = useHasPermission("Pos.PrintReceipt");
-  // "Ödəniş" mode: armed by the header button, the next table tapped prints its bill instead of
-  // opening. One-shot on purpose — printing records (and may lock) the bill.
-  const [billMode, setBillMode] = useState(false);
-  const [billBusy, setBillBusy] = useState(false);
+  // One-shot modes armed by the header buttons: the next table(s) tapped act instead of opening.
+  //   bill        "Ödəniş"        — print that table's bill (printing records, and may lock, the bill)
+  //   move-pick   "Masa dəyiş"    — step 1: pick the table to move   (no permission needed)
+  //   move-target                 — step 2: pick the empty table it goes to
+  //   waiter-pick "Ofisiant dəyiş" — pick the table whose waiter changes (approval: see below)
+  const canRedirectUser = useHasPermission("Pos.RedirectUser");
+  const [mode, setMode] = useState<"bill" | "move-pick" | "move-target" | "waiter-pick" | null>(null);
+  const [modeBusy, setModeBusy] = useState(false);
+  const [moveSource, setMoveSource] = useState<TableWithOrder | null>(null);
+  // "Ofisiant dəyiş" is visible to everyone; whoever lacks Pos.RedirectUser must get a supervisor's
+  // code approved first. The verified code rides along with the final request.
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [supervisorCode, setSupervisorCode] = useState<string | null>(null);
+  const [waiterTable, setWaiterTable] = useState<TableWithOrder | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  const resetMode = () => {
+    setMode(null);
+    setMoveSource(null);
+    setSupervisorCode(null);
+    setWaiterTable(null);
+  };
   const [now, setNow] = useState(() => new Date());
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
   const alertedTableIds = useRef<Set<number>>(new Set());
@@ -346,22 +375,130 @@ export default function PosTablesPage() {
       toast.error("Bu masanın sifarişi boşdur.");
       return;
     }
-    setBillBusy(true);
+    setModeBusy(true);
     try {
       const printerName = await printBillForOrder(order.id, order.restaurantId, branding);
       toast.success(`${table.name}: çek ${printerName}-ə göndərildi`);
-      setBillMode(false);
+      resetMode();
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Çek çıxarıla bilmədi");
     } finally {
-      setBillBusy(false);
+      setModeBusy(false);
+    }
+  };
+
+  const isOthersOrder = (table: TableWithOrder) => {
+    const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
+    return (
+      !canOverrideOwnership &&
+      currentEmployeeId != null &&
+      table.activeOrder != null &&
+      table.activeOrder.waiterId !== currentEmployeeId
+    );
+  };
+
+  const handleMoveTap = async (table: TableWithOrder) => {
+    if (mode === "move-pick") {
+      if (!table.activeOrder) {
+        toast.error("Bu masada sifariş yoxdur.");
+        return;
+      }
+      if (isOthersOrder(table)) {
+        toast.error("Bu masa başqa ofisiantə aiddir.");
+        return;
+      }
+      setMoveSource(table);
+      setMode("move-target");
+      return;
+    }
+    // move-target
+    if (!moveSource?.activeOrder) return;
+    if (table.activeOrder || !table.isActive) {
+      toast.error("Boş masa seçin.");
+      return;
+    }
+    setModeBusy(true);
+    try {
+      await moveOrderTable(moveSource.activeOrder.id, table.id);
+      toast.success(`${moveSource.name} → ${table.name}`);
+      resetMode();
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Masa dəyişdirilmədi");
+    } finally {
+      setModeBusy(false);
+    }
+  };
+
+  const startWaiterChange = () => {
+    if (mode === "waiter-pick") {
+      resetMode();
+      return;
+    }
+    resetMode();
+    if (canRedirectUser) {
+      setMode("waiter-pick");
+      return;
+    }
+    setCodeInput("");
+    setCodeError(null);
+    setCodeDialogOpen(true);
+  };
+
+  const submitSupervisorCode = async () => {
+    const code = codeInput.trim();
+    if (!code) return;
+    setModeBusy(true);
+    setCodeError(null);
+    try {
+      await verifyRedirectCode(code);
+      setSupervisorCode(code);
+      setCodeDialogOpen(false);
+      setCodeInput("");
+      setMode("waiter-pick");
+    } catch (err) {
+      setCodeError(err instanceof Error ? err.message : "Kod yanlışdır");
+    } finally {
+      setModeBusy(false);
+    }
+  };
+
+  const handleWaiterTap = async (table: TableWithOrder) => {
+    if (!table.activeOrder) {
+      toast.error("Bu masada sifariş yoxdur.");
+      return;
+    }
+    setWaiterTable(table);
+    try {
+      setEmployees(await getEmployees());
+    } catch {
+      setEmployees([]);
+    }
+  };
+
+  const handlePickWaiter = async (employee: Employee) => {
+    const order = waiterTable?.activeOrder;
+    if (!order || modeBusy) return;
+    setModeBusy(true);
+    try {
+      await reassignOrderWaiter(order.id, employee.id, supervisorCode);
+      toast.success("Ofisiant dəyişdirildi");
+      resetMode();
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Ofisiant dəyişdirilmədi");
+    } finally {
+      setModeBusy(false);
     }
   };
 
   const openTable = async (table: TableWithOrder) => {
-    if (billMode) {
-      if (!billBusy) await printBillForTable(table);
+    if (mode) {
+      if (modeBusy || waiterTable) return;
+      if (mode === "bill") await printBillForTable(table);
+      else if (mode === "waiter-pick") await handleWaiterTap(table);
+      else await handleMoveTap(table);
       return;
     }
     if (table.activeOrder) {
@@ -422,12 +559,38 @@ export default function PosTablesPage() {
               Çatdırılma sifarişi
             </Button>
           )}
+          <Button
+            size="sm"
+            variant={mode === "move-pick" || mode === "move-target" ? "default" : "outline"}
+            disabled={modeBusy}
+            onClick={() => {
+              const active = mode === "move-pick" || mode === "move-target";
+              resetMode();
+              if (!active) setMode("move-pick");
+            }}
+          >
+            <ArrowLeftRight className="mr-2 h-4 w-4" />
+            Masa dəyiş
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "waiter-pick" ? "default" : "outline"}
+            disabled={modeBusy}
+            onClick={startWaiterChange}
+          >
+            <UserCog className="mr-2 h-4 w-4" />
+            Ofisiant dəyiş
+          </Button>
           {canPrintBill && (
             <Button
               size="sm"
-              variant={billMode ? "default" : "outline"}
-              disabled={billBusy}
-              onClick={() => setBillMode((v) => !v)}
+              variant={mode === "bill" ? "default" : "outline"}
+              disabled={modeBusy}
+              onClick={() => {
+                const active = mode === "bill";
+                resetMode();
+                if (!active) setMode("bill");
+              }}
             >
               <Receipt className="mr-2 h-4 w-4" />
               Ödəniş
@@ -439,16 +602,96 @@ export default function PosTablesPage() {
         </div>
       </div>
 
-      {billMode && (
+      {mode && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
           <span>
-            {billBusy ? "Çek çıxarılır..." : "Çekini çıxarmaq istədiyiniz masaya toxunun"}
+            {modeBusy
+              ? "Gözləyin..."
+              : mode === "bill"
+                ? "Çekini çıxarmaq istədiyiniz masaya toxunun"
+                : mode === "move-pick"
+                  ? "Köçürmək istədiyiniz masaya toxunun"
+                  : mode === "move-target"
+                    ? `${moveSource?.name ?? "Masa"} hansı boş masaya köçürülsün?`
+                    : "Ofisiantı dəyişəcəyiniz masaya toxunun"}
           </span>
-          <Button size="sm" variant="ghost" disabled={billBusy} onClick={() => setBillMode(false)}>
+          <Button size="sm" variant="ghost" disabled={modeBusy} onClick={resetMode}>
             Ləğv et
           </Button>
         </div>
       )}
+
+      {/* "Ofisiant dəyiş" — supervisor code */}
+      <Dialog
+        open={codeDialogOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setCodeDialogOpen(false);
+            setCodeInput("");
+            setCodeError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ofisiant dəyiş</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitSupervisorCode();
+            }}
+          >
+            <p className="text-sm text-muted-foreground">
+              Bu əməliyyat üçün icazəsi olan şəxsin kodunu daxil edin.
+            </p>
+            {codeError && <p className="text-sm text-destructive">{codeError}</p>}
+            <Input
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              autoFocus
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, ""))}
+              placeholder="Kod"
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCodeDialogOpen(false)} disabled={modeBusy}>
+                Ləğv et
+              </Button>
+              <Button type="submit" disabled={modeBusy || !codeInput.trim()}>
+                {modeBusy ? "Yoxlanılır…" : "Təsdiqlə"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* "Ofisiant dəyiş" — pick the new waiter */}
+      <Dialog open={waiterTable !== null} onOpenChange={(o) => !o && setWaiterTable(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{waiterTable?.name}: yeni ofisiant</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-64 space-y-1 overflow-y-auto">
+            {employees.map((e) => (
+              <button
+                key={e.id}
+                type="button"
+                disabled={modeBusy}
+                onClick={() => void handlePickWaiter(e)}
+                className="flex w-full items-center rounded-md border px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
+              >
+                {e.fullName?.trim() || `${e.firstName} ${e.lastName}`.trim() || `Employee #${e.id}`}
+              </button>
+            ))}
+            {employees.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">İşçi tapılmadı</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {branding?.modulePaket === true &&
         (() => {

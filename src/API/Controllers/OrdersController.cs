@@ -24,6 +24,7 @@ using Application.Orders.Commands.Submit;
 using Application.Orders.Commands.Update;
 using Application.Orders.Commands.MoveTable;
 using Application.Orders.Commands.ReassignWaiter;
+using Application.Orders.Queries.VerifyRedirectCode;
 using Application.Orders.Commands.TableRental;
 using Application.Orders.Dtos;
 using Application.Orders.Queries.GetAll;
@@ -278,7 +279,7 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = AppPermissions.PosMoveTable)]
+    // Any signed-in waiter may move their own order to another table — no permission needed.
     [HttpPut("{id:int}/move-table")]
     public async Task<ActionResult<OrderResponse>> MoveTable(int id, [FromQuery] int newTableId)
     {
@@ -286,11 +287,19 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = AppPermissions.PosRedirectUser)]
+    // Visible to everyone; approval is checked inside — Pos.RedirectUser or a supervisor's code.
     [HttpPut("{id:int}/reassign-waiter")]
-    public async Task<ActionResult<OrderResponse>> ReassignWaiter(int id, [FromQuery] int newEmployeeId)
+    public async Task<ActionResult<OrderResponse>> ReassignWaiter(int id, [FromBody] ReassignWaiterRequest request)
     {
-        var result = await _mediator.Send(new ReassignOrderWaiterCommand(id, newEmployeeId));
+        var result = await _mediator.Send(new ReassignOrderWaiterCommand(id, request.NewEmployeeId, request.SupervisorCode));
         return Ok(result);
+    }
+
+    /// <summary>Early check of a supervisor's code so the POS can fail before the waiter picks an order.</summary>
+    [HttpPost("verify-redirect-code")]
+    public async Task<ActionResult<string>> VerifyRedirectCode([FromBody] VerifyRedirectCodeRequest request)
+    {
+        var approver = await _mediator.Send(new VerifyRedirectCodeQuery(request.Code));
+        return Ok(approver);
     }
 }

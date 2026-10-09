@@ -154,7 +154,6 @@ export default function PosOrderPage() {
   const canEditProduct = useHasPermission("Pos.EditProductInSale");
   const canDeleteProduct = useHasPermission("Pos.DeleteProductInSale");
   const canDeleteOrder = useHasPermission("Pos.DeleteOrder");
-  const canMoveTable = useHasPermission("Pos.MoveTable");
   const canRedirectUser = useHasPermission("Pos.RedirectUser");
   const canChangePrice = useHasPermission("Pos.ChangePrice");
   const canApplyDiscount = useHasPermission("Discount.Apply");
@@ -1101,7 +1100,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
               <StickyNote className="mr-1 h-3.5 w-3.5" />
               Qeyd
             </Button>
-            {!isPaid && !isStoreMode && canMoveTable && (
+            {!isPaid && !isStoreMode && (
               <Button variant="outline" size="sm" onClick={() => void openMoveTableDialog()} disabled={busy}>
                 <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
                 Masanı dəyiş

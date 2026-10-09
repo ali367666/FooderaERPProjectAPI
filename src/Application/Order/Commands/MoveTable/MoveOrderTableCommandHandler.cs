@@ -1,4 +1,5 @@
 using System.Text;
+using Application.Common.Exceptions;
 using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.İnterfaces;
@@ -20,6 +21,7 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
     private readonly ICompanySettingsRepository _companySettingsRepository;
     private readonly IPrinterRepository _printerRepository;
     private readonly INetworkPrinterService _networkPrinterService;
+    private readonly IEmployeeRepository _employeeRepository;
 
     public MoveOrderTableCommandHandler(
         IOrderRepository orderRepository,
@@ -28,7 +30,8 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         IAuditLogService auditLogService,
         ICompanySettingsRepository companySettingsRepository,
         IPrinterRepository printerRepository,
-        INetworkPrinterService networkPrinterService)
+        INetworkPrinterService networkPrinterService,
+        IEmployeeRepository employeeRepository)
     {
         _orderRepository = orderRepository;
         _tableRepository = tableRepository;
@@ -37,6 +40,7 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         _companySettingsRepository = companySettingsRepository;
         _printerRepository = printerRepository;
         _networkPrinterService = networkPrinterService;
+        _employeeRepository = employeeRepository;
     }
 
     public async Task<OrderResponse> Handle(MoveOrderTableCommand request, CancellationToken cancellationToken)
@@ -46,6 +50,15 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         var order = await _orderRepository.GetByIdAsync(request.OrderId, companyId, cancellationToken);
         if (order is null)
             throw new Exception("Order not found.");
+
+        // No permission needed to move a table, but a waiter only moves their own orders.
+        if (!_currentUserService.HasPermission(Domain.Constants.AppPermissions.PosRedirectUser))
+        {
+            var currentEmployee = await _employeeRepository.GetByUserIdAsync(
+                _currentUserService.UserId, companyId, cancellationToken);
+            if (currentEmployee is null || order.WaiterId != currentEmployee.Id)
+                throw new BadRequestException("Bu sifariş başqa ofisiantə aiddir.");
+        }
 
         if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Cancelled)
             throw new Exception("This order can no longer be moved.");

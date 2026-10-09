@@ -721,10 +721,19 @@ export async function moveOrderTable(id: number, newTableId: number): Promise<Or
   }
 }
 
-export async function reassignOrderWaiter(id: number, newEmployeeId: number): Promise<OrderDto> {
+/**
+ * `supervisorCode` is the POS code of someone holding Pos.RedirectUser — needed when the signed-in
+ * user doesn't hold it themselves. Sent in the body, never in the URL.
+ */
+export async function reassignOrderWaiter(
+  id: number,
+  newEmployeeId: number,
+  supervisorCode?: string | null,
+): Promise<OrderDto> {
   try {
-    const response = await api.put<unknown>(`/Orders/${id}/reassign-waiter`, null, {
-      params: { newEmployeeId },
+    const response = await api.put<unknown>(`/Orders/${id}/reassign-waiter`, {
+      newEmployeeId,
+      supervisorCode: supervisorCode ?? null,
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
@@ -732,6 +741,15 @@ export async function reassignOrderWaiter(id: number, newEmployeeId: number): Pr
     return row;
   } catch (error) {
     throw toApiFormError(error, "Failed to reassign waiter");
+  }
+}
+
+/** Rejects (with the server's message) unless the code belongs to someone allowed to redirect orders. */
+export async function verifyRedirectCode(code: string): Promise<void> {
+  try {
+    await api.post<unknown>("/Orders/verify-redirect-code", { code });
+  } catch (error) {
+    throw toApiFormError(error, "Kod yanlışdır");
   }
 }
 
