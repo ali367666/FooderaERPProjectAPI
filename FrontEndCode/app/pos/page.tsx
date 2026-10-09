@@ -4,7 +4,7 @@ import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Lock, RefreshCw, StickyNote, Users } from "lucide-react";
+import { Lock, Receipt, RefreshCw, StickyNote, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ import {
   type CompanySettingsBranding,
 } from "@/lib/services/company-settings-service";
 import { playPosAlert } from "@/lib/pos-sound-alert";
+import { printBillForOrder } from "@/lib/pos-bill-print";
 
 type TableWithOrder = RestaurantTable & { activeOrder: OrderDto | null };
 
@@ -91,6 +92,11 @@ export default function PosTablesPage() {
   const [activeSectionId, setActiveSectionId] = useState<number | null>(null);
   const canChangeSection = useHasPermission("Pos.ChangeDepartment");
   const canViewAllTables = useHasPermission("Pos.RedirectUser");
+  const canPrintBill = useHasPermission("Pos.PrintReceipt");
+  // "Ödəniş" mode: armed by the header button, the next table tapped prints its bill instead of
+  // opening. One-shot on purpose — printing records (and may lock) the bill.
+  const [billMode, setBillMode] = useState(false);
+  const [billBusy, setBillBusy] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
   const alertedTableIds = useRef<Set<number>>(new Set());
@@ -325,7 +331,39 @@ export default function PosTablesPage() {
     void createOrderForTable(table);
   };
 
+  const printBillForTable = async (table: TableWithOrder) => {
+    const order = table.activeOrder;
+    if (!order) {
+      toast.error("Bu masada sifariş yoxdur.");
+      return;
+    }
+    const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
+    if (!canOverrideOwnership && currentEmployeeId != null && order.waiterId !== currentEmployeeId) {
+      toast.error("Bu masa başqa ofisiantə aiddir.");
+      return;
+    }
+    if (order.lines.length === 0) {
+      toast.error("Bu masanın sifarişi boşdur.");
+      return;
+    }
+    setBillBusy(true);
+    try {
+      const printerName = await printBillForOrder(order.id, order.restaurantId, branding);
+      toast.success(`${table.name}: çek ${printerName}-ə göndərildi`);
+      setBillMode(false);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Çek çıxarıla bilmədi");
+    } finally {
+      setBillBusy(false);
+    }
+  };
+
   const openTable = async (table: TableWithOrder) => {
+    if (billMode) {
+      if (!billBusy) await printBillForTable(table);
+      return;
+    }
     if (table.activeOrder) {
       const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
       if (!canOverrideOwnership && currentEmployeeId != null && table.activeOrder.waiterId !== currentEmployeeId) {
@@ -384,11 +422,33 @@ export default function PosTablesPage() {
               Çatdırılma sifarişi
             </Button>
           )}
+          {canPrintBill && (
+            <Button
+              size="sm"
+              variant={billMode ? "default" : "outline"}
+              disabled={billBusy}
+              onClick={() => setBillMode((v) => !v)}
+            >
+              <Receipt className="mr-2 h-4 w-4" />
+              Ödəniş
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => void load()}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
+
+      {billMode && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
+          <span>
+            {billBusy ? "Çek çıxarılır..." : "Çekini çıxarmaq istədiyiniz masaya toxunun"}
+          </span>
+          <Button size="sm" variant="ghost" disabled={billBusy} onClick={() => setBillMode(false)}>
+            Ləğv et
+          </Button>
+        </div>
+      )}
 
       {branding?.modulePaket === true &&
         (() => {
