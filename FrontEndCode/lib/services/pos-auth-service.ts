@@ -146,3 +146,29 @@ export async function posLogin(payload: PosLoginPayload): Promise<PosLoginResult
     throw toApiFormError(error, "Invalid code or card");
   }
 }
+
+/**
+ * Checks that the given admin-panel credentials belong to someone allowed to re-assign this
+ * terminal's workstation. Uses the normal login endpoint but never stores the returned token.
+ */
+export async function verifyWorkstationChangeAccess(
+  userName: string,
+  password: string,
+): Promise<boolean> {
+  try {
+    const response = await api.post<ApiResponse<unknown>>("/Auth/login", {
+      emailOrUserName: userName,
+      password,
+    });
+    const data = response.data;
+    if (data?.success === false || !data?.data) return false;
+    const raw = data.data as Record<string, unknown>;
+    const permissionsRaw = pickFirst(raw.permissions, raw.Permissions);
+    return (
+      Array.isArray(permissionsRaw) &&
+      permissionsRaw.some((x) => x === "Workstation.Update")
+    );
+  } catch {
+    return false;
+  }
+}

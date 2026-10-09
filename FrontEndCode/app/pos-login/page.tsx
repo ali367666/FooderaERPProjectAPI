@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/card";
 import { ChefHat, CreditCard, Delete, Monitor, RotateCw, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { persistAuthUser } from "@/lib/auth-client";
 import {
   clearPosTerminalContext,
@@ -26,6 +33,7 @@ import {
 import {
   lookupCompanyByCode,
   posLogin,
+  verifyWorkstationChangeAccess,
   type RestaurantLookupItem,
   type WorkstationLookupItem,
 } from "@/lib/services/pos-auth-service";
@@ -342,8 +350,52 @@ function PosLoginView({
   const rfidBufferRef = useRef("");
   const rfidInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Once a workstation is chosen the terminal is locked to it: moving the terminal to another
+  // monitor identity needs an admin (otherwise problems could never be traced to a screen).
+  const isLocked = terminal.workstationId !== null;
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [unlockUser, setUnlockUser] = useState("");
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlockChecking, setUnlockChecking] = useState(false);
+  const unlockOpenRef = useRef(false);
+  unlockOpenRef.current = unlockOpen;
+
+  const closeUnlock = () => {
+    setUnlockOpen(false);
+    setUnlockUser("");
+    setUnlockPassword("");
+    setUnlockError(null);
+  };
+
+  const handleChangeTerminal = () => {
+    if (!isLocked) {
+      onChangeTerminal();
+      return;
+    }
+    setUnlockOpen(true);
+  };
+
+  const submitUnlock = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!unlockUser.trim() || !unlockPassword) return;
+    setUnlockChecking(true);
+    setUnlockError(null);
+    const allowed = await verifyWorkstationChangeAccess(unlockUser.trim(), unlockPassword);
+    setUnlockChecking(false);
+    if (!allowed) {
+      setUnlockError("Giriş məlumatları yanlışdır və ya terminalı dəyişmək icazəniz yoxdur.");
+      return;
+    }
+    closeUnlock();
+    onChangeTerminal();
+  };
+
   useEffect(() => {
-    const focusRfid = () => rfidInputRef.current?.focus();
+    const focusRfid = () => {
+      if (unlockOpenRef.current) return;
+      rfidInputRef.current?.focus();
+    };
     focusRfid();
     const interval = window.setInterval(focusRfid, 1000);
     return () => window.clearInterval(interval);
@@ -530,7 +582,7 @@ function PosLoginView({
             type="button"
             variant="link"
             className="px-0 text-muted-foreground"
-            onClick={onChangeTerminal}
+            onClick={handleChangeTerminal}
           >
             Terminalı dəyiş
           </Button>
@@ -541,6 +593,53 @@ function PosLoginView({
             Adi giriş
           </a>
         </div>
+
+        <Dialog open={unlockOpen} onOpenChange={(o) => (o ? setUnlockOpen(true) : closeUnlock())}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Terminalı dəyiş</DialogTitle>
+              <DialogDescription>
+                Bu monitor "{terminal.workstationName}" adına bağlıdır. Dəyişmək üçün admin məlumatlarını
+                daxil edin.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={submitUnlock} className="space-y-3">
+              {unlockError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{unlockError}</AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-1">
+                <Label htmlFor="unlock-user">İstifadəçi adı</Label>
+                <Input
+                  id="unlock-user"
+                  value={unlockUser}
+                  onChange={(e) => setUnlockUser(e.target.value)}
+                  autoComplete="off"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="unlock-password">Şifrə / kod</Label>
+                <Input
+                  id="unlock-password"
+                  type="password"
+                  value={unlockPassword}
+                  onChange={(e) => setUnlockPassword(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={closeUnlock} disabled={unlockChecking}>
+                  Ləğv et
+                </Button>
+                <Button type="submit" disabled={unlockChecking || !unlockUser.trim() || !unlockPassword}>
+                  {unlockChecking ? "Yoxlanılır…" : "Təsdiqlə"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
