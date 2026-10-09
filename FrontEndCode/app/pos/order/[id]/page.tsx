@@ -56,6 +56,7 @@ import {
   getRestaurantTables,
   getRestaurantTableById,
   updateRestaurantTable,
+  RestaurantTableType,
   type RestaurantTable,
 } from "@/lib/services/restaurant-table-service";
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
@@ -740,7 +741,11 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     try {
       const tables = await getRestaurantTables();
       setAvailableTables(
-        tables.filter((t) => t.restaurantId === order.restaurantId && t.isActive && !t.isOccupied),
+        tables.filter((t) => t.restaurantId === order.restaurantId &&
+          t.isActive &&
+          !t.isOccupied &&
+          t.type !== RestaurantTableType.Delivery &&
+          t.type !== RestaurantTableType.TakeAway),
       );
     } catch {
       setAvailableTables([]);

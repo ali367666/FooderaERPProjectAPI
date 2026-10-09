@@ -70,6 +70,9 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         if (newTable is null || newTable.RestaurantId != order.RestaurantId)
             throw new Exception("Table not found for this branch.");
 
+        if (newTable.Type is RestaurantTableType.Delivery or RestaurantTableType.TakeAway)
+            throw new Exception("Table not found for this branch.");
+
         if (newTable.IsOccupied)
             throw new Exception("The selected table is already occupied.");
 

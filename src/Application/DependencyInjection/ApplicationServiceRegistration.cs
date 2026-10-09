@@ -15,8 +15,6 @@ public static class ApplicationServiceRegistration
             cfg.AddOpenBehavior(typeof(Application.Common.Behaviors.OrderPolicyBehavior<,>));
         });
 
-        services.AddScoped<Application.Common.Interfaces.Abstracts.Services.IStaffCodeResolver, Application.Auth.Services.StaffCodeResolver>();
-
         services.AddValidatorsFromAssembly(typeof(ApplicationServiceRegistration).Assembly);
 
         return services;

@@ -63,20 +63,21 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
         var orderNumber = await GenerateOrderNumberAsync(companyId, cancellationToken);
 
         Domain.Entities.RestaurantTable table;
-        if (request.Request.IsDelivery)
+        if (request.Request.IsDelivery || request.Request.IsTakeAway)
         {
-            // Every delivery order gets its own dedicated virtual "table" — the schema requires a
-            // TableId, and reusing one shared table (like store-mode's virtual sale table) would
-            // block concurrent deliveries via HasOpenOrderForTableAsync below.
+            // Every delivery / take-away order gets its own dedicated virtual "table" — the schema
+            // requires a TableId, and reusing one shared table (like store-mode's virtual sale
+            // table) would block concurrent orders via HasOpenOrderForTableAsync below.
+            var isTakeAway = !request.Request.IsDelivery;
             table = new Domain.Entities.RestaurantTable
             {
                 CompanyId = companyId,
                 RestaurantId = request.Request.RestaurantId,
-                Name = $"Çatdırılma #{orderNumber}",
+                Name = isTakeAway ? $"Tez satış #{orderNumber}" : $"Çatdırılma #{orderNumber}",
                 Capacity = 1,
                 IsActive = true,
                 IsOccupied = false,
-                Type = RestaurantTableType.Delivery
+                Type = isTakeAway ? RestaurantTableType.TakeAway : RestaurantTableType.Delivery
             };
             await _restaurantTableRepository.AddAsync(table, cancellationToken);
             await _restaurantTableRepository.SaveChangesAsync(cancellationToken);

@@ -123,6 +123,8 @@ export type CreateOrderPayload = {
   note?: string | null;
   guestCount?: number | null;
   isDelivery?: boolean;
+  /** Quick take-away sale — the backend creates a dedicated virtual table, like for delivery. */
+  isTakeAway?: boolean;
   deliveryAddress?: string | null;
   deliveryPhone?: string | null;
 };
@@ -406,6 +408,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<OrderDto
       note: payload.note ?? null,
       guestCount: payload.guestCount ?? null,
       isDelivery: payload.isDelivery ?? false,
+      isTakeAway: payload.isTakeAway ?? false,
       deliveryAddress: payload.deliveryAddress ?? null,
       deliveryPhone: payload.deliveryPhone ?? null,
     });

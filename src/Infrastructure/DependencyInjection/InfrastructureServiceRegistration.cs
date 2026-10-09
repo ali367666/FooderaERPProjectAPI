@@ -93,6 +93,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<IDiscountRepository, DiscountRepository>();
         services.AddScoped<IAuthTokenIssuer, AuthTokenIssuer>();
+        services.AddScoped<IStaffCodeResolver, Application.Auth.Services.StaffCodeResolver>();
         services.AddScoped<IMailActionTokenService, MailActionTokenService>();
         services.AddScoped<IFileStorageService, MinioFileStorageService>();
         services.AddScoped<IRestaurantSectionRepository, RestaurantSectionRepository>();

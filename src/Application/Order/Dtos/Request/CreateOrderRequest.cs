@@ -12,6 +12,10 @@ public class CreateOrderRequest
     public string? Note { get; set; }
     public int? GuestCount { get; set; }
 
+    /// <summary>Quick take-away sale: like a delivery order, the handler auto-creates a dedicated
+    /// virtual table, so no real dine-in table is needed.</summary>
+    public bool IsTakeAway { get; set; }
+
     public bool IsDelivery { get; set; }
     public string? DeliveryAddress { get; set; }
     public string? DeliveryPhone { get; set; }

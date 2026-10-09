@@ -11,7 +11,7 @@ public class CreateOrderCommandValidator : AbstractValidator<CreateOrderCommand>
 
         RuleFor(x => x.Request.TableId)
             .GreaterThan(0).WithMessage("TableId 0-dan böyük olmalıdır.")
-            .When(x => !x.Request.IsDelivery);
+            .When(x => !x.Request.IsDelivery && !x.Request.IsTakeAway);
 
         RuleFor(x => x.Request.WaiterId)
             .GreaterThan(0).WithMessage("WaiterId 0-dan böyük olmalıdır.");

@@ -4,7 +4,7 @@ import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeftRight, Lock, Receipt, RefreshCw, StickyNote, UserCog, Users } from "lucide-react";
+import { ArrowLeftRight, Lock, Receipt, RefreshCw, ShoppingBag, StickyNote, UserCog, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -324,6 +324,35 @@ export default function PosTablesPage() {
     }
   };
 
+  // "Tez satış" — a take-away sale: a new order on its own virtual table, straight to the
+  // order screen. Several can be open at once; they are listed above the tables.
+  const [takeAwayCreating, setTakeAwayCreating] = useState(false);
+
+  const handleCreateTakeAwayOrder = async () => {
+    if (!terminal?.restaurantId) {
+      toast.error("Terminal filiala bağlı deyil.");
+      return;
+    }
+    setTakeAwayCreating(true);
+    try {
+      const waiterId = await getCurrentEmployeeId();
+      if (!waiterId) {
+        toast.error("Bu istifadəçi heç bir işçiyə bağlı deyil. Users səhifəsindən bağlayın.");
+        return;
+      }
+      const order = await createOrder({
+        restaurantId: terminal.restaurantId,
+        waiterId,
+        isTakeAway: true,
+      });
+      router.push(`/pos/order/${order.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Tez satış yaradıla bilmədi");
+    } finally {
+      setTakeAwayCreating(false);
+    }
+  };
+
   const handleCreateDeliveryOrder = async () => {
     if (!terminal?.restaurantId) return;
     setDeliveryCreating(true);
@@ -554,6 +583,10 @@ export default function PosTablesPage() {
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">Masalar</h1>
         <div className="flex items-center gap-2">
+          <Button size="sm" disabled={takeAwayCreating || modeBusy} onClick={() => void handleCreateTakeAwayOrder()}>
+            <ShoppingBag className="mr-2 h-4 w-4" />
+            {takeAwayCreating ? "Açılır..." : "Tez satış"}
+          </Button>
           {branding?.modulePaket === true && (
             <Button size="sm" onClick={() => setDeliveryDialogOpen(true)}>
               Çatdırılma sifarişi
@@ -693,6 +726,34 @@ export default function PosTablesPage() {
         </DialogContent>
       </Dialog>
 
+      {(() => {
+        const takeAwayOrders = tables.filter(
+          (t) => t.type === RestaurantTableType.TakeAway && t.activeOrder && isActiveStatus(t.activeOrder.status),
+        );
+        if (takeAwayOrders.length === 0) return null;
+        return (
+          <div className="mb-4 space-y-2">
+            <p className="text-sm font-semibold text-muted-foreground">Aktiv tez satışlar</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+              {takeAwayOrders.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  disabled={mode !== null}
+                  onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
+                  className="rounded-md border bg-card p-3 text-left text-sm hover:bg-muted/50 disabled:opacity-50"
+                >
+                  <p className="font-medium">{t.activeOrder!.orderNumber}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t.activeOrder!.lines.length} məhsul · {t.activeOrder!.totalAmount.toFixed(2)} ₼
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {branding?.modulePaket === true &&
         (() => {
           const deliveryOrders = tables.filter((t) => t.activeOrder?.isDelivery);
@@ -771,7 +832,7 @@ export default function PosTablesPage() {
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
         {tables
           .filter((table) => table.isActive)
-          .filter((table) => table.type !== RestaurantTableType.Delivery)
+          .filter((table) => table.type !== RestaurantTableType.Delivery && table.type !== RestaurantTableType.TakeAway)
           .filter((table) => (activeSectionId === null ? table.sectionId == null : table.sectionId === activeSectionId))
           .map((table) => {
           const occupied = table.activeOrder !== null;
