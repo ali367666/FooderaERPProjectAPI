@@ -334,12 +334,12 @@ export default function UsersPage() {
       toast.error("Company is required.");
       return;
     }
-    if (code.trim() && !/^\d{4}$/.test(code.trim())) {
-      toast.error("Kod dəqiq 4 rəqəm olmalıdır.");
+    if (code.trim() && !/^\d{4,12}$/.test(code.trim())) {
+      toast.error("Kod 4-12 rəqəm olmalıdır.");
       return;
     }
     if (!editingProtected && !code.trim() && (canAccessAdminPanel || canAccessFrontOffice)) {
-      toast.error("POS və ya admin panel girişi üçün 4 rəqəmli kod tələb olunur.");
+      toast.error("POS və ya admin panel girişi üçün kod (4-12 rəqəm) tələb olunur.");
       return;
     }
     if (workplaceType === "2" && !restaurantId) {
@@ -699,15 +699,15 @@ export default function UsersPage() {
               </Label>
             </div>
             <div>
-              <Label htmlFor="u-code">Kod (4 rəqəm)</Label>
+              <Label htmlFor="u-code">Kod (4-12 rəqəm)</Label>
               <Input
                 id="u-code"
                 className="mt-1"
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 12))}
                 placeholder="e.g. 0002"
                 inputMode="numeric"
-                maxLength={4}
+                maxLength={12}
                 autoComplete="off"
               />
               {getFieldErrorMessage(fieldErrors, "code") && (
@@ -753,7 +753,7 @@ export default function UsersPage() {
                     </>
                   ) : (
                     <>
-                      POS-da 4 rəqəmli kod ilə: <span className="font-mono">{code || "1234"}</span>.
+                      POS-da kod ilə: <span className="font-mono">{code || "1234"}</span>.
                     </>
                   )}
                 </p>

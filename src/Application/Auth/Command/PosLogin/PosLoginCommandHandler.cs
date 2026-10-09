@@ -77,9 +77,21 @@ public sealed class PosLoginCommandHandler
 
     private async Task<Domain.Entities.User?> HandleCodeLoginAsync(int companyId, string submittedCode, CancellationToken cancellationToken)
     {
-        var codeCandidate = submittedCode[^4..];
+        // Fixed code: the submitted value is the staff code itself. Rotating-PIN roles submit
+        // ddMM + code, so the code is whatever follows the 4-char date prefix.
+        var user = await _userRepository.GetByCompanyAndCodeAsync(companyId, submittedCode, cancellationToken);
+        if (user is not null && await _userRepository.HasRotatingPinRoleAsync(user.Id, cancellationToken))
+            user = null;
 
-        var user = await _userRepository.GetByCompanyAndCodeAsync(companyId, codeCandidate, cancellationToken);
+        if (user is null && submittedCode.Length > 4 && submittedCode[..4] == BusinessTime.Now.ToString("ddMM"))
+        {
+            var candidate = await _userRepository.GetByCompanyAndCodeAsync(companyId, submittedCode[4..], cancellationToken);
+            if (candidate is not null && await _userRepository.HasRotatingPinRoleAsync(candidate.Id, cancellationToken))
+            {
+                user = candidate;
+            }
+        }
+
         if (user is null)
         {
             _logger.LogWarning("POS login failed. No user found for CompanyId {CompanyId} and submitted code", companyId);
@@ -89,18 +101,6 @@ public sealed class PosLoginCommandHandler
         if (await _userManager.IsLockedOutAsync(user))
         {
             _logger.LogWarning("POS login failed. User {UserId} is locked out", user.Id);
-            return null;
-        }
-
-        var requiresRotatingPin = await _userRepository.HasRotatingPinRoleAsync(user.Id, cancellationToken);
-        var expectedLength = requiresRotatingPin ? 8 : 4;
-        var isValid = submittedCode.Length == expectedLength
-            && (expectedLength == 4 || submittedCode[..4] == BusinessTime.Now.ToString("ddMM"));
-
-        if (!isValid)
-        {
-            await _userManager.AccessFailedAsync(user);
-            _logger.LogWarning("POS login failed. Code mismatch for user {UserId}", user.Id);
             return null;
         }
 

@@ -33,7 +33,7 @@ import {
   type CompanySettingsBranding,
 } from "@/lib/services/company-settings-service";
 
-const MAX_CODE_LENGTH = 8;
+const MAX_CODE_LENGTH = 16;
 
 export default function PosLoginPage() {
   const router = useRouter();
@@ -272,7 +272,7 @@ function PosLoginView({
   };
 
   const submitCode = async (value: string) => {
-    if (value.length !== 4 && value.length !== 8) return;
+    if (value.length < 4) return;
     setError(null);
     setIsLoading(true);
     try {
@@ -396,7 +396,7 @@ function PosLoginView({
           </Button>
           <Button
             type="button"
-            disabled={isLoading || (code.length !== 4 && code.length !== 8)}
+            disabled={isLoading || code.length < 4}
             className="h-14 text-sm font-semibold"
             onClick={() => submitCode(code)}
           >

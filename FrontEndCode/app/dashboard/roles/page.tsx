@@ -365,9 +365,8 @@ export default function RolesPage() {
               Gündəlik dəyişən kod tələb olunsun
             </label>
             <p className="mt-1 text-xs text-muted-foreground">
-              Açılsa, bu rola aid işçilər POS-a daxil olarkən 8 rəqəmli kod yazmalıdır (ilk 4-ü həmin günün
-              tarixinə görə avtomatik dəyişir, son 4-ü öz sabit kodudur). Bağlı qalarsa, sabit 4 rəqəmli kod
-              kifayətdir.
+              Açılsa, bu rola aid işçilər POS-a daxil olarkən kodun qarşısına həmin günün tarixini (4 rəqəm, avtomatik dəyişir)
+              əlavə etməlidir. Bağlı qalarsa, sabit kod kifayətdir.
             </p>
           </div>
 
