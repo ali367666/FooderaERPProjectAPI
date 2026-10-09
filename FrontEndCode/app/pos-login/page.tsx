@@ -98,7 +98,7 @@ export default function PosLoginPage() {
     branding?.transparencyLevel != null ? Math.min(Math.max(branding.transparencyLevel, 0), 100) / 100 : 1;
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-muted/30 p-4">
+    <div className="relative flex min-h-screen items-center justify-center gap-8 bg-muted/30 p-4 lg:gap-16 lg:px-12">
       {branding?.wallpaperUrl && (
         <div
           className="pointer-events-none absolute inset-0 bg-cover bg-center"
@@ -116,7 +116,17 @@ export default function PosLoginPage() {
         <RotateCw className="h-4 w-4" />
         Yenidən başlat
       </Button>
-      <div className="relative z-10 w-full max-w-md">
+      {terminal && branding?.loginLogoUrl && (
+        <div className="relative z-10 hidden flex-1 items-center justify-center lg:flex">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={branding.loginLogoUrl}
+            alt={terminal.companyName}
+            className="max-h-[70vh] w-full max-w-xl object-contain"
+          />
+        </div>
+      )}
+      <div className="relative z-10 w-full max-w-md lg:shrink-0">
         {terminal ? (
           <PosLoginView
             terminal={terminal}
@@ -472,7 +482,7 @@ function PosLoginView({
           <img
             src={logoUrl}
             alt={terminal.companyName}
-            className="mx-auto mb-2 h-12 w-12 rounded-2xl object-contain"
+            className="mx-auto mb-2 h-12 w-12 rounded-2xl object-contain lg:hidden"
           />
         ) : (
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
