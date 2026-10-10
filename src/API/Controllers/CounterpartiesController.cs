@@ -52,6 +52,24 @@ public class CounterpartiesController : ControllerBase
         return Ok();
     }
 
+    /// <summary>Adds debt on top of the current one; the date and time are kept in the debt history.</summary>
+    [Authorize(Policy = AppPermissions.CounterpartyUpdate)]
+    [HttpPost("{id:int}/add-debt")]
+    public async Task<ActionResult<CounterpartyResponse>> AddDebt(int id, [FromBody] AddCounterpartyDebtRequest request)
+    {
+        var result = await _mediator.Send(new AddCounterpartyDebtCommand(id, request));
+        return Ok(result);
+    }
+
+    /// <summary>Every change of the counterparty's debt with its date and time, newest first.</summary>
+    [Authorize(Policy = AppPermissions.CounterpartyView)]
+    [HttpGet("{id:int}/debt-history")]
+    public async Task<ActionResult<List<CounterpartyDebtEntryResponse>>> GetDebtHistory(int id)
+    {
+        var result = await _mediator.Send(new GetCounterpartyDebtHistoryQuery(id));
+        return Ok(result);
+    }
+
     [Authorize(Policy = AppPermissions.CounterpartyUpdate)]
     [HttpPost("{id:int}/adjust-debt")]
     public async Task<ActionResult<CounterpartyResponse>> AdjustDebt(int id, [FromBody] AdjustCounterpartyDebtRequest request)

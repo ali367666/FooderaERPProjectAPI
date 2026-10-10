@@ -48,6 +48,7 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<SaleReturnLine> SaleReturnLines { get; set; } = null!;
     public DbSet<PrinterStationType> PrinterStationTypes { get; set; } = null!;
     public DbSet<Counterparty> Counterparties { get; set; } = null!;
+    public DbSet<CounterpartyDebtEntry> CounterpartyDebtEntries { get; set; } = null!;
     public DbSet<CounterpartyCategory> CounterpartyCategories { get; set; } = null!;
     public DbSet<MenuItemType> MenuItemTypes { get; set; } = null!;
     public DbSet<MenuItemSetComponent> MenuItemSetComponents { get; set; } = null!;

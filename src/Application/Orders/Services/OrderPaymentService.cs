@@ -16,6 +16,7 @@ public sealed class OrderPaymentService : IOrderPaymentService
     private readonly IOrderPaymentRepository _paymentRepository;
     private readonly IRecipeStockDeductionService _recipeStockDeductionService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICounterpartyRepository _counterpartyRepository;
     private readonly ILogger<OrderPaymentService> _logger;
 
     public OrderPaymentService(
@@ -23,12 +24,14 @@ public sealed class OrderPaymentService : IOrderPaymentService
         IOrderPaymentRepository paymentRepository,
         IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
+        ICounterpartyRepository counterpartyRepository,
         ILogger<OrderPaymentService> logger)
     {
         _orderRepository = orderRepository;
         _paymentRepository = paymentRepository;
         _recipeStockDeductionService = recipeStockDeductionService;
         _currentUserService = currentUserService;
+        _counterpartyRepository = counterpartyRepository;
         _logger = logger;
     }
 
@@ -174,7 +177,19 @@ public sealed class OrderPaymentService : IOrderPaymentService
         }
 
         if (method == PaymentMethod.Credit)
+        {
             order.Counterparty!.CurrentDebtAmount += due;
+            await _counterpartyRepository.AddDebtEntryAsync(new CounterpartyDebtEntry
+            {
+                CompanyId = order.CompanyId,
+                CounterpartyId = order.Counterparty.Id,
+                Type = CounterpartyDebtEntryType.CreditSale,
+                Amount = due,
+                BalanceAfter = order.Counterparty.CurrentDebtAmount,
+                OrderId = order.Id,
+                CreatedByUserId = _currentUserService.UserId > 0 ? _currentUserService.UserId : null
+            }, cancellationToken);
+        }
 
         await _paymentRepository.AddAsync(payment, cancellationToken);
 

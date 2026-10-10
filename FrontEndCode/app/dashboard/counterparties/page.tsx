@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
+import { CounterpartyDebtDialog } from "@/components/counterparties/counterparty-debt-dialog";
 import { toast } from "sonner";
 import {
   adjustCounterpartyDebt,
@@ -72,6 +73,8 @@ export default function CounterpartiesPage() {
   const [debtInput, setDebtInput] = useState("0");
   const [savingDebt, setSavingDebt] = useState(false);
   const [debtConfirmStep, setDebtConfirmStep] = useState(false);
+  // The debt dialog: add debt and see the history (the correction dialog below opens from it).
+  const [historyTarget, setHistoryTarget] = useState<Counterparty | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -237,6 +240,11 @@ export default function CounterpartiesPage() {
     }
   };
 
+  const openHistoryDialog = (row: CounterpartyRow) => {
+    const target = list.find((c) => c.id === row.counterpartyId);
+    if (target) setHistoryTarget(target);
+  };
+
   const openDebtDialog = (row: CounterpartyRow) => {
     const target = list.find((c) => c.id === row.counterpartyId);
     if (!target) return;
@@ -340,7 +348,8 @@ export default function CounterpartiesPage() {
       render: (v: number, row: CounterpartyRow) => (
         <button
           type="button"
-          onClick={() => openDebtDialog(row)}
+          onClick={() => openHistoryDialog(row)}
+          title="Borc və tarixçə"
           className={v > 0 ? "font-semibold text-destructive hover:underline" : "text-muted-foreground hover:underline"}
         >
           {v.toFixed(2)} ₼
@@ -544,6 +553,19 @@ export default function CounterpartiesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <CounterpartyDebtDialog
+        open={historyTarget !== null}
+        onOpenChange={(o) => !o && setHistoryTarget(null)}
+        counterparty={historyTarget}
+        onChanged={() => void load()}
+        onAdjust={(c) => {
+          setDebtTarget(c);
+          setDebtInput(String(c.currentDebtAmount));
+          setDebtConfirmStep(false);
+          setDebtDialogOpen(true);
+        }}
+      />
 
       <Dialog open={debtDialogOpen} onOpenChange={setDebtDialogOpen}>
         <DialogContent className="sm:max-w-xs">

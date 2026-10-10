@@ -46,6 +46,22 @@ public class CounterpartyRepository : ICounterpartyRepository
         return await _context.Counterparties.AnyAsync(x => x.CategoryId == categoryId, cancellationToken);
     }
 
+    public async Task AddDebtEntryAsync(CounterpartyDebtEntry entry, CancellationToken cancellationToken)
+    {
+        await _context.CounterpartyDebtEntries.AddAsync(entry, cancellationToken);
+    }
+
+    public async Task<List<CounterpartyDebtEntry>> GetDebtEntriesAsync(int counterpartyId, int companyId, CancellationToken cancellationToken)
+    {
+        return await _context.CounterpartyDebtEntries
+            .AsNoTracking()
+            .Include(x => x.Order)
+            .Where(x => x.CounterpartyId == counterpartyId && x.CompanyId == companyId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ThenByDescending(x => x.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public void Update(Counterparty counterparty) => _context.Counterparties.Update(counterparty);
     public void Delete(Counterparty counterparty) => _context.Counterparties.Remove(counterparty);
 

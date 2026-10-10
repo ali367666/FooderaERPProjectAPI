@@ -17,19 +17,22 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
     private readonly ICurrentUserService _currentUserService;
     private readonly IOrderPaymentRepository _paymentRepository;
     private readonly IOrderPaymentService _paymentService;
+    private readonly ICounterpartyRepository _counterpartyRepository;
 
     public PayOrderCommandHandler(
         IOrderRepository orderRepository,
         IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
         IOrderPaymentRepository paymentRepository,
-        IOrderPaymentService paymentService)
+        IOrderPaymentService paymentService,
+        ICounterpartyRepository counterpartyRepository)
     {
         _orderRepository = orderRepository;
         _recipeStockDeductionService = recipeStockDeductionService;
         _currentUserService = currentUserService;
         _paymentRepository = paymentRepository;
         _paymentService = paymentService;
+        _counterpartyRepository = counterpartyRepository;
     }
 
     public async Task<OrderResponse> Handle(PayOrderCommand request, CancellationToken cancellationToken)
@@ -101,7 +104,19 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         order.ChangeAmount = paymentMethod == PaymentMethod.Credit ? 0 : request.Request.PaidAmount - totalAmount;
         order.Status = OrderStatus.Paid;
         if (paymentMethod == PaymentMethod.Credit)
+        {
             order.Counterparty!.CurrentDebtAmount += totalAmount;
+            await _counterpartyRepository.AddDebtEntryAsync(new Domain.Entities.CounterpartyDebtEntry
+            {
+                CompanyId = order.CompanyId,
+                CounterpartyId = order.Counterparty.Id,
+                Type = CounterpartyDebtEntryType.CreditSale,
+                Amount = totalAmount,
+                BalanceAfter = order.Counterparty.CurrentDebtAmount,
+                OrderId = order.Id,
+                CreatedByUserId = _currentUserService.UserId > 0 ? _currentUserService.UserId : null
+            }, cancellationToken);
+        }
         order.ReceiptNumber = $"RCPT-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{order.Id}";
         order.ClosedAt = order.PaidAt;
         if (order.Table is not null)
