@@ -70,21 +70,3 @@ public class LicensesController : ControllerBase
         return NoContent();
     }
 }
-
-[ApiController]
-[Route("api/[controller]")]
-public class DevicesController : ControllerBase
-{
-    private readonly IMediator _mediator;
-
-    public DevicesController(IMediator mediator)
-    {
-        _mediator = mediator;
-    }
-
-    /// <summary>A restaurant device exchanges the SuperAdmin's one-time code for its device key.</summary>
-    [AllowAnonymous]
-    [HttpPost("register")]
-    public async Task<ActionResult<RegisterDeviceResponse>> Register([FromBody] RegisterDeviceRequest request) =>
-        Ok(await _mediator.Send(new RegisterDeviceCommand(request)));
-}

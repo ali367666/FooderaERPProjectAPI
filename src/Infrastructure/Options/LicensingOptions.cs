@@ -9,10 +9,3 @@ public class LicensingOptions
     /// <summary>Every installation — verifies licence keys offline.</summary>
     public string? PublicKeyPem { get; set; }
 }
-
-/// <summary>appsettings "Deployment".</summary>
-public class DeploymentOptions
-{
-    /// <summary>"Cloud" (default) or "Local".</summary>
-    public string Mode { get; set; } = "Cloud";
-}

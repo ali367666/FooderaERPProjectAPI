@@ -1,0 +1,11 @@
+using Application.Common.Exceptions;
+using Application.Common.Helpers;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
+using Domain.Entities;
+using Domain.Enums;
+using MediatR;
+
+namespace Application.License;
+
+public record UpdateCompanyLicenseCommand(int CompanyId, UpdateCompanyLicenseRequest Request) : IRequest<CompanyLicenseDetailResponse>;

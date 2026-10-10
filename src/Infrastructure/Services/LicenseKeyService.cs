@@ -82,13 +82,3 @@ public class LicenseKeyService : ILicenseKeyService
         return Convert.FromBase64String(s.PadRight(s.Length + (4 - s.Length % 4) % 4, '='));
     }
 }
-
-public class DeploymentInfo : IDeploymentInfo
-{
-    public DeploymentInfo(IOptions<DeploymentOptions> options)
-    {
-        IsLocal = string.Equals(options.Value.Mode, "Local", StringComparison.OrdinalIgnoreCase);
-    }
-
-    public bool IsLocal { get; }
-}
