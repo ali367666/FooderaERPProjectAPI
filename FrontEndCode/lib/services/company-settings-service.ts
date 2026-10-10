@@ -24,6 +24,10 @@ export type CompanySettings = {
   alertRingCount: number | null;
   alertRingIntervalSeconds: number | null;
   tableTimeWarningMinutes: number | null;
+  /** A reserved table takes no new order this many minutes before the reservation (0 = off). */
+  reservationBlockMinutes: number;
+  /** A guest who has not come this many minutes after the reservation time is cancelled (0 = off). */
+  reservationAutoCancelMinutes: number;
 
   loginLogoUrl: string | null;
   reportLogoUrl: string | null;
@@ -164,6 +168,8 @@ function normalize(item: unknown): CompanySettings | null {
     alertRingCount: numOrNull("alertRingCount", "AlertRingCount"),
     alertRingIntervalSeconds: numOrNull("alertRingIntervalSeconds", "AlertRingIntervalSeconds"),
     tableTimeWarningMinutes: numOrNull("tableTimeWarningMinutes", "TableTimeWarningMinutes"),
+    reservationBlockMinutes: Number(pick(raw, "reservationBlockMinutes", "ReservationBlockMinutes") ?? 0),
+    reservationAutoCancelMinutes: Number(pick(raw, "reservationAutoCancelMinutes", "ReservationAutoCancelMinutes") ?? 0),
 
     loginLogoUrl: strOrNull("loginLogoUrl", "LoginLogoUrl"),
     reportLogoUrl: strOrNull("reportLogoUrl", "ReportLogoUrl"),
@@ -305,6 +311,8 @@ export type CompanySettingsBranding = {
   alertRingCount: number | null;
   alertRingIntervalSeconds: number | null;
   tableTimeWarningMinutes: number | null;
+  reservationBlockMinutes: number;
+  reservationAutoCancelMinutes: number;
   moduleFilial: boolean;
   moduleAnbar: boolean;
   moduleRezervasyon: boolean;
@@ -418,6 +426,8 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     alertRingCount: numOrNull("alertRingCount", "AlertRingCount"),
     alertRingIntervalSeconds: numOrNull("alertRingIntervalSeconds", "AlertRingIntervalSeconds"),
     tableTimeWarningMinutes: numOrNull("tableTimeWarningMinutes", "TableTimeWarningMinutes"),
+    reservationBlockMinutes: Number(pick(raw, "reservationBlockMinutes", "ReservationBlockMinutes") ?? 0),
+    reservationAutoCancelMinutes: Number(pick(raw, "reservationAutoCancelMinutes", "ReservationAutoCancelMinutes") ?? 0),
     moduleFilial: bool("moduleFilial", "ModuleFilial", true),
     moduleAnbar: bool("moduleAnbar", "ModuleAnbar", true),
     moduleRezervasyon: bool("moduleRezervasyon", "ModuleRezervasyon", true),

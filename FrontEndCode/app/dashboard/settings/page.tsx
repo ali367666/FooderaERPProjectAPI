@@ -19,6 +19,7 @@ import { designFromBranding } from "@/lib/receipt-render";
 import { ReceiptPreview } from "@/components/receipt-preview";
 import type { CompanySettingsBranding } from "@/lib/services/company-settings-service";
 import type { OrderReceiptDto } from "@/lib/services/order-service";
+import { RESERVATION_AUTO_CANCEL_OPTIONS, RESERVATION_BLOCK_OPTIONS } from "@/lib/reservation-rules";
 
 const INTEGRATION_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "integrationWolt", label: "Wolt" },
@@ -54,6 +55,8 @@ const DEFAULTS: CompanySettingsInput = {
   alertRingCount: null,
   alertRingIntervalSeconds: null,
   tableTimeWarningMinutes: null,
+  reservationBlockMinutes: 0,
+  reservationAutoCancelMinutes: 0,
   loginLogoUrl: null,
   reportLogoUrl: null,
   wallpaperUrl: null,
@@ -756,6 +759,45 @@ export default function SettingsPage() {
               </Label>
             </div>
           ))}
+        </div>
+        <h3 className="pt-2 text-sm font-semibold">Rezervasiya</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="reservationBlockMinutes">Rezerv masaya öncədən sifariş açılmasın</Label>
+            <select
+              id="reservationBlockMinutes"
+              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={form.reservationBlockMinutes}
+              onChange={(e) => update("reservationBlockMinutes", Number(e.target.value))}
+            >
+              {RESERVATION_BLOCK_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Seçilən müddət ərzində rezerv olunmuş masada sifariş açmaq olmur (qonaq oturdulana və ya rezerv bitənə qədər).
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="reservationAutoCancelMinutes">Gəlməyən müştərinin rezervi avtomatik ləğv olunsun</Label>
+            <select
+              id="reservationAutoCancelMinutes"
+              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={form.reservationAutoCancelMinutes}
+              onChange={(e) => update("reservationAutoCancelMinutes", Number(e.target.value))}
+            >
+              {RESERVATION_AUTO_CANCEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Rezerv vaxtından sonra seçilən müddət ərzində müştəri oturdulmasa, rezerv ləğv edilir və masa boşalır.
+            </p>
+          </div>
         </div>
         <h3 className="pt-2 text-sm font-semibold">Neytral</h3>
         <div className="flex items-center gap-2">

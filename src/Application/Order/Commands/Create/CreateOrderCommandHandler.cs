@@ -16,6 +16,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
     private readonly IEmployeeRepository _employeeRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
+    private readonly IReservationTableGuard _reservationTableGuard;
     private readonly ILogger<CreateOrderCommandHandler> _logger;
 
     public CreateOrderCommandHandler(
@@ -24,6 +25,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
         IEmployeeRepository employeeRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
+        IReservationTableGuard reservationTableGuard,
         ILogger<CreateOrderCommandHandler> logger)
     {
         _orderRepository = orderRepository;
@@ -31,6 +33,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
         _employeeRepository = employeeRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
+        _reservationTableGuard = reservationTableGuard;
         _logger = logger;
     }
 
@@ -98,6 +101,8 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
 
                 throw new Exception("Masa tapılmadı.");
             }
+
+            await _reservationTableGuard.EnsureTableFreeAsync(companyId, existingTable.Id, cancellationToken);
 
             var hasOpenOrder = await _orderRepository.HasOpenOrderForTableAsync(
                 existingTable.Id,

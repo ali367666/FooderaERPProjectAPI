@@ -281,33 +281,48 @@ export default function PosTablesPage() {
       .catch(() => setSections([]));
   }, [terminal]);
 
+  // Reloaded every minute so a reservation the server cancelled automatically frees its table here too.
   useEffect(() => {
     if (!terminal?.restaurantId) return;
-    const todayIso = new Date().toISOString().slice(0, 10);
-    getReservations(todayIso)
-      .then((rows) =>
-        setTodayReservations(
-          rows.filter(
-            (r) =>
-              r.restaurantId === terminal.restaurantId &&
-              r.tableId != null &&
-              r.status !== "Cancelled" &&
-              r.status !== "NoShow" &&
-              r.status !== "Completed",
+    const loadReservations = () => {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      getReservations(todayIso)
+        .then((rows) =>
+          setTodayReservations(
+            rows.filter(
+              (r) =>
+                r.restaurantId === terminal.restaurantId &&
+                r.tableId != null &&
+                r.status !== "Cancelled" &&
+                r.status !== "NoShow" &&
+                r.status !== "Completed",
+            ),
           ),
-        ),
-      )
-      .catch(() => setTodayReservations([]));
+        )
+        .catch(() => setTodayReservations([]));
+    };
+    loadReservations();
+    const timer = window.setInterval(loadReservations, 60_000);
+    return () => window.clearInterval(timer);
   }, [terminal]);
 
-  /** A reservation counts as an active/imminent conflict from 30 min before its start until it ends. */
+  // Admin setting "Rezerv masaya öncədən sifariş açılmasın" (0 = off: only the old warning, 30 min).
+  const reservationBlockMinutes = branding?.reservationBlockMinutes ?? 0;
+
+  /**
+   * A pending/confirmed reservation counts as an active/imminent conflict from the block window before
+   * its start (the admin's choice, 30 min by default) until it ends. Once the party is seated the
+   * table is theirs to order on.
+   */
   const findConflictingReservation = (tableId: number): ReservationDto | null => {
     const nowMs = Date.now();
+    const before = reservationBlockMinutes > 0 ? reservationBlockMinutes : 30;
     for (const r of todayReservations) {
       if (r.tableId !== tableId) continue;
+      if (r.status !== "Pending" && r.status !== "Confirmed") continue;
       const start = new Date(`${r.reservationDate.slice(0, 10)}T${r.reservationTime}`).getTime();
       if (!Number.isFinite(start)) continue;
-      const windowStart = start - 30 * 60_000;
+      const windowStart = start - before * 60_000;
       const windowEnd = start + r.durationMinutes * 60_000;
       if (nowMs >= windowStart && nowMs <= windowEnd) return r;
     }
@@ -606,6 +621,17 @@ export default function PosTablesPage() {
     }
     if (!terminal) return;
 
+    // With a block window the reserved table simply takes no order; without one, the old soft warning.
+    if (reservationBlockMinutes > 0) {
+      const blocking = findConflictingReservation(table.id);
+      if (blocking) {
+        toast.error(
+          `Bu masa ${blocking.reservationTime} üçün ${blocking.guestName} adına rezerv olunub — sifariş açmaq olmaz.`,
+        );
+        return;
+      }
+    }
+
     const conflict = branding?.tableReservationWarning === false ? null : findConflictingReservation(table.id);
     if (conflict) {
       setReservationWarning({ table, reservation: conflict });
@@ -676,6 +702,7 @@ export default function PosTablesPage() {
     const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
     const isOtherWaiterTable =
       occupied && !canOverrideOwnership && currentEmployeeId != null && order!.waiterId !== currentEmployeeId;
+    const reserved = !occupied && reservationBlockMinutes > 0 ? findConflictingReservation(table.id) : null;
 
     return (
       <button
@@ -724,7 +751,9 @@ export default function PosTablesPage() {
             )}
           </>
         ) : (
-          <span className="mt-0.5 text-xs text-muted-foreground">{isCreating ? "..." : "Boş"}</span>
+          <span className={cn("mt-0.5 text-xs", reserved ? "font-semibold text-amber-600" : "text-muted-foreground")}>
+            {isCreating ? "..." : reserved ? `Rezerv · ${reserved.reservationTime}` : "Boş"}
+          </span>
         )}
       </button>
     );

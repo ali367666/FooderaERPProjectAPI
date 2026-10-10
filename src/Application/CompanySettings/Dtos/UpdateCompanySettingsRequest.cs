@@ -23,6 +23,9 @@ public class UpdateCompanySettingsRequest
     public int? AlertRingIntervalSeconds { get; set; }
     public int? TableTimeWarningMinutes { get; set; }
 
+    public int ReservationBlockMinutes { get; set; }
+    public int ReservationAutoCancelMinutes { get; set; }
+
     public string? LoginLogoUrl { get; set; }
     public string? ReportLogoUrl { get; set; }
     public string? WallpaperUrl { get; set; }

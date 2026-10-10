@@ -160,6 +160,18 @@ public class CompanySettings : CompanyEntity<int>
     /// <summary>Masa paneli — rezerv olunmuş masanı açarkən xəbərdarlıq.</summary>
     public bool TableReservationWarning { get; set; } = true;
 
+    /// <summary>
+    /// A reserved table takes no new order from this many minutes before the reservation (0 = off). The
+    /// admin picks one of <see cref="Domain.Constants.ReservationRules.BlockMinuteOptions"/>.
+    /// </summary>
+    public int ReservationBlockMinutes { get; set; }
+
+    /// <summary>
+    /// A reservation whose guest has not come within this many minutes of its time is cancelled
+    /// automatically (0 = off). One of <see cref="Domain.Constants.ReservationRules.AutoCancelMinuteOptions"/>.
+    /// </summary>
+    public int ReservationAutoCancelMinutes { get; set; }
+
     /// <summary>Masa və paket qiymətləri dəzgah qiymətindən götürülsün.</summary>
     public bool TablePricesFromStation { get; set; } = true;
 
