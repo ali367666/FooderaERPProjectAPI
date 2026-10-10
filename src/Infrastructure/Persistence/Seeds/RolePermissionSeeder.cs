@@ -65,7 +65,7 @@ public static class RolePermissionSeeder
                 AppPermissions.AnalyticsView,
                 AppPermissions.PosDeleteOrder, AppPermissions.PosDeleteReceipt,
                 AppPermissions.PosEditProductInSale, AppPermissions.PosDeleteProductInSale,
-                AppPermissions.PosMoveTable, AppPermissions.PosRedirectUser, AppPermissions.PosChangePrice,
+                AppPermissions.PosMoveTable, AppPermissions.PosRedirectUser, AppPermissions.PosChangeWaiter, AppPermissions.PosChangePrice,
                 AppPermissions.PosOverridePrice, AppPermissions.PosTableServiceCharge,
                 AppPermissions.PosWarehouseAmountChange, AppPermissions.PosZReport,
                 AppPermissions.PosAccessSettings, AppPermissions.PosPrintOldReceipt, AppPermissions.PosReturnSale, AppPermissions.PosUnlockBill, AppPermissions.PosChangeDepartment,

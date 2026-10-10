@@ -129,6 +129,7 @@ const PERMISSION_LABELS: Record<string, string> = {
   "Pos.OverridePrice": "Qalıcı qiymətə müdaxilə et",
   "Pos.ChangeDepartment": "Şöbəni dəyiş",
   "Pos.RedirectUser": "Ofisiantı dəyiş / başqasının masasına bax",
+  "Pos.ChangeWaiter": "Masalar ekranında \"Ofisiant dəyiş\" düyməsini göstər (icazəsi olanın kodu ilə)",
   "Pos.EditProductInSale": "Satışda məhsulu redaktə et",
   "Pos.DeleteProductInSale": "Satışda məhsulu sil",
   "Pos.TableServiceCharge": "Masa üzrə servis haqqı tətbiq et",

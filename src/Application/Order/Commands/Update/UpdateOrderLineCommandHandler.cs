@@ -149,11 +149,33 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         }
 
         // A SET component is paid through its set — changing its quantity never gives it a price.
+        decimal? chosenPrice = null;
+        if (parentLine is null && request.Request.PriceType is { } priceType)
+        {
+            var item = line.MenuItem;
+            chosenPrice = priceType switch
+            {
+                Domain.Enums.MenuItemPriceType.Price => item.Price,
+                Domain.Enums.MenuItemPriceType.Station => item.StationPrice,
+                Domain.Enums.MenuItemPriceType.Package => item.PackagePrice,
+                Domain.Enums.MenuItemPriceType.Special1 => item.SpecialPrice1,
+                Domain.Enums.MenuItemPriceType.Special2 => item.SpecialPrice2,
+                Domain.Enums.MenuItemPriceType.Special3 => item.SpecialPrice3,
+                Domain.Enums.MenuItemPriceType.Special4 => item.SpecialPrice4,
+                Domain.Enums.MenuItemPriceType.Special5 => item.SpecialPrice5,
+                _ => throw new Exception("Qiymət növü düzgün deyil.")
+            };
+            if (chosenPrice is null)
+                throw new Exception("Bu məhsul üçün belə qiymət təyin edilməyib.");
+        }
+
         line.UnitPrice = parentLine is not null
             ? 0
-            : request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
-                ? request.Request.UnitPrice.Value
-                : line.UnitPrice;
+            : chosenPrice.HasValue
+                ? chosenPrice.Value
+                : request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
+                    ? request.Request.UnitPrice.Value
+                    : line.UnitPrice;
 
         if (_currentUserService.HasPermission(Domain.Constants.AppPermissions.DiscountApply))
         {

@@ -16,7 +16,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                .IsRequired();
 
         builder.Property(x => x.Code)
-               .HasMaxLength(20);
+               .HasMaxLength(Domain.Constants.StaffCodeRules.MaxLength);
 
         builder.Property(x => x.RfidCardId)
                .HasMaxLength(64);

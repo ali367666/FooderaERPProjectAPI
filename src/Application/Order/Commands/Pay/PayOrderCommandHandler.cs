@@ -15,15 +15,21 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
     private readonly IOrderRepository _orderRepository;
     private readonly IRecipeStockDeductionService _recipeStockDeductionService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IOrderPaymentRepository _paymentRepository;
+    private readonly IOrderPaymentService _paymentService;
 
     public PayOrderCommandHandler(
         IOrderRepository orderRepository,
         IRecipeStockDeductionService recipeStockDeductionService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IOrderPaymentRepository paymentRepository,
+        IOrderPaymentService paymentService)
     {
         _orderRepository = orderRepository;
         _recipeStockDeductionService = recipeStockDeductionService;
         _currentUserService = currentUserService;
+        _paymentRepository = paymentRepository;
+        _paymentService = paymentService;
     }
 
     public async Task<OrderResponse> Handle(PayOrderCommand request, CancellationToken cancellationToken)
@@ -44,6 +50,14 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         if (!Enum.TryParse<PaymentMethod>(request.Request.PaymentMethod, true, out var paymentMethod))
             throw new BadRequestException("Please select a valid payment method.");
 
+        // Some guests already paid their share: this payment settles whatever is left.
+        if (await _paymentRepository.AnyForOrderAsync(order.Id, cancellationToken))
+        {
+            await _paymentService.PayAsync(
+                order, null, null, paymentMethod, request.Request.PaidAmount, request.Request.IsFiscal, cancellationToken);
+            return BuildResponse(order);
+        }
+
         foreach (var line in order.Lines)
             line.LineTotal = OrderLinePricing.ComputeLineTotal(line);
 
@@ -53,9 +67,8 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
             .Sum(x => x.LineTotal);
 
         // Discount (if any) was locked in by ApplyDiscountToOrderCommand before payment
-        var serviceCharge = request.Request.ServiceChargeAmount is > 0 && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosTableServiceCharge)
-            ? request.Request.ServiceChargeAmount.Value
-            : (decimal?)null;
+        // The service charge recorded on the order ("Servis haqqı qeyd etmək").
+        var serviceCharge = order.ServiceChargeAmount is > 0 ? order.ServiceChargeAmount : null;
         var totalAmount = Math.Max(0, subtotal - order.DiscountAmount + (serviceCharge ?? 0) + (order.TableRentalAmount ?? 0));
 
         if (paymentMethod == PaymentMethod.Credit)
@@ -83,6 +96,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         order.IsPaid = true;
         order.PaidAt = DateTime.UtcNow;
         order.PaymentMethod = paymentMethod;
+        order.IsFiscal = request.Request.IsFiscal;
         order.PaidAmount = paymentMethod == PaymentMethod.Credit ? 0 : request.Request.PaidAmount;
         order.ChangeAmount = paymentMethod == PaymentMethod.Credit ? 0 : request.Request.PaidAmount - totalAmount;
         order.Status = OrderStatus.Paid;
@@ -96,6 +110,11 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         _orderRepository.Update(order);
         await _orderRepository.SaveChangesAsync(cancellationToken);
 
+        return BuildResponse(order);
+    }
+
+    private static OrderResponse BuildResponse(Domain.Entities.Order order)
+    {
         return new OrderResponse
         {
             Id = order.Id,

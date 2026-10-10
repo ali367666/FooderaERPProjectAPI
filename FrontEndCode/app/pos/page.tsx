@@ -4,7 +4,7 @@ import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeftRight, Lock, Receipt, RefreshCw, ShoppingBag, StickyNote, UserCog, Users } from "lucide-react";
+import { ArrowLeftRight, Banknote, BarChart3, Lock, Receipt, RefreshCw, ShoppingBag, StickyNote, UserCog, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,9 @@ import {
 import {
   getOrders,
   createOrder,
+  getOrderPayments,
   moveOrderTable,
+  payOrder,
   reassignOrderWaiter,
   verifyRedirectCode,
   type OrderDto,
@@ -36,13 +38,15 @@ import {
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
 import { getRestaurantSections, type RestaurantSection } from "@/lib/services/restaurant-section-service";
 import { getReservations, type ReservationDto } from "@/lib/services/reservation-service";
-import { useHasPermission } from "@/hooks/use-auth-permissions";
+import { useHasPermission, usePermissionSet } from "@/hooks/use-auth-permissions";
+import { ANY_POS_REPORT_PERMISSION } from "@/lib/pos-reports";
 import {
   getCompanySettingsBranding,
   type CompanySettingsBranding,
 } from "@/lib/services/company-settings-service";
 import { playPosAlert } from "@/lib/pos-sound-alert";
-import { printBillForOrder } from "@/lib/pos-bill-print";
+import { printBillForOrder, printReceiptForOrder } from "@/lib/pos-bill-print";
+import { getFiscalMode, setFiscalMode } from "@/lib/pos-fiscal-mode";
 
 type TableWithOrder = RestaurantTable & { activeOrder: OrderDto | null };
 
@@ -98,20 +102,28 @@ export default function PosTablesPage() {
   const [creatingTableId, setCreatingTableId] = useState<number | null>(null);
   const [terminal, setTerminal] = useState<PosTerminalContext | null | undefined>(undefined);
   const [sections, setSections] = useState<RestaurantSection[]>([]);
-  const [activeSectionId, setActiveSectionId] = useState<number | null>(null);
   const canChangeSection = useHasPermission("Pos.ChangeDepartment");
   const canViewAllTables = useHasPermission("Pos.RedirectUser");
   const canPrintBill = useHasPermission("Pos.PrintReceipt");
+  // Every action button below shows only for someone who may use it.
+  const canQuickSale = useHasPermission("Orders.Create");
+  const canMoveTable = useHasPermission("Pos.MoveTable");
+  const canChangeWaiter = useHasPermission("Pos.ChangeWaiter");
+  const canPay = useHasPermission("Orders.Pay");
+  const permissionSet = usePermissionSet();
+  const canSeeReports = ANY_POS_REPORT_PERMISSION.some((p) => permissionSet.has(p));
   // One-shot modes armed by the header buttons: the next table(s) tapped act instead of opening.
-  //   bill        "Ödəniş"        — print that table's bill (printing records, and may lock, the bill)
-  //   move-pick   "Masa dəyiş"    — step 1: pick the table to move   (no permission needed)
+  //   pay         "Ödəniş"        — close that table: paid in cash in full, receipt printed
+  //   bill        "Hesab"         — print the customer's pre-check; the table stays open (printing
+  //                                  records, and may lock, the bill)
+  //   move-pick   "Masa dəyiş"    — step 1: pick the table to move
   //   move-target                 — step 2: pick the empty table it goes to
   //   waiter-pick "Ofisiant dəyiş" — pick the table whose waiter changes (approval: see below)
   const canRedirectUser = useHasPermission("Pos.RedirectUser");
-  const [mode, setMode] = useState<"bill" | "move-pick" | "move-target" | "waiter-pick" | null>(null);
+  const [mode, setMode] = useState<"pay" | "bill" | "move-pick" | "move-target" | "waiter-pick" | null>(null);
   const [modeBusy, setModeBusy] = useState(false);
   const [moveSource, setMoveSource] = useState<TableWithOrder | null>(null);
-  // "Ofisiant dəyiş" is visible to everyone; whoever lacks Pos.RedirectUser must get a supervisor's
+  // "Ofisiant dəyiş" needs Pos.ChangeWaiter to show; whoever lacks Pos.RedirectUser must get a supervisor's
   // code approved first. The verified code rides along with the final request.
   const [codeDialogOpen, setCodeDialogOpen] = useState(false);
   const [codeInput, setCodeInput] = useState("");
@@ -417,6 +429,58 @@ export default function PosTablesPage() {
     }
   };
 
+  // "Ödəniş": one tap closes the table — paid in full, in cash — and prints the final receipt.
+  const payTable = async (table: TableWithOrder) => {
+    const order = table.activeOrder;
+    if (!order) {
+      toast.error("Bu masada sifariş yoxdur.");
+      return;
+    }
+    const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
+    if (!canOverrideOwnership && currentEmployeeId != null && order.waiterId !== currentEmployeeId) {
+      toast.error("Bu masa başqa ofisiantə aiddir.");
+      return;
+    }
+    if (order.lines.length === 0) {
+      toast.error("Bu masanın sifarişi boşdur.");
+      return;
+    }
+    if (branding?.paymentCashEnabled === false) {
+      toast.error("Nağd ödəniş söndürülüb. Ödənişi sifariş ekranından edin.");
+      return;
+    }
+    setModeBusy(true);
+    try {
+      // Guests may already have paid their own shares ("Hesab") — this settles only what is left.
+      const parts = await getOrderPayments(order.id);
+      const total =
+        (parts.payments.length > 0 ? parts.remainingAmount : order.totalAmount + (order.tableRentalAmount ?? 0)) +
+        (order.serviceChargeAmount ?? 0);
+      await payOrder(order.id, {
+        paymentMethod: "Cash",
+        paidAmount: total,
+        isFiscal: getFiscalMode(),
+      });
+      setFiscalMode(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Ödəniş uğursuz oldu");
+      setModeBusy(false);
+      return;
+    }
+    // The payment is done — a printer problem must not look like a failed payment.
+    try {
+      const printerName = await printReceiptForOrder(order.id, order.restaurantId, branding);
+      toast.success(`${table.name}: nağd ödənildi, çek ${printerName}-ə göndərildi`);
+    } catch (err) {
+      toast.warning(
+        `${table.name}: nağd ödənildi, amma çek çıxmadı${err instanceof Error ? ` (${err.message})` : ""}`,
+      );
+    }
+    resetMode();
+    await load();
+    setModeBusy(false);
+  };
+
   const isOthersOrder = (table: TableWithOrder) => {
     const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
     return (
@@ -525,7 +589,8 @@ export default function PosTablesPage() {
   const openTable = async (table: TableWithOrder) => {
     if (mode) {
       if (modeBusy || waiterTable) return;
-      if (mode === "bill") await printBillForTable(table);
+      if (mode === "pay") await payTable(table);
+      else if (mode === "bill") await printBillForTable(table);
       else if (mode === "waiter-pick") await handleWaiterTap(table);
       else await handleMoveTap(table);
       return;
@@ -578,42 +643,135 @@ export default function PosTablesPage() {
     );
   }
 
+  // Tables the signed-in user may see: delivery / take-away virtual tables never show, and without
+  // Pos.ChangeDepartment only tables outside every zone are visible.
+  const visibleTables = tables.filter(
+    (t) =>
+      t.isActive &&
+      t.type !== RestaurantTableType.Delivery &&
+      t.type !== RestaurantTableType.TakeAway &&
+      (canChangeSection || t.sectionId == null),
+  );
+  const isCabinetTable = (t: TableWithOrder) =>
+    t.type === RestaurantTableType.Kabinet ||
+    sections.find((sec) => sec.id === t.sectionId)?.type === RestaurantTableType.Kabinet;
+  const cabinetTables = visibleTables.filter(isCabinetTable);
+  const regularTables = visibleTables.filter((t) => !isCabinetTable(t));
+  const regularGroups: { key: string; title: string | null; tables: TableWithOrder[] }[] = [];
+  const ungrouped = regularTables.filter((t) => t.sectionId == null);
+  if (ungrouped.length > 0) regularGroups.push({ key: "none", title: null, tables: ungrouped });
+  for (const sec of sections) {
+    const inSection = regularTables.filter((t) => t.sectionId === sec.id);
+    if (inSection.length > 0) regularGroups.push({ key: `s${sec.id}`, title: sec.name, tables: inSection });
+  }
+
+  const renderTableTile = (table: TableWithOrder, wide = false) => {
+    const occupied = table.activeOrder !== null;
+    const status = table.activeOrder?.status ?? null;
+    const isCreating = creatingTableId === table.id;
+
+    const order = table.activeOrder;
+    const elapsedMinutes = order ? Math.floor((now.getTime() - new Date(order.openedAt).getTime()) / 60000) : 0;
+    const isOverdue = branding?.tableBusyWarning !== false && occupied && elapsedMinutes >= warningMinutes;
+    const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
+    const isOtherWaiterTable =
+      occupied && !canOverrideOwnership && currentEmployeeId != null && order!.waiterId !== currentEmployeeId;
+
+    return (
+      <button
+        key={table.id}
+        type="button"
+        onClick={() => void openTable(table)}
+        disabled={!table.isActive || isCreating}
+        className={cn(
+          "relative flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1.5 transition-all",
+          wide ? "min-h-24 w-full" : "h-32",
+          "select-none active:scale-95",
+          occupied
+            ? "border-transparent text-white shadow-md " + statusBg(status)
+            : "border-border bg-card text-card-foreground hover:border-primary/40",
+          !table.isActive && "cursor-not-allowed opacity-40",
+          isOverdue && "ring-2 ring-red-500 ring-offset-1",
+          isOtherWaiterTable && "opacity-60",
+        )}
+      >
+        {isOtherWaiterTable && <Lock className="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-white/90" />}
+        {table.note && branding?.tableShowNote !== false && (
+          <span className="absolute left-1.5 top-1.5" title={table.note}>
+            <StickyNote className={cn("h-3.5 w-3.5", occupied ? "text-white/90" : "text-amber-600")} />
+          </span>
+        )}
+        <span className="text-lg font-bold leading-none">{table.name}</span>
+        <span className={cn("flex items-center gap-1 text-xs", occupied ? "text-white/80" : "text-muted-foreground")}>
+          <Users className="h-3 w-3" />
+          {table.capacity}
+        </span>
+        {occupied ? (
+          <>
+            <span className="text-xs font-medium text-white/90">{statusLabel(status!)}</span>
+            {order?.waiterName && branding?.tableShowWaiter !== false && (
+              <span className="max-w-full truncate text-[11px] text-white/80">{order.waiterName}</span>
+            )}
+            {order?.guestCount != null && <span className="text-[11px] text-white/80">{order.guestCount} nəfər</span>}
+            {branding?.tableShowTime !== false && (
+              <span className="text-[11px] text-white/80">{formatElapsed(order!.openedAt, now.getTime())}</span>
+            )}
+            {branding?.tableShowAmount !== false && (
+              <span className="text-xs font-semibold text-white">{order!.totalAmount.toFixed(2)} ₼</span>
+            )}
+            {order?.note && branding?.tableShowNote !== false && (
+              <span className="max-w-full truncate text-[10px] italic text-white/70">{order.note}</span>
+            )}
+          </>
+        ) : (
+          <span className="mt-0.5 text-xs text-muted-foreground">{isCreating ? "..." : "Boş"}</span>
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">Masalar</h1>
         <div className="flex items-center gap-2">
-          <Button size="sm" disabled={takeAwayCreating || modeBusy} onClick={() => void handleCreateTakeAwayOrder()}>
-            <ShoppingBag className="mr-2 h-4 w-4" />
-            {takeAwayCreating ? "Açılır..." : "Tez satış"}
-          </Button>
+          {canQuickSale && (
+            <Button size="sm" disabled={takeAwayCreating || modeBusy} onClick={() => void handleCreateTakeAwayOrder()}>
+              <ShoppingBag className="mr-2 h-4 w-4" />
+              {takeAwayCreating ? "Açılır..." : "Tez satış"}
+            </Button>
+          )}
           {branding?.modulePaket === true && (
             <Button size="sm" onClick={() => setDeliveryDialogOpen(true)}>
               Çatdırılma sifarişi
             </Button>
           )}
-          <Button
-            size="sm"
-            variant={mode === "move-pick" || mode === "move-target" ? "default" : "outline"}
-            disabled={modeBusy}
-            onClick={() => {
-              const active = mode === "move-pick" || mode === "move-target";
-              resetMode();
-              if (!active) setMode("move-pick");
-            }}
-          >
-            <ArrowLeftRight className="mr-2 h-4 w-4" />
-            Masa dəyiş
-          </Button>
-          <Button
-            size="sm"
-            variant={mode === "waiter-pick" ? "default" : "outline"}
-            disabled={modeBusy}
-            onClick={startWaiterChange}
-          >
-            <UserCog className="mr-2 h-4 w-4" />
-            Ofisiant dəyiş
-          </Button>
+          {canMoveTable && (
+            <Button
+              size="sm"
+              variant={mode === "move-pick" || mode === "move-target" ? "default" : "outline"}
+              disabled={modeBusy}
+              onClick={() => {
+                const active = mode === "move-pick" || mode === "move-target";
+                resetMode();
+                if (!active) setMode("move-pick");
+              }}
+            >
+              <ArrowLeftRight className="mr-2 h-4 w-4" />
+              Masa dəyiş
+            </Button>
+          )}
+          {canChangeWaiter && (
+            <Button
+              size="sm"
+              variant={mode === "waiter-pick" ? "default" : "outline"}
+              disabled={modeBusy}
+              onClick={startWaiterChange}
+            >
+              <UserCog className="mr-2 h-4 w-4" />
+              Ofisiant dəyiş
+            </Button>
+          )}
           {canPrintBill && (
             <Button
               size="sm"
@@ -626,7 +784,28 @@ export default function PosTablesPage() {
               }}
             >
               <Receipt className="mr-2 h-4 w-4" />
+              Hesab
+            </Button>
+          )}
+          {canPay && (
+            <Button
+              size="sm"
+              variant={mode === "pay" ? "default" : "outline"}
+              disabled={modeBusy}
+              onClick={() => {
+                const active = mode === "pay";
+                resetMode();
+                if (!active) setMode("pay");
+              }}
+            >
+              <Banknote className="mr-2 h-4 w-4" />
               Ödəniş
+            </Button>
+          )}
+          {canSeeReports && (
+            <Button variant="outline" size="sm" disabled={modeBusy} onClick={() => router.push("/pos/reports")}>
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Hesabat
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => void load()}>
@@ -640,8 +819,10 @@ export default function PosTablesPage() {
           <span>
             {modeBusy
               ? "Gözləyin..."
-              : mode === "bill"
-                ? "Çekini çıxarmaq istədiyiniz masaya toxunun"
+              : mode === "pay"
+                ? "Nağd ödəniləcək masaya toxunun — masa bağlanacaq və çek çıxacaq"
+                : mode === "bill"
+                ? "Hesabını (ön çek) çıxarmaq istədiyiniz masaya toxunun — masa bağlanmır"
                 : mode === "move-pick"
                   ? "Köçürmək istədiyiniz masaya toxunun"
                   : mode === "move-target"
@@ -794,122 +975,30 @@ export default function PosTablesPage() {
         </div>
       )}
 
-      {sections.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveSectionId(null)}
-            disabled={!canChangeSection && activeSectionId !== null}
-            className={cn(
-              "rounded-full px-3 py-1.5 text-sm font-medium",
-              activeSectionId === null ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70",
-            )}
-          >
-            Hamısı
-          </button>
-          {sections.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => canChangeSection && setActiveSectionId(s.id)}
-              disabled={!canChangeSection && activeSectionId !== s.id}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-sm font-medium",
-                activeSectionId === s.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70",
-                !canChangeSection && "cursor-not-allowed opacity-60",
+      {/* Regular tables on the left (grouped by zone); every cabinet / hall on the right edge, one under another. */}
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1 space-y-4">
+          {tables.length === 0 && !error && (
+            <p className="text-sm text-muted-foreground">Bu filial üçün masa tapılmadı.</p>
+          )}
+          {regularGroups.map((group) => (
+            <div key={group.key}>
+              {group.title && (
+                <p className="mb-2 text-sm font-semibold text-muted-foreground">{group.title}</p>
               )}
-            >
-              {s.name}
-            </button>
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
+                {group.tables.map((table) => renderTableTile(table))}
+              </div>
+            </div>
           ))}
         </div>
-      )}
 
-      {tables.length === 0 && !error && (
-        <p className="text-sm text-muted-foreground">Bu filial üçün masa tapılmadı.</p>
-      )}
-
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-        {tables
-          .filter((table) => table.isActive)
-          .filter((table) => table.type !== RestaurantTableType.Delivery && table.type !== RestaurantTableType.TakeAway)
-          .filter((table) => (activeSectionId === null ? table.sectionId == null : table.sectionId === activeSectionId))
-          .map((table) => {
-          const occupied = table.activeOrder !== null;
-          const status = table.activeOrder?.status ?? null;
-          const isCreating = creatingTableId === table.id;
-
-          const order = table.activeOrder;
-          const elapsedMinutes = order ? Math.floor((now.getTime() - new Date(order.openedAt).getTime()) / 60000) : 0;
-          const isOverdue = branding?.tableBusyWarning !== false && occupied && elapsedMinutes >= warningMinutes;
-          const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
-          const isOtherWaiterTable =
-            occupied && !canOverrideOwnership && currentEmployeeId != null && order!.waiterId !== currentEmployeeId;
-
-          return (
-            <button
-              key={table.id}
-              type="button"
-              onClick={() => void openTable(table)}
-              disabled={!table.isActive || isCreating}
-              className={cn(
-                "relative flex h-32 flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1.5 transition-all",
-                "select-none active:scale-95",
-                occupied
-                  ? "border-transparent text-white shadow-md " + statusBg(status)
-                  : "border-border bg-card text-card-foreground hover:border-primary/40",
-                !table.isActive && "cursor-not-allowed opacity-40",
-                isOverdue && "ring-2 ring-red-500 ring-offset-1",
-                isOtherWaiterTable && "opacity-60",
-              )}
-            >
-              {isOtherWaiterTable && (
-                <Lock className="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-white/90" />
-              )}
-              {table.note && branding?.tableShowNote !== false && (
-                <span className="absolute left-1.5 top-1.5" title={table.note}>
-                  <StickyNote
-                    className={cn("h-3.5 w-3.5", occupied ? "text-white/90" : "text-amber-600")}
-                  />
-                </span>
-              )}
-              <span className="text-lg font-bold leading-none">{table.name}</span>
-              <span
-                className={cn(
-                  "flex items-center gap-1 text-xs",
-                  occupied ? "text-white/80" : "text-muted-foreground",
-                )}
-              >
-                <Users className="h-3 w-3" />
-                {table.capacity}
-              </span>
-              {occupied ? (
-                <>
-                  <span className="text-xs font-medium text-white/90">{statusLabel(status!)}</span>
-                  {order?.waiterName && branding?.tableShowWaiter !== false && (
-                    <span className="max-w-full truncate text-[11px] text-white/80">{order.waiterName}</span>
-                  )}
-                  {order?.guestCount != null && (
-                    <span className="text-[11px] text-white/80">{order.guestCount} nəfər</span>
-                  )}
-                  {branding?.tableShowTime !== false && (
-                    <span className="text-[11px] text-white/80">{formatElapsed(order!.openedAt, now.getTime())}</span>
-                  )}
-                  {branding?.tableShowAmount !== false && (
-                    <span className="text-xs font-semibold text-white">{order!.totalAmount.toFixed(2)} ₼</span>
-                  )}
-                  {order?.note && branding?.tableShowNote !== false && (
-                    <span className="max-w-full truncate text-[10px] italic text-white/70">{order.note}</span>
-                  )}
-                </>
-              ) : (
-                <span className="mt-0.5 text-xs text-muted-foreground">
-                  {isCreating ? "..." : "Boş"}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {cabinetTables.length > 0 && (
+          <aside className="sticky top-4 flex w-32 shrink-0 flex-col gap-2 sm:w-44">
+            <p className="text-sm font-semibold text-muted-foreground">Kabinet və zallar</p>
+            {cabinetTables.map((table) => renderTableTile(table, true))}
+          </aside>
+        )}
       </div>
 
       <Dialog open={guestCountTable !== null} onOpenChange={(open) => !open && setGuestCountTable(null)}>

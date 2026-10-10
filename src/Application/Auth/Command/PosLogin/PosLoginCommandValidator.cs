@@ -1,3 +1,4 @@
+using Domain.Constants;
 using FluentValidation;
 
 namespace Application.Auth.Commands.PosLogin;
@@ -14,9 +15,9 @@ public sealed class PosLoginCommandValidator : AbstractValidator<PosLoginCommand
             .WithMessage("Provide either Code or RfidCardId, not both");
 
         RuleFor(x => x.Request.Code)
-            .Matches(@"^\d{1,24}$")
+            .Matches($@"^\d{{{StaffCodeRules.MinLength},{StaffCodeRules.MaxLoginLength}}}$")
             .When(x => !string.IsNullOrWhiteSpace(x.Request.Code))
-            .WithMessage("Code must be 1 to 24 digits");
+            .WithMessage($"Code must be {StaffCodeRules.MinLength} to {StaffCodeRules.MaxLoginLength} digits");
 
         RuleFor(x => x.Request.RfidCardId)
             .MaximumLength(64)

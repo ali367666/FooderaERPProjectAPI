@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { ChefHat, CreditCard, Delete, Monitor, RotateCw, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner";
 import {
   Dialog,
   DialogContent,
@@ -99,6 +100,7 @@ export default function PosLoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center gap-8 bg-muted/30 p-4 lg:gap-16 lg:px-12">
+      <Toaster richColors closeButton position="top-center" />
       {branding?.wallpaperUrl && (
         <div
           className="pointer-events-none absolute inset-0 bg-cover bg-center"

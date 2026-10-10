@@ -39,6 +39,8 @@ export type OrderReceiptLineDto = {
   vatAmount: number;
   /** Gift — the backend also appends " (Hədiyyə)" to menuItemName for plain-text receipts. */
   isGift: boolean;
+  /** Part-payment receipt: an earlier guest already paid this item — listed, but not in the total. */
+  paidEarlier: boolean;
 };
 
 export type OrderReceiptDto = {
@@ -66,6 +68,12 @@ export type OrderReceiptDto = {
   paidAmount: number;
   changeAmount: number;
   vatAmount: number;
+  /** Rung through the fiscal (tax) register — only then does the receipt carry VAT. */
+  isFiscal: boolean;
+  /** How the bill was settled (shown under the grand total); all 0 for an unpaid pre-check. */
+  cashPaidAmount: number;
+  cardPaidAmount: number;
+  creditPaidAmount: number;
 };
 
 export type OrderDto = {
@@ -152,6 +160,8 @@ export type UpdateOrderLinePayload = {
   note?: string | null;
   status?: string | null;
   unitPrice?: number | null;
+  /** One of the item's own price lists (MenuItemPriceType in menu-item-service). */
+  priceType?: number | null;
   isGift?: boolean | null;
   discountAmount?: number | null;
 };
@@ -358,6 +368,7 @@ function normalizeReceipt(raw: unknown): OrderReceiptDto | null {
               lineTotal: Number(pick(l, "lineTotal", "LineTotal") ?? 0),
               vatAmount: Number(pick(l, "vatAmount", "VatAmount") ?? 0),
               isGift: Boolean(pick(l, "isGift", "IsGift") ?? false),
+              paidEarlier: Boolean(pick(l, "paidEarlier", "PaidEarlier") ?? false),
             } satisfies OrderReceiptLineDto;
           })
           .filter((x): x is OrderReceiptLineDto => x !== null)
@@ -370,6 +381,10 @@ function normalizeReceipt(raw: unknown): OrderReceiptDto | null {
     paidAmount: Number(pick(o, "paidAmount", "PaidAmount") ?? 0),
     changeAmount: Number(pick(o, "changeAmount", "ChangeAmount") ?? 0),
     vatAmount: Number(pick(o, "vatAmount", "VatAmount") ?? 0),
+    isFiscal: Boolean(pick(o, "isFiscal", "IsFiscal") ?? false),
+    cashPaidAmount: Number(pick(o, "cashPaidAmount", "CashPaidAmount") ?? 0),
+    cardPaidAmount: Number(pick(o, "cardPaidAmount", "CardPaidAmount") ?? 0),
+    creditPaidAmount: Number(pick(o, "creditPaidAmount", "CreditPaidAmount") ?? 0),
   };
 }
 
@@ -478,6 +493,7 @@ export async function updateOrderLine(payload: UpdateOrderLinePayload): Promise<
       note: payload.note ?? null,
       status: payload.status ?? null,
       unitPrice: payload.unitPrice ?? null,
+      priceType: payload.priceType ?? null,
       isGift: payload.isGift ?? null,
       discountAmount: payload.discountAmount ?? null,
     });
@@ -530,13 +546,28 @@ export async function sendMars(id: number): Promise<number> {
 }
 
 /** Records that the bill was printed; returns whether the order is now locked. */
-export async function markBillPrinted(id: number): Promise<boolean> {
+/** `final`: the last print ("Qəbz çap et") — always locks the order. The pre-check never calls this. */
+export async function markBillPrinted(id: number, final = false): Promise<boolean> {
   try {
-    const response = await api.post<unknown>(`/Orders/${id}/bill-printed`);
+    const response = await api.post<unknown>(`/Orders/${id}/bill-printed`, null, { params: { final } });
     const data = unwrapData<unknown>(response.data);
     return Boolean(data ?? response.data);
   } catch (error) {
     throw toApiFormError(error, "Hesab qeydə alınmadı");
+  }
+}
+
+/** "₼" / "%" buttons: a hand-typed order discount (no code). Returns the discount in manat. */
+export async function setManualDiscount(id: number, kind: "Amount" | "Percent", value: number): Promise<number> {
+  try {
+    // Same names as the backend's Domain.Enums.DiscountType.
+    const type = kind === "Percent" ? "Percentage" : "FixedAmount";
+    const response = await api.post<unknown>(`/Orders/${id}/manual-discount`, null, { params: { type, value } });
+    const data = unwrapData<unknown>(response.data);
+    const amount = Number(data ?? response.data);
+    return Number.isFinite(amount) ? amount : 0;
+  } catch (error) {
+    throw toApiFormError(error, "Endirim tətbiq edilmədi");
   }
 }
 
@@ -772,7 +803,7 @@ export function serveOrder(id: number): Promise<void> {
   })();
 }
 
-export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number; serviceChargeAmount?: number | null }): Promise<OrderDto | null> {
+export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number; isFiscal?: boolean }): Promise<OrderDto | null> {
   try {
     const response = await api.put<unknown>(`/Orders/${id}/pay`, payload);
     assertApiSuccess(response.data);
@@ -810,9 +841,155 @@ export async function removeDiscountFromOrder(id: number): Promise<OrderDto> {
   }
 }
 
-export async function getOrderReceipt(id: number): Promise<OrderReceiptDto> {
+/** `fiscal`: for a bill not yet paid (pre-check) — print it as a fiscal or ordinary receipt. Paid orders use what was stored. */
+export async function getOrderReceipt(id: number, fiscal?: boolean): Promise<OrderReceiptDto> {
   try {
-    const response = await api.get<unknown>(`/Orders/${id}/receipt`);
+    const response = await api.get<unknown>(`/Orders/${id}/receipt`, { params: fiscal === undefined ? undefined : { fiscal } });
+    assertApiSuccess(response.data);
+    const row = normalizeReceipt(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid receipt response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to load receipt");
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Part payments ("Hesab"): each guest pays for their own items; the order closes with the last one.
+// ---------------------------------------------------------------------------------------------
+
+export type OrderPaymentLineDto = {
+  orderLineId: number;
+  menuItemName: string;
+  quantity: number;
+  amount: number;
+};
+
+export type OrderPaymentDto = {
+  id: number;
+  method: string;
+  amount: number;
+  serviceChargeAmount: number;
+  receivedAmount: number;
+  changeAmount: number;
+  paidAtUtc: string;
+  lines: OrderPaymentLineDto[];
+};
+
+export type OrderPaymentsDto = {
+  payments: OrderPaymentDto[];
+  /** How much of each line is already paid for (the line's own unit). */
+  paidLines: { orderLineId: number; paidQuantity: number }[];
+  /** Σ of the payments' amounts, without service charge. */
+  paidAmount: number;
+  /** What is still to pay of the bill (lines − discount + table rental), without service charge. */
+  remainingAmount: number;
+  /** Share of each line's price left after the order discount (1 = none). */
+  discountFactor: number;
+};
+
+export type PartPaymentResultDto = {
+  paymentId: number;
+  amount: number;
+  changeAmount: number;
+  orderClosed: boolean;
+  remainingAmount: number;
+};
+
+export type PayOrderPartPayload = {
+  paymentMethod: PaymentMethod;
+  paidAmount: number;
+  /** Pay "by amount": settle this sum with no items attached (cash + card on one bill). */
+  amount?: number | null;
+  /** Rung through the fiscal (tax) register. */
+  isFiscal?: boolean;
+  lines: { orderLineId: number; quantity: number }[];
+};
+
+function num(raw: Record<string, unknown>, camel: string, pascal: string, fallback = 0): number {
+  const v = Number(pick<unknown>(raw, camel, pascal));
+  return Number.isFinite(v) ? v : fallback;
+}
+
+function normalizePayments(body: unknown): OrderPaymentsDto {
+  const raw = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const list = (v: unknown): Record<string, unknown>[] =>
+    Array.isArray(v) ? (v.filter((x) => x && typeof x === "object") as Record<string, unknown>[]) : [];
+  return {
+    payments: list(pick<unknown>(raw, "payments", "Payments")).map((p) => ({
+      id: num(p, "id", "Id"),
+      method: String(pick<unknown>(p, "method", "Method") ?? ""),
+      amount: num(p, "amount", "Amount"),
+      serviceChargeAmount: num(p, "serviceChargeAmount", "ServiceChargeAmount"),
+      receivedAmount: num(p, "receivedAmount", "ReceivedAmount"),
+      changeAmount: num(p, "changeAmount", "ChangeAmount"),
+      paidAtUtc: String(pick<unknown>(p, "paidAtUtc", "PaidAtUtc") ?? ""),
+      lines: list(pick<unknown>(p, "lines", "Lines")).map((l) => ({
+        orderLineId: num(l, "orderLineId", "OrderLineId"),
+        menuItemName: String(pick<unknown>(l, "menuItemName", "MenuItemName") ?? ""),
+        quantity: num(l, "quantity", "Quantity"),
+        amount: num(l, "amount", "Amount"),
+      })),
+    })),
+    paidLines: list(pick<unknown>(raw, "paidLines", "PaidLines")).map((l) => ({
+      orderLineId: num(l, "orderLineId", "OrderLineId"),
+      paidQuantity: num(l, "paidQuantity", "PaidQuantity"),
+    })),
+    paidAmount: num(raw, "paidAmount", "PaidAmount"),
+    remainingAmount: num(raw, "remainingAmount", "RemainingAmount"),
+    discountFactor: num(raw, "discountFactor", "DiscountFactor", 1),
+  };
+}
+
+export async function getOrderPayments(id: number): Promise<OrderPaymentsDto> {
+  try {
+    const response = await api.get<unknown>(`/Orders/${id}/payments`);
+    assertApiSuccess(response.data);
+    return normalizePayments(unwrapData<unknown>(response.data) ?? response.data);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to load payments");
+  }
+}
+
+export async function payOrderPart(id: number, payload: PayOrderPartPayload): Promise<PartPaymentResultDto> {
+  try {
+    const response = await api.post<unknown>(`/Orders/${id}/pay-part`, {
+      paymentMethod: payload.paymentMethod,
+      paidAmount: payload.paidAmount,
+      amount: payload.amount ?? null,
+      isFiscal: payload.isFiscal ?? false,
+      lines: payload.lines,
+    });
+    assertApiSuccess(response.data);
+    const raw = (unwrapData<unknown>(response.data) ?? response.data) as Record<string, unknown>;
+    return {
+      paymentId: num(raw, "paymentId", "PaymentId"),
+      amount: num(raw, "amount", "Amount"),
+      changeAmount: num(raw, "changeAmount", "ChangeAmount"),
+      orderClosed: Boolean(pick<unknown>(raw, "orderClosed", "OrderClosed")),
+      remainingAmount: num(raw, "remainingAmount", "RemainingAmount"),
+    };
+  } catch (error) {
+    throw toApiFormError(error, "Failed to pay part of the order");
+  }
+}
+
+/** "Servis haqqı qeyd etmək": the table's service charge in manat (0 clears it). Added to the closing payment. */
+export async function setOrderServiceCharge(id: number, amount: number): Promise<number> {
+  try {
+    const response = await api.put<unknown>(`/Orders/${id}/service-charge`, null, { params: { amount } });
+    const data = unwrapData<unknown>(response.data);
+    const value = Number(data ?? response.data);
+    return Number.isFinite(value) ? value : 0;
+  } catch (error) {
+    throw toApiFormError(error, "Servis haqqı yazılmadı");
+  }
+}
+
+/** The receipt of one part payment (a single guest's share). */
+export async function getPaymentReceipt(orderId: number, paymentId: number): Promise<OrderReceiptDto> {
+  try {
+    const response = await api.get<unknown>(`/Orders/${orderId}/receipt`, { params: { paymentId } });
     assertApiSuccess(response.data);
     const row = normalizeReceipt(unwrapData<unknown>(response.data));
     if (!row) throw new Error("Invalid receipt response");

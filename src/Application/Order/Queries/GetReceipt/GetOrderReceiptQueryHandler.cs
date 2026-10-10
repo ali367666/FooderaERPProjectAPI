@@ -13,15 +13,18 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
     private readonly IOrderRepository _orderRepository;
     private readonly ICompanySettingsRepository _companySettingsRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IOrderPaymentRepository _paymentRepository;
 
     public GetOrderReceiptQueryHandler(
         IOrderRepository orderRepository,
         ICompanySettingsRepository companySettingsRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IOrderPaymentRepository paymentRepository)
     {
         _orderRepository = orderRepository;
         _companySettingsRepository = companySettingsRepository;
         _currentUserService = currentUserService;
+        _paymentRepository = paymentRepository;
     }
 
     public async Task<OrderReceiptResponse> Handle(GetOrderReceiptQuery request, CancellationToken cancellationToken)
@@ -42,7 +45,19 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
             .Where(x => x.Status != OrderLineStatus.Cancelled)
             .Sum(x => x.LineTotal);
 
-        var lines = BuildLines(order.Lines, groupQuantities, defaultVatPercent);
+        if (request.PaymentId is { } paymentId)
+        {
+            var payment = await _paymentRepository.GetByIdAsync(paymentId, order.Id, cancellationToken)
+                ?? throw new NotFoundException("Payment not found.");
+            var allPayments = await _paymentRepository.GetByOrderIdAsync(order.Id, cancellationToken);
+            return BuildPaymentReceipt(order, payment, allPayments, payment.IsFiscal ? defaultVatPercent : null, payment.IsFiscal);
+        }
+
+        // Only a sale rung through the fiscal register carries VAT on its receipt.
+        var isFiscal = order.IsPaid ? order.IsFiscal : request.Fiscal ?? false;
+        var lines = BuildLines(order.Lines, groupQuantities, isFiscal ? defaultVatPercent : null, isFiscal);
+        var orderPayments = await _paymentRepository.GetByOrderIdAsync(order.Id, cancellationToken);
+        var (cash, card, credit, paymentLabel) = SplitByMethod(order, orderPayments);
 
         return new OrderReceiptResponse
         {
@@ -62,11 +77,125 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
             WaiterName = order.Waiter != null ? $"{order.Waiter.FirstName} {order.Waiter.LastName}" : "-",
             OpenedAt = order.OpenedAt,
             PaidAt = order.PaidAt,
-            PaymentMethod = order.PaymentMethod?.ToString() ?? "-",
+            PaymentMethod = paymentLabel,
             TotalAmount = totalAmount,
+            CashPaidAmount = cash,
+            CardPaidAmount = card,
+            CreditPaidAmount = credit,
             PaidAmount = order.PaidAmount,
             ChangeAmount = order.ChangeAmount,
             VatAmount = lines.Sum(x => x.VatAmount),
+            IsFiscal = isFiscal,
+            Lines = lines
+        };
+    }
+
+    /// <summary>
+    /// Cash / card / credit portions of a settled bill. A bill paid in parts is summed per method
+    /// (and labelled "Mixed" when more than one was used); one paid in a single go is all one method.
+    /// </summary>
+    private static (decimal Cash, decimal Card, decimal Credit, string Label) SplitByMethod(
+        Domain.Entities.Order order, List<Domain.Entities.OrderPayment> payments)
+    {
+        if (payments.Count > 0)
+        {
+            decimal Sum(PaymentMethod m) =>
+                payments.Where(p => p.Method == m).Sum(p => p.Amount + (p.ServiceChargeAmount ?? 0));
+            var methods = payments.Select(p => p.Method).Distinct().ToList();
+            return (Sum(PaymentMethod.Cash), Sum(PaymentMethod.Card), Sum(PaymentMethod.Credit),
+                methods.Count > 1 ? "Mixed" : methods[0].ToString());
+        }
+
+        if (!order.IsPaid || order.PaymentMethod is null)
+            return (0, 0, 0, order.PaymentMethod?.ToString() ?? "-");
+
+        return order.PaymentMethod switch
+        {
+            PaymentMethod.Cash => (order.TotalAmount, 0, 0, "Cash"),
+            PaymentMethod.Card => (0, order.TotalAmount, 0, "Card"),
+            PaymentMethod.Credit => (0, 0, order.TotalAmount, "Credit"),
+            _ => (0, 0, 0, order.PaymentMethod.ToString()!)
+        };
+    }
+
+    /// <summary>One guest's share: their items at the amounts they paid, then their service charge and payment.</summary>
+    private static OrderReceiptResponse BuildPaymentReceipt(
+        Domain.Entities.Order order,
+        Domain.Entities.OrderPayment payment,
+        List<Domain.Entities.OrderPayment> allPayments,
+        decimal? defaultVatPercent,
+        bool isFiscal)
+    {
+        // Items paid by guests before this one come first, marked "paid"; the total counts only this payment.
+        var earlier = allPayments
+            .Where(p => p.Id < payment.Id)
+            .SelectMany(p => p.Lines)
+            .Select(l => new OrderReceiptLineResponse
+            {
+                MenuItemName = ReceiptName(l.OrderLine.MenuItem.Name, l.OrderLine.IsGift),
+                IsGift = l.OrderLine.IsGift,
+                MenuCategoryId = l.OrderLine.MenuItem.MenuCategoryId,
+                Quantity = l.Quantity,
+                UnitPrice = l.OrderLine.UnitPrice,
+                LineTotal = l.Amount,
+                VatAmount = 0,
+                PaidEarlier = true
+            });
+
+        var own = payment.Lines
+            .Select(l => new OrderReceiptLineResponse
+            {
+                MenuItemName = ReceiptName(l.OrderLine.MenuItem.Name, l.OrderLine.IsGift),
+                IsGift = l.OrderLine.IsGift,
+                MenuCategoryId = l.OrderLine.MenuItem.MenuCategoryId,
+                Quantity = l.Quantity,
+                UnitPrice = l.OrderLine.UnitPrice,
+                LineTotal = l.Amount,
+                VatAmount = isFiscal ? ComputeVatAmount(l.Amount, l.OrderLine.MenuItem.VatPercent ?? defaultVatPercent) : 0
+            })
+            .ToList();
+
+        // A payment settled by amount has no items — it shows as one line.
+        if (own.Count == 0)
+        {
+            own.Add(new OrderReceiptLineResponse
+            {
+                MenuItemName = "Hesabdan ödəniş",
+                Quantity = 1,
+                UnitPrice = payment.Amount,
+                LineTotal = payment.Amount
+            });
+        }
+
+        var lines = earlier.Concat(own).ToList();
+        var service = payment.ServiceChargeAmount ?? 0;
+
+        return new OrderReceiptResponse
+        {
+            ReceiptNumber = $"RCPT-{order.Id}-P{payment.Id}",
+            OrderNumber = order.OrderNumber,
+            RestaurantName = order.Restaurant?.Name ?? "-",
+            RestaurantAddress = order.Restaurant?.Address,
+            TableName = order.Table?.Name ?? "-",
+            SectionName = order.Table?.Section?.Name,
+            ClosedAt = payment.PaidAtUtc,
+            // The order discount is already folded into each line's amount.
+            DiscountAmount = 0,
+            ServiceChargeAmount = service,
+            TableRentalAmount = 0,
+            GrandTotal = payment.Amount + service,
+            WaiterName = order.Waiter != null ? $"{order.Waiter.FirstName} {order.Waiter.LastName}" : "-",
+            OpenedAt = order.OpenedAt,
+            PaidAt = payment.PaidAtUtc,
+            PaymentMethod = payment.Method.ToString(),
+            CashPaidAmount = payment.Method == PaymentMethod.Cash ? payment.Amount + service : 0,
+            CardPaidAmount = payment.Method == PaymentMethod.Card ? payment.Amount + service : 0,
+            CreditPaidAmount = payment.Method == PaymentMethod.Credit ? payment.Amount + service : 0,
+            TotalAmount = payment.Amount,
+            PaidAmount = payment.ReceivedAmount,
+            ChangeAmount = payment.ChangeAmount,
+            VatAmount = lines.Sum(x => x.VatAmount),
+            IsFiscal = isFiscal,
             Lines = lines
         };
     }
@@ -84,7 +213,7 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
     }
 
     private static List<OrderReceiptLineResponse> BuildLines(
-        IEnumerable<Domain.Entities.OrderLine> orderLines, bool groupQuantities, decimal? defaultVatPercent)
+        IEnumerable<Domain.Entities.OrderLine> orderLines, bool groupQuantities, decimal? defaultVatPercent, bool isFiscal)
     {
         var activeLines = orderLines
             .DistinctBy(x => x.Id)
@@ -102,7 +231,7 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
                     Quantity = x.Quantity,
                     UnitPrice = x.UnitPrice,
                     LineTotal = x.LineTotal,
-                    VatAmount = ComputeVatAmount(x.LineTotal, x.MenuItem.VatPercent ?? defaultVatPercent)
+                    VatAmount = isFiscal ? ComputeVatAmount(x.LineTotal, x.MenuItem.VatPercent ?? defaultVatPercent) : 0
                 })
                 .ToList();
         }
@@ -117,7 +246,7 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
                 Quantity = g.Sum(x => x.Quantity),
                 UnitPrice = g.Key.UnitPrice,
                 LineTotal = g.Sum(x => x.LineTotal),
-                VatAmount = ComputeVatAmount(g.Sum(x => x.LineTotal), g.Key.VatPercent ?? defaultVatPercent)
+                VatAmount = isFiscal ? ComputeVatAmount(g.Sum(x => x.LineTotal), g.Key.VatPercent ?? defaultVatPercent) : 0
             })
             .ToList();
     }

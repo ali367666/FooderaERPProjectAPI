@@ -13,6 +13,9 @@ namespace Infrastructure.Identity;
 
 public class IdentityAdminService : IIdentityAdminService
 {
+    private static readonly string StaffCodeLengthMessage =
+        $"Code must be {StaffCodeRules.MinLength} to {StaffCodeRules.MaxLength} digits.";
+
     /// <summary>Permissions reserved for the platform SuperAdmin — never visible/assignable to a tenant.</summary>
     private static readonly string[] PlatformOnlyPermissions =
     [
@@ -231,9 +234,9 @@ public class IdentityAdminService : IIdentityAdminService
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Kod tələb olunur." } });
         if (code is not null)
         {
-            if (code.Length is < 1 or > 20 || !code.All(char.IsDigit))
-                return (false, null, "Code must be 1 to 20 digits.",
-                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be 1 to 20 digits." } });
+            if (code.Length is < StaffCodeRules.MinLength or > StaffCodeRules.MaxLength || !code.All(char.IsDigit))
+                return (false, null, StaffCodeLengthMessage,
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { StaffCodeLengthMessage } });
 
             var codeTaken = await _db.Users.AsNoTracking()
                 .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code, cancellationToken);
@@ -369,9 +372,9 @@ public class IdentityAdminService : IIdentityAdminService
         var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
         if (code is not null)
         {
-            if (code.Length is < 1 or > 20 || !code.All(char.IsDigit))
-                return (false, "Code must be 1 to 20 digits.",
-                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be 1 to 20 digits." } });
+            if (code.Length is < StaffCodeRules.MinLength or > StaffCodeRules.MaxLength || !code.All(char.IsDigit))
+                return (false, StaffCodeLengthMessage,
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { StaffCodeLengthMessage } });
 
             var codeTaken = await _db.Users.AsNoTracking()
                 .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code && x.Id != id, cancellationToken);

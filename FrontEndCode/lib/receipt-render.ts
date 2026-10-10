@@ -121,7 +121,7 @@ function groupLines(lines: OrderReceiptLineDto[], group: boolean): OrderReceiptL
   const out: OrderReceiptLineDto[] = [];
   const index = new Map<string, number>();
   for (const line of lines) {
-    const key = `${line.menuItemName}__${line.unitPrice}__${line.isGift}`;
+    const key = `${line.menuItemName}__${line.unitPrice}__${line.isGift}__${line.paidEarlier}`;
     const i = index.get(key);
     if (i === undefined) {
       index.set(key, out.length);
@@ -172,6 +172,8 @@ export async function renderReceipt(
   receipt: OrderReceiptDto,
   design: ReceiptDesign,
   categoryName: (id: number | null | undefined) => string = () => "",
+  /** `preCheck`: the customer's pre-check ("Müştəri qəbzi") — marked, so it is not mistaken for the final receipt. */
+  opts: { preCheck?: boolean } = {},
 ): Promise<HTMLCanvasElement> {
   const width = paperDots(design.paperWidth);
   const inner = width - MARGIN * 2;
@@ -316,6 +318,10 @@ export async function renderReceipt(
   };
   const num = (n: number) => n.toFixed(2);
 
+  if (opts.preCheck) {
+    center("ÖN ÇEK — ödəniş deyil", Math.round(fs * 1.1), "bold");
+    y += 4;
+  }
   ctx.font = font(Math.round(fs * 0.9), "bold");
   ctx.fillText("Məhsul", MARGIN, y);
   rightText("Miqdar", qtyRight);
@@ -344,6 +350,7 @@ export async function renderReceipt(
         cell(String(line.quantity), qtyRight, qtyW);
         cell(num(line.unitPrice), priceRight, priceW);
         if (line.isGift) cell("Hədiyyə", totalRight, totalW, "bold");
+        else if (line.paidEarlier) cell("Ödənilib", totalRight, totalW, "bold");
         else cell(num(line.lineTotal), totalRight, totalW);
       }
       y += Math.round(fs * 1.25);
@@ -377,8 +384,17 @@ export async function renderReceipt(
   }
   if (design.showVat && receipt.vatAmount > 0) leftRight("ƏDV daxildir", money(receipt.vatAmount), Math.round(fs * 0.85));
   if (design.showPaymentMethod && receipt.paidAt) {
-    leftRight("Ödəniş", PAYMENT_LABELS[receipt.paymentMethod] ?? receipt.paymentMethod, small);
+    // Under the grand total: how much was paid in cash and how much by card.
+    if (receipt.cashPaidAmount > 0) leftRight("Nağd ödəniş", money(receipt.cashPaidAmount), fs);
+    if (receipt.cardPaidAmount > 0) leftRight("Kart ödəniş", money(receipt.cardPaidAmount), fs);
+    if (receipt.creditPaidAmount > 0) leftRight("Borc (nisyə)", money(receipt.creditPaidAmount), fs);
+    leftRight("Kassa", receipt.isFiscal ? "Fiskal (vergi kassası)" : "Adi kassa", small);
+    const mixed = receipt.paymentMethod === "Mixed";
+    leftRight("Ödəniş", mixed ? "Qarışıq" : PAYMENT_LABELS[receipt.paymentMethod] ?? receipt.paymentMethod, small);
     if (receipt.paymentMethod === "Cash" && receipt.paidAmount > 0) {
+      leftRight("Alınan", money(receipt.paidAmount), small);
+      leftRight("Qalıq", money(receipt.changeAmount), small);
+    } else if (mixed && receipt.changeAmount > 0) {
       leftRight("Alınan", money(receipt.paidAmount), small);
       leftRight("Qalıq", money(receipt.changeAmount), small);
     }

@@ -23,7 +23,11 @@ using Application.Orders.Commands.Start;
 using Application.Orders.Commands.Submit;
 using Application.Orders.Commands.Update;
 using Application.Orders.Commands.MoveTable;
+using Application.Discounts.Commands.SetManual;
+using Application.Orders.Commands.PayPart;
+using Application.Orders.Commands.SetServiceCharge;
 using Application.Orders.Commands.ReassignWaiter;
+using Application.Orders.Queries.GetPayments;
 using Application.Orders.Queries.VerifyRedirectCode;
 using Application.Orders.Commands.TableRental;
 using Application.Orders.Dtos;
@@ -34,6 +38,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Domain.Constants;
+using Domain.Enums;
 
 namespace FooderaERP.Api.Controllers;
 
@@ -99,11 +104,11 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>Customer bill printed before payment; locks the order when LockOrderAfterBill is on.</summary>
-    [Authorize(Policy = AppPermissions.OrdersView)]
+    [Authorize(Policy = AppPermissions.PosPrintReceipt)]
     [HttpPost("{id:int}/bill-printed")]
-    public async Task<ActionResult<bool>> MarkBillPrinted(int id)
+    public async Task<ActionResult<bool>> MarkBillPrinted(int id, [FromQuery] bool final = false)
     {
-        var result = await _mediator.Send(new MarkBillPrintedCommand(id));
+        var result = await _mediator.Send(new MarkBillPrintedCommand(id, final));
         return Ok(result);
     }
 
@@ -207,7 +212,7 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize(Policy = AppPermissions.OrdersUpdate)]
+    // "OK" on the order screen: confirming an order and sending it to the kitchen needs no special permission.
     [HttpPost("{id:int}/submit")]
     public async Task<ActionResult<OrderResponse>> Submit(int id)
     {
@@ -257,9 +262,28 @@ public class OrdersController : ControllerBase
 
     [Authorize(Policy = AppPermissions.OrdersView)]
     [HttpGet("{id:int}/receipt")]
-    public async Task<ActionResult<OrderReceiptResponse>> GetReceipt(int id)
+    public async Task<ActionResult<OrderReceiptResponse>> GetReceipt(
+        int id, [FromQuery] int? paymentId = null, [FromQuery] bool? fiscal = null)
     {
-        var result = await _mediator.Send(new GetOrderReceiptQuery(id));
+        var result = await _mediator.Send(new GetOrderReceiptQuery(id, paymentId, fiscal));
+        return Ok(result);
+    }
+
+    /// <summary>Part payments of the order and how much of each line they cover.</summary>
+    [Authorize(Policy = AppPermissions.OrdersView)]
+    [HttpGet("{id:int}/payments")]
+    public async Task<ActionResult<OrderPaymentsResponse>> GetPayments(int id)
+    {
+        var result = await _mediator.Send(new GetOrderPaymentsQuery(id));
+        return Ok(result);
+    }
+
+    /// <summary>"Hesab": one guest pays for the chosen items; the order closes with the last share.</summary>
+    [Authorize(Policy = AppPermissions.OrdersPay)]
+    [HttpPost("{id:int}/pay-part")]
+    public async Task<ActionResult<PartPaymentResponse>> PayPart(int id, [FromBody] PayOrderPartRequest request)
+    {
+        var result = await _mediator.Send(new PayOrderPartCommand(id, request));
         return Ok(result);
     }
 
@@ -271,6 +295,25 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>"Servis haqqı qeyd etmək": the table's service charge in manat (0 clears it).</summary>
+    [Authorize(Policy = AppPermissions.PosTableServiceCharge)]
+    [HttpPut("{id:int}/service-charge")]
+    public async Task<ActionResult<decimal>> SetServiceCharge(int id, [FromQuery] decimal amount)
+    {
+        var result = await _mediator.Send(new SetOrderServiceChargeCommand(id, amount));
+        return Ok(result);
+    }
+
+    /// <summary>"₼" / "%" buttons: a hand-typed discount instead of a code. Returns the discount in manat.</summary>
+    [Authorize(Policy = AppPermissions.DiscountApply)]
+    [HttpPost("{id:int}/manual-discount")]
+    public async Task<ActionResult<decimal>> SetManualDiscount(
+        int id, [FromQuery] DiscountType type, [FromQuery] decimal value)
+    {
+        var result = await _mediator.Send(new SetManualDiscountCommand(id, type, value));
+        return Ok(result);
+    }
+
     [Authorize(Policy = AppPermissions.DiscountApply)]
     [HttpPost("{id:int}/remove-discount")]
     public async Task<ActionResult<OrderResponse>> RemoveDiscount(int id)
@@ -279,7 +322,7 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
-    // Any signed-in waiter may move their own order to another table — no permission needed.
+    [Authorize(Policy = AppPermissions.PosMoveTable)]
     [HttpPut("{id:int}/move-table")]
     public async Task<ActionResult<OrderResponse>> MoveTable(int id, [FromQuery] int newTableId)
     {
@@ -287,7 +330,8 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
-    // Visible to everyone; approval is checked inside — Pos.RedirectUser or a supervisor's code.
+    // Needs Pos.ChangeWaiter; the approval is checked inside — Pos.RedirectUser, or a supervisor's code.
+    [Authorize(Policy = AppPermissions.PosChangeWaiter)]
     [HttpPut("{id:int}/reassign-waiter")]
     public async Task<ActionResult<OrderResponse>> ReassignWaiter(int id, [FromBody] ReassignWaiterRequest request)
     {
@@ -296,6 +340,7 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>Early check of a supervisor's code so the POS can fail before the waiter picks an order.</summary>
+    [Authorize(Policy = AppPermissions.PosChangeWaiter)]
     [HttpPost("verify-redirect-code")]
     public async Task<ActionResult<string>> VerifyRedirectCode([FromBody] VerifyRedirectCodeRequest request)
     {

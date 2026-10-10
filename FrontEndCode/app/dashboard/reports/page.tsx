@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Ban,
   ChevronDown,
@@ -142,6 +143,8 @@ function Segmented<T extends string>({
 }
 
 export default function ReportsPage() {
+  // The same page is served inside the POS (/pos/reports/sales) — links must stay inside it.
+  const inPos = usePathname().startsWith("/pos");
   const [period, setPeriod] = useState<PeriodKey>("today");
   const [customFrom, setCustomFrom] = useState(toDateInputValue(new Date()));
   const [customTo, setCustomTo] = useState(toDateInputValue(new Date()));
@@ -221,7 +224,7 @@ export default function ReportsPage() {
           <p className="mt-1 text-muted-foreground">Hesabatı seçin — seçilmiş dövr üzrə aşağıda açılır.</p>
         </div>
         <Button variant="outline" size="sm" asChild>
-          <Link href="/dashboard/z-report">
+          <Link href={inPos ? "/pos/reports/z-report" : "/dashboard/z-report"}>
             <FileBarChart className="mr-1 h-4 w-4" />Z Hesabatı
           </Link>
         </Button>

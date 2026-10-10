@@ -32,6 +32,12 @@ public class Order : CompanyEntity<int>
     public decimal ChangeAmount { get; set; }
     public string? ReceiptNumber { get; set; }
 
+    /// <summary>
+    /// Rung through the fiscal (tax) register — the lamp on the POS screen was on. Such a sale shows its
+    /// VAT on the receipt; one rung through the ordinary register does not.
+    /// </summary>
+    public bool IsFiscal { get; set; }
+
     public int? DiscountId { get; set; }
     public Discount? Discount { get; set; }
     public string? DiscountCode { get; set; }

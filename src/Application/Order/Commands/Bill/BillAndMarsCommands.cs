@@ -9,8 +9,12 @@ using MediatR;
 
 namespace Application.Orders.Commands.Bill;
 
-/// <summary>The customer bill ("Hesab") was printed before payment. Returns whether the order is now locked.</summary>
-public record MarkBillPrintedCommand(int OrderId) : IRequest<bool>;
+/// <summary>
+/// The customer bill ("Hesab") was printed before payment. Returns whether the order is now locked.
+/// <paramref name="Final"/>: the last print ("Qəbz çap et") — the order is locked whatever the company
+/// setting says. The pre-check ("Müştəri qəbzi") never reaches this command, so it stays editable.
+/// </summary>
+public record MarkBillPrintedCommand(int OrderId, bool Final = false) : IRequest<bool>;
 
 public record UnlockBillCommand(int OrderId) : IRequest;
 
@@ -45,7 +49,7 @@ public class MarkBillPrintedCommandHandler : IRequestHandler<MarkBillPrintedComm
         var settings = await _companySettingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
 
         order.BillPrintedAt = DateTime.UtcNow;
-        if (settings?.LockOrderAfterBill == true)
+        if (request.Final || settings?.LockOrderAfterBill == true)
             order.IsBillLocked = true;
 
         _orderRepository.Update(order);

@@ -21,6 +21,18 @@ export const UnitOfMeasure = {
 
 export type UnitOfMeasureValue = (typeof UnitOfMeasure)[keyof typeof UnitOfMeasure];
 
+/** Mirrors Domain.Enums.MenuItemPriceType — the price lists a menu item can carry. */
+export const MenuItemPriceType = {
+  Price: 1,
+  Station: 2,
+  Package: 3,
+  Special1: 4,
+  Special2: 5,
+  Special3: 6,
+  Special4: 7,
+  Special5: 8,
+} as const;
+
 export type MenuItem = {
   id: number;
   name: string;

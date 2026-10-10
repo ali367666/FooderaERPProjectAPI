@@ -85,6 +85,8 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<MenuItem> MenuItems { get; set; } = null!;
     public DbSet<Order> Orders { get; set; } = null!;
     public DbSet<OrderLine> OrderLines { get; set; } = null!;
+    public DbSet<OrderPayment> OrderPayments { get; set; } = null!;
+    public DbSet<OrderPaymentLine> OrderPaymentLines { get; set; } = null!;
     public DbSet<RestaurantTable> RestaurantTables { get; set; } = null!;
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
     public DbSet<Notification> Notifications { get; set; } = null!;

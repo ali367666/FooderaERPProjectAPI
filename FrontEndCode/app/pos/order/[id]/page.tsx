@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Clock, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Trash2, User, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Clock, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -30,9 +30,15 @@ import {
   discardEmptyOrder,
   moveOrderTable,
   reassignOrderWaiter,
+  verifyRedirectCode,
+  setManualDiscount,
+  getOrderPayments,
+  getPaymentReceipt,
+  type OrderPaymentsDto,
   setOrderDeliveryDriver,
   setOrderCounterparty,
   printKitchenTicket,
+  submitOrder,
   sendMars,
   markBillPrinted,
   unlockBill,
@@ -40,7 +46,6 @@ import {
   stopTimeBasedLine,
   startTableRental,
   stopTableRental,
-  applyDiscountToOrder,
   removeDiscountFromOrder,
   updateOrder,
   type OrderDto,
@@ -51,7 +56,7 @@ import {
 import { useCancelReason } from "@/components/cancel-reason-dialog";
 import { getCounterparties, type Counterparty } from "@/lib/services/counterparty-service";
 import { getMenuCategories, type MenuCategory } from "@/lib/services/menu-category-service";
-import { getMenuItems, getMenuItemAvailability, UnitOfMeasure, type MenuItem } from "@/lib/services/menu-item-service";
+import { getMenuItems, getMenuItemAvailability, MenuItemPriceType, UnitOfMeasure, type MenuItem } from "@/lib/services/menu-item-service";
 import {
   getRestaurantTables,
   getRestaurantTableById,
@@ -66,6 +71,11 @@ import { ReceiptPreview } from "@/components/receipt-preview";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
 import { escPosBarcode, receiptBarcodeValue } from "@/lib/receipt-barcode";
 import { BarcodeSvg } from "@/components/barcode-svg";
+import { getFiscalDevices } from "@/lib/services/fiscal-device-service";
+import { setFiscalMode, useFiscalMode } from "@/lib/pos-fiscal-mode";
+import { CustomerReceiptsDialog } from "@/components/pos/customer-receipts-dialog";
+import { PayDialog } from "@/components/pos/pay-dialog";
+import { SplitBillDialog } from "@/components/pos/split-bill-dialog";
 import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getStoredAuthUser } from "@/lib/auth-client";
@@ -78,6 +88,24 @@ import {
 function isWaiterRole(): boolean {
   const roles = getStoredAuthUser()?.roles ?? [];
   return roles.some((r) => r.trim().toLowerCase() === "waiter");
+}
+
+/** Lower-cases and folds Azerbaijani letters so typing "aci" finds "Acı", "qehve" finds "Qəhvə". */
+function normalizeSearch(s: string): string {
+  let lower: string;
+  try {
+    lower = s.toLocaleLowerCase("az");
+  } catch {
+    lower = s.toLowerCase();
+  }
+  return lower
+    .replace(/ı/g, "i")
+    .replace(/ə/g, "e")
+    .replace(/ö/g, "o")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ç/g, "c")
+    .replace(/ğ/g, "g");
 }
 
 function formatEmployeeName(e: Employee): string {
@@ -123,15 +151,30 @@ export default function PosOrderPage() {
   const [confirmPrintOpen, setConfirmPrintOpen] = useState(false);
 
   const [payOpen, setPayOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Cash");
-  const [paidAmountInput, setPaidAmountInput] = useState("");
   const [receipt, setReceipt] = useState<OrderReceiptDto | null>(null);
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
-  const [serviceChargeInput, setServiceChargeInput] = useState("");
 
   const [moveTableOpen, setMoveTableOpen] = useState(false);
   const [availableTables, setAvailableTables] = useState<RestaurantTable[]>([]);
   const [reassignOpen, setReassignOpen] = useState(false);
+  // "Ofisiantı dəyiş" is visible to everyone; without Pos.RedirectUser a supervisor's code approves it.
+  const [supervisorCodeOpen, setSupervisorCodeOpen] = useState(false);
+  const [supervisorCodeInput, setSupervisorCodeInput] = useState("");
+  const [supervisorCodeError, setSupervisorCodeError] = useState<string | null>(null);
+  const [supervisorCode, setSupervisorCode] = useState<string | null>(null);
+  // Double-tap on a line opens its note.
+  const [lineNoteLine, setLineNoteLine] = useState<OrderLineDto | null>(null);
+  const [lineNoteInput, setLineNoteInput] = useState("");
+  // "Qiymət" mode: tap a product, then pick one of its price lists.
+  const [priceMode, setPriceMode] = useState(false);
+  // "Hədiyyə" mode: tap a product to make it a gift — or, if it is one already, to take it off the gifts.
+  const [giftMode, setGiftMode] = useState(false);
+  const fiscalOn = useFiscalMode();
+  // "₼" / "%" buttons — a hand-typed order discount.
+  const [manualDiscountKind, setManualDiscountKind] = useState<"Amount" | "Percent" | null>(null);
+  const [manualDiscountInput, setManualDiscountInput] = useState("");
+  const [manualDiscountBusy, setManualDiscountBusy] = useState(false);
+  const [priceLine, setPriceLine] = useState<OrderLineDto | null>(null);
   const [driverDialogOpen, setDriverDialogOpen] = useState(false);
   const [employeesList, setEmployeesList] = useState<Employee[]>([]);
   const [currentEmployeeId, setCurrentEmployeeId] = useState<number | null>(null);
@@ -147,8 +190,6 @@ export default function PosOrderPage() {
   const [counterpartySearch, setCounterpartySearch] = useState("");
   const [counterpartyBusy, setCounterpartyBusy] = useState(false);
 
-  const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
-  const [discountCodeInput, setDiscountCodeInput] = useState("");
   const [discountBusy, setDiscountBusy] = useState(false);
 
   const isStoreMode = branding?.moduleDataSecimi === true;
@@ -156,11 +197,13 @@ export default function PosOrderPage() {
   const canDeleteProduct = useHasPermission("Pos.DeleteProductInSale");
   const canDeleteOrder = useHasPermission("Pos.DeleteOrder");
   const canRedirectUser = useHasPermission("Pos.RedirectUser");
+  // Every action button shows only for someone who may use it (the server enforces the same permissions).
+  const canMoveTable = useHasPermission("Pos.MoveTable");
+  const canChangeWaiter = useHasPermission("Pos.ChangeWaiter");
+  const canPay = useHasPermission("Orders.Pay");
   const canChangePrice = useHasPermission("Pos.ChangePrice");
   const canApplyDiscount = useHasPermission("Discount.Apply");
-  const canTableServiceCharge = useHasPermission("Pos.TableServiceCharge");
   const canPrint = useHasPermission("Printer.Print");
-  const canPay = useHasPermission("Orders.Pay");
   const canPrintBill = useHasPermission("Pos.PrintReceipt");
   const canUnlockBill = useHasPermission("Pos.UnlockBill");
 
@@ -168,6 +211,9 @@ export default function PosOrderPage() {
   const [printingId, setPrintingId] = useState<number | null>(null);
   const [pinPrinter, setPinPrinter] = useState<PrinterProfile | null>(null);
   const [pinInput, setPinInput] = useState("");
+  // "OK" — confirm the order and send it to the kitchen.
+  const [okPinOpen, setOkPinOpen] = useState(false);
+  const [okBusy, setOkBusy] = useState(false);
   const [marsBusy, setMarsBusy] = useState(false);
   const [outOfStockIds, setOutOfStockIds] = useState<Set<number>>(new Set());
 
@@ -318,6 +364,51 @@ export default function PosOrderPage() {
     return Array.from(groups.values());
   }, [order, items, printers]);
 
+  // "OK": confirms the order (draft → open, so the kitchen display sees it) and sends every station its
+  // new items. Back to the tables when everything went out; stays put if a printer failed.
+  const handleOk = async (pin?: string) => {
+    if (!order || okBusy) return;
+    if (order.lines.length === 0) {
+      toast.error("Sifariş boşdur");
+      return;
+    }
+    const sendsToKitchen = canPrint && printerGroups.length > 0;
+    if (sendsToKitchen && branding?.waiterConfirmWithPin === true && pin === undefined) {
+      setPinInput("");
+      setOkPinOpen(true);
+      return;
+    }
+    setOkBusy(true);
+    let failed = false;
+    try {
+      if (order.status === "draft") await submitOrder(order.id);
+      let sent = 0;
+      if (sendsToKitchen) {
+        for (const group of printerGroups) {
+          try {
+            sent += await printKitchenTicket(order.id, group.printer.id, pin);
+          } catch (err) {
+            failed = true;
+            toast.error(
+              err instanceof Error ? `${group.printer.name}: ${err.message}` : `${group.printer.name}-ə göndərilmədi`,
+            );
+          }
+        }
+      }
+      setOkPinOpen(false);
+      if (failed) {
+        await load();
+        return;
+      }
+      toast.success(sent > 0 ? `Sifariş mətbəxə göndərildi (${sent} məhsul)` : "Sifariş təsdiqləndi");
+      router.replace("/pos");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sifariş təsdiqlənmədi");
+    } finally {
+      setOkBusy(false);
+    }
+  };
+
   const handlePrintGroup = async (printer: PrinterProfile, pin?: string) => {
     if (!order) return;
     // "Ofisiant təsdiqlə" — ask the order's waiter for their code before the kitchen gets it.
@@ -372,12 +463,12 @@ export default function PosOrderPage() {
   // — the dialog shows that same image, and network printers receive it as ESC/POS raster.
   const receiptDesign = useMemo(() => designFromBranding(branding), [branding]);
 
-  const handlePrintReceiptToPrinter = async (printer: PrinterProfile, r?: OrderReceiptDto) => {
+  const handlePrintReceiptToPrinter = async (printer: PrinterProfile, r?: OrderReceiptDto, opts?: { preCheck?: boolean }) => {
     const target = r ?? receipt;
     if (!target) return;
     setPrintingId(printer.id);
     try {
-      const canvas = await renderReceipt(target, receiptDesign, receiptCategoryName);
+      const canvas = await renderReceipt(target, receiptDesign, receiptCategoryName, opts);
       const trailer = order ? `
 ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
       await printImageToPrinter(printer.id, canvasToRaster(canvas), trailer);
@@ -393,6 +484,94 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     () => [...printers].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)),
     [printers],
   );
+
+  // Part payments ("Hesab"): who already paid for what.
+  const [payments, setPayments] = useState<OrderPaymentsDto | null>(null);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [receiptsOpen, setReceiptsOpen] = useState(false);
+  const hasPartPayments = payments != null && payments.payments.length > 0;
+  // What is still to pay (without service charge): the whole bill, or what is left after part payments.
+  const dueBase = hasPartPayments
+    ? payments!.remainingAmount
+    : (order?.totalAmount ?? 0) + (order?.tableRentalAmount ?? 0);
+
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
+
+  const refreshPayments = useCallback(async (id: number) => {
+    try {
+      setPayments(await getOrderPayments(id));
+      setPaymentsError(null);
+    } catch (err) {
+      setPayments(null);
+      setPaymentsError(err instanceof Error ? err.message : "Ödənişlər yüklənmədi");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (order?.id) void refreshPayments(order.id);
+  }, [order?.id, order?.isPaid, order?.totalAmount, order?.lines.length, refreshPayments]);
+
+  const printPaymentReceipt = async (paymentId: number) => {
+    if (!order) return;
+    const printer = sortedPrinters[0];
+    if (!printer) {
+      toast.error("Çek çıxarmaq üçün aktiv printer tapılmadı.");
+      return;
+    }
+    try {
+      const r = await getPaymentReceipt(order.id, paymentId);
+      await handlePrintReceiptToPrinter(printer, r);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Çek çıxarıla bilmədi");
+    }
+  };
+
+  // One guest paid their items: the dialog closes, the rest of the order stays on the page (paid
+  // items are tagged) and the guest's customer receipt comes out of the printer automatically.
+  const handlePartPaid = async (result: { paymentId: number; amount: number; orderClosed: boolean }) => {
+    if (!order) return;
+    setSplitOpen(false);
+    // A printer problem never undoes the payment — it is reported and "Müştəri qəbzi" can retry.
+    await printPaymentReceipt(result.paymentId);
+    if (result.orderClosed) {
+      // The last guest: the table is closed; their receipt (earlier guests' items marked paid) stays on screen.
+      setFiscalMode(false);
+      try {
+        setReceipt(await getPaymentReceipt(order.id, result.paymentId));
+      } catch {
+        router.replace("/pos");
+      }
+      return;
+    }
+    toast.success(`Hesab ödənildi: ${result.amount.toFixed(2)} ₼`);
+    try {
+      setOrder(await getOrderById(order.id));
+    } catch {
+      /* the list refreshes on the next load */
+    }
+    await refreshPayments(order.id);
+  };
+
+  // "Müştəri qəbzi": the pre-check for the guest. Nothing is recorded or locked — the order can still be changed.
+  const printWholeReceipt = async () => {
+    if (!order) return;
+    const printer = sortedPrinters[0];
+    if (!printer) {
+      toast.error("Çek çıxarmaq üçün aktiv printer tapılmadı.");
+      return;
+    }
+    try {
+      await handlePrintReceiptToPrinter(printer, await getOrderReceipt(order.id, fiscalOn), { preCheck: !order.isPaid });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Çek çıxarıla bilmədi");
+    }
+  };
+
+  const handleCustomerReceipt = () => {
+    // Nobody paid a share yet: print the pre-check straight away. Otherwise pick whose receipt.
+    if (hasPartPayments) setReceiptsOpen(true);
+    else void printWholeReceipt();
+  };
 
   const topLevelCategories = useMemo(
     () => categories.filter((c) => c.parentCategoryId == null),
@@ -421,10 +600,10 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
   const productSearchTrimmed = productSearch.trim();
   const searchResults = useMemo(() => {
     if (!productSearchTrimmed) return [];
-    const term = productSearchTrimmed.toLowerCase();
+    const term = normalizeSearch(productSearchTrimmed);
     return items.filter((i) => {
       if (i.hideFromPosSearch) return false;
-      const nameMatch = i.name.toLowerCase().includes(term);
+      const nameMatch = normalizeSearch(i.name).includes(term);
       const codeMatch =
         !i.hideBarcode &&
         ((i.barcode != null && i.barcode === productSearchTrimmed) ||
@@ -588,6 +767,134 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     }
   };
 
+  const handleLineDoubleClick = (e: React.MouseEvent, line: OrderLineDto) => {
+    if (!order || busy || order.isPaid || order.isBillLocked) return;
+    // Quick taps on +/- or other controls must not count as a double-tap on the line itself.
+    if ((e.target as HTMLElement).closest("button, input, a")) return;
+    if (line.isTimeBased) {
+      // Minute-billed items (PlayStation...): double-tap stops the clock.
+      if (line.timeBasedStartedAt != null && line.timeBasedStoppedAt == null && canEditProduct) {
+        void handleStopTimer(line.id);
+      }
+      return;
+    }
+    if (!canEditProduct) return;
+    setLineNoteLine(line);
+    setLineNoteInput(line.note ?? "");
+  };
+
+  const priceOptionsFor = (line: OrderLineDto) => {
+    const item = items.find((i) => i.id === line.menuItemId);
+    if (!item) return [];
+    const options: { type: number; label: string; value: number | null }[] = [
+      { type: MenuItemPriceType.Price, label: "Satış qiyməti", value: item.price },
+      { type: MenuItemPriceType.Station, label: "Dəzgah qiyməti", value: item.stationPrice },
+      { type: MenuItemPriceType.Package, label: "Paket qiyməti", value: item.packagePrice },
+      { type: MenuItemPriceType.Special1, label: "Xüsusi qiymət 1", value: item.specialPrice1 },
+      { type: MenuItemPriceType.Special2, label: "Xüsusi qiymət 2", value: item.specialPrice2 },
+      { type: MenuItemPriceType.Special3, label: "Xüsusi qiymət 3", value: item.specialPrice3 },
+      { type: MenuItemPriceType.Special4, label: "Xüsusi qiymət 4", value: item.specialPrice4 },
+      { type: MenuItemPriceType.Special5, label: "Xüsusi qiymət 5", value: item.specialPrice5 },
+    ];
+    return options.filter((o): o is { type: number; label: string; value: number } => o.value != null && o.value > 0);
+  };
+
+  const handleLineClick = (e: React.MouseEvent, line: OrderLineDto) => {
+    if ((!priceMode && !giftMode) || !order || busy || order.isPaid || order.isBillLocked) return;
+    if ((e.target as HTMLElement).closest("button, input, a")) return;
+    if (giftMode) {
+      if (line.isTimeBased) {
+        toast.error("Dəqiqə ilə hesablanan məhsul hədiyyə edilə bilməz.");
+        return;
+      }
+      void handleToggleGift(line.id, line.quantity, !line.isGift).then(() => setGiftMode(false));
+      return;
+    }
+    if (line.isGift) {
+      toast.error("Hədiyyə məhsulun qiymətini dəyişmək olmaz.");
+      return;
+    }
+    setPriceLine(line);
+  };
+
+  const handlePickPrice = async (priceType: number) => {
+    if (!priceLine || busy) return;
+    setBusy(true);
+    try {
+      const updated = await updateOrderLine({ id: priceLine.id, quantity: priceLine.quantity, priceType });
+      setOrder(updated);
+      setPriceLine(null);
+      setPriceMode(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Qiymət dəyişdirilmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleManualDiscount = async () => {
+    if (!order || !manualDiscountKind || manualDiscountBusy) return;
+    const value = Number(manualDiscountInput.replace(",", "."));
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error("Endirimi düzgün daxil edin");
+      return;
+    }
+    if (manualDiscountKind === "Percent" && value > 100) {
+      toast.error("Faiz 100-dən çox ola bilməz");
+      return;
+    }
+    setManualDiscountBusy(true);
+    try {
+      const amount = await setManualDiscount(order.id, manualDiscountKind, value);
+      setOrder(await getOrderById(order.id));
+      setManualDiscountKind(null);
+      toast.success(`Endirim tətbiq edildi: -${amount.toFixed(2)} ₼`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Endirim tətbiq edilmədi");
+    } finally {
+      setManualDiscountBusy(false);
+    }
+  };
+
+  // The lamp: on = this sale goes through the fiscal (tax) register. It switches on only when the
+  // branch has an active fiscal device registered (when that cannot be checked, it is allowed).
+  const toggleFiscal = async () => {
+    if (fiscalOn) {
+      setFiscalMode(false);
+      return;
+    }
+    if (order) {
+      try {
+        const devices = await getFiscalDevices(order.restaurantId);
+        if (!devices.some((d) => d.isActive)) {
+          toast.error("Bu filial üçün aktiv vergi kassası (fiskal cihaz) qeydiyyatdan keçməyib.");
+          return;
+        }
+      } catch {
+        /* no right to list devices — let the cashier switch it on */
+      }
+    }
+    setFiscalMode(true);
+  };
+
+  const handleSaveLineNote = async () => {
+    if (!lineNoteLine || busy) return;
+    setBusy(true);
+    try {
+      const updated = await updateOrderLine({
+        id: lineNoteLine.id,
+        quantity: lineNoteLine.quantity,
+        note: lineNoteInput.trim() || null,
+      });
+      setOrder(updated);
+      setLineNoteLine(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Qeyd saxlanmadı");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleStartRental = async () => {
     if (!order || busy) return;
     setBusy(true);
@@ -622,11 +929,6 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
       toast.error("Əvvəlcə icarə taymerini dayandırın");
       return;
     }
-    setPaymentMethod(
-      branding?.paymentCashEnabled !== false ? "Cash" : branding?.paymentCardEnabled !== false ? "Card" : "Credit",
-    );
-    setServiceChargeInput("");
-    setPaidAmountInput((order.totalAmount + (order.tableRentalAmount ?? 0)).toFixed(2));
     setPayOpen(true);
   };
 
@@ -657,12 +959,14 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     router.push("/pos");
   };
 
+  // "Qəbz çap et" is the final print: afterwards the order cannot be edited (only unlocked by a manager).
   const handlePrintBill = async () => {
     if (!order || order.lines.length === 0) return;
+    if (!window.confirm("Qəbz çap edildikdən sonra sifarişə düzəliş etmək olmaz. Davam edək?")) return;
     setBusy(true);
     try {
-      const locked = await markBillPrinted(order.id);
-      const r = await getOrderReceipt(order.id);
+      const locked = await markBillPrinted(order.id, true);
+      const r = await getOrderReceipt(order.id, fiscalOn);
       setReceipt(r);
       maybeAutoPrint(false);
       if (locked) await load();
@@ -673,27 +977,13 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     }
   };
 
-  const serviceCharge = canTableServiceCharge ? Number(serviceChargeInput) || 0 : 0;
-  const paidAmount = Number(paidAmountInput) || 0;
-  const totalWithService = (order?.totalAmount ?? 0) + (order?.tableRentalAmount ?? 0) + serviceCharge;
-  const changeAmount = paymentMethod === "Cash" ? Math.max(0, paidAmount - totalWithService) : 0;
-
-  const handleConfirmPayment = async () => {
+  // The last payment closed the order: show its receipt and run the "on payment" prints.
+  const finishAfterClose = async (paymentId?: number) => {
     if (!order) return;
-    if (paymentMethod === "Cash" && paidAmount < totalWithService) {
-      toast.error("Ödənilən məbləğ cəmdən az ola bilməz");
-      return;
-    }
-    setBusy(true);
     try {
-      await payOrder(order.id, {
-        paymentMethod,
-        paidAmount: paymentMethod === "Cash" ? paidAmount : totalWithService,
-        serviceChargeAmount: canTableServiceCharge && serviceCharge > 0 ? serviceCharge : null,
-      });
-      const r = await getOrderReceipt(order.id);
+      const r = paymentId ? await getPaymentReceipt(order.id, paymentId) : await getOrderReceipt(order.id);
+      setFiscalMode(false);
       setReceipt(r);
-      setPayOpen(false);
       maybeAutoPrint(true);
       if (branding?.printAutoOnPayment === true) {
         const primaryPrinter = printers.find((p) => p.isPrimary);
@@ -714,10 +1004,29 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
         await load();
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ödəniş uğursuz oldu");
-    } finally {
-      setBusy(false);
+      toast.error(err instanceof Error ? err.message : "Qəbz alına bilmədi");
     }
+  };
+
+  // After a cash/card payment in the "Hesab" dialog: either the bill is settled, or part of it
+  // was deducted and the rest is still to pay.
+  const handleTenderPaid = async (result: { amount: number; orderClosed: boolean; remainingAmount: number }) => {
+    if (!order) return;
+    if (result.orderClosed) {
+      setPayOpen(false);
+      await finishAfterClose();
+      return;
+    }
+    // Part of the bill is paid: the dialog closes and the rest stays on the page ("Ödənilib" / "Qalıq"
+    // in the totals) until the guest pays it with the "Hesab" button again.
+    setPayOpen(false);
+    toast.success(`${result.amount.toFixed(2)} ₼ ödənildi. Qalıq: ${result.remainingAmount.toFixed(2)} ₼`);
+    try {
+      setOrder(await getOrderById(order.id));
+    } catch {
+      /* refreshed on the next load */
+    }
+    await refreshPayments(order.id);
   };
 
   const handleDeleteOrder = async () => {
@@ -777,12 +1086,42 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     }
   };
 
+  const startReassign = () => {
+    if (canRedirectUser) {
+      setSupervisorCode(null);
+      void openReassignDialog();
+      return;
+    }
+    setSupervisorCodeInput("");
+    setSupervisorCodeError(null);
+    setSupervisorCodeOpen(true);
+  };
+
+  const submitSupervisorCode = async () => {
+    const code = supervisorCodeInput.trim();
+    if (!code) return;
+    setBusy(true);
+    setSupervisorCodeError(null);
+    try {
+      await verifyRedirectCode(code);
+      setSupervisorCode(code);
+      setSupervisorCodeOpen(false);
+      setSupervisorCodeInput("");
+      await openReassignDialog();
+    } catch (err) {
+      setSupervisorCodeError(err instanceof Error ? err.message : "Kod yanlışdır");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleReassignWaiter = async (newEmployeeId: number) => {
     if (!order || busy) return;
     setBusy(true);
     try {
-      const updated = await reassignOrderWaiter(order.id, newEmployeeId);
+      const updated = await reassignOrderWaiter(order.id, newEmployeeId, supervisorCode);
       setOrder(updated);
+      setSupervisorCode(null);
       toast.success("Ofisiant dəyişdirildi");
       setReassignOpen(false);
     } catch (err) {
@@ -840,21 +1179,6 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
       toast.error(err instanceof Error ? err.message : "Müştəri təyin edilmədi");
     } finally {
       setCounterpartyBusy(false);
-    }
-  };
-
-  const handleApplyDiscount = async () => {
-    if (!order || !discountCodeInput.trim()) return;
-    setDiscountBusy(true);
-    try {
-      const updated = await applyDiscountToOrder(order.id, discountCodeInput.trim());
-      setOrder(updated);
-      setDiscountDialogOpen(false);
-      setDiscountCodeInput("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Endirim tətbiq edilmədi");
-    } finally {
-      setDiscountBusy(false);
     }
   };
 
@@ -1087,32 +1411,48 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
                 Müştəri seç
               </Button>
             )}
-            {!isPaid && canApplyDiscount && !order.discountCode && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setDiscountCodeInput("");
-                  setDiscountDialogOpen(true);
-                }}
-                disabled={busy}
-              >
-                <Tag className="mr-1 h-3.5 w-3.5" />
-                Endirim tətbiq et
-              </Button>
+            {!isPaid && canApplyDiscount && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  title="Endirim — manatla"
+                  aria-label="Endirim — manatla"
+                  disabled={busy || order.isBillLocked}
+                  onClick={() => {
+                    setManualDiscountInput("");
+                    setManualDiscountKind("Amount");
+                  }}
+                >
+                  <span className="text-sm font-bold leading-none">₼</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  title="Endirim — faizlə"
+                  aria-label="Endirim — faizlə"
+                  disabled={busy || order.isBillLocked}
+                  onClick={() => {
+                    setManualDiscountInput("");
+                    setManualDiscountKind("Percent");
+                  }}
+                >
+                  <Percent className="h-3.5 w-3.5" />
+                </Button>
+              </>
             )}
             <Button variant="outline" size="sm" onClick={openNoteDialog} disabled={busy}>
               <StickyNote className="mr-1 h-3.5 w-3.5" />
               Qeyd
             </Button>
-            {!isPaid && !isStoreMode && (
+            {!isPaid && !isStoreMode && canMoveTable && (
               <Button variant="outline" size="sm" onClick={() => void openMoveTableDialog()} disabled={busy}>
                 <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
                 Masanı dəyiş
               </Button>
             )}
-            {!isPaid && !isStoreMode && canRedirectUser && (
-              <Button variant="outline" size="sm" onClick={() => void openReassignDialog()} disabled={busy}>
+            {!isPaid && !isStoreMode && canChangeWaiter && (
+              <Button variant="outline" size="sm" onClick={startReassign} disabled={busy}>
                 <UserCog className="mr-1 h-3.5 w-3.5" />
                 Ofisiantı dəyiş
               </Button>
@@ -1400,6 +1740,42 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
 
       {/* Cart */}
       <div className="flex w-full flex-col border-t bg-background md:w-[360px] md:border-l md:border-t-0">
+        {!isPaid && order.lines.length > 0 && (
+          <div className="flex items-center gap-2 border-b px-3 py-2">
+            <Button
+              size="sm"
+              variant={priceMode ? "default" : "outline"}
+              disabled={busy || order.isBillLocked}
+              onClick={() => {
+                setGiftMode(false);
+                setPriceMode((v) => !v);
+              }}
+            >
+              <Tag className="mr-1 h-3.5 w-3.5" />
+              Qiymət
+            </Button>
+            {canApplyDiscount && (
+              <Button
+                size="sm"
+                variant={giftMode ? "default" : "outline"}
+                disabled={busy || order.isBillLocked}
+                onClick={() => {
+                  setPriceMode(false);
+                  setGiftMode((v) => !v);
+                }}
+              >
+                <Gift className="mr-1 h-3.5 w-3.5" />
+                Hədiyyə
+              </Button>
+            )}
+            {priceMode && (
+              <span className="text-xs text-muted-foreground">Qiymətini dəyişəcəyiniz məhsula toxunun</span>
+            )}
+            {giftMode && (
+              <span className="text-xs text-muted-foreground">Hədiyyə edəcəyiniz (və ya hədiyyədən çıxaracağınız) məhsula toxunun</span>
+            )}
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto p-3">
           {order.lines.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">Sifariş boşdur</p>
@@ -1423,7 +1799,12 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
               const timerElapsedMs = isTimerRunning ? now - new Date(line.timeBasedStartedAt!).getTime() : 0;
               const timerLiveTotal = isTimerRunning ? line.unitPrice * (timerElapsedMs / 3_600_000) : line.lineTotal;
               return (
-                <div key={line.id} className="rounded-lg border p-2">
+                <div
+                  key={line.id}
+                  className={cn("select-none rounded-lg border p-2", (priceMode || giftMode) && "cursor-pointer border-primary/60 ring-1 ring-primary/30")}
+                  onClick={(e) => handleLineClick(e, line)}
+                  onDoubleClick={(e) => handleLineDoubleClick(e, line)}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-medium">
                       {line.menuItemName}
@@ -1440,19 +1821,6 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
                       )}
                     </span>
                     <div className="flex items-center gap-2">
-                      {canApplyDiscount && !line.isTimeBased && (
-                        <button
-                          type="button"
-                          onClick={() => void handleToggleGift(line.id, line.quantity, !line.isGift)}
-                          className={cn(
-                            "text-muted-foreground hover:text-pink-600",
-                            line.isGift && "text-pink-600 hover:text-pink-700",
-                          )}
-                          title={line.isGift ? "Hədiyyədən çıxar" : "Hədiyyə et"}
-                        >
-                          <Gift className="h-4 w-4" />
-                        </button>
-                      )}
                       {canApplyDiscount && !line.isTimeBased && !line.isGift && (
                         <button
                           type="button"
@@ -1497,6 +1865,33 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
                         )}
                     </div>
                   </div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {line.createdAtUtc &&
+                      `${new Date(line.createdAtUtc.endsWith("Z") ? line.createdAtUtc : `${line.createdAtUtc}Z`).toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit" })} · `}
+                    {line.isTimeBased
+                      ? `${line.unitPrice.toFixed(2)} ₼ / saat`
+                      : line.isWeightBased
+                        ? `${(line.quantity / 1000).toFixed(3)} kq × ${line.unitPrice.toFixed(2)} ₼`
+                        : `${line.quantity} × ${line.unitPrice.toFixed(2)} ₼`}
+                    {" = "}
+                    {line.lineTotal.toFixed(2)} ₼
+                  </p>
+                  {(() => {
+                    const paidQty = payments?.paidLines.find((p) => p.orderLineId === line.id)?.paidQuantity ?? 0;
+                    if (paidQty <= 0) return null;
+                    const all = paidQty >= line.quantity;
+                    return (
+                      <p className="mt-0.5 text-[11px] font-semibold text-emerald-700">
+                        {all || line.isWeightBased || line.isTimeBased ? "Ödənilib" : `Ödənilib: ${paidQty} / ${line.quantity}`}
+                      </p>
+                    );
+                  })()}
+                  {line.note && (
+                    <p className="mt-0.5 flex items-center gap-1 text-[11px] italic text-amber-700">
+                      <StickyNote className="h-3 w-3 shrink-0" />
+                      {line.note}
+                    </p>
+                  )}
                   {isHeld && (
                     <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
                       <Clock className="h-3 w-3" />
@@ -1691,10 +2086,58 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
           </div>
         )}
         <div className="border-t p-3">
-          <div className="mb-3 flex items-center justify-between text-lg font-bold">
-            <span>Cəm</span>
-            <span>{(order.totalAmount + (isRentalRunning ? rentalLiveTotal : order.tableRentalAmount ?? 0)).toFixed(2)} ₼</span>
-          </div>
+          {(() => {
+            // After payment totalAmount already includes the service charge; before it, rental is added on top.
+            const service = order.serviceChargeAmount ?? 0;
+            const grand = isPaid
+              ? order.totalAmount
+              : order.totalAmount + (isRentalRunning ? rentalLiveTotal : order.tableRentalAmount ?? 0) + service;
+            const subtotal = grand + order.discountAmount - service;
+            return (
+              <div className="mb-3 space-y-1 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Cəm</span>
+                  <span>{subtotal.toFixed(2)} ₼</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Endirim</span>
+                  <span>{order.discountAmount > 0 ? `-${order.discountAmount.toFixed(2)}` : "0.00"} ₼</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Servis haqqı</span>
+                  <span>{service.toFixed(2)} ₼</span>
+                </div>
+                <div className="flex justify-between border-t pt-1 text-lg font-bold">
+                  <span>Ümumi məbləğ</span>
+                  <span>{grand.toFixed(2)} ₼</span>
+                </div>
+                {!isPaid && hasPartPayments && (
+                  <>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Ödənilib</span>
+                      <span>{payments!.paidAmount.toFixed(2)} ₼</span>
+                    </div>
+                    <div className="flex justify-between font-semibold">
+                      <span>Qalıq</span>
+                      <span>{payments!.remainingAmount.toFixed(2)} ₼</span>
+                    </div>
+                  </>
+                )}
+                {isPaid && (
+                  <>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Alınan</span>
+                      <span>{order.paidAmount.toFixed(2)} ₼</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Qaytarılan</span>
+                      <span>{order.changeAmount.toFixed(2)} ₼</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
           {isPaid ? (
             <div className="space-y-2">
               <p className="text-center text-sm text-muted-foreground">
@@ -1706,15 +2149,23 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
             </div>
           ) : (
             <div className="space-y-2">
+              <Button
+                className="h-12 w-full text-base font-semibold"
+                disabled={order.lines.length === 0 || busy || okBusy}
+                onClick={() => void handleOk()}
+              >
+                {okBusy ? "Göndərilir…" : "OK"}
+              </Button>
               {canPrintBill && (
                 <Button
                   variant="outline"
                   className="h-12 w-full text-base font-semibold"
                   disabled={order.lines.length === 0 || busy}
                   onClick={() => void handlePrintBill()}
+                  title="Qəbz çap et"
+                  aria-label="Qəbz çap et"
                 >
-                  <Receipt className="mr-2 h-4 w-4" />
-                  Qəbz çap et
+                  <Printer className="h-5 w-5" />
                 </Button>
               )}
               {canPay && (
@@ -1723,13 +2174,68 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
                   disabled={order.lines.length === 0 || busy}
                   onClick={openPayDialog}
                 >
-                  Ödə
+                  Hesab
                 </Button>
               )}
+              {canPrintBill && (
+                <Button
+                  variant="outline"
+                  className="h-12 w-full text-base font-semibold"
+                  disabled={order.lines.length === 0}
+                  onClick={handleCustomerReceipt}
+                >
+                  <Receipt className="mr-2 h-4 w-4" />
+                  Müştəri qəbzi
+                </Button>
+              )}
+              <Button
+                variant={fiscalOn ? "default" : "outline"}
+                className={cn("h-12 w-full", fiscalOn && "bg-amber-500 text-white hover:bg-amber-500/90")}
+                onClick={() => void toggleFiscal()}
+                title={fiscalOn ? "Vergi kassası işləyir — söndürmək üçün basın" : "Vergi kassasını yandır"}
+                aria-label="Vergi kassası"
+              >
+                <Lightbulb className={cn("h-5 w-5", fiscalOn && "fill-white")} />
+              </Button>
             </div>
           )}
         </div>
       </div>
+
+      {/* "OK" — the order's waiter confirms with their code before the kitchen gets the order */}
+      <Dialog open={okPinOpen} onOpenChange={(o) => !o && setOkPinOpen(false)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Ofisiant təsdiqi</DialogTitle>
+            <DialogDescription>Sifarişi mətbəxə göndərmək üçün ofisiant öz kodunu daxil etsin.</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pinInput.trim()) void handleOk(pinInput.trim());
+            }}
+          >
+            <Input
+              type="password"
+              inputMode="numeric"
+              autoFocus
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              placeholder="Ofisiant kodu"
+            />
+            {branding?.touchScreenMode === true && <TouchNumpad value={pinInput} onChange={setPinInput} />}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOkPinOpen(false)}>
+                İmtina et
+              </Button>
+              <Button type="submit" disabled={!pinInput.trim() || okBusy}>
+                Təsdiqlə
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Waiter PIN — "Ofisiant təsdiqlə" */}
       <Dialog open={pinPrinter !== null} onOpenChange={(o) => !o && setPinPrinter(null)}>
@@ -1768,105 +2274,47 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
         </DialogContent>
       </Dialog>
 
-      {/* Payment dialog */}
-      <Dialog open={payOpen} onOpenChange={setPayOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Ödəniş</DialogTitle>
-            <DialogDescription>Cəm: {totalWithService.toFixed(2)} ₼</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {canTableServiceCharge && (
-              <div className="space-y-1">
-                <Label htmlFor="service-charge">Servis haqqı (opsional)</Label>
-                <Input
-                  id="service-charge"
-                  type="number"
-                  step="0.01"
-                  value={serviceChargeInput}
-                  onChange={(e) => {
-                    setServiceChargeInput(e.target.value);
-                    if (paymentMethod === "Card") {
-                      setPaidAmountInput(
-                        (order.totalAmount + (order.tableRentalAmount ?? 0) + (Number(e.target.value) || 0)).toFixed(2),
-                      );
-                    }
-                  }}
-                  placeholder="0.00"
-                />
-              </div>
-            )}
-            <div className="grid auto-cols-fr grid-flow-col gap-2">
-              {branding?.paymentCashEnabled !== false && (
-                <Button
-                  type="button"
-                  variant={paymentMethod === "Cash" ? "default" : "outline"}
-                  onClick={() => setPaymentMethod("Cash")}
-                >
-                  Nəğd
-                </Button>
-              )}
-              {branding?.paymentCardEnabled !== false && (
-                <Button
-                  type="button"
-                  variant={paymentMethod === "Card" ? "default" : "outline"}
-                  onClick={() => {
-                    setPaymentMethod("Card");
-                    setPaidAmountInput(totalWithService.toFixed(2));
-                  }}
-                >
-                  Kart
-                </Button>
-              )}
-              {order.counterpartyId != null && branding?.paymentCreditEnabled !== false && (
-                <Button
-                  type="button"
-                  variant={paymentMethod === "Credit" ? "default" : "outline"}
-                  onClick={() => {
-                    setPaymentMethod("Credit");
-                    setPaidAmountInput(totalWithService.toFixed(2));
-                  }}
-                >
-                  Borca yaz
-                </Button>
-              )}
-            </div>
-            {paymentMethod === "Credit" && (
-              <p className="text-sm text-muted-foreground">
-                {order.counterpartyName} adına {totalWithService.toFixed(2)} ₼ borc yazılacaq
-                {order.counterpartyDebtAmount != null && order.counterpartyDebtAmount > 0 && (
-                  <> (əvvəlki borc: {order.counterpartyDebtAmount.toFixed(2)} ₼)</>
-                )}
-                .
-              </p>
-            )}
-            {paymentMethod === "Cash" && branding?.posShowChangePanel !== false && (
-              <div className="space-y-2">
-                <Label htmlFor="paid-amount">Alınan məbləğ</Label>
-                <Input
-                  id="paid-amount"
-                  type="number"
-                  step="0.01"
-                  value={paidAmountInput}
-                  onChange={(e) => setPaidAmountInput(e.target.value)}
-                />
-                {branding?.touchScreenMode === true && (
-                  <TouchNumpad value={paidAmountInput} onChange={setPaidAmountInput} allowDecimal />
-                )}
-                <p className="text-sm text-muted-foreground">Qalıq: {changeAmount.toFixed(2)} ₼</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPayOpen(false)} disabled={busy}>
-              Ləğv et
-            </Button>
-            <Button onClick={() => void handleConfirmPayment()} disabled={busy}>
-              Təsdiqlə
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SplitBillDialog
+        open={splitOpen}
+        onOpenChange={setSplitOpen}
+        order={order}
+        payments={payments}
+        loadError={paymentsError}
+        onRetry={() => order && void refreshPayments(order.id)}
+        cashEnabled={branding?.paymentCashEnabled !== false}
+        cardEnabled={branding?.paymentCardEnabled !== false}
+        creditEnabled={branding?.paymentCreditEnabled !== false}
+        touchScreen={branding?.touchScreenMode === true}
+        onPaid={handlePartPaid}
+        onPrintPayment={(id) => void printPaymentReceipt(id)}
+      />
+
+      <CustomerReceiptsDialog
+        open={receiptsOpen}
+        onOpenChange={setReceiptsOpen}
+        tableName={order.tableName}
+        payments={payments}
+        onPrintPayment={(id) => void printPaymentReceipt(id)}
+        onPrintWhole={() => void printWholeReceipt()}
+      />
+
+      <PayDialog
+        open={payOpen}
+        onOpenChange={setPayOpen}
+        order={order}
+        payments={payments}
+        loadError={paymentsError}
+        onRetry={() => order && void refreshPayments(order.id)}
+        cashEnabled={branding?.paymentCashEnabled !== false}
+        cardEnabled={branding?.paymentCardEnabled !== false}
+        creditEnabled={branding?.paymentCreditEnabled !== false}
+        touchScreen={branding?.touchScreenMode === true}
+        onSplit={() => {
+          setPayOpen(false);
+          setSplitOpen(true);
+        }}
+        onPaid={handleTenderPaid}
+      />
 
       {/* Confirm auto-print dialog */}
       <Dialog open={confirmPrintOpen} onOpenChange={(o) => !o && setConfirmPrintOpen(false)}>
@@ -1972,6 +2420,163 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
               <p className="col-span-3 py-4 text-center text-sm text-muted-foreground">Boş masa yoxdur</p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* "Ofisiantı dəyiş" — supervisor code */}
+      <Dialog
+        open={supervisorCodeOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSupervisorCodeOpen(false);
+            setSupervisorCodeInput("");
+            setSupervisorCodeError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ofisiantı dəyiş</DialogTitle>
+            <DialogDescription>Bu əməliyyat üçün icazəsi olan şəxsin kodunu daxil edin.</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitSupervisorCode();
+            }}
+          >
+            {supervisorCodeError && <p className="text-sm text-destructive">{supervisorCodeError}</p>}
+            <Input
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              autoFocus
+              value={supervisorCodeInput}
+              onChange={(e) => setSupervisorCodeInput(e.target.value.replace(/\D/g, ""))}
+              placeholder="Kod"
+            />
+            {branding?.touchScreenMode === true && (
+              <TouchNumpad value={supervisorCodeInput} onChange={setSupervisorCodeInput} />
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSupervisorCodeOpen(false)} disabled={busy}>
+                Ləğv et
+              </Button>
+              <Button type="submit" disabled={busy || !supervisorCodeInput.trim()}>
+                Təsdiqlə
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* "₼" / "%" — hand-typed order discount */}
+      <Dialog open={manualDiscountKind !== null} onOpenChange={(o) => !o && setManualDiscountKind(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>{manualDiscountKind === "Percent" ? "Endirim — faiz" : "Endirim — manat"}</DialogTitle>
+            <DialogDescription>
+              {manualDiscountKind === "Percent"
+                ? "Sifarişin cəmindən neçə faiz endirim olunsun?"
+                : "Sifarişin cəmindən neçə manat endirim olunsun?"}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleManualDiscount();
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                step={manualDiscountKind === "Percent" ? "1" : "0.01"}
+                min={0}
+                autoFocus
+                value={manualDiscountInput}
+                onChange={(e) => setManualDiscountInput(e.target.value)}
+                placeholder={manualDiscountKind === "Percent" ? "10" : "0.00"}
+              />
+              <span className="text-lg font-semibold">{manualDiscountKind === "Percent" ? "%" : "₼"}</span>
+            </div>
+            {branding?.touchScreenMode === true && (
+              <TouchNumpad value={manualDiscountInput} onChange={setManualDiscountInput} allowDecimal />
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setManualDiscountKind(null)} disabled={manualDiscountBusy}>
+                Ləğv et
+              </Button>
+              <Button type="submit" disabled={manualDiscountBusy || !manualDiscountInput.trim()}>
+                Tətbiq et
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* "Qiymət" — pick one of the product's price lists */}
+      <Dialog open={priceLine !== null} onOpenChange={(o) => !o && setPriceLine(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{priceLine?.menuItemName}</DialogTitle>
+            <DialogDescription>Hansı qiymətlə satılsın?</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            {priceLine &&
+              priceOptionsFor(priceLine).map((o) => {
+                const current = Math.abs(o.value - priceLine.unitPrice) < 0.005;
+                return (
+                  <button
+                    key={o.type}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handlePickPrice(o.type)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm hover:bg-muted disabled:opacity-50",
+                      current && "border-primary bg-primary/5",
+                    )}
+                  >
+                    <span>
+                      {o.label}
+                      {current && <span className="ml-2 text-xs text-primary">(indiki)</span>}
+                    </span>
+                    <span className="font-semibold">{o.value.toFixed(2)} ₼</span>
+                  </button>
+                );
+              })}
+            {priceLine && priceOptionsFor(priceLine).length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">Bu məhsul üçün qiymət siyahısı yoxdur.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Line note (double-tap on a line) */}
+      <Dialog open={lineNoteLine !== null} onOpenChange={(o) => !o && setLineNoteLine(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{lineNoteLine?.menuItemName}</DialogTitle>
+            <DialogDescription>Məhsul üçün qeyd (məs: şəkərsiz, acısız).</DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={lineNoteInput}
+            onChange={(e) => setLineNoteInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleSaveLineNote();
+            }}
+            placeholder="Qeyd"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLineNoteLine(null)} disabled={busy}>
+              Ləğv et
+            </Button>
+            <Button onClick={() => void handleSaveLineNote()} disabled={busy}>
+              Saxla
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -2098,32 +2703,6 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
             </Button>
             <Button onClick={() => void handleConfirmWeight()} disabled={weightBusy || !(Number(weightKgInput) > 0)}>
               {weightDialogLineId != null ? "Yenilə" : "Əlavə et"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={discountDialogOpen} onOpenChange={setDiscountDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Endirim tətbiq et</DialogTitle>
-            <DialogDescription>Endirim kodunu daxil edin.</DialogDescription>
-          </DialogHeader>
-          <Input
-            placeholder="Endirim kodu"
-            autoFocus
-            value={discountCodeInput}
-            onChange={(e) => setDiscountCodeInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void handleApplyDiscount();
-            }}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDiscountDialogOpen(false)} disabled={discountBusy}>
-              Ləğv et
-            </Button>
-            <Button onClick={() => void handleApplyDiscount()} disabled={discountBusy || !discountCodeInput.trim()}>
-              Tətbiq et
             </Button>
           </DialogFooter>
         </DialogContent>

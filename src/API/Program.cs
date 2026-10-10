@@ -44,6 +44,7 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddValidatorsFromAssembly(typeof(ApplicationAssemblyReference).Assembly);
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(Application.Common.Behaviors.PartialPaymentGuardBehavior<,>));
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddPermissionPolicies();

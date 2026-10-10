@@ -132,6 +132,7 @@ public static class AppPermissions
     public const string PosOverridePrice = "Pos.OverridePrice";
     public const string PosChangeDepartment = "Pos.ChangeDepartment";
     public const string PosRedirectUser = "Pos.RedirectUser";
+    public const string PosChangeWaiter = "Pos.ChangeWaiter";
     public const string PosEditProductInSale = "Pos.EditProductInSale";
     public const string PosDeleteProductInSale = "Pos.DeleteProductInSale";
     public const string PosTableServiceCharge = "Pos.TableServiceCharge";

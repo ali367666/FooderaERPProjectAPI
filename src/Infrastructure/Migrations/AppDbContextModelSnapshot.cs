@@ -1561,6 +1561,9 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDelivery")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsFiscal")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsPaid")
                         .HasColumnType("bit");
 
@@ -1838,6 +1841,94 @@ namespace Infrastructure.Migrations
                     b.HasIndex("ParentLineId");
 
                     b.ToTable("OrderLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.OrderPayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ChangeAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsFiscal")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PaidAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PaidByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ReceivedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ServiceChargeAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("OrderPayments", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.OrderPaymentLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("OrderLineId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderPaymentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderLineId");
+
+                    b.HasIndex("OrderPaymentId");
+
+                    b.ToTable("OrderPaymentLines", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Permission", b =>
@@ -4049,6 +4140,44 @@ namespace Infrastructure.Migrations
                     b.Navigation("ParentLine");
                 });
 
+            modelBuilder.Entity("Domain.Entities.OrderPayment", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("Domain.Entities.OrderPaymentLine", b =>
+                {
+                    b.HasOne("Domain.Entities.OrderLine", "OrderLine")
+                        .WithMany()
+                        .HasForeignKey("OrderLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.OrderPayment", "OrderPayment")
+                        .WithMany("Lines")
+                        .HasForeignKey("OrderPaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("OrderLine");
+
+                    b.Navigation("OrderPayment");
+                });
+
             modelBuilder.Entity("Domain.Entities.Position", b =>
                 {
                     b.HasOne("Domain.Entities.Company", "Company")
@@ -4798,6 +4927,11 @@ namespace Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Domain.Entities.OrderPayment", b =>
                 {
                     b.Navigation("Lines");
                 });

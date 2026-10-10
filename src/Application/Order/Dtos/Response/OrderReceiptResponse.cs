@@ -25,6 +25,15 @@ public class OrderReceiptResponse
     public decimal PaidAmount { get; set; }
     public decimal ChangeAmount { get; set; }
     public decimal VatAmount { get; set; }
+
+    /// <summary>Rung through the fiscal register — only then does the receipt carry VAT.</summary>
+    public bool IsFiscal { get; set; }
+
+    /// <summary>How the bill was settled — shown under the grand total. All 0 for an unpaid pre-check.</summary>
+    public decimal CashPaidAmount { get; set; }
+    public decimal CardPaidAmount { get; set; }
+    public decimal CreditPaidAmount { get; set; }
+
     public List<OrderReceiptLineResponse> Lines { get; set; } = new();
 }
 
@@ -38,4 +47,10 @@ public class OrderReceiptLineResponse
     public decimal VatAmount { get; set; }
     /// <summary>Complimentary item — its name already carries the "(Hədiyyə)" mark for printing.</summary>
     public bool IsGift { get; set; }
+
+    /// <summary>
+    /// On a part-payment receipt: this item was already paid by an earlier guest. It is listed (so the
+    /// receipt tells the whole story) but its amount is not part of this receipt's total.
+    /// </summary>
+    public bool PaidEarlier { get; set; }
 }

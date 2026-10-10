@@ -94,6 +94,8 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IDiscountRepository, DiscountRepository>();
         services.AddScoped<IAuthTokenIssuer, AuthTokenIssuer>();
         services.AddScoped<IStaffCodeResolver, Application.Auth.Services.StaffCodeResolver>();
+        services.AddScoped<IOrderPaymentService, Application.Orders.Services.OrderPaymentService>();
+        services.AddScoped<IOrderPaymentRepository, OrderPaymentRepository>();
         services.AddScoped<IMailActionTokenService, MailActionTokenService>();
         services.AddScoped<IFileStorageService, MinioFileStorageService>();
         services.AddScoped<IRestaurantSectionRepository, RestaurantSectionRepository>();
