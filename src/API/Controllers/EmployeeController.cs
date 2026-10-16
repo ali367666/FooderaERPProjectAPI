@@ -68,11 +68,17 @@ public class EmployeesController : ControllerBase
 
         return Ok(result);
     }
-    [Authorize(Policy = AppPermissions.EmployeeView)]
+    // Employee.View sees the full records; Orders.View (the POS waiter) gets the same list reduced to
+    // names, positions and the user link — the POS needs it to find the signed-in waiter's own
+    // employee id and to offer the "change waiter" list, without exposing contact details.
     [HttpGet]
     public async Task<ActionResult<BaseResponse<List<EmployeeResponse>>>> GetAll(
         [FromQuery] int? companyId)
     {
+        if (!User.HasClaim("Permission", AppPermissions.EmployeeView)
+            && !User.HasClaim("Permission", AppPermissions.OrdersView))
+            return Forbid();
+
         var companyIdFromClaim = User.FindFirst("companyId")?.Value
             ?? User.FindFirst("CompanyId")?.Value;
 
