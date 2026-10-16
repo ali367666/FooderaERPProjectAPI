@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -56,7 +56,7 @@ public class CreateUserCommandHandler
             currentCompanyId,
             cancellationToken);
 
-        if (employee is null)
+        if (employee is null || !_currentUserService.CanAccessCompany(employee.CompanyId))
         {
             _logger.LogWarning(
                 "User yaradılmadı. Employee tapılmadı. EmployeeId: {EmployeeId}, CompanyId: {CompanyId}",

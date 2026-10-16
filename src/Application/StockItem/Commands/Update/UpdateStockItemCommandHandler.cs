@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
@@ -15,14 +16,17 @@ public class UpdateStockItemCommandHandler
     private readonly IRestaurantRepository _restaurantRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateStockItemCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public UpdateStockItemCommandHandler(
         IStockItemRepository stockItemRepository,
         IStockCategoryRepository stockCategoryRepository,
         IRestaurantRepository restaurantRepository,
         IAuditLogService auditLogService,
-        ILogger<UpdateStockItemCommandHandler> logger)
+        ILogger<UpdateStockItemCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockItemRepository = stockItemRepository;
         _stockCategoryRepository = stockCategoryRepository;
         _restaurantRepository = restaurantRepository;
@@ -34,18 +38,20 @@ public class UpdateStockItemCommandHandler
         UpdateStockItemCommand request,
         CancellationToken cancellationToken)
     {
+        request.Request.CompanyId = _currentUserService.ResolveCompanyId(request.Request.CompanyId);
         _logger.LogInformation("Updating stock item. Id: {Id}", request.Id);
 
         var stockItem = await _stockItemRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (stockItem is null)
+        if (stockItem is null || !_currentUserService.CanAccessCompany(stockItem.CompanyId))
         {
             _logger.LogWarning("Stock item not found. Id: {Id}", request.Id);
             return BaseResponse.Fail("Stock item not found.");
         }
 
-        var categoryExists = await _stockCategoryRepository.ExistsAsync(
+        var categoryExists = await _stockCategoryRepository.ExistsInCompanyAsync(
             request.Request.CategoryId,
+            request.Request.CompanyId,
             cancellationToken);
 
         if (!categoryExists)
@@ -63,7 +69,7 @@ public class UpdateStockItemCommandHandler
                 request.Request.RestaurantId.Value,
                 cancellationToken);
 
-            if (restaurant is null)
+            if (restaurant is null || !_currentUserService.CanAccessCompany(restaurant.CompanyId))
             {
                 _logger.LogWarning(
                     "Restaurant not found. RestaurantId: {RestaurantId}",

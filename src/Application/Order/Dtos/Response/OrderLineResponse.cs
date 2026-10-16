@@ -18,6 +18,8 @@ public class OrderLineResponse
     public bool IsTimeBased { get; set; }
     public bool IsWeightBased { get; set; }
     public bool IsGift { get; set; }
+    /// <summary>When the line was rung up — shown per item on the sales receipt view.</summary>
+    public DateTime? CreatedAtUtc { get; set; }
     public decimal DiscountAmount { get; set; }
     public string? Note { get; set; }
     public PreparationType PreparationType { get; set; }

@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Abstracts;
+using Application.Common.Interfaces;
+using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -22,6 +23,7 @@ public class CreateWarehouseCommandHandler
     private readonly IAuditLogService _auditLogService;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateWarehouseCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public CreateWarehouseCommandHandler(
         IWarehouseRepository warehouseRepository,
@@ -31,8 +33,10 @@ public class CreateWarehouseCommandHandler
         IEmployeeRepository employeeRepository,
         IAuditLogService auditLogService,
         IMapper mapper,
-        ILogger<CreateWarehouseCommandHandler> logger)
+        ILogger<CreateWarehouseCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _warehouseRepository = warehouseRepository;
         _companyRepository = companyRepository;
         _restaurantRepository = restaurantRepository;
@@ -48,6 +52,7 @@ public class CreateWarehouseCommandHandler
         CancellationToken cancellationToken)
     {
         var dto = request.Request;
+        dto.CompanyId = _currentUserService.ResolveCompanyId(dto.CompanyId);
 
         _logger.LogInformation(
             "CreateWarehouseCommand started. CompanyId: {CompanyId}, Name: {Name}, Type: {Type}, RestaurantId: {RestaurantId}, ResponsibleEmployeeId: {ResponsibleEmployeeId}, DriverUserId: {DriverUserId}",
@@ -87,7 +92,8 @@ public class CreateWarehouseCommandHandler
 
         if (dto.Type == WarehouseType.Restaurant)
         {
-            var restaurantExists = await _restaurantRepository.ExistsAsync(dto.RestaurantId!.Value, cancellationToken);
+            var restaurantExists = await _restaurantRepository.ExistsAsync(
+                r => r.Id == dto.RestaurantId!.Value && r.CompanyId == dto.CompanyId, cancellationToken);
             if (!restaurantExists)
             {
                 _logger.LogWarning(
@@ -100,7 +106,8 @@ public class CreateWarehouseCommandHandler
 
         if (dto.Type == WarehouseType.Vehicle)
         {
-            var driverExists = await _userRepository.ExistsAsync(dto.DriverUserId!.Value, cancellationToken);
+            var driver = await _userRepository.GetByIdAsync(dto.DriverUserId!.Value, cancellationToken);
+            var driverExists = driver is not null && driver.CompanyId == dto.CompanyId;
             if (!driverExists)
             {
                 _logger.LogWarning(
@@ -118,7 +125,7 @@ public class CreateWarehouseCommandHandler
                 dto.CompanyId,
                 cancellationToken);
 
-            if (responsible is null)
+            if (responsible is null || !_currentUserService.CanAccessCompany(responsible.CompanyId))
             {
                 _logger.LogWarning(
                     "CreateWarehouseCommand failed. Responsible employee not found. ResponsibleEmployeeId: {ResponsibleEmployeeId}, CompanyId: {CompanyId}",

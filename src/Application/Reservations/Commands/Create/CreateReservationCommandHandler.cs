@@ -1,3 +1,4 @@
+using Application.Common.Exceptions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Reservations.Dtos;
@@ -26,6 +27,16 @@ public class CreateReservationCommandHandler
         if (!TimeSpan.TryParse(dto.ReservationTime, out var time))
             throw new Exception("Vaxt formatı yanlışdır. HH:mm formatında daxil edin.");
 
+        var duration = dto.DurationMinutes > 0 ? dto.DurationMinutes : 90;
+        if (dto.TableId is int tableId)
+        {
+            var clash = await _repo.FindOverlappingAsync(
+                _currentUser.CompanyId, tableId, dto.ReservationDate.Date + time, duration, null, cancellationToken);
+            if (clash is not null)
+                throw new BadRequestException(
+                    $"Bu masa həmin vaxtda artıq rezerv olunub ({clash.ReservationTime:hh\\:mm}, {clash.GuestName}).");
+        }
+
         var reservation = new Reservation
         {
             CompanyId = _currentUser.CompanyId,
@@ -37,7 +48,7 @@ public class CreateReservationCommandHandler
             GuestCount = dto.GuestCount,
             ReservationDate = dto.ReservationDate.Date,
             ReservationTime = time,
-            DurationMinutes = dto.DurationMinutes > 0 ? dto.DurationMinutes : 90,
+            DurationMinutes = duration,
             Note = dto.Note?.Trim(),
         };
 

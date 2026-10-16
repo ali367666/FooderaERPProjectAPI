@@ -1,4 +1,4 @@
-﻿using Application.Common.Extensions;
+using Application.Common.Extensions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -18,6 +18,7 @@ public sealed class CreateCompanyCommandHandler
     private readonly IRestaurantRepository _restaurantRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly IIdentityAdminService _identityAdminService;
+    private readonly ICompanyDefaultsSeeder _companyDefaultsSeeder;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateCompanyCommandHandler> _logger;
 
@@ -26,6 +27,7 @@ public sealed class CreateCompanyCommandHandler
         IRestaurantRepository restaurantRepository,
         IAuditLogService auditLogService,
         IIdentityAdminService identityAdminService,
+        ICompanyDefaultsSeeder companyDefaultsSeeder,
         IMapper mapper,
         ILogger<CreateCompanyCommandHandler> logger)
     {
@@ -33,6 +35,7 @@ public sealed class CreateCompanyCommandHandler
         _restaurantRepository = restaurantRepository;
         _auditLogService = auditLogService;
         _identityAdminService = identityAdminService;
+        _companyDefaultsSeeder = companyDefaultsSeeder;
         _mapper = mapper;
         _logger = logger;
     }
@@ -85,6 +88,11 @@ public sealed class CreateCompanyCommandHandler
                 return BaseResponse<CreateCompanyResponse>.Fail("Ölkə düzgün seçilməyib.");
             }
 
+            var ownerError = await _identityAdminService.ValidateCompanySuperAdminAsync(
+                dto.OwnerUserName, dto.OwnerEmail, dto.OwnerPassword, cancellationToken);
+            if (ownerError is not null)
+                return BaseResponse<CreateCompanyResponse>.Fail(ownerError);
+
             var company = _mapper.Map<Domain.Entities.Company>(dto);
             company.CountryCode = dto.Country.GetCode();
 
@@ -92,6 +100,14 @@ public sealed class CreateCompanyCommandHandler
             await _repository.SaveChangesAsync(cancellationToken);
 
             await _identityAdminService.CloneDefaultRolesForCompanyAsync(company.Id, cancellationToken);
+
+            var (ownerOk, ownerCreateError) = await _identityAdminService.CreateCompanySuperAdminAsync(
+                company.Id, dto.OwnerFullName, dto.OwnerUserName, dto.OwnerEmail, dto.OwnerPassword, cancellationToken);
+            if (!ownerOk)
+                _logger.LogError(
+                    "Şirkət SuperAdmin-i yaradılmadı. CompanyId: {CompanyId}, Xəta: {Error}",
+                    company.Id, ownerCreateError);
+            await _companyDefaultsSeeder.EnsureDefaultsAsync(company.Id, cancellationToken);
 
             // Tək-filiallı biznes üçün Filiallar səhifəsinə əlavə addım atmasın deyə, şirkətin adı
             // ilə eyni adda ilk filial avtomatik yaradılır — çox-filiallı olanlar sadəcə üstünə əlavə edir.

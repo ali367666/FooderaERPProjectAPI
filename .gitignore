@@ -8,3 +8,6 @@ obj/
 # Sensitive config files - never commit these
 src/API/appsettings.Development.json
 appsettings.Development.json
+# Local installation secrets and backups
+deploy/local/.env
+deploy/local/backups/

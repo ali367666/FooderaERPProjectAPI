@@ -14,6 +14,8 @@ import {
 import { toast } from "sonner";
 import { hasPermission, usePermissionSet } from "@/hooks/use-auth-permissions";
 import { formatCurrency } from "@/lib/format-currency";
+import { ReceiptLinesTable } from "@/components/receipt-lines-table";
+import { useCancelReason } from "@/components/cancel-reason-dialog";
 import {
   deleteOrder,
   getOrderReceipt,
@@ -32,6 +34,7 @@ export default function SalesDocumentsPage() {
   const [orders, setOrders] = useState<OrderDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailOrder, setDetailOrder] = useState<OrderDto | null>(null);
+  const [reasonDialog, askCancelReason] = useCancelReason();
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -99,20 +102,23 @@ export default function SalesDocumentsPage() {
   const handleDelete = useCallback(
     async (order: OrderDto) => {
       if (!canDelete) return;
-      if (!window.confirm(`"${order.receiptNumber ?? order.orderNumber}" çekini silmək istəyirsiniz? Bu geri qaytarılmır.`)) return;
+      // A deleted receipt stays in the cancellations report, with the reason given here.
+      const cancel = await askCancelReason(`"${order.receiptNumber ?? order.orderNumber}" çekini sil (geri qaytarılmır)`);
+      if (!cancel) return;
       try {
-        await deleteOrder(order.id);
+        await deleteOrder(order.id, cancel);
         toast.success("Çek silindi.");
         await loadOrders();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Çek silinmədi.");
       }
     },
-    [canDelete, loadOrders],
+    [canDelete, loadOrders, askCancelReason],
   );
 
   return (
     <div className="space-y-6">
+      {reasonDialog}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Satış Sənədləri</h1>
         <p className="text-muted-foreground mt-1">
@@ -223,33 +229,7 @@ export default function SalesDocumentsPage() {
           </DialogHeader>
           {detailOrder && (
             <div className="space-y-3">
-              <div className="max-h-72 overflow-y-auto rounded-md border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Məhsul</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Miqdar</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Qiymət</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Məbləğ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detailOrder.lines
-                      .filter((l) => l.status !== "cancelled")
-                      .map((line) => (
-                        <tr key={line.id} className="border-b last:border-0">
-                          <td className="px-3 py-2">
-                            {line.menuItemName}
-                            {line.note && <span className="block text-xs text-muted-foreground">{line.note}</span>}
-                          </td>
-                          <td className="px-3 py-2 text-right">{line.quantity}</td>
-                          <td className="px-3 py-2 text-right">{formatCurrency(line.unitPrice)}</td>
-                          <td className="px-3 py-2 text-right">{formatCurrency(line.lineTotal)}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
+              <ReceiptLinesTable lines={detailOrder.lines} />
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
                   {new Date(detailOrder.paidAt ?? detailOrder.closedAt ?? detailOrder.openedAt).toLocaleString("az-AZ")}

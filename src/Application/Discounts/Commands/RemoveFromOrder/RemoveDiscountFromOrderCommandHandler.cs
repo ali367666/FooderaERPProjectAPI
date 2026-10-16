@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Orders.Dtos;
@@ -28,6 +29,8 @@ public class RemoveDiscountFromOrderCommandHandler : IRequestHandler<RemoveDisco
 
         var order = await _orderRepository.GetByIdWithLinesAsync(request.OrderId, companyId, cancellationToken)
             ?? throw new Exception("Sifariş tapılmadı.");
+
+        OrderGuards.EnsureNotBillLocked(order);
 
         if (order.IsPaid)
             throw new Exception("Ödənilmiş sifarişdən endirim silinə bilməz.");
@@ -88,6 +91,8 @@ public class RemoveDiscountFromOrderCommandHandler : IRequestHandler<RemoveDisco
             TableRentalStoppedAt = order.TableRentalStoppedAt,
             TableRentalAmount = order.TableRentalAmount,
             HoldUntilUtc = order.HoldUntilUtc,
+            BillPrintedAt = order.BillPrintedAt,
+            IsBillLocked = order.IsBillLocked,
             IsDelivery = order.IsDelivery,
             DeliveryAddress = order.DeliveryAddress,
             DeliveryPhone = order.DeliveryPhone,

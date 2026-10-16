@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -24,6 +24,7 @@ public class SubmitStockRequestCommandHandler
     private readonly IAuthenticatedUserAccessor _authenticatedUserAccessor;
     private readonly IMailActionTokenService _mailActionTokenService;
     private readonly ILogger<SubmitStockRequestCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public SubmitStockRequestCommandHandler(
         IStockRequestRepository stockRequestRepository,
@@ -34,8 +35,10 @@ public class SubmitStockRequestCommandHandler
         INotificationService notificationService,
         IAuthenticatedUserAccessor authenticatedUserAccessor,
         IMailActionTokenService mailActionTokenService,
-        ILogger<SubmitStockRequestCommandHandler> logger)
+        ILogger<SubmitStockRequestCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockRequestRepository = stockRequestRepository;
         _warehouseRepository = warehouseRepository;
         _unitOfWork = unitOfWork;
@@ -59,7 +62,7 @@ public class SubmitStockRequestCommandHandler
             request.Id,
             cancellationToken);
 
-        if (entity is null)
+        if (entity is null || !_currentUserService.CanAccessCompany(entity.CompanyId))
         {
             _logger.LogWarning(
                 "Stock request submit olunmadı. StockRequest tapılmadı. StockRequestId: {StockRequestId}",

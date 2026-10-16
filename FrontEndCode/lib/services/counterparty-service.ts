@@ -96,9 +96,53 @@ export async function deleteCounterparty(id: number): Promise<void> {
   }
 }
 
-export async function adjustCounterpartyDebt(id: number, newDebtAmount: number): Promise<Counterparty> {
+export type CounterpartyDebtEntry = {
+  id: number;
+  /** Added, Adjusted or CreditSale. */
+  type: string;
+  /** Positive raised the debt, negative lowered it. */
+  amount: number;
+  balanceAfter: number;
+  note: string | null;
+  orderId: number | null;
+  orderNumber: string | null;
+  createdAtUtc: string;
+};
+
+/** Adds debt on top of the current one; the date and time land in the debt history. */
+export async function addCounterpartyDebt(id: number, amount: number, note?: string | null): Promise<Counterparty> {
   try {
-    const response = await api.post<unknown>(`/Counterparties/${id}/adjust-debt`, { newDebtAmount });
+    const response = await api.post<unknown>(`/Counterparties/${id}/add-debt`, { amount, note: note ?? null });
+    const item = normalize(unwrapData<unknown>(response.data));
+    if (!item) throw new Error("Invalid response from server.");
+    return item;
+  } catch (error) {
+    throw toApiFormError(error, "Borc əlavə edilmədi");
+  }
+}
+
+/** Every change of the counterparty's debt, newest first. */
+export async function getCounterpartyDebtHistory(id: number): Promise<CounterpartyDebtEntry[]> {
+  try {
+    const response = await api.get<unknown>(`/Counterparties/${id}/debt-history`);
+    return unwrapList<Record<string, unknown>>(response.data).map((raw) => ({
+      id: Number(pick(raw, "id", "Id") ?? 0),
+      type: String(pick(raw, "type", "Type") ?? ""),
+      amount: Number(pick(raw, "amount", "Amount") ?? 0),
+      balanceAfter: Number(pick(raw, "balanceAfter", "BalanceAfter") ?? 0),
+      note: (pick<string | null>(raw, "note", "Note") ?? null) as string | null,
+      orderId: (pick<number | null>(raw, "orderId", "OrderId") ?? null) as number | null,
+      orderNumber: (pick<string | null>(raw, "orderNumber", "OrderNumber") ?? null) as string | null,
+      createdAtUtc: String(pick(raw, "createdAtUtc", "CreatedAtUtc") ?? ""),
+    }));
+  } catch (error) {
+    throw toApiFormError(error, "Tarixçə yüklənmədi");
+  }
+}
+
+export async function adjustCounterpartyDebt(id: number, newDebtAmount: number, note?: string | null): Promise<Counterparty> {
+  try {
+    const response = await api.post<unknown>(`/Counterparties/${id}/adjust-debt`, { newDebtAmount, note: note ?? null });
     const item = normalize(unwrapData<unknown>(response.data));
     if (!item) throw new Error("Invalid response from server.");
     return item;

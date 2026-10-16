@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,12 @@ import {
 import { uploadFile } from "@/lib/services/file-service";
 import { ApiFormError } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
+import { applyTheme } from "@/lib/theme";
+import { designFromBranding } from "@/lib/receipt-render";
+import { ReceiptPreview } from "@/components/receipt-preview";
+import type { CompanySettingsBranding } from "@/lib/services/company-settings-service";
+import type { OrderReceiptDto } from "@/lib/services/order-service";
+import { RESERVATION_AUTO_CANCEL_OPTIONS, RESERVATION_BLOCK_OPTIONS } from "@/lib/reservation-rules";
 
 const INTEGRATION_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "integrationWolt", label: "Wolt" },
@@ -49,6 +55,8 @@ const DEFAULTS: CompanySettingsInput = {
   alertRingCount: null,
   alertRingIntervalSeconds: null,
   tableTimeWarningMinutes: null,
+  reservationBlockMinutes: 0,
+  reservationAutoCancelMinutes: 0,
   loginLogoUrl: null,
   reportLogoUrl: null,
   wallpaperUrl: null,
@@ -89,10 +97,100 @@ const DEFAULTS: CompanySettingsInput = {
   printTransferDocAuto: false,
   printTransferDocDouble: false,
   printChiefCopy: false,
+  posMarsEnabled: false,
+  requireProductCode: false,
+  paymentCashEnabled: true,
+  paymentCardEnabled: true,
+  paymentCreditEnabled: true,
+  waiterConfirmWithPin: false,
+  waiterCanCancel: true,
+  lockOrderAfterBill: false,
+  printKitchenSeparateTickets: false,
+  posShowChangePanel: true,
+  posShowWeighWindow: true,
+  posShowCustomerSelect: true,
+  posShowHoldButton: true,
+  posShowClock: true,
+  tableShowWaiter: true,
+  tableShowNote: true,
+  tableShowTime: true,
+  tableShowAmount: true,
+  tableBusyWarning: true,
+  tableReservationWarning: true,
+  tablePricesFromStation: true,
+  priceFromWarehouseSale: true,
+  themePrimaryColor: null,
+  themeRadius: null,
+  receiptPaperWidth: 80,
+  receiptHeaderText: null,
+  receiptFooterText: null,
+  receiptSortMode: "order",
+  receiptShowLogo: true,
+  receiptLogoWidth: 50,
+  receiptSocialPosition: "top",
+  receiptGiftNote: null,
+  receiptGiftNoteFontSize: 18,
+  touchScreenMode: false,
   askGuestCountOnOpen: false,
   singleWaiterMode: false,
   defaultVatPercent: null,
 };
+
+type BoolSettingKey = {
+  [K in keyof CompanySettingsInput]: CompanySettingsInput[K] extends boolean ? K : never;
+}[keyof CompanySettingsInput];
+
+const POS_SALE_FIELDS: Array<{ key: BoolSettingKey; label: string; hint: string }> = [
+  {
+    key: "posMarsEnabled",
+    label: "Marş",
+    hint: "Satış ekranında \"Marş\" düyməsi: gözləmələri açır və mətbəxə \"MARŞ — indi hazırlayın\" çeki göndərir.",
+  },
+  {
+    key: "requireProductCode",
+    label: "Məhsul kodu zorunlu",
+    hint: "Barkodu olmayan məhsul satıla və yadda saxlanıla bilməz (çəki ilə satılan məhsullarda çəki kodu kifayətdir).",
+  },
+  {
+    key: "waiterConfirmWithPin",
+    label: "Ofisiant təsdiqlə",
+    hint: "Mətbəxə göndərəndə sifarişin ofisiantı öz kodunu daxil edib təsdiqləməlidir.",
+  },
+  {
+    key: "waiterCanCancel",
+    label: "Ofisiant ləğv edə bilsin",
+    hint: "Söndürülsə, ofisiant rolu məhsulu silə və sifarişi ləğv edə bilməz.",
+  },
+  {
+    key: "lockOrderAfterBill",
+    label: "Hesab verildikdən sonra müdaxilə edilə bilməz",
+    hint: "\"Qəbz çap et\" (hesab) basılandan sonra sifarişə məhsul əlavə etmək, dəyişmək, silmək və endirim olmaz. Kilidi yalnız icazəsi olan açır.",
+  },
+];
+
+const POS1_PANEL_FIELDS: Array<{ key: BoolSettingKey; label: string }> = [
+  { key: "posShowChangePanel", label: "Pul qalığı paneli (ödənişdə alınan məbləğ və qalıq)" },
+  { key: "posShowWeighWindow", label: "Tartım pəncərəsi (çəkili məhsul seçiləndə çəki soruşulsun)" },
+  { key: "posShowCustomerSelect", label: "Satışda müştəri seç" },
+  { key: "posShowHoldButton", label: "Gözlətmə düyməsi" },
+  { key: "posShowClock", label: "Satış ekranında saat" },
+];
+
+const TABLE_PANEL_FIELDS: Array<{ key: BoolSettingKey; label: string }> = [
+  { key: "tableShowWaiter", label: "Masada ofisiantı göstər" },
+  { key: "tableShowNote", label: "Masa qeydi" },
+  { key: "tableShowTime", label: "Masada vaxtı göstər" },
+  { key: "tableShowAmount", label: "Masada məbləği göstər" },
+  { key: "tableBusyWarning", label: "Masa məşğul xəbərdarlığı (vaxt keçəndə qırmızı çərçivə və səs)" },
+  { key: "tableReservationWarning", label: "Rezervasiya xəbərdarlığı (rezerv olunmuş masanı açarkən)" },
+  { key: "tablePricesFromStation", label: "Masa və paket qiymətləri dəzgahdan" },
+];
+
+const PAYMENT_METHOD_FIELDS: Array<{ key: BoolSettingKey; label: string }> = [
+  { key: "paymentCashEnabled", label: "Nağd" },
+  { key: "paymentCardEnabled", label: "Kart" },
+  { key: "paymentCreditEnabled", label: "Borca yaz" },
+];
 
 const PRINT_TOGGLE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: string }> = [
   { key: "printAutoOnPayment", label: "Ödəniş bitəndə qəbz avtomatik çap olunsun" },
@@ -107,6 +205,7 @@ const PRINT_TOGGLE_FIELDS: Array<{ key: keyof CompanySettingsInput; label: strin
   { key: "printTransferDocAuto", label: "Köçürmə sənədi avtomatik (masa köçürüləndə mətbəxə çap)" },
   { key: "printTransferDocDouble", label: "Köçürmə sənədinin ikili çapı" },
   { key: "printChiefCopy", label: "ChiefPrint (mətbəx çeklərinin nüsxəsi şef printerinə)" },
+  { key: "printKitchenSeparateTickets", label: "Mətbəx qəbzində hər məhsul ayrı qəbzdə çıxsın" },
   { key: "receiptSimpleMode", label: "Sadə qəbz rejimi aktiv olsun" },
 ];
 
@@ -126,6 +225,42 @@ const RECEIPT_SIMPLE_FIELD_TOGGLES: Array<{ key: keyof CompanySettingsInput; lab
   { key: "receiptSimpleShowVat", label: "ƏDV sətri" },
   { key: "receiptSimpleShowFooter", label: "Slogan / əlaqə / sosial media" },
 ];
+
+const PREVIEW_CATEGORIES: Record<number, string> = { 1: "İsti yeməklər", 2: "İçkilər" };
+const previewCategoryName = (id: number | null | undefined) => (id ? PREVIEW_CATEGORIES[id] ?? "" : "");
+
+/** Sample bill for the live "Çek dizaynı" preview — includes a gift and a service charge. */
+const PREVIEW_RECEIPT: OrderReceiptDto = {
+  receiptNumber: "RCPT-000123",
+  orderNumber: "000123",
+  restaurantName: "Restoran adı",
+  restaurantAddress: "Bakı şəhəri, Nizami küçəsi 10",
+  tableName: "Masa 5",
+  sectionName: "Əsas zal",
+  waiterName: "Əli Məmmədov",
+  openedAt: "2026-09-27T15:10:00Z",
+  paidAt: "2026-09-27T16:45:00Z",
+  closedAt: "2026-09-27T16:45:00Z",
+  paymentMethod: "Mixed",
+  lines: [
+    { menuItemName: "Plov", menuCategoryId: 1, quantity: 2, unitPrice: 12, lineTotal: 24, vatAmount: 0, isGift: false, paidEarlier: false },
+    { menuItemName: "Ayran", menuCategoryId: 2, quantity: 2, unitPrice: 2, lineTotal: 4, vatAmount: 0, isGift: false, paidEarlier: false },
+    { menuItemName: "Dolma", menuCategoryId: 1, quantity: 1, unitPrice: 9.5, lineTotal: 9.5, vatAmount: 0, isGift: false, paidEarlier: false },
+    { menuItemName: "Çay dəsti (Hədiyyə)", menuCategoryId: 2, quantity: 1, unitPrice: 6, lineTotal: 0, vatAmount: 0, isGift: true, paidEarlier: false },
+  ],
+  totalAmount: 37.5,
+  discountAmount: 0,
+  serviceChargeAmount: 0.75,
+  tableRentalAmount: 0,
+  grandTotal: 38.25,
+  paidAmount: 38.25,
+  changeAmount: 0,
+  vatAmount: 0,
+  isFiscal: false,
+  cashPaidAmount: 20,
+  cardPaidAmount: 18.25,
+  creditPaidAmount: 0,
+};
 
 export default function SettingsPage() {
   const { selectedCompanyId } = useSelectedCompany();
@@ -153,6 +288,22 @@ export default function SettingsPage() {
       }
     })();
   }, [selectedCompanyId]);
+
+  useEffect(() => {
+    applyTheme(form);
+  }, [form.themePrimaryColor, form.themeRadius]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Leaving the page with an unsaved colour must not keep that colour on the rest of the panel.
+  const savedFormRef = useRef(savedForm);
+  savedFormRef.current = savedForm;
+  useEffect(() => () => applyTheme(savedFormRef.current), []);
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm);
+
+  const receiptDesign = useMemo(
+    () => designFromBranding(form as unknown as CompanySettingsBranding),
+    [form],
+  );
 
   const update = <K extends keyof CompanySettingsInput>(key: K, value: CompanySettingsInput[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -325,6 +476,22 @@ export default function SettingsPage() {
             <Label>Masa vaxt xəbərdarlığı (dəqiqə)</Label>
             <div className="mt-1">{numberField("tableTimeWarningMinutes", form.tableTimeWarningMinutes)}</div>
           </div>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="touchScreenMode"
+              checked={form.touchScreenMode}
+              onCheckedChange={(v) => update("touchScreenMode", v === true)}
+            />
+            <Label htmlFor="touchScreenMode" className="text-sm font-normal">
+              Toxunuşlu ekran (touch screen) rejimi
+            </Label>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            POS-da düymələr və sahələr böyüyür, məbləğ/çəki/say/kod sahələrinin altında ekran klaviaturası çıxır.
+          </p>
         </div>
 
         <div>
@@ -536,6 +703,276 @@ export default function SettingsPage() {
             menecer də daxil, heç kim başqasının masasına müdaxilə edə bilməz.
           </p>
         </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {POS1_PANEL_FIELDS.map((f) => (
+            <div key={f.key} className="flex items-center gap-2">
+              <Checkbox id={f.key} checked={form[f.key] === true} onCheckedChange={(v) => update(f.key, v === true)} />
+              <Label htmlFor={f.key} className="text-sm font-normal">
+                {f.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+        {POS_SALE_FIELDS.map((f) => (
+          <div key={f.key}>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={f.key}
+                checked={form[f.key] === true}
+                onCheckedChange={(v) => update(f.key, v === true)}
+              />
+              <Label htmlFor={f.key} className="text-sm font-normal">
+                {f.label}
+              </Label>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>
+          </div>
+        ))}
+        <div>
+          <Label className="mb-2 block">Ödəniş siyahısı (POS-da görünən ödəniş üsulları)</Label>
+          <div className="flex flex-wrap gap-4">
+            {PAYMENT_METHOD_FIELDS.map((f) => (
+              <div key={f.key} className="flex items-center gap-2">
+                <Checkbox
+                  id={f.key}
+                  checked={form[f.key] === true}
+                  onCheckedChange={(v) => update(f.key, v === true)}
+                />
+                <Label htmlFor={f.key} className="text-sm font-normal">
+                  {f.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Masa paneli */}
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">Masa paneli</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {TABLE_PANEL_FIELDS.map((f) => (
+            <div key={f.key} className="flex items-center gap-2">
+              <Checkbox id={f.key} checked={form[f.key] === true} onCheckedChange={(v) => update(f.key, v === true)} />
+              <Label htmlFor={f.key} className="text-sm font-normal">
+                {f.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+        <h3 className="pt-2 text-sm font-semibold">Rezervasiya</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="reservationBlockMinutes">Rezerv masaya öncədən sifariş açılmasın</Label>
+            <select
+              id="reservationBlockMinutes"
+              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={form.reservationBlockMinutes}
+              onChange={(e) => update("reservationBlockMinutes", Number(e.target.value))}
+            >
+              {RESERVATION_BLOCK_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Seçilən müddət ərzində rezerv olunmuş masada sifariş açmaq olmur (qonaq oturdulana və ya rezerv bitənə qədər).
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="reservationAutoCancelMinutes">Gəlməyən müştərinin rezervi avtomatik ləğv olunsun</Label>
+            <select
+              id="reservationAutoCancelMinutes"
+              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={form.reservationAutoCancelMinutes}
+              onChange={(e) => update("reservationAutoCancelMinutes", Number(e.target.value))}
+            >
+              {RESERVATION_AUTO_CANCEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Rezerv vaxtından sonra seçilən müddət ərzində müştəri oturdulmasa, rezerv ləğv edilir və masa boşalır.
+            </p>
+          </div>
+        </div>
+        <h3 className="pt-2 text-sm font-semibold">Neytral</h3>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="priceFromWarehouseSale"
+            checked={form.priceFromWarehouseSale}
+            onCheckedChange={(v) => update("priceFromWarehouseSale", v === true)}
+          />
+          <Label htmlFor="priceFromWarehouseSale" className="text-sm font-normal">
+            Anbar satış qiymətindən (dəzgah qiyməti yoxdursa)
+          </Label>
+        </div>
+      </section>
+
+      {/* Rənglər və dizayn */}
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">Rənglər və dizayn</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label>Əsas rəng</Label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="color"
+                aria-label="Əsas rəng"
+                value={form.themePrimaryColor ?? "#0f3d2e"}
+                onChange={(e) => update("themePrimaryColor", e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded border bg-background p-1"
+              />
+              <Input
+                value={form.themePrimaryColor ?? ""}
+                onChange={(e) => update("themePrimaryColor", e.target.value || null)}
+                placeholder="Standart"
+                className="max-w-[140px]"
+              />
+              {form.themePrimaryColor && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => update("themePrimaryColor", null)}>
+                  Standart
+                </Button>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Düymələr və seçilmiş elementlər bu rəngdə olur (panel və POS).</p>
+          </div>
+          <div>
+            <Label>Künc forması</Label>
+            <select
+              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={form.themeRadius ?? "medium"}
+              onChange={(e) => update("themeRadius", e.target.value === "medium" ? null : e.target.value)}
+            >
+              <option value="square">Kvadrat</option>
+              <option value="medium">Orta (standart)</option>
+              <option value="round">Yuvarlaq</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Önizləmə:</span>
+          <Button type="button" size="sm">Əsas düymə</Button>
+          <Button type="button" size="sm" variant="outline">İkinci düymə</Button>
+        </div>
+      </section>
+
+      {/* Çek dizaynı */}
+      <section className="space-y-4 rounded-xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">Çek dizaynı</h2>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Kağız eni</Label>
+                <select
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.receiptPaperWidth}
+                  onChange={(e) => update("receiptPaperWidth", Number(e.target.value))}
+                >
+                  <option value={58}>58 mm</option>
+                  <option value={80}>80 mm</option>
+                </select>
+              </div>
+              <div>
+                <Label>Qəbzdə sıralama</Label>
+                <select
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.receiptSortMode}
+                  onChange={(e) => update("receiptSortMode", e.target.value)}
+                >
+                  <option value="order">Sifariş ardıcıllığı</option>
+                  <option value="name">Ada görə (A–Z)</option>
+                  <option value="category">Kateqoriyaya görə qruplaşdır</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <Label>Yuxarı mətn</Label>
+              <textarea
+                className="mt-1 flex min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.receiptHeaderText ?? ""}
+                onChange={(e) => update("receiptHeaderText", e.target.value || null)}
+                placeholder="məs. Xoş gəlmisiniz!"
+              />
+            </div>
+            <div>
+              <Label>Aşağı mətn</Label>
+              <textarea
+                className="mt-1 flex min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.receiptFooterText ?? ""}
+                onChange={(e) => update("receiptFooterText", e.target.value || null)}
+                placeholder="məs. Bizi seçdiyiniz üçün təşəkkürlər!"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={form.receiptShowLogo}
+                    onCheckedChange={(v) => update("receiptShowLogo", v === true)}
+                  />
+                  Loqonu çap et
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">Hesabat loqosu, yoxdursa giriş loqosu istifadə olunur.</p>
+              </div>
+              <div>
+                <Label>Loqonun eni: {form.receiptLogoWidth}%</Label>
+                <input
+                  type="range"
+                  min={20}
+                  max={100}
+                  step={5}
+                  className="mt-2 w-full"
+                  value={form.receiptLogoWidth}
+                  disabled={!form.receiptShowLogo}
+                  onChange={(e) => update("receiptLogoWidth", Number(e.target.value))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Sosial şəbəkələrin yeri</Label>
+              <select
+                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.receiptSocialPosition}
+                onChange={(e) => update("receiptSocialPosition", e.target.value)}
+              >
+                <option value="top">Yuxarıda — ünvanın altında</option>
+                <option value="bottom">Ən aşağıda — son qeydin üstündə</option>
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">Linklərin özü "Sosial şəbəkələr" sahəsindən götürülür (vergül və ya yeni sətirlə ayırın).</p>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2">
+                <Label>Hədiyyə məhsulun altındakı qeyd</Label>
+                <Input
+                  className="mt-1"
+                  value={form.receiptGiftNote ?? ""}
+                  onChange={(e) => update("receiptGiftNote", e.target.value || null)}
+                  placeholder="məs. Müəssisədən hədiyyə"
+                />
+              </div>
+              <div>
+                <Label>Qeydin şrifti</Label>
+                <Input
+                  className="mt-1"
+                  type="number"
+                  min={12}
+                  max={40}
+                  value={form.receiptGiftNoteFontSize}
+                  onChange={(e) => update("receiptGiftNoteFontSize", Number(e.target.value) || 18)}
+                />
+              </div>
+            </div>
+          </div>
+          <div>
+            <Label className="mb-1 block">Önizləmə (printerə gedən şəkil)</Label>
+            <ReceiptPreview receipt={PREVIEW_RECEIPT} design={receiptDesign} categoryName={previewCategoryName} />
+          </div>
+        </div>
       </section>
 
       {/* ƏDV */}
@@ -551,9 +988,19 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <Button onClick={() => void handleSave()} disabled={saving} className="h-11 px-8">
-        {saving ? "Saxlanılır..." : "Yadda saxla"}
-      </Button>
+      {isDirty && (
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-3 shadow-lg">
+          <span className="text-sm font-medium">Yadda saxlanmamış dəyişikliklər var</span>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={saving} onClick={() => setForm(savedForm)}>
+              İmtina et
+            </Button>
+            <Button onClick={() => void handleSave()} disabled={saving}>
+              {saving ? "Saxlanılır..." : "Təsdiq et"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

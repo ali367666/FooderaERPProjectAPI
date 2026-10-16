@@ -31,6 +31,7 @@ public class GetAllMenuCategoriesQueryHandler
             Description = x.Description,
             ImageUrl = x.ImageUrl,
             IsActive = x.IsActive,
+            IsSetCategory = x.IsSetCategory,
             ParentCategoryId = x.ParentCategoryId,
             ParentCategoryName = x.ParentCategory?.Name
         }).ToList();

@@ -1,10 +1,11 @@
-﻿namespace Application.Common.Interfaces;
+namespace Application.Common.Interfaces;
 
 public interface ICurrentUserService
 {
     int UserId { get; }
     int CompanyId { get; }
     bool HasPermission(string permission);
+    bool IsInRole(string role);
 
     /// <summary>
     /// True only for the platform-level SuperAdmin (the reseller managing every tenant), never for

@@ -14,8 +14,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ChefHat, CreditCard, Delete, Store } from "lucide-react";
+import { ChefHat, CreditCard, Delete, Monitor, RotateCw, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { persistAuthUser } from "@/lib/auth-client";
 import {
   clearPosTerminalContext,
@@ -26,14 +34,34 @@ import {
 import {
   lookupCompanyByCode,
   posLogin,
+  verifyWorkstationChangeAccess,
   type RestaurantLookupItem,
+  type WorkstationLookupItem,
 } from "@/lib/services/pos-auth-service";
 import {
   getCompanySettingsBranding,
   type CompanySettingsBranding,
 } from "@/lib/services/company-settings-service";
 
-const MAX_CODE_LENGTH = 8;
+const MAX_CODE_LENGTH = 24;
+
+// Hard restart for a frozen terminal: drop service-worker/HTTP caches, then reload the page.
+// Terminal context and auth live in localStorage, so the terminal stays configured.
+async function restartTerminal() {
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch {
+    // Reload regardless — a failed cache cleanup must not block the restart.
+  }
+  window.location.reload();
+}
 
 export default function PosLoginPage() {
   const router = useRouter();
@@ -71,7 +99,8 @@ export default function PosLoginPage() {
     branding?.transparencyLevel != null ? Math.min(Math.max(branding.transparencyLevel, 0), 100) / 100 : 1;
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-muted/30 p-4">
+    <div className="relative flex min-h-screen items-center justify-center gap-8 bg-muted/30 p-4 lg:gap-16 lg:px-12">
+      <Toaster richColors closeButton position="top-center" />
       {branding?.wallpaperUrl && (
         <div
           className="pointer-events-none absolute inset-0 bg-cover bg-center"
@@ -79,7 +108,27 @@ export default function PosLoginPage() {
           aria-hidden
         />
       )}
-      <div className="relative z-10 w-full max-w-md">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="absolute right-4 top-4 z-20 gap-2"
+        onClick={() => void restartTerminal()}
+      >
+        <RotateCw className="h-4 w-4" />
+        Yenidən başlat
+      </Button>
+      {terminal && branding?.loginLogoUrl && (
+        <div className="relative z-10 hidden flex-1 items-center justify-center lg:flex">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={branding.loginLogoUrl}
+            alt={terminal.companyName}
+            className="max-h-[70vh] w-full max-w-xl object-contain"
+          />
+        </div>
+      )}
+      <div className="relative z-10 w-full max-w-md lg:shrink-0">
         {terminal ? (
           <PosLoginView
             terminal={terminal}
@@ -116,7 +165,11 @@ function TerminalSetupView({
     companyId: number;
     companyName: string;
     restaurants: RestaurantLookupItem[];
+    workstations: WorkstationLookupItem[];
   } | null>(null);
+  // Set once a branch is chosen and the admin registered workstations for it: the operator still has
+  // to pick which monitor this is.
+  const [pendingRestaurant, setPendingRestaurant] = useState<RestaurantLookupItem | null | undefined>(undefined);
 
   const handleLookup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -129,13 +182,19 @@ function TerminalSetupView({
       const result = await lookupCompanyByCode(trimmed);
       setLookup(result);
       if (result.restaurants.length === 0) {
-        onDone({
-          companyId: result.companyId,
-          companyCode: trimmed,
-          companyName: result.companyName,
-          restaurantId: null,
-          restaurantName: null,
-        });
+        if (result.workstations.length === 0) {
+          onDone({
+            companyId: result.companyId,
+            companyCode: trimmed,
+            companyName: result.companyName,
+            restaurantId: null,
+            restaurantName: null,
+            workstationId: null,
+            workstationName: null,
+          });
+        } else {
+          setPendingRestaurant(null);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Company was not found");
@@ -144,7 +203,10 @@ function TerminalSetupView({
     }
   };
 
-  const selectRestaurant = (restaurant: RestaurantLookupItem | null) => {
+  const workstationsFor = (restaurant: RestaurantLookupItem | null) =>
+    (lookup?.workstations ?? []).filter((t) => t.restaurantId === null || t.restaurantId === restaurant?.id);
+
+  const finishSetup = (restaurant: RestaurantLookupItem | null, workstation: WorkstationLookupItem | null) => {
     if (!lookup) return;
     onDone({
       companyId: lookup.companyId,
@@ -152,7 +214,17 @@ function TerminalSetupView({
       companyName: lookup.companyName,
       restaurantId: restaurant?.id ?? null,
       restaurantName: restaurant?.name ?? null,
+      workstationId: workstation?.id ?? null,
+      workstationName: workstation?.name ?? null,
     });
+  };
+
+  const selectRestaurant = (restaurant: RestaurantLookupItem | null) => {
+    if (workstationsFor(restaurant).length === 0) {
+      finishSetup(restaurant, null);
+      return;
+    }
+    setPendingRestaurant(restaurant);
   };
 
   return (
@@ -163,7 +235,9 @@ function TerminalSetupView({
         </div>
         <CardTitle>Terminal quraşdırılması</CardTitle>
         <CardDescription>
-          {lookup
+          {pendingRestaurant !== undefined
+            ? "Bu monitorun adını seçin"
+            : lookup
             ? "Bu terminalın işləyəcəyi filialı seçin"
             : "Bu terminalın aid olduğu biznesin kodunu daxil edin"}
         </CardDescription>
@@ -191,6 +265,41 @@ function TerminalSetupView({
               {isLoading ? "Axtarılır..." : "Davam et"}
             </Button>
           </form>
+        ) : pendingRestaurant !== undefined ? (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-foreground">
+              {lookup.companyName}
+              {pendingRestaurant ? ` · ${pendingRestaurant.name}` : ""}
+            </p>
+            <div className="grid gap-2">
+              {workstationsFor(pendingRestaurant).map((workstation) => (
+                <Button
+                  key={workstation.id}
+                  type="button"
+                  variant="outline"
+                  className="h-12 justify-start text-base"
+                  onClick={() => finishSetup(pendingRestaurant, workstation)}
+                >
+                  <Monitor className="mr-2 h-4 w-4" />
+                  {workstation.name}
+                </Button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={() => {
+                if (lookup.restaurants.length === 0) {
+                  setLookup(null);
+                }
+                setPendingRestaurant(undefined);
+                setError(null);
+              }}
+            >
+              Geri
+            </Button>
+          </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm font-medium text-foreground">{lookup.companyName}</p>
@@ -253,8 +362,52 @@ function PosLoginView({
   const rfidBufferRef = useRef("");
   const rfidInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Once a workstation is chosen the terminal is locked to it: moving the terminal to another
+  // monitor identity needs an admin (otherwise problems could never be traced to a screen).
+  const isLocked = terminal.workstationId !== null;
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [unlockUser, setUnlockUser] = useState("");
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlockChecking, setUnlockChecking] = useState(false);
+  const unlockOpenRef = useRef(false);
+  unlockOpenRef.current = unlockOpen;
+
+  const closeUnlock = () => {
+    setUnlockOpen(false);
+    setUnlockUser("");
+    setUnlockPassword("");
+    setUnlockError(null);
+  };
+
+  const handleChangeTerminal = () => {
+    if (!isLocked) {
+      onChangeTerminal();
+      return;
+    }
+    setUnlockOpen(true);
+  };
+
+  const submitUnlock = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!unlockUser.trim() || !unlockPassword) return;
+    setUnlockChecking(true);
+    setUnlockError(null);
+    const allowed = await verifyWorkstationChangeAccess(unlockUser.trim(), unlockPassword);
+    setUnlockChecking(false);
+    if (!allowed) {
+      setUnlockError("Giriş məlumatları yanlışdır və ya terminalı dəyişmək icazəniz yoxdur.");
+      return;
+    }
+    closeUnlock();
+    onChangeTerminal();
+  };
+
   useEffect(() => {
-    const focusRfid = () => rfidInputRef.current?.focus();
+    const focusRfid = () => {
+      if (unlockOpenRef.current) return;
+      rfidInputRef.current?.focus();
+    };
     focusRfid();
     const interval = window.setInterval(focusRfid, 1000);
     return () => window.clearInterval(interval);
@@ -272,13 +425,14 @@ function PosLoginView({
   };
 
   const submitCode = async (value: string) => {
-    if (value.length !== 4 && value.length !== 8) return;
+    if (value.length < 1) return;
     setError(null);
     setIsLoading(true);
     try {
       const result = await posLogin({
         companyId: terminal.companyId,
         restaurantId: terminal.restaurantId,
+        workstationId: terminal.workstationId,
         code: value,
       });
       finishLogin(result);
@@ -330,7 +484,7 @@ function PosLoginView({
           <img
             src={logoUrl}
             alt={terminal.companyName}
-            className="mx-auto mb-2 h-12 w-12 rounded-2xl object-contain"
+            className="mx-auto mb-2 h-12 w-12 rounded-2xl object-contain lg:hidden"
           />
         ) : (
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -340,6 +494,12 @@ function PosLoginView({
         <CardTitle>{terminal.companyName}</CardTitle>
         {terminal.restaurantName && (
           <CardDescription>{terminal.restaurantName}</CardDescription>
+        )}
+        {terminal.workstationName && (
+          <p className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-foreground">
+            <Monitor className="h-4 w-4 text-muted-foreground" />
+            {terminal.workstationName}
+          </p>
         )}
         {location && <p className="text-xs text-muted-foreground">{location}</p>}
       </CardHeader>
@@ -396,7 +556,7 @@ function PosLoginView({
           </Button>
           <Button
             type="button"
-            disabled={isLoading || (code.length !== 4 && code.length !== 8)}
+            disabled={isLoading || code.length < 1}
             className="h-14 text-sm font-semibold"
             onClick={() => submitCode(code)}
           >
@@ -434,7 +594,7 @@ function PosLoginView({
             type="button"
             variant="link"
             className="px-0 text-muted-foreground"
-            onClick={onChangeTerminal}
+            onClick={handleChangeTerminal}
           >
             Terminalı dəyiş
           </Button>
@@ -445,6 +605,53 @@ function PosLoginView({
             Adi giriş
           </a>
         </div>
+
+        <Dialog open={unlockOpen} onOpenChange={(o) => (o ? setUnlockOpen(true) : closeUnlock())}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Terminalı dəyiş</DialogTitle>
+              <DialogDescription>
+                Bu monitor "{terminal.workstationName}" adına bağlıdır. Dəyişmək üçün admin məlumatlarını
+                daxil edin.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={submitUnlock} className="space-y-3">
+              {unlockError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{unlockError}</AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-1">
+                <Label htmlFor="unlock-user">İstifadəçi adı</Label>
+                <Input
+                  id="unlock-user"
+                  value={unlockUser}
+                  onChange={(e) => setUnlockUser(e.target.value)}
+                  autoComplete="off"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="unlock-password">Şifrə / kod</Label>
+                <Input
+                  id="unlock-password"
+                  type="password"
+                  value={unlockPassword}
+                  onChange={(e) => setUnlockPassword(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={closeUnlock} disabled={unlockChecking}>
+                  Ləğv et
+                </Button>
+                <Button type="submit" disabled={unlockChecking || !unlockUser.trim() || !unlockPassword}>
+                  {unlockChecking ? "Yoxlanılır…" : "Təsdiqlə"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

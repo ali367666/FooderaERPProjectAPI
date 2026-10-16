@@ -1,5 +1,6 @@
 "use client";
 
+import { applyTheme } from "@/lib/theme";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navGroups } from "@/lib/constants";
@@ -22,6 +23,10 @@ export function AppSidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const permissionSet = usePermissionSet();
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
+
+  useEffect(() => {
+    applyTheme(branding);
+  }, [branding]);
   const { selectedCompanyId } = useSelectedCompany();
   const { selectedRestaurantId } = useSelectedRestaurant();
 

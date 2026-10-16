@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Orders.Dtos;
@@ -10,13 +11,16 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
 {
     private readonly IOrderRepository _orderRepository;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IOrderCancellationRepository _cancellationRepository;
 
     public CancelOrderCommandHandler(
         IOrderRepository orderRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IOrderCancellationRepository cancellationRepository)
     {
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
+        _cancellationRepository = cancellationRepository;
     }
 
     public async Task<OrderResponse> Handle(CancelOrderCommand request, CancellationToken cancellationToken)
@@ -28,12 +32,19 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
         if (order is null)
             throw new Exception("Order not found.");
 
+        OrderGuards.EnsureNotBillLocked(order);
+
         if (order.Status is OrderStatus.InPreparation or OrderStatus.Ready or OrderStatus.Served
             or OrderStatus.Paid or OrderStatus.Cancelled)
             throw new Exception("Yalnız hələ hazırlanmağa başlamayan sifarişlər ləğv edilə bilər.");
 
         if (order.ProcessedByUserId.HasValue && order.ProcessedByUserId != userId)
             throw new Exception("Only the assigned processor can cancel this order.");
+
+        var reason = OrderCancellations.Clean(request.Reason)
+            ?? throw new Exception("Sifarişi ləğv etmək üçün səbəb seçin.");
+        await _cancellationRepository.AddAsync(
+            OrderCancellations.ForOrder(order, reason, request.Note, userId), cancellationToken);
 
         order.Status = OrderStatus.Cancelled;
         order.ClosedAt = DateTime.UtcNow;
@@ -82,6 +93,8 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
             TableRentalStoppedAt = order.TableRentalStoppedAt,
             TableRentalAmount = order.TableRentalAmount,
             HoldUntilUtc = order.HoldUntilUtc,
+            BillPrintedAt = order.BillPrintedAt,
+            IsBillLocked = order.IsBillLocked,
             IsDelivery = order.IsDelivery,
             DeliveryAddress = order.DeliveryAddress,
             DeliveryPhone = order.DeliveryPhone,

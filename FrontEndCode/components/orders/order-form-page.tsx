@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useCancelReason } from "@/components/cancel-reason-dialog";
 import { getRestaurants } from "@/lib/services/restaurant-service";
 import { getRestaurantTables } from "@/lib/services/restaurant-table-service";
 import { getEmployeesByPosition, type Employee } from "@/lib/services/employee-service";
@@ -47,6 +48,7 @@ type Variant = "create" | "edit";
 
 export function OrderFormPage({ variant }: { variant: Variant }) {
   const receiptEndpointAvailable = false;
+  const [reasonDialog, askCancelReason] = useCancelReason();
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -283,15 +285,22 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
   const removeLine = useCallback(
     async (lineId: number) => {
       if (readOnly) return;
+      // Products already sent to the kitchen need a reason for the cancellations report.
+      const line = order?.lines.find((l) => l.id === lineId);
+      let cancel;
+      if (line?.kitchenPrintedAt) {
+        cancel = await askCancelReason(`"${line.menuItemName}" ləğv et`);
+        if (!cancel) return;
+      }
       try {
-        await deleteOrderLine(lineId);
+        await deleteOrderLine(lineId, cancel ?? undefined);
         toast.success("Order line deleted");
         await refresh();
       } catch (e) {
         toast.error(toApiFormError(e, "Failed to delete order line").message);
       }
     },
-    [readOnly, refresh],
+    [readOnly, refresh, order, askCancelReason],
   );
 
   const submitCurrentOrder = useCallback(async () => {
@@ -366,6 +375,7 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
 
   return (
     <div className="space-y-6">
+      {reasonDialog}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{variant === "create" ? "Create Order" : `Order ${order?.orderNumber ?? ""}`}</h1>
         <div className="flex gap-2">

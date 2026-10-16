@@ -11,6 +11,7 @@ public interface IUserRepository
     Task<User?> GetByRfidCardIdAsync(string rfidCardId, CancellationToken cancellationToken);
 
     Task<bool> HasRotatingPinRoleAsync(int userId, CancellationToken cancellationToken);
+    Task<bool> HasPermissionAsync(int userId, string permission, CancellationToken cancellationToken);
 
     Task<List<User>> GetAllByWarehouseIdAsync(int warehouseId, CancellationToken cancellationToken);
 

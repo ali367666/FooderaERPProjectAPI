@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -18,14 +18,17 @@ public class UpdateUserCommandHandler
     private readonly IIdentityService _identityService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateUserCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public UpdateUserCommandHandler(
         ICompanyRepository companyRepository,
         IRestaurantRepository restaurantRepository,
         IIdentityService identityService,
         IAuditLogService auditLogService,
-        ILogger<UpdateUserCommandHandler> logger)
+        ILogger<UpdateUserCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _companyRepository = companyRepository;
         _restaurantRepository = restaurantRepository;
         _identityService = identityService;
@@ -38,6 +41,7 @@ public class UpdateUserCommandHandler
         CancellationToken cancellationToken)
     {
         var dto = request.dto;
+        dto.CompanyId = _currentUserService.ResolveCompanyId(dto.CompanyId);
 
         _logger.LogInformation(
             "UpdateUserCommand başladı. UserId: {UserId}, FullName: {FullName}, WorkplaceType: {WorkplaceType}, CompanyId: {CompanyId}",

@@ -26,7 +26,7 @@ public class ServeOrderCommandHandler : IRequestHandler<ServeOrderCommand, BaseR
             _currentUserService.CompanyId,
             cancellationToken);
 
-        if (order is null)
+        if (order is null || !_currentUserService.CanAccessCompany(order.CompanyId))
             return BaseResponse.Fail("Order not found.");
 
         if (order.Status != OrderStatus.Ready)

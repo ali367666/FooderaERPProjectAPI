@@ -27,6 +27,23 @@ public static class OrderLinePricing
         return line.IsGift ? 0m : Math.Max(0, rawAmount - line.DiscountAmount);
     }
 
+    /// <summary>
+    /// Sale price of a newly added line. Table orders: station (counter) price, then the linked
+    /// warehouse item's sale price, then the general price. Own-courier delivery (package) orders
+    /// try the package price first. Company settings can switch off the station price
+    /// (TablePricesFromStation) and the warehouse fallback (PriceFromWarehouseSale).
+    /// </summary>
+    public static decimal ResolveUnitPrice(
+        Domain.Entities.MenuItem menuItem, bool isDelivery, Domain.Entities.CompanySettings? settings)
+    {
+        var stationPrice = settings?.TablePricesFromStation == false ? null : menuItem.StationPrice;
+        var warehousePrice = settings?.PriceFromWarehouseSale == false ? null : menuItem.StockItem?.SalePrice;
+
+        return isDelivery
+            ? menuItem.PackagePrice ?? stationPrice ?? warehousePrice ?? menuItem.Price
+            : stationPrice ?? warehousePrice ?? menuItem.Price;
+    }
+
     public static bool IsWeightBased(int? unitId) =>
         unitId == (int)UnitOfMeasure.Kg || unitId == (int)UnitOfMeasure.Gram;
 }

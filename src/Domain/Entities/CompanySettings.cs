@@ -99,6 +99,115 @@ public class CompanySettings : CompanyEntity<int>
     /// (Printer.IsChiefPrinter).</summary>
     public bool PrintChiefCopy { get; set; }
 
+    /// <summary>Satış ekranında "Marş" düyməsi — mətbəxə marş çeki göndərir və gözləmələri açır.</summary>
+    public bool PosMarsEnabled { get; set; }
+
+    /// <summary>Barkodu/çəki kodu olmayan məhsul satıla bilməz, menyu formasında kod məcburidir.</summary>
+    public bool RequireProductCode { get; set; }
+
+    /// <summary>Ödəniş siyahısı — POS-da Nağd ödəniş üsulu görünsün.</summary>
+    public bool PaymentCashEnabled { get; set; } = true;
+
+    /// <summary>Ödəniş siyahısı — POS-da Kart ödəniş üsulu görünsün.</summary>
+    public bool PaymentCardEnabled { get; set; } = true;
+
+    /// <summary>Ödəniş siyahısı — POS-da Borca yaz üsulu görünsün.</summary>
+    public bool PaymentCreditEnabled { get; set; } = true;
+
+    /// <summary>Mətbəxə göndərəndə sifarişin ofisiantı öz kodu ilə təsdiqləməlidir.</summary>
+    public bool WaiterConfirmWithPin { get; set; }
+
+    /// <summary>Waiter rolu məhsulu silə / sifarişi ləğv edə bilsin.</summary>
+    public bool WaiterCanCancel { get; set; } = true;
+
+
+    /// <summary>Hesab (qəbz) verildikdən sonra sifarişə müdaxilə edilə bilməz.</summary>
+    public bool LockOrderAfterBill { get; set; }
+
+    /// <summary>Mətbəxdə hər məhsul ayrıca qəbzdə çıxsın.</summary>
+    public bool PrintKitchenSeparateTickets { get; set; }
+
+    /// <summary>POS-1 — ödənişdə pul qalığı paneli (alınan məbləğ / qaytarılan).</summary>
+    public bool PosShowChangePanel { get; set; } = true;
+
+    /// <summary>POS-1 — çəkili məhsul seçiləndə tartım pəncərəsi açılsın.</summary>
+    public bool PosShowWeighWindow { get; set; } = true;
+
+    /// <summary>POS-1 — satışda müştəri seçmə düyməsi.</summary>
+    public bool PosShowCustomerSelect { get; set; } = true;
+
+    /// <summary>POS-1 — gözlətmə düymələri (sifariş və məhsul).</summary>
+    public bool PosShowHoldButton { get; set; } = true;
+
+    /// <summary>POS-1 — satış ekranında saat.</summary>
+    public bool PosShowClock { get; set; } = true;
+
+    /// <summary>Masa paneli — masada ofisiantın adı.</summary>
+    public bool TableShowWaiter { get; set; } = true;
+
+    /// <summary>Masa paneli — masa/sifariş qeydi.</summary>
+    public bool TableShowNote { get; set; } = true;
+
+    /// <summary>Masa paneli — masanın açıq qaldığı vaxt.</summary>
+    public bool TableShowTime { get; set; } = true;
+
+    /// <summary>Masa paneli — masadakı məbləğ.</summary>
+    public bool TableShowAmount { get; set; } = true;
+
+    /// <summary>Masa paneli — vaxt keçəndə məşğul masa xəbərdarlığı (qırmızı çərçivə + səs).</summary>
+    public bool TableBusyWarning { get; set; } = true;
+
+    /// <summary>Masa paneli — rezerv olunmuş masanı açarkən xəbərdarlıq.</summary>
+    public bool TableReservationWarning { get; set; } = true;
+
+    /// <summary>
+    /// A reserved table takes no new order from this many minutes before the reservation (0 = off). The
+    /// admin picks one of <see cref="Domain.Constants.ReservationRules.BlockMinuteOptions"/>.
+    /// </summary>
+    public int ReservationBlockMinutes { get; set; }
+
+    /// <summary>
+    /// A reservation whose guest has not come within this many minutes of its time is cancelled
+    /// automatically (0 = off). One of <see cref="Domain.Constants.ReservationRules.AutoCancelMinuteOptions"/>.
+    /// </summary>
+    public int ReservationAutoCancelMinutes { get; set; }
+
+    /// <summary>Masa və paket qiymətləri dəzgah qiymətindən götürülsün.</summary>
+    public bool TablePricesFromStation { get; set; } = true;
+
+    /// <summary>Neytral — dəzgah qiyməti yoxdursa anbar satış qiymətindən istifadə olunsun.</summary>
+    public bool PriceFromWarehouseSale { get; set; } = true;
+
+    // Tema
+    /// <summary>Main brand colour (hex, e.g. #2563eb) used for buttons and highlights in the panel and POS.</summary>
+    public string? ThemePrimaryColor { get; set; }
+    /// <summary>Corner style: "square", "medium" (default) or "round".</summary>
+    public string? ThemeRadius { get; set; }
+
+    // Çek dizaynı
+    /// <summary>Receipt paper width in mm — 58 (32 characters per line) or 80 (48).</summary>
+    public int ReceiptPaperWidth { get; set; } = 80;
+    /// <summary>Free text printed at the top of the customer receipt.</summary>
+    public string? ReceiptHeaderText { get; set; }
+    /// <summary>Free text printed at the bottom of the customer receipt.</summary>
+    public string? ReceiptFooterText { get; set; }
+    /// <summary>Line order on the customer receipt: "order" (as ordered), "name" (A–Z) or "category" (grouped by category).</summary>
+    public string ReceiptSortMode { get; set; } = "order";
+
+    /// <summary>Print the company logo (ReportLogoUrl, else LoginLogoUrl) at the top of the receipt.</summary>
+    public bool ReceiptShowLogo { get; set; } = true;
+    /// <summary>Logo width on the receipt, as a percentage of the paper width (20–100).</summary>
+    public int ReceiptLogoWidth { get; set; } = 50;
+    /// <summary>Where the social links are printed: "top" (under the address) or "bottom" (above the footer note).</summary>
+    public string ReceiptSocialPosition { get; set; } = "top";
+    /// <summary>Note printed under every gifted product, e.g. "Müəssisədən hədiyyə".</summary>
+    public string? ReceiptGiftNote { get; set; }
+    /// <summary>Font size (px on the printed image) of the gift note.</summary>
+    public int ReceiptGiftNoteFontSize { get; set; } = 18;
+
+    /// <summary>Toxunuşlu ekran — larger POS controls and on-screen number pads, for touch terminals without a keyboard.</summary>
+    public bool TouchScreenMode { get; set; }
+
     // POS-1 paneli
     public bool AskGuestCountOnOpen { get; set; }
 

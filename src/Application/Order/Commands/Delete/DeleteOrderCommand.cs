@@ -2,4 +2,4 @@
 
 namespace Application.Orders.Commands.Delete;
 
-public record DeleteOrderCommand(int Id) : IRequest<string>;
+public record DeleteOrderCommand(int Id, string? Reason = null, string? Note = null) : IRequest<string>;

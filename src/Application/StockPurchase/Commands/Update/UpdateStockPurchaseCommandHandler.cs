@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -15,12 +16,15 @@ public class UpdateStockPurchaseCommandHandler
     private readonly IStockPurchaseRepository _purchaseRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateStockPurchaseCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public UpdateStockPurchaseCommandHandler(
         IStockPurchaseRepository purchaseRepository,
         IAuditLogService auditLogService,
-        ILogger<UpdateStockPurchaseCommandHandler> logger)
+        ILogger<UpdateStockPurchaseCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _purchaseRepository = purchaseRepository;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -30,7 +34,7 @@ public class UpdateStockPurchaseCommandHandler
     {
         var purchase = await _purchaseRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (purchase is null)
+        if (purchase is null || !_currentUserService.CanAccessCompany(purchase.CompanyId))
             return new BaseResponse { Success = false, Message = "Stok alışı tapılmadı." };
 
         if (purchase.Status != StockPurchaseStatus.Draft)

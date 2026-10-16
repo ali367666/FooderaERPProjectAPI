@@ -37,6 +37,7 @@ export default function WarehouseStockDocumentsPage() {
     if (companies.length === 0) {
       setDocuments([]);
       setWarehouses([]);
+      setLoading(false);
       return;
     }
     try {

@@ -24,6 +24,10 @@ export type CompanySettings = {
   alertRingCount: number | null;
   alertRingIntervalSeconds: number | null;
   tableTimeWarningMinutes: number | null;
+  /** A reserved table takes no new order this many minutes before the reservation (0 = off). */
+  reservationBlockMinutes: number;
+  /** A guest who has not come this many minutes after the reservation time is cancelled (0 = off). */
+  reservationAutoCancelMinutes: number;
 
   loginLogoUrl: string | null;
   reportLogoUrl: string | null;
@@ -66,6 +70,44 @@ export type CompanySettings = {
   printTransferDocAuto: boolean;
   printTransferDocDouble: boolean;
   printChiefCopy: boolean;
+  posMarsEnabled: boolean;
+  requireProductCode: boolean;
+  paymentCashEnabled: boolean;
+  paymentCardEnabled: boolean;
+  paymentCreditEnabled: boolean;
+  waiterConfirmWithPin: boolean;
+  waiterCanCancel: boolean;
+  lockOrderAfterBill: boolean;
+  printKitchenSeparateTickets: boolean;
+  posShowChangePanel: boolean;
+  posShowWeighWindow: boolean;
+  posShowCustomerSelect: boolean;
+  posShowHoldButton: boolean;
+  posShowClock: boolean;
+  tableShowWaiter: boolean;
+  tableShowNote: boolean;
+  tableShowTime: boolean;
+  tableShowAmount: boolean;
+  tableBusyWarning: boolean;
+  tableReservationWarning: boolean;
+  tablePricesFromStation: boolean;
+  priceFromWarehouseSale: boolean;
+  themePrimaryColor: string | null;
+  themeRadius: string | null;
+  receiptPaperWidth: number;
+  receiptHeaderText: string | null;
+  receiptFooterText: string | null;
+  receiptSortMode: string;
+  /** Print the company logo at the top of the receipt. */
+  receiptShowLogo: boolean;
+  /** Logo width as a % of the paper width (20–100). */
+  receiptLogoWidth: number;
+  /** Social links under the address ("top") or above the closing note ("bottom"). */
+  receiptSocialPosition: string;
+  /** Note printed under every gifted product. */
+  receiptGiftNote: string | null;
+  receiptGiftNoteFontSize: number;
+  touchScreenMode: boolean;
 
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
@@ -126,6 +168,8 @@ function normalize(item: unknown): CompanySettings | null {
     alertRingCount: numOrNull("alertRingCount", "AlertRingCount"),
     alertRingIntervalSeconds: numOrNull("alertRingIntervalSeconds", "AlertRingIntervalSeconds"),
     tableTimeWarningMinutes: numOrNull("tableTimeWarningMinutes", "TableTimeWarningMinutes"),
+    reservationBlockMinutes: Number(pick(raw, "reservationBlockMinutes", "ReservationBlockMinutes") ?? 0),
+    reservationAutoCancelMinutes: Number(pick(raw, "reservationAutoCancelMinutes", "ReservationAutoCancelMinutes") ?? 0),
 
     loginLogoUrl: strOrNull("loginLogoUrl", "LoginLogoUrl"),
     reportLogoUrl: strOrNull("reportLogoUrl", "ReportLogoUrl"),
@@ -168,6 +212,40 @@ function normalize(item: unknown): CompanySettings | null {
     printTransferDocAuto: bool("printTransferDocAuto", "PrintTransferDocAuto"),
     printTransferDocDouble: bool("printTransferDocDouble", "PrintTransferDocDouble"),
     printChiefCopy: bool("printChiefCopy", "PrintChiefCopy"),
+    posMarsEnabled: bool("posMarsEnabled", "PosMarsEnabled"),
+    requireProductCode: bool("requireProductCode", "RequireProductCode"),
+    paymentCashEnabled: bool("paymentCashEnabled", "PaymentCashEnabled", true),
+    paymentCardEnabled: bool("paymentCardEnabled", "PaymentCardEnabled", true),
+    paymentCreditEnabled: bool("paymentCreditEnabled", "PaymentCreditEnabled", true),
+    waiterConfirmWithPin: bool("waiterConfirmWithPin", "WaiterConfirmWithPin"),
+    waiterCanCancel: bool("waiterCanCancel", "WaiterCanCancel", true),
+    lockOrderAfterBill: bool("lockOrderAfterBill", "LockOrderAfterBill"),
+    printKitchenSeparateTickets: bool("printKitchenSeparateTickets", "PrintKitchenSeparateTickets"),
+    posShowChangePanel: bool("posShowChangePanel", "PosShowChangePanel", true),
+    posShowWeighWindow: bool("posShowWeighWindow", "PosShowWeighWindow", true),
+    posShowCustomerSelect: bool("posShowCustomerSelect", "PosShowCustomerSelect", true),
+    posShowHoldButton: bool("posShowHoldButton", "PosShowHoldButton", true),
+    posShowClock: bool("posShowClock", "PosShowClock", true),
+    tableShowWaiter: bool("tableShowWaiter", "TableShowWaiter", true),
+    tableShowNote: bool("tableShowNote", "TableShowNote", true),
+    tableShowTime: bool("tableShowTime", "TableShowTime", true),
+    tableShowAmount: bool("tableShowAmount", "TableShowAmount", true),
+    tableBusyWarning: bool("tableBusyWarning", "TableBusyWarning", true),
+    tableReservationWarning: bool("tableReservationWarning", "TableReservationWarning", true),
+    tablePricesFromStation: bool("tablePricesFromStation", "TablePricesFromStation", true),
+    priceFromWarehouseSale: bool("priceFromWarehouseSale", "PriceFromWarehouseSale", true),
+    themePrimaryColor: strOrNull("themePrimaryColor", "ThemePrimaryColor"),
+    themeRadius: strOrNull("themeRadius", "ThemeRadius"),
+    receiptPaperWidth: numOrNull("receiptPaperWidth", "ReceiptPaperWidth") === 58 ? 58 : 80,
+    receiptHeaderText: strOrNull("receiptHeaderText", "ReceiptHeaderText"),
+    receiptFooterText: strOrNull("receiptFooterText", "ReceiptFooterText"),
+    receiptSortMode: strOrNull("receiptSortMode", "ReceiptSortMode") ?? "order",
+    receiptShowLogo: bool("receiptShowLogo", "ReceiptShowLogo", true),
+    receiptLogoWidth: numOrNull("receiptLogoWidth", "ReceiptLogoWidth") ?? 50,
+    receiptSocialPosition: strOrNull("receiptSocialPosition", "ReceiptSocialPosition") ?? "top",
+    receiptGiftNote: strOrNull("receiptGiftNote", "ReceiptGiftNote"),
+    receiptGiftNoteFontSize: numOrNull("receiptGiftNoteFontSize", "ReceiptGiftNoteFontSize") ?? 18,
+    touchScreenMode: bool("touchScreenMode", "TouchScreenMode"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
@@ -233,6 +311,8 @@ export type CompanySettingsBranding = {
   alertRingCount: number | null;
   alertRingIntervalSeconds: number | null;
   tableTimeWarningMinutes: number | null;
+  reservationBlockMinutes: number;
+  reservationAutoCancelMinutes: number;
   moduleFilial: boolean;
   moduleAnbar: boolean;
   moduleRezervasyon: boolean;
@@ -267,6 +347,44 @@ export type CompanySettingsBranding = {
   printTransferDocAuto: boolean;
   printTransferDocDouble: boolean;
   printChiefCopy: boolean;
+  posMarsEnabled: boolean;
+  requireProductCode: boolean;
+  paymentCashEnabled: boolean;
+  paymentCardEnabled: boolean;
+  paymentCreditEnabled: boolean;
+  waiterConfirmWithPin: boolean;
+  waiterCanCancel: boolean;
+  lockOrderAfterBill: boolean;
+  printKitchenSeparateTickets: boolean;
+  posShowChangePanel: boolean;
+  posShowWeighWindow: boolean;
+  posShowCustomerSelect: boolean;
+  posShowHoldButton: boolean;
+  posShowClock: boolean;
+  tableShowWaiter: boolean;
+  tableShowNote: boolean;
+  tableShowTime: boolean;
+  tableShowAmount: boolean;
+  tableBusyWarning: boolean;
+  tableReservationWarning: boolean;
+  tablePricesFromStation: boolean;
+  priceFromWarehouseSale: boolean;
+  themePrimaryColor: string | null;
+  themeRadius: string | null;
+  receiptPaperWidth: number;
+  receiptHeaderText: string | null;
+  receiptFooterText: string | null;
+  receiptSortMode: string;
+  /** Print the company logo at the top of the receipt. */
+  receiptShowLogo: boolean;
+  /** Logo width as a % of the paper width (20–100). */
+  receiptLogoWidth: number;
+  /** Social links under the address ("top") or above the closing note ("bottom"). */
+  receiptSocialPosition: string;
+  /** Note printed under every gifted product. */
+  receiptGiftNote: string | null;
+  receiptGiftNoteFontSize: number;
+  touchScreenMode: boolean;
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
   defaultVatPercent: number | null;
@@ -308,6 +426,8 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     alertRingCount: numOrNull("alertRingCount", "AlertRingCount"),
     alertRingIntervalSeconds: numOrNull("alertRingIntervalSeconds", "AlertRingIntervalSeconds"),
     tableTimeWarningMinutes: numOrNull("tableTimeWarningMinutes", "TableTimeWarningMinutes"),
+    reservationBlockMinutes: Number(pick(raw, "reservationBlockMinutes", "ReservationBlockMinutes") ?? 0),
+    reservationAutoCancelMinutes: Number(pick(raw, "reservationAutoCancelMinutes", "ReservationAutoCancelMinutes") ?? 0),
     moduleFilial: bool("moduleFilial", "ModuleFilial", true),
     moduleAnbar: bool("moduleAnbar", "ModuleAnbar", true),
     moduleRezervasyon: bool("moduleRezervasyon", "ModuleRezervasyon", true),
@@ -342,6 +462,40 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     printTransferDocAuto: bool("printTransferDocAuto", "PrintTransferDocAuto"),
     printTransferDocDouble: bool("printTransferDocDouble", "PrintTransferDocDouble"),
     printChiefCopy: bool("printChiefCopy", "PrintChiefCopy"),
+    posMarsEnabled: bool("posMarsEnabled", "PosMarsEnabled"),
+    requireProductCode: bool("requireProductCode", "RequireProductCode"),
+    paymentCashEnabled: bool("paymentCashEnabled", "PaymentCashEnabled", true),
+    paymentCardEnabled: bool("paymentCardEnabled", "PaymentCardEnabled", true),
+    paymentCreditEnabled: bool("paymentCreditEnabled", "PaymentCreditEnabled", true),
+    waiterConfirmWithPin: bool("waiterConfirmWithPin", "WaiterConfirmWithPin"),
+    waiterCanCancel: bool("waiterCanCancel", "WaiterCanCancel", true),
+    lockOrderAfterBill: bool("lockOrderAfterBill", "LockOrderAfterBill"),
+    printKitchenSeparateTickets: bool("printKitchenSeparateTickets", "PrintKitchenSeparateTickets"),
+    posShowChangePanel: bool("posShowChangePanel", "PosShowChangePanel", true),
+    posShowWeighWindow: bool("posShowWeighWindow", "PosShowWeighWindow", true),
+    posShowCustomerSelect: bool("posShowCustomerSelect", "PosShowCustomerSelect", true),
+    posShowHoldButton: bool("posShowHoldButton", "PosShowHoldButton", true),
+    posShowClock: bool("posShowClock", "PosShowClock", true),
+    tableShowWaiter: bool("tableShowWaiter", "TableShowWaiter", true),
+    tableShowNote: bool("tableShowNote", "TableShowNote", true),
+    tableShowTime: bool("tableShowTime", "TableShowTime", true),
+    tableShowAmount: bool("tableShowAmount", "TableShowAmount", true),
+    tableBusyWarning: bool("tableBusyWarning", "TableBusyWarning", true),
+    tableReservationWarning: bool("tableReservationWarning", "TableReservationWarning", true),
+    tablePricesFromStation: bool("tablePricesFromStation", "TablePricesFromStation", true),
+    priceFromWarehouseSale: bool("priceFromWarehouseSale", "PriceFromWarehouseSale", true),
+    themePrimaryColor: strOrNull("themePrimaryColor", "ThemePrimaryColor"),
+    themeRadius: strOrNull("themeRadius", "ThemeRadius"),
+    receiptPaperWidth: numOrNull("receiptPaperWidth", "ReceiptPaperWidth") === 58 ? 58 : 80,
+    receiptHeaderText: strOrNull("receiptHeaderText", "ReceiptHeaderText"),
+    receiptFooterText: strOrNull("receiptFooterText", "ReceiptFooterText"),
+    receiptSortMode: strOrNull("receiptSortMode", "ReceiptSortMode") ?? "order",
+    receiptShowLogo: bool("receiptShowLogo", "ReceiptShowLogo", true),
+    receiptLogoWidth: numOrNull("receiptLogoWidth", "ReceiptLogoWidth") ?? 50,
+    receiptSocialPosition: strOrNull("receiptSocialPosition", "ReceiptSocialPosition") ?? "top",
+    receiptGiftNote: strOrNull("receiptGiftNote", "ReceiptGiftNote"),
+    receiptGiftNoteFontSize: numOrNull("receiptGiftNoteFontSize", "ReceiptGiftNoteFontSize") ?? 18,
+    touchScreenMode: bool("touchScreenMode", "TouchScreenMode"),
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),

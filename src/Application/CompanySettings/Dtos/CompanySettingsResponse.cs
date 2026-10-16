@@ -26,6 +26,9 @@ public class CompanySettingsResponse
     public int? AlertRingIntervalSeconds { get; set; }
     public int? TableTimeWarningMinutes { get; set; }
 
+    public int ReservationBlockMinutes { get; set; }
+    public int ReservationAutoCancelMinutes { get; set; }
+
     public string? LoginLogoUrl { get; set; }
     public string? ReportLogoUrl { get; set; }
     public string? WallpaperUrl { get; set; }
@@ -68,6 +71,46 @@ public class CompanySettingsResponse
     public bool PrintTransferDocAuto { get; set; }
     public bool PrintTransferDocDouble { get; set; }
     public bool PrintChiefCopy { get; set; }
+    public bool PosMarsEnabled { get; set; }
+    public bool RequireProductCode { get; set; }
+    public bool PaymentCashEnabled { get; set; } = true;
+    public bool PaymentCardEnabled { get; set; } = true;
+    public bool PaymentCreditEnabled { get; set; } = true;
+    public bool WaiterConfirmWithPin { get; set; }
+    public bool WaiterCanCancel { get; set; } = true;
+    public bool LockOrderAfterBill { get; set; }
+    public bool PrintKitchenSeparateTickets { get; set; }
+    public bool PosShowChangePanel { get; set; } = true;
+    public bool PosShowWeighWindow { get; set; } = true;
+    public bool PosShowCustomerSelect { get; set; } = true;
+    public bool PosShowHoldButton { get; set; } = true;
+    public bool PosShowClock { get; set; } = true;
+    public bool TableShowWaiter { get; set; } = true;
+    public bool TableShowNote { get; set; } = true;
+    public bool TableShowTime { get; set; } = true;
+    public bool TableShowAmount { get; set; } = true;
+    public bool TableBusyWarning { get; set; } = true;
+    public bool TableReservationWarning { get; set; } = true;
+    public bool TablePricesFromStation { get; set; } = true;
+    public bool PriceFromWarehouseSale { get; set; } = true;
+    public string? ThemePrimaryColor { get; set; }
+    public string? ThemeRadius { get; set; }
+    public int ReceiptPaperWidth { get; set; } = 80;
+    public string? ReceiptHeaderText { get; set; }
+    public string? ReceiptFooterText { get; set; }
+    public string ReceiptSortMode { get; set; } = "order";
+
+    /// <summary>Print the company logo (ReportLogoUrl, else LoginLogoUrl) at the top of the receipt.</summary>
+    public bool ReceiptShowLogo { get; set; } = true;
+    /// <summary>Logo width on the receipt, as a percentage of the paper width (20–100).</summary>
+    public int ReceiptLogoWidth { get; set; } = 50;
+    /// <summary>Where the social links are printed: "top" (under the address) or "bottom" (above the footer note).</summary>
+    public string ReceiptSocialPosition { get; set; } = "top";
+    /// <summary>Note printed under every gifted product, e.g. "Müəssisədən hədiyyə".</summary>
+    public string? ReceiptGiftNote { get; set; }
+    /// <summary>Font size (px on the printed image) of the gift note.</summary>
+    public int ReceiptGiftNoteFontSize { get; set; } = 18;
+    public bool TouchScreenMode { get; set; }
 
     public bool AskGuestCountOnOpen { get; set; }
     public bool SingleWaiterMode { get; set; }

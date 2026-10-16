@@ -52,6 +52,7 @@ export default function MenuCategoriesPage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [isSetCategory, setIsSetCategory] = useState(false);
   const [parentCategoryId, setParentCategoryId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -169,6 +170,7 @@ export default function MenuCategoriesPage() {
     setDescription("");
     setImageUrl(null);
     setIsActive(true);
+    setIsSetCategory(false);
     setParentCategoryId(null);
     setEditingId(null);
     setFieldErrors({});
@@ -189,6 +191,7 @@ export default function MenuCategoriesPage() {
       setDescription(c.description || "");
       setImageUrl(c.imageUrl || null);
       setIsActive(c.isActive);
+      setIsSetCategory(c.isSetCategory);
       setParentCategoryId(c.parentCategoryId);
       setFieldErrors({});
       setIsEditMode(true);
@@ -235,6 +238,7 @@ export default function MenuCategoriesPage() {
             description: description.trim() || null,
             imageUrl: imageUrl?.trim() || null,
             isActive,
+            isSetCategory,
             parentCategoryId,
           },
           selectedCompanyId ?? undefined,
@@ -244,6 +248,7 @@ export default function MenuCategoriesPage() {
           name: trimmedName,
           description: description.trim() || null,
           imageUrl: imageUrl?.trim() || null,
+          isSetCategory,
           parentCategoryId,
         });
       }
@@ -399,6 +404,21 @@ export default function MenuCategoriesPage() {
                   ))}
               </select>
             </div>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-input p-3">
+              <input
+                type="checkbox"
+                checked={isSetCategory}
+                onChange={(e) => setIsSetCategory(e.target.checked)}
+                className="mt-1 h-4 w-4"
+              />
+              <span>
+                <span className="block text-sm font-medium text-foreground">Set kateqoriyası</span>
+                <span className="block text-xs text-muted-foreground">
+                  Bu kateqoriyadakı məhsullar set olur: ofisiant yemək və içkiləri özü seçir.
+                </span>
+              </span>
+            </label>
 
             <div className="flex justify-end gap-3">
               <Button

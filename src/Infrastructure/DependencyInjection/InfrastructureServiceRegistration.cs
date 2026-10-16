@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Repositories;
+using Application.Abstractions.Repositories;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -31,6 +31,7 @@ public static class InfrastructureServiceRegistration
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IIdentityAdminService, IdentityAdminService>();
+        services.AddScoped<ICompanyDefaultsSeeder, Infrastructure.Persistence.Seeds.CompanyDefaultsSeeder>();
         services.AddScoped<IRestaurantRepository, RestaurantRepository>();
 
         // 🔹 Identity
@@ -44,7 +45,9 @@ public static class InfrastructureServiceRegistration
             options.Password.RequiredLength = 6;
 
             // 👤 User settings
-            options.User.RequireUniqueEmail = true;
+            // Company staff have no email (username + 4-digit code). Uniqueness of the emails that
+            // ARE set is checked by IdentityAdminService itself.
+            options.User.RequireUniqueEmail = false;
 
             // 🔒 Lockout (optional amma faydalıdır)
             options.Lockout.MaxFailedAccessAttempts = 5;
@@ -90,6 +93,10 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<IDiscountRepository, DiscountRepository>();
         services.AddScoped<IAuthTokenIssuer, AuthTokenIssuer>();
+        services.AddScoped<IStaffCodeResolver, Application.Auth.Services.StaffCodeResolver>();
+        services.AddScoped<IOrderPaymentService, Application.Orders.Services.OrderPaymentService>();
+        services.AddScoped<IReservationTableGuard, Application.Reservations.Services.ReservationTableGuard>();
+        services.AddScoped<IOrderPaymentRepository, OrderPaymentRepository>();
         services.AddScoped<IMailActionTokenService, MailActionTokenService>();
         services.AddScoped<IFileStorageService, MinioFileStorageService>();
         services.AddScoped<IRestaurantSectionRepository, RestaurantSectionRepository>();
@@ -97,15 +104,27 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IPrinterStationTypeRepository, PrinterStationTypeRepository>();
         services.AddScoped<IFiscalDeviceRepository, FiscalDeviceRepository>();
         services.AddScoped<IScaleDeviceRepository, ScaleDeviceRepository>();
+        services.AddScoped<IWorkstationRepository, WorkstationRepository>();
         services.AddScoped<IDeliveryIntegrationRepository, DeliveryIntegrationRepository>();
         services.AddScoped<ICashMovementRepository, CashMovementRepository>();
         services.AddScoped<ISaleReturnRepository, SaleReturnRepository>();
+        services.AddScoped<IOrderCancellationRepository, OrderCancellationRepository>();
+        services.AddScoped<ILicenseRepository, LicenseRepository>();
+        services.AddScoped<IDeviceAccessService, DeviceAccessService>();
+        services.Configure<Infrastructure.Options.LicensingOptions>(configuration.GetSection("Licensing"));
+        services.Configure<Infrastructure.Options.DeploymentOptions>(configuration.GetSection("Deployment"));
+        services.AddSingleton<ILicenseKeyService, LicenseKeyService>();
+        services.AddSingleton<IDeploymentInfo, DeploymentInfo>();
+        services.AddMemoryCache();
+        services.AddHostedService<LicenseExpiryNotifier>();
+        services.AddHostedService<ReservationAutoCancelService>();
         services.AddScoped<ICounterpartyRepository, CounterpartyRepository>();
         services.AddScoped<ICounterpartyCategoryRepository, CounterpartyCategoryRepository>();
         services.AddScoped<IMenuItemTypeRepository, MenuItemTypeRepository>();
         services.AddScoped<IMenuItemSetComponentRepository, MenuItemSetComponentRepository>();
         services.AddScoped<IShiftRepository, ShiftRepository>();
         services.AddScoped<INetworkPrinterService, NetworkPrinterService>();
+        services.AddScoped<IPrinterDiscoveryService, PrinterDiscoveryService>();
 
         services.AddHttpClient<ICbarExchangeRateService, CbarExchangeRateService>();
 

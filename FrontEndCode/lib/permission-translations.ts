@@ -129,6 +129,7 @@ const PERMISSION_LABELS: Record<string, string> = {
   "Pos.OverridePrice": "Qalıcı qiymətə müdaxilə et",
   "Pos.ChangeDepartment": "Şöbəni dəyiş",
   "Pos.RedirectUser": "Ofisiantı dəyiş / başqasının masasına bax",
+  "Pos.ChangeWaiter": "Masalar ekranında \"Ofisiant dəyiş\" düyməsini göstər (icazəsi olanın kodu ilə)",
   "Pos.EditProductInSale": "Satışda məhsulu redaktə et",
   "Pos.DeleteProductInSale": "Satışda məhsulu sil",
   "Pos.TableServiceCharge": "Masa üzrə servis haqqı tətbiq et",
@@ -136,6 +137,15 @@ const PERMISSION_LABELS: Record<string, string> = {
   "Pos.WarehouseAmountChange": "Anbar məbləğini dəyiş",
   "Pos.PrintOldReceipt": "Köhnə qəbzi çap et",
   "Pos.ReturnSale": "Satışı geri qaytar (barkodla)",
+  "Pos.UnlockBill": "Verilmiş hesabın kilidini aç",
+
+  "CashRegister.View": "Kassaya bax",
+  "CashRegister.Manage": "Kassa mədaxil/məxaric et",
+
+  "DeliveryIntegration.View": "Çatdırılma inteqrasiyalarına bax",
+  "DeliveryIntegration.Create": "Çatdırılma inteqrasiyası yarat",
+  "DeliveryIntegration.Update": "Çatdırılma inteqrasiyasını redaktə et",
+  "DeliveryIntegration.Delete": "Çatdırılma inteqrasiyasını sil",
 
   "RestaurantSection.View": "Filial bölmələrinə bax",
   "RestaurantSection.Create": "Filial bölməsi yarat",
@@ -162,6 +172,11 @@ const PERMISSION_LABELS: Record<string, string> = {
   "ScaleDevice.Create": "Tərəzi əlavə et",
   "ScaleDevice.Update": "Tərəzini redaktə et",
   "ScaleDevice.Delete": "Tərəzini sil",
+
+  "Workstation.View": "POS terminallarına bax",
+  "Workstation.Create": "POS terminalı əlavə et",
+  "Workstation.Update": "POS terminalını redaktə et",
+  "Workstation.Delete": "POS terminalını sil",
 };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -196,12 +211,32 @@ const MODULE_LABELS: Record<string, string> = {
   Counterparty: "Kontragentlər",
   FiscalDevice: "Fiskal kassalar",
   ScaleDevice: "Tərəzilər",
+  Workstation: "POS terminalları",
+  CashRegister: "Kassa",
+  DeliveryIntegration: "Çatdırılma inteqrasiyaları",
 };
 
-export function translatePermissionLabel(name: string, fallback: string): string {
-  return PERMISSION_LABELS[name] ?? fallback;
+/** Mağaza (store) wording — a store sells products, not a menu (same data, same sidebar naming). */
+const STORE_PERMISSION_LABELS: Record<string, string> = {
+  "MenuItem.View": "Məhsullara bax",
+  "MenuItem.Create": "Məhsul yarat",
+  "MenuItem.Update": "Məhsulu redaktə et",
+  "MenuItem.Delete": "Məhsulu sil",
+  "MenuCategory.View": "Məhsul kateqoriyalarına bax",
+  "MenuCategory.Create": "Məhsul kateqoriyası yarat",
+  "MenuCategory.Update": "Məhsul kateqoriyasını redaktə et",
+  "MenuCategory.Delete": "Məhsul kateqoriyasını sil",
+};
+
+const STORE_MODULE_LABELS: Record<string, string> = {
+  MenuItem: "Məhsullar",
+  MenuCategory: "Məhsul kateqoriyaları",
+};
+
+export function translatePermissionLabel(name: string, fallback: string, storeMode = false): string {
+  return (storeMode ? STORE_PERMISSION_LABELS[name] : undefined) ?? PERMISSION_LABELS[name] ?? fallback;
 }
 
-export function translateModuleLabel(module: string): string {
-  return MODULE_LABELS[module] ?? module;
+export function translateModuleLabel(module: string, storeMode = false): string {
+  return (storeMode ? STORE_MODULE_LABELS[module] : undefined) ?? MODULE_LABELS[module] ?? module;
 }

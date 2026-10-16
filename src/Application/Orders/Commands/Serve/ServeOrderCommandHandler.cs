@@ -1,3 +1,4 @@
+using Application.Common.Interfaces;
 using Application.Common.Exceptions;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Orders.Dtos;
@@ -9,16 +10,18 @@ namespace Application.Orders.Commands.Serve;
 public class ServeOrderCommandHandler : IRequestHandler<ServeOrderCommand, OrderResponse>
 {
     private readonly IOrderRepository _orderRepository;
+    private readonly ICurrentUserService _currentUserService;
 
-    public ServeOrderCommandHandler(IOrderRepository orderRepository)
+    public ServeOrderCommandHandler(IOrderRepository orderRepository, ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _orderRepository = orderRepository;
     }
 
     public async Task<OrderResponse> Handle(ServeOrderCommand request, CancellationToken cancellationToken)
     {
         var order = await _orderRepository.GetByIdWithLinesAsync(request.OrderId, cancellationToken);
-        if (order is null)
+        if (order is null || !_currentUserService.CanAccessCompany(order.CompanyId))
             throw new NotFoundException("Order not found.");
 
         if (order.Status != OrderStatus.Ready)
@@ -67,6 +70,8 @@ public class ServeOrderCommandHandler : IRequestHandler<ServeOrderCommand, Order
             TableRentalStoppedAt = order.TableRentalStoppedAt,
             TableRentalAmount = order.TableRentalAmount,
             HoldUntilUtc = order.HoldUntilUtc,
+            BillPrintedAt = order.BillPrintedAt,
+            IsBillLocked = order.IsBillLocked,
             IsDelivery = order.IsDelivery,
             DeliveryAddress = order.DeliveryAddress,
             DeliveryPhone = order.DeliveryPhone,

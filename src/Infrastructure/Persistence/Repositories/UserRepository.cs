@@ -47,6 +47,38 @@ public class UserRepository : IUserRepository
             .AnyAsync(requiresRotatingPin => requiresRotatingPin, cancellationToken);
     }
 
+    /// <summary>
+    /// Mirrors how the login token is built: the permission comes from one of the user's roles
+    /// (own company or global) and, outside the platform SuperAdmin, must also exist on the shared
+    /// CompanySuperAdmin template — the ceiling no company user can exceed.
+    /// </summary>
+    public async Task<bool> HasPermissionAsync(int userId, string permission, CancellationToken cancellationToken)
+    {
+        var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+        if (user is null) return false;
+
+        var roles = await _context.UserRoles
+            .Where(ur => ur.UserId == userId)
+            .Join(_context.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r)
+            .Where(r => r.CompanyId == user.CompanyId || r.CompanyId == null)
+            .Select(r => new { r.Id, r.NormalizedName })
+            .ToListAsync(cancellationToken);
+        if (roles.Count == 0) return false;
+
+        var roleIds = roles.Select(r => r.Id).ToList();
+        var granted = await _context.RolePermissions
+            .AnyAsync(rp => roleIds.Contains(rp.RoleId) && rp.Permission.Name == permission, cancellationToken);
+        if (!granted) return false;
+
+        if (roles.Any(r => r.NormalizedName == Domain.Constants.AppRoles.SuperAdmin.ToUpperInvariant()))
+            return true;
+
+        var templateNormalized = Domain.Constants.AppRoles.CompanySuperAdmin.ToUpperInvariant();
+        return await _context.RolePermissions.AnyAsync(
+            rp => rp.Role.CompanyId == null && rp.Role.NormalizedName == templateNormalized && rp.Permission.Name == permission,
+            cancellationToken);
+    }
+
     public async Task<List<User>> GetAllByWarehouseIdAsync(int warehouseId, CancellationToken cancellationToken)
     {
         return await _context.Users

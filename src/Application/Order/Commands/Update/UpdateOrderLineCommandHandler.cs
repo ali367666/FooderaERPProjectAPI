@@ -20,6 +20,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateOrderLineCommandHandler> _logger;
+    private readonly IMenuItemSetComponentRepository _setComponentRepository;
 
     public UpdateOrderLineCommandHandler(
         IOrderLineRepository orderLineRepository,
@@ -27,7 +28,8 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
-        ILogger<UpdateOrderLineCommandHandler> logger)
+        ILogger<UpdateOrderLineCommandHandler> logger,
+        IMenuItemSetComponentRepository setComponentRepository)
     {
         _orderLineRepository = orderLineRepository;
         _orderRepository = orderRepository;
@@ -35,6 +37,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
+        _setComponentRepository = setComponentRepository;
     }
 
     public async Task<OrderResponse> Handle(UpdateOrderLineCommand request, CancellationToken cancellationToken)
@@ -84,6 +87,8 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             throw new Exception("Bu sifarişin line-ı dəyişdirilə bilməz.");
         }
 
+        OrderGuards.EnsureNotBillLocked(order);
+
         var oldOrderLineValues = JsonSerializer.Serialize(new
         {
             line.Id,
@@ -106,6 +111,16 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
 
         var previousQuantity = line.Quantity;
         var newQuantity = request.Request.Quantity;
+
+        // SET component line: capped by the component's Limit (per set × set quantity).
+        var parentLine = line.ParentLineId is null ? null : order.Lines.FirstOrDefault(x => x.Id == line.ParentLineId);
+        if (parentLine is not null && newQuantity != previousQuantity)
+        {
+            var components = await _setComponentRepository.GetBySetMenuItemIdAsync(parentLine.MenuItemId, cancellationToken);
+            var component = components.FirstOrDefault(x => x.ComponentMenuItemId == line.MenuItemId);
+            if (component?.Limit is { } limit && newQuantity > limit * parentLine.Quantity)
+                throw new Exception($"{line.MenuItem.Name}: bu SET-də ən çox {limit * parentLine.Quantity} ola bilər.");
+        }
         var quantityChanged = newQuantity != previousQuantity;
 
         if (quantityChanged && line.IsStockDeducted)
@@ -133,14 +148,44 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             line.Status = parsedStatus;
         }
 
-        line.UnitPrice = request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
-            ? request.Request.UnitPrice.Value
-            : line.MenuItem.StationPrice ?? line.MenuItem.Price;
+        // A SET component is paid through its set — changing its quantity never gives it a price.
+        decimal? chosenPrice = null;
+        if (parentLine is null && request.Request.PriceType is { } priceType)
+        {
+            var item = line.MenuItem;
+            chosenPrice = priceType switch
+            {
+                Domain.Enums.MenuItemPriceType.Price => item.Price,
+                Domain.Enums.MenuItemPriceType.Station => item.StationPrice,
+                Domain.Enums.MenuItemPriceType.Package => item.PackagePrice,
+                Domain.Enums.MenuItemPriceType.Special1 => item.SpecialPrice1,
+                Domain.Enums.MenuItemPriceType.Special2 => item.SpecialPrice2,
+                Domain.Enums.MenuItemPriceType.Special3 => item.SpecialPrice3,
+                Domain.Enums.MenuItemPriceType.Special4 => item.SpecialPrice4,
+                Domain.Enums.MenuItemPriceType.Special5 => item.SpecialPrice5,
+                _ => throw new Exception("Qiymət növü düzgün deyil.")
+            };
+            if (chosenPrice is null)
+                throw new Exception("Bu məhsul üçün belə qiymət təyin edilməyib.");
+        }
+
+        line.UnitPrice = parentLine is not null
+            ? 0
+            : chosenPrice.HasValue
+                ? chosenPrice.Value
+                : request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
+                    ? request.Request.UnitPrice.Value
+                    : line.UnitPrice;
 
         if (_currentUserService.HasPermission(Domain.Constants.AppPermissions.DiscountApply))
         {
-            if (request.Request.IsGift.HasValue)
+            if (request.Request.IsGift.HasValue && request.Request.IsGift.Value != line.IsGift)
+            {
                 line.IsGift = request.Request.IsGift.Value;
+                // Who gave the gift, and when — for the gifts report.
+                line.GiftedByUserId = line.IsGift ? _currentUserService.UserId : null;
+                line.GiftedAtUtc = line.IsGift ? DateTime.UtcNow : null;
+            }
             if (request.Request.DiscountAmount.HasValue)
                 line.DiscountAmount = Math.Max(0, request.Request.DiscountAmount.Value);
         }
@@ -305,6 +350,8 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             TableRentalStoppedAt = updatedOrder.TableRentalStoppedAt,
             TableRentalAmount = updatedOrder.TableRentalAmount,
             HoldUntilUtc = updatedOrder.HoldUntilUtc,
+            BillPrintedAt = updatedOrder.BillPrintedAt,
+            IsBillLocked = updatedOrder.IsBillLocked,
             IsDelivery = updatedOrder.IsDelivery,
             DeliveryAddress = updatedOrder.DeliveryAddress,
             DeliveryPhone = updatedOrder.DeliveryPhone,

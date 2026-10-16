@@ -121,8 +121,13 @@ export function ReservationsPage() {
   }
 
   async function handleSave() {
-    if (!form.guestName.trim() || !form.guestPhone.trim()) {
-      toast.error("Ad və telefon mütləqdir."); return;
+    if (!form.guestName.trim()) { toast.error("Müştərinin adı mütləqdir."); return; }
+    if (!form.guestPhone.trim()) { toast.error("Telefon nömrəsi mütləqdir."); return; }
+    if (!Number.isFinite(form.guestCount) || form.guestCount < 1) { toast.error("Adam sayı mütləqdir (ən azı 1)."); return; }
+    if (!form.reservationDate) { toast.error("Tarix mütləqdir."); return; }
+    if (!form.reservationTime) { toast.error("Saat mütləqdir."); return; }
+    if (!editItem && new Date(`${form.reservationDate}T${form.reservationTime}`).getTime() < Date.now()) {
+      toast.error("Keçmiş vaxta rezerv yazmaq olmaz."); return;
     }
     if (!form.restaurantId) { toast.error("Filial seçin."); return; }
     setSaving(true);

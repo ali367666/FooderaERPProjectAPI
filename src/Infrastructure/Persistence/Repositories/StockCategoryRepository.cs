@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Domain.Entities.WarehouseAndStock;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Context;
@@ -84,6 +84,12 @@ public class StockCategoryRepository : IStockCategoryRepository
     {
         return await _context.Categories
             .AnyAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<bool> ExistsInCompanyAsync(int id, int companyId, CancellationToken cancellationToken)
+    {
+        return await _context.Categories
+            .AnyAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
     public async Task<bool> ExistsByNameAsync(string name, int companyId, CancellationToken cancellationToken)

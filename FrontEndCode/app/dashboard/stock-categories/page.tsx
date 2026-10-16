@@ -61,6 +61,7 @@ export default function StockCategoriesPage() {
   const loadData = async (silent = false) => {
     if (companies.length === 0) {
       setCategories([]);
+      setLoading(false);
       return;
     }
     try {

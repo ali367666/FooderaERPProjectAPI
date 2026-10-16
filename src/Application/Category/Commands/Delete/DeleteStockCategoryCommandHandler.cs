@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+using Application.Common.Interfaces;
+using System.Text.Json;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -14,12 +15,15 @@ public class DeleteStockCategoryCommandHandler
     private readonly IStockCategoryRepository _stockCategoryRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<DeleteStockCategoryCommandHandler> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public DeleteStockCategoryCommandHandler(
         IStockCategoryRepository stockCategoryRepository,
         IAuditLogService auditLogService,
-        ILogger<DeleteStockCategoryCommandHandler> logger)
+        ILogger<DeleteStockCategoryCommandHandler> logger,
+        ICurrentUserService currentUserService)
     {
+        _currentUserService = currentUserService;
         _stockCategoryRepository = stockCategoryRepository;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -37,7 +41,7 @@ public class DeleteStockCategoryCommandHandler
             request.Id,
             cancellationToken);
 
-        if (category is null)
+        if (category is null || !_currentUserService.CanAccessCompany(category.CompanyId))
         {
             _logger.LogWarning(
                 "DeleteStockCategory failed. Category not found. Id: {Id}",

@@ -3,4 +3,5 @@ using MediatR;
 
 namespace Application.OrderLines.Commands.Delete;
 
-public record DeleteOrderLineCommand(int Id) : IRequest<OrderResponse>;
+/// <param name="Reason">Required when the product was already sent to the kitchen.</param>
+public record DeleteOrderLineCommand(int Id, string? Reason = null, string? Note = null) : IRequest<OrderResponse>;

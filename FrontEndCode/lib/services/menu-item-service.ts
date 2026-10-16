@@ -21,6 +21,18 @@ export const UnitOfMeasure = {
 
 export type UnitOfMeasureValue = (typeof UnitOfMeasure)[keyof typeof UnitOfMeasure];
 
+/** Mirrors Domain.Enums.MenuItemPriceType — the price lists a menu item can carry. */
+export const MenuItemPriceType = {
+  Price: 1,
+  Station: 2,
+  Package: 3,
+  Special1: 4,
+  Special2: 5,
+  Special3: 6,
+  Special4: 7,
+  Special5: 8,
+} as const;
+
 export type MenuItem = {
   id: number;
   name: string;
@@ -62,20 +74,38 @@ export type MenuItem = {
   setPrinterName: string | null;
 
   isSet: boolean;
+  setGroups: SetGroup[];
 
   stockItemId: number | null;
   stockItemName: string | null;
 };
 
+export type SetGroupOption = {
+  menuItemId: number;
+  menuItemName: string;
+};
+
+/** One choice slot of a SET: the waiter picks exactly `pickCount` pieces from `options`. */
+export type SetGroup = {
+  id: number;
+  name: string;
+  pickCount: number;
+  options: SetGroupOption[];
+};
+
+
 export type SetComponent = {
   componentMenuItemId: number;
   componentMenuItemName: string;
   quantity: number;
+  limit: number | null;
 };
 
 export type SetComponentInput = {
   componentMenuItemId: number;
   quantity: number;
+  /** Most of this component one SET may hold (per set); null = no cap. */
+  limit: number | null;
 };
 
 export type MenuItemCreateInput = {
@@ -112,6 +142,7 @@ export type MenuItemCreateInput = {
   setPrinterId?: number | null;
 
   isSet: boolean;
+  setComponents?: SetComponentInput[];
 
   stockItemId?: number | null;
 };
@@ -119,7 +150,6 @@ export type MenuItemCreateInput = {
 export type MenuItemUpdateInput = MenuItemCreateInput & {
   isActive: boolean;
   resetWeightCode?: boolean;
-  setComponents: SetComponentInput[];
 };
 
 function normalizePreparationType(raw: unknown): PreparationTypeValue {
@@ -146,6 +176,28 @@ function normalizeUnitId(raw: unknown): UnitOfMeasureValue {
 
 function nullableNumber(v: unknown): number | null {
   return v == null ? null : Number(v);
+}
+
+function normalizeSetGroups(value: unknown): SetGroup[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((g) => {
+    const raw = (g ?? {}) as Record<string, unknown>;
+    const options = raw.options ?? raw.Options;
+    return {
+      id: Number(raw.id ?? raw.Id ?? 0),
+      name: String(raw.name ?? raw.Name ?? ""),
+      pickCount: Number(raw.pickCount ?? raw.PickCount ?? 1),
+      options: Array.isArray(options)
+        ? options.map((o) => {
+            const r = (o ?? {}) as Record<string, unknown>;
+            return {
+              menuItemId: Number(r.menuItemId ?? r.MenuItemId ?? 0),
+              menuItemName: String(r.menuItemName ?? r.MenuItemName ?? ""),
+            };
+          })
+        : [],
+    };
+  });
 }
 
 function normalizeMenuItem(item: unknown): MenuItem | null {
@@ -204,6 +256,7 @@ function normalizeMenuItem(item: unknown): MenuItem | null {
       (raw.setPrinterName ?? raw.SetPrinterName) != null ? String(raw.setPrinterName ?? raw.SetPrinterName) : null,
 
     isSet: Boolean(raw.isSet ?? raw.IsSet ?? false),
+    setGroups: normalizeSetGroups(raw.setGroups ?? raw.SetGroups),
 
     stockItemId: nullableNumber(raw.stockItemId ?? raw.StockItemId),
     stockItemName:
@@ -220,6 +273,10 @@ function normalizeSetComponent(item: unknown): SetComponent | null {
     componentMenuItemId,
     componentMenuItemName: String(raw.componentMenuItemName ?? raw.ComponentMenuItemName ?? ""),
     quantity: Number(raw.quantity ?? raw.Quantity ?? 1),
+    limit: (() => {
+      const v = raw.limit ?? raw.Limit;
+      return v == null ? null : Number(v);
+    })(),
   };
 }
 
@@ -293,6 +350,7 @@ function buildBasePayload(data: MenuItemCreateInput) {
     setPrinterId: data.setPrinterId ?? null,
 
     isSet: data.isSet,
+    setComponents: data.isSet ? (data.setComponents ?? []) : [],
 
     stockItemId: data.stockItemId ?? null,
   };
@@ -312,7 +370,6 @@ export async function updateMenuItem(id: number, data: MenuItemUpdateInput): Pro
       ...buildBasePayload(data),
       isActive: data.isActive,
       resetWeightCode: data.resetWeightCode ?? false,
-      setComponents: data.setComponents,
     });
   } catch (error) {
     throw toApiFormError(error, "Failed to update menu item");

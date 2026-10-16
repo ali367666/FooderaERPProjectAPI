@@ -1,5 +1,7 @@
 "use client";
 
+import { KeyRound } from "lucide-react";
+import { LicenseDialog } from "@/components/companies/license-dialog";
 import { useEffect, useMemo, useState } from "react";
 import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +40,6 @@ const MODULE_FIELDS: Array<{ key: keyof CompanyModules; label: string }> = [
   { key: "modulePaket", label: "Paket" },
   { key: "moduleOtel", label: "Otel" },
   { key: "moduleFitnes", label: "Fitnes" },
-  { key: "moduleDataSecimi", label: "Mağaza" },
   { key: "moduleQiymetSor", label: "Qiymət Sor" },
   { key: "moduleKompleks", label: "İstirahət Kompleksi" },
 ];
@@ -81,6 +82,10 @@ type CompanyFormState = {
   taxNumber: string;
   taxOfficeCode: string;
   country: string;
+  ownerFullName: string;
+  ownerUserName: string;
+  ownerEmail: string;
+  ownerPassword: string;
 };
 
 const COUNTRY_OPTIONS = [
@@ -116,6 +121,10 @@ function emptyCompanyForm(): CompanyFormState {
     taxNumber: "",
     taxOfficeCode: "",
     country: "",
+    ownerFullName: "",
+    ownerUserName: "",
+    ownerEmail: "",
+    ownerPassword: "",
   };
 }
 
@@ -130,6 +139,7 @@ export default function CompaniesPage() {
   const [form, setForm] = useState<CompanyFormState>(emptyCompanyForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [modules, setModules] = useState<CompanyModules>(emptyCompanyModules);
+  const [licenseCompany, setLicenseCompany] = useState<{ id: number; name: string } | null>(null);
 
   const loadCompanies = async (silent = false) => {
     try {
@@ -284,6 +294,23 @@ export default function CompaniesPage() {
         </Badge>
       ),
     },
+    {
+      key: "description" as const,
+      label: "Lisenziya",
+      render: (_: string, row: CompanyRow) => (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={(e) => {
+            e.stopPropagation();
+            setLicenseCompany({ id: row.companyId, name: row.name });
+          }}
+        >
+          <KeyRound className="mr-1 h-3.5 w-3.5" />
+          Lisenziya
+        </Button>
+      ),
+    },
   ];
 
   const handleAdd = () => {
@@ -300,6 +327,7 @@ export default function CompaniesPage() {
       const company = await getCompanyById(row.companyId);
 
       setForm({
+        ...emptyCompanyForm(),
         id: company.id,
         companyCode: company.companyCode || "",
         name: company.name || "",
@@ -378,6 +406,16 @@ export default function CompaniesPage() {
       return;
     }
 
+    if (
+      !isEditMode &&
+      (!form.ownerFullName.trim() || !form.ownerUserName.trim() || !form.ownerEmail.trim() || !form.ownerPassword)
+    ) {
+      const msg = "Şirkət SuperAdmin-inin ad, istifadəçi adı, email və şifrəsi tələb olunur.";
+      setError(msg);
+      window.alert(msg);
+      return;
+    }
+
     const payload: CompanyMutationInput = {
       companyCode: code,
       name,
@@ -400,7 +438,13 @@ export default function CompaniesPage() {
       if (isEditMode && form.id) {
         await updateCompany(form.id, payload);
       } else {
-        companyId = await createCompany(payload);
+        companyId = await createCompany({
+          ...payload,
+          ownerFullName: form.ownerFullName.trim(),
+          ownerUserName: form.ownerUserName.trim(),
+          ownerEmail: form.ownerEmail.trim(),
+          ownerPassword: form.ownerPassword,
+        });
       }
 
       if (companyId) {
@@ -645,6 +689,63 @@ export default function CompaniesPage() {
             </div>
           </div>
 
+          {!isEditMode && (
+            <div className="space-y-3 rounded-md border p-3">
+              <div>
+                <Label className="block">Şirkət SuperAdmin-i</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Şirkətin baş hesabı — şirkətlə birlikdə yaradılır. İcazələrini yalnız siz idarə edirsiniz.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {(
+                  [
+                    { key: "ownerFullName", label: "Ad Soyad", type: "text", field: "ownerfullname" },
+                    { key: "ownerUserName", label: "İstifadəçi adı", type: "text", field: "ownerusername" },
+                    { key: "ownerEmail", label: "Email", type: "email", field: "owneremail" },
+                    { key: "ownerPassword", label: "Şifrə", type: "password", field: "ownerpassword" },
+                  ] as const
+                ).map((f) => (
+                  <div key={f.key}>
+                    <label className="mb-2 block text-sm font-medium text-foreground">{f.label}</label>
+                    <Input
+                      type={f.type}
+                      value={form[f.key]}
+                      onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                      autoComplete={f.type === "password" ? "new-password" : "off"}
+                    />
+                    {getFieldErrorMessage(fieldErrors, f.field) && (
+                      <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, f.field)}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <Label className="mb-2 block">Biznes tipi</Label>
+            <div className="flex gap-2">
+              {[
+                { value: false, label: "Restoran" },
+                { value: true, label: "Mağaza" },
+              ].map((opt) => (
+                <Button
+                  key={opt.label}
+                  type="button"
+                  size="sm"
+                  variant={modules.moduleDataSecimi === opt.value ? "default" : "outline"}
+                  onClick={() => setModules((m) => ({ ...m, moduleDataSecimi: opt.value }))}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Mağaza rejimində masa, mətbəx və rezervasiya bölmələri gizlənir, POS birbaşa satış ekranı ilə işləyir.
+            </p>
+          </div>
+
           <div>
             <Label className="mb-2 block">
               Aktiv modullar <span className="font-normal text-muted-foreground">(yalnız sizin idarə etdiyiniz)</span>
@@ -684,6 +785,7 @@ export default function CompaniesPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <LicenseDialog company={licenseCompany} onOpenChange={(o) => !o && setLicenseCompany(null)} />
     </div>
   );
 }

@@ -137,6 +137,7 @@ export default function PositionsPage() {
     if (companies.length === 0) {
       setDepartments([]);
       setPositions([]);
+      setLoading(false);
       return;
     }
     try {

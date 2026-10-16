@@ -157,7 +157,7 @@ export default function KassaPage() {
     }
     setPayingDebt(true);
     try {
-      await adjustCounterpartyDebt(payDebtor.id, payDebtor.currentDebtAmount - amount);
+      await adjustCounterpartyDebt(payDebtor.id, payDebtor.currentDebtAmount - amount, "Kassa: borc ödənişi");
       await createCashMovement({
         restaurantId: rid,
         type: CashMovementType.Deposit,

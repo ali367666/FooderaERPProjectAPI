@@ -1,0 +1,13 @@
+# Foodera API — build context: repository root.
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY FooderaERPProject.sln ./
+COPY src/ ./src/
+RUN dotnet publish src/API/API.csproj -c Release -o /app --nologo
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app .
+ENV ASPNETCORE_URLS=http://+:5167
+EXPOSE 5167
+ENTRYPOINT ["dotnet", "API.dll"]

@@ -50,4 +50,16 @@ public interface IIdentityAdminService
     /// right after a new company is created so it gets a full, independent role set immediately.
     /// </summary>
     Task CloneDefaultRolesForCompanyAsync(int companyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks that a new company SuperAdmin account can be created (email/username free, password
+    /// meets the policy) — run before the company itself is saved, so a bad owner doesn't leave an
+    /// orphan company behind. Returns null when OK, otherwise the error message.
+    /// </summary>
+    Task<string?> ValidateCompanySuperAdminAsync(string userName, string email, string password, CancellationToken cancellationToken = default);
+
+    /// <summary>Creates the company's own SuperAdmin user and assigns the global CompanySuperAdmin role.</summary>
+    Task<(bool Ok, string? Error)> CreateCompanySuperAdminAsync(
+        int companyId, string fullName, string userName, string email, string password,
+        CancellationToken cancellationToken = default);
 }

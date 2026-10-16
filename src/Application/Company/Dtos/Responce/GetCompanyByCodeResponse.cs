@@ -5,6 +5,14 @@ public class GetCompanyByCodeResponse
     public int CompanyId { get; set; }
     public string CompanyName { get; set; } = default!;
     public List<RestaurantLookupItem> Restaurants { get; set; } = [];
+    public List<WorkstationLookupItem> Workstations { get; set; } = [];
+
+    public class WorkstationLookupItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = default!;
+        public int? RestaurantId { get; set; }
+    }
 
     public class RestaurantLookupItem
     {

@@ -4,6 +4,7 @@ public sealed class PosLoginRequest
 {
     public int CompanyId { get; set; }
     public int? RestaurantId { get; set; }
+    public int? WorkstationId { get; set; }
     public string? Code { get; set; }
     public string? RfidCardId { get; set; }
 }

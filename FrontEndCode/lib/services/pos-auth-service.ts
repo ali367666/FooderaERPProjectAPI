@@ -6,10 +6,17 @@ export type RestaurantLookupItem = {
   name: string;
 };
 
+export type WorkstationLookupItem = {
+  id: number;
+  name: string;
+  restaurantId: number | null;
+};
+
 export type CompanyLookup = {
   companyId: number;
   companyName: string;
   restaurants: RestaurantLookupItem[];
+  workstations: WorkstationLookupItem[];
 };
 
 type ApiResponse<T> = {
@@ -50,7 +57,22 @@ function normalizeCompanyLookup(item: unknown): CompanyLookup | null {
         .filter((r): r is RestaurantLookupItem => r !== null)
     : [];
 
-  return { companyId, companyName: String(companyName), restaurants };
+  const workstationsRaw = pickFirst(raw.workstations, raw.Workstations);
+  const workstations: WorkstationLookupItem[] = Array.isArray(workstationsRaw)
+    ? workstationsRaw
+        .map((t): WorkstationLookupItem | null => {
+          if (!t || typeof t !== "object") return null;
+          const tt = t as Record<string, unknown>;
+          const id = Number(pickFirst(tt.id, tt.Id));
+          const name = pickFirst(tt.name, tt.Name);
+          if (!Number.isFinite(id) || id <= 0 || !name) return null;
+          const rid = pickFirst(tt.restaurantId, tt.RestaurantId);
+          return { id, name: String(name), restaurantId: typeof rid === "number" ? rid : null };
+        })
+        .filter((t): t is WorkstationLookupItem => t !== null)
+    : [];
+
+  return { companyId, companyName: String(companyName), restaurants, workstations };
 }
 
 export async function lookupCompanyByCode(companyCode: string): Promise<CompanyLookup> {
@@ -75,6 +97,7 @@ export async function lookupCompanyByCode(companyCode: string): Promise<CompanyL
 export type PosLoginPayload = {
   companyId: number;
   restaurantId?: number | null;
+  workstationId?: number | null;
   code?: string;
   rfidCardId?: string;
 };
@@ -121,5 +144,31 @@ export async function posLogin(payload: PosLoginPayload): Promise<PosLoginResult
     return normalized;
   } catch (error) {
     throw toApiFormError(error, "Invalid code or card");
+  }
+}
+
+/**
+ * Checks that the given admin-panel credentials belong to someone allowed to re-assign this
+ * terminal's workstation. Uses the normal login endpoint but never stores the returned token.
+ */
+export async function verifyWorkstationChangeAccess(
+  userName: string,
+  password: string,
+): Promise<boolean> {
+  try {
+    const response = await api.post<ApiResponse<unknown>>("/Auth/login", {
+      emailOrUserName: userName,
+      password,
+    });
+    const data = response.data;
+    if (data?.success === false || !data?.data) return false;
+    const raw = data.data as Record<string, unknown>;
+    const permissionsRaw = pickFirst(raw.permissions, raw.Permissions);
+    return (
+      Array.isArray(permissionsRaw) &&
+      permissionsRaw.some((x) => x === "Workstation.Update")
+    );
+  } catch {
+    return false;
   }
 }

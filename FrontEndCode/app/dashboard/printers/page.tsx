@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Monitor, Network, Search } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
 import { useSelectedRestaurant } from "@/contexts/selected-restaurant-context";
-import {
+import { discoverPrinters, type DiscoveredPrinter,
   createPrinter,
   deletePrinter,
   getPrinters,
@@ -73,6 +74,9 @@ export default function PrintersPage() {
   const [isActive, setIsActive] = useState(true);
   const [isPrimary, setIsPrimary] = useState(false);
   const [isChiefPrinter, setIsChiefPrinter] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [discovered, setDiscovered] = useState<DiscoveredPrinter[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -282,6 +286,27 @@ export default function PrintersPage() {
     }
   };
 
+  const handleDiscover = async () => {
+    setDiscoverOpen(true);
+    setDiscovering(true);
+    setDiscovered([]);
+    try {
+      setDiscovered(await discoverPrinters());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Printerlər axtarıla bilmədi.");
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const handlePickDiscovered = (p: DiscoveredPrinter) => {
+    if (!p.ipAddress) return;
+    setIpAddress(p.ipAddress);
+    setPort(String(p.port));
+    if (!name.trim()) setName(p.name);
+    setDiscoverOpen(false);
+  };
+
   const rows: PrinterRow[] = useMemo(
     () =>
       printers.map((p) => ({
@@ -480,7 +505,19 @@ export default function PrintersPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
                   <Label htmlFor="pr-ip">IP ünvanı</Label>
-                  <Input id="pr-ip" className="mt-1" value={ipAddress} onChange={(e) => setIpAddress(e.target.value)} placeholder="192.168.1.50" />
+                  <div className="mt-1 flex gap-1">
+                    <Input id="pr-ip" value={ipAddress} onChange={(e) => setIpAddress(e.target.value)} placeholder="192.168.1.50" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                      title="Kompüterdə və şəbəkədə olan printerləri tap"
+                      onClick={() => void handleDiscover()}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="pr-port">Port</Label>
@@ -522,6 +559,55 @@ export default function PrintersPage() {
           </DialogContent>
         </Dialog>
       )}
+      <Dialog open={discoverOpen} onOpenChange={setDiscoverOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Printer axtarışı</DialogTitle>
+            <DialogDescription>
+              Bu kompüterdə quraşdırılmış printerlər və lokal şəbəkədə 9100 portu açıq olan printerlər.
+            </DialogDescription>
+          </DialogHeader>
+          {discovering ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Axtarılır… (şəbəkə yoxlanılır, bir neçə saniyə çəkə bilər)</p>
+          ) : discovered.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Printer tapılmadı.</p>
+          ) : (
+            <div className="max-h-80 space-y-1 overflow-auto">
+              {discovered.map((p) => (
+                <button
+                  key={`${p.source}-${p.name}-${p.ipAddress ?? ""}`}
+                  type="button"
+                  disabled={!p.ipAddress}
+                  onClick={() => handlePickDiscovered(p)}
+                  className="flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {p.source === "installed" ? (
+                    <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <Network className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="flex-1">
+                    <span className="block font-medium">{p.name}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {p.ipAddress
+                        ? `${p.ipAddress}:${p.port}`
+                        : "Yerli (USB/virtual) printer — şəbəkə ünvanı yoxdur, seçilə bilməz"}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" disabled={discovering} onClick={() => void handleDiscover()}>
+              Yenidən axtar
+            </Button>
+            <Button variant="outline" onClick={() => setDiscoverOpen(false)}>
+              Bağla
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

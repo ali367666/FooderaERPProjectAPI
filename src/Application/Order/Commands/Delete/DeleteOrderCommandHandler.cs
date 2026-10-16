@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+using Application.Common.Helpers;
+using System.Text.Json;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -13,17 +14,20 @@ public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, str
     private readonly IOrderRepository _orderRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
+    private readonly IOrderCancellationRepository _cancellationRepository;
     private readonly ILogger<DeleteOrderCommandHandler> _logger;
 
     public DeleteOrderCommandHandler(
         IOrderRepository orderRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
+        IOrderCancellationRepository cancellationRepository,
         ILogger<DeleteOrderCommandHandler> logger)
     {
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
+        _cancellationRepository = cancellationRepository;
         _logger = logger;
     }
 
@@ -51,6 +55,8 @@ public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, str
             throw new Exception("Sifariş tapılmadı.");
         }
 
+        OrderGuards.EnsureNotBillLocked(order);
+
         var oldValues = JsonSerializer.Serialize(new
         {
             order.Id,
@@ -63,6 +69,14 @@ public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, str
             order.OpenedAt,
             order.ClosedAt
         });
+
+        // A deleted receipt disappears entirely — keep it in the cancellations report (unless it was
+        // already cancelled, which logged it then).
+        if (order.Status != Domain.Enums.OrderStatus.Cancelled)
+            await _cancellationRepository.AddAsync(
+                OrderCancellations.ForOrder(order, OrderCancellations.Clean(request.Reason) ?? "Çek silindi",
+                    request.Note, _currentUserService.UserId),
+                cancellationToken);
 
         _orderRepository.Delete(order);
         await _orderRepository.SaveChangesAsync(cancellationToken);

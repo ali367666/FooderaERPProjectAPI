@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -38,7 +38,7 @@ public sealed class DeleteRestaurantCommandHandler
 
         var restaurant = await _restaurantRepository.GetByIdAsync(request.Id, cancellationToken);
 
-        if (restaurant is null)
+        if (restaurant is null || !_currentUserService.CanAccessCompany(restaurant.CompanyId))
         {
             _logger.LogWarning(
                 "Restaurant silinmədi. Restaurant tapılmadı. RestaurantId: {RestaurantId}",

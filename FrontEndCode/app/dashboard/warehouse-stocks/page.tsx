@@ -30,6 +30,7 @@ export default function WarehouseStockBalancesPage() {
       setBalances([]);
       setWarehouses([]);
       setStockItems([]);
+      setLoading(false);
       return;
     }
     try {

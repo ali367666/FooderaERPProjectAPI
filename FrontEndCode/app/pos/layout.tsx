@@ -1,5 +1,8 @@
 "use client";
 
+import { LicenseStatusBadge } from "@/components/license-status-badge";
+import { FiscalLamp } from "@/components/pos/fiscal-lamp";
+import { applyTheme } from "@/lib/theme";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,6 +20,7 @@ import {
   Undo2,
 } from "lucide-react";
 import PosAuthGuard from "@/components/pos/pos-auth-guard";
+import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +58,10 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [terminal, setTerminal] = useState<PosTerminalContext | null>(null);
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
+
+  useEffect(() => {
+    applyTheme(branding);
+  }, [branding]);
 
   useEffect(() => {
     setTerminal(getPosTerminalContext());
@@ -162,7 +170,15 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <PosAuthGuard>
-      <div className={cn("flex min-h-screen flex-col", !branding?.wallpaperUrl && "bg-muted/30")}>
+      {/* The dashboard mounts its own Toaster; without this one every POS message (errors included) was invisible. */}
+      <Toaster richColors closeButton position="top-center" />
+      <div
+        className={cn(
+          "flex min-h-screen flex-col",
+          !branding?.wallpaperUrl && "bg-muted/30",
+          branding?.touchScreenMode === true && "touch-mode",
+        )}
+      >
         {branding?.wallpaperUrl && (
           <div
             className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
@@ -176,9 +192,13 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
             <span>{terminal?.restaurantName ?? terminal?.companyName ?? "POS"}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="tabular-nums text-sm font-semibold text-muted-foreground">
-              {clockNow.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
+            <FiscalLamp />
+            <LicenseStatusBadge />
+            {branding?.posShowClock !== false && (
+              <span className="tabular-nums text-sm font-semibold text-muted-foreground">
+                {clockNow.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+            )}
             <button
               type="button"
               onClick={() => setShiftDialogOpen(true)}

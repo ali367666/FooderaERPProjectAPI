@@ -132,6 +132,7 @@ public static class AppPermissions
     public const string PosOverridePrice = "Pos.OverridePrice";
     public const string PosChangeDepartment = "Pos.ChangeDepartment";
     public const string PosRedirectUser = "Pos.RedirectUser";
+    public const string PosChangeWaiter = "Pos.ChangeWaiter";
     public const string PosEditProductInSale = "Pos.EditProductInSale";
     public const string PosDeleteProductInSale = "Pos.DeleteProductInSale";
     public const string PosTableServiceCharge = "Pos.TableServiceCharge";
@@ -139,6 +140,7 @@ public static class AppPermissions
     public const string PosWarehouseAmountChange = "Pos.WarehouseAmountChange";
     public const string PosPrintOldReceipt = "Pos.PrintOldReceipt";
     public const string PosReturnSale = "Pos.ReturnSale";
+    public const string PosUnlockBill = "Pos.UnlockBill";
 
     public const string RestaurantSectionView = "RestaurantSection.View";
     public const string RestaurantSectionCreate = "RestaurantSection.Create";
@@ -165,6 +167,11 @@ public static class AppPermissions
     public const string ScaleDeviceCreate = "ScaleDevice.Create";
     public const string ScaleDeviceUpdate = "ScaleDevice.Update";
     public const string ScaleDeviceDelete = "ScaleDevice.Delete";
+
+    public const string WorkstationView = "Workstation.View";
+    public const string WorkstationCreate = "Workstation.Create";
+    public const string WorkstationUpdate = "Workstation.Update";
+    public const string WorkstationDelete = "Workstation.Delete";
 
     public const string DeliveryIntegrationView = "DeliveryIntegration.View";
     public const string DeliveryIntegrationCreate = "DeliveryIntegration.Create";

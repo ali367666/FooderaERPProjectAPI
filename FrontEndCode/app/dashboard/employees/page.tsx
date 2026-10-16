@@ -137,6 +137,7 @@ export default function EmployeesPage() {
     if (companies.length === 0) {
       setDepartments([]);
       setPositions([]);
+      setLoading(false);
       return;
     }
     const ids = companies.map((c) => c.id);

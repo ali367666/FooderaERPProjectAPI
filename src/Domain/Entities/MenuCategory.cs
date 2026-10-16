@@ -10,6 +10,9 @@ public class MenuCategory : CompanyEntity<int>
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Sets category: its products are SETs whose contents the waiter picks.</summary>
+    public bool IsSetCategory { get; set; }
+
     public int? ParentCategoryId { get; set; }
     public MenuCategory? ParentCategory { get; set; }
     public ICollection<MenuCategory> SubCategories { get; set; } = new List<MenuCategory>();

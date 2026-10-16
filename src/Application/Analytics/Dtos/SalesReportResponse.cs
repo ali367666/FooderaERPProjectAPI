@@ -14,28 +14,22 @@ public class SalesReportResponse
     public List<SalesReportProductLineDto> Products { get; set; } = new();
     public List<SalesReportWaiterLineDto> Waiters { get; set; } = new();
     public List<SalesReportCategoryLineDto> Categories { get; set; } = new();
-}
+    public List<SalesReportTableLineDto> Tables { get; set; } = new();
+    /// <summary>Every paid order in the period, newest first.</summary>
+    public List<SalesReportReceiptDto> Receipts { get; set; } = new();
+    public decimal TotalServiceCharge { get; set; }
+    /// <summary>Cancelled orders and removed products in the period, newest first.</summary>
+    public List<SalesReportCancellationDto> Cancellations { get; set; } = new();
+    /// <summary>Gift (complimentary) products on orders paid in the period, newest first.</summary>
+    public List<SalesReportGiftDto> Gifts { get; set; } = new();
 
-public class SalesReportProductLineDto
-{
-    public int MenuItemId { get; set; }
-    public string Name { get; set; } = default!;
-    public int Quantity { get; set; }
-    public decimal Revenue { get; set; }
-}
-
-public class SalesReportWaiterLineDto
-{
-    public int WaiterId { get; set; }
-    public string WaiterName { get; set; } = default!;
-    public int OrderCount { get; set; }
-    public decimal Revenue { get; set; }
-}
-
-public class SalesReportCategoryLineDto
-{
-    public int CategoryId { get; set; }
-    public string CategoryName { get; set; } = default!;
-    public int Quantity { get; set; }
-    public decimal Revenue { get; set; }
+    // Geri qaytarmalar — returns made within the period (by return date, like the shift Z report).
+    public int ReturnCount { get; set; }
+    public decimal TotalReturns { get; set; }
+    public decimal CashReturns { get; set; }
+    public decimal CardReturns { get; set; }
+    public decimal CreditReturns { get; set; }
+    /// <summary>TotalRevenue minus returns in the period.</summary>
+    public decimal NetRevenue { get; set; }
+    public List<SalesReportReturnLineDto> ReturnedProducts { get; set; } = new();
 }

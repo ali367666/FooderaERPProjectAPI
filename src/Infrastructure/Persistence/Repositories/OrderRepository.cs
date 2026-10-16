@@ -24,6 +24,7 @@ public class OrderRepository : IOrderRepository
         return await _context.Orders
             .Include(x => x.Restaurant)
             .Include(x => x.Table)
+                .ThenInclude(x => x!.Section)
             .Include(x => x.Waiter)
             .Include(x => x.ProcessedByUser)
             .Include(x => x.Counterparty)

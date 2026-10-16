@@ -1,0 +1,10 @@
+**/bin
+**/obj
+**/node_modules
+**/.next
+**/*.user
+**/appsettings.Development.json
+.git
+.claude
+deploy/local/.env
+deploy/local/backups

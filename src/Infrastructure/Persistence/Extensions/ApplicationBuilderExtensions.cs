@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Domain.Entities;
 using Infrastructure.Identity;
 using Infrastructure.Persistence.Context;
@@ -22,18 +22,27 @@ public static class ApplicationBuilderExtensions
         var roleManager = services.GetRequiredService<RoleManager<AppRole>>();
         var userManager = services.GetRequiredService<UserManager<User>>();
         var identityAdminService = services.GetRequiredService<IIdentityAdminService>();
+        var defaultsSeeder = services.GetRequiredService<ICompanyDefaultsSeeder>();
         var configuration = services.GetRequiredService<IConfiguration>();
+
+        // Local installations bring their database up to date on their own — nobody runs
+        // "dotnet ef database update" on a restaurant's computer.
+        if (configuration.GetValue<bool>("Database:MigrateOnStartup"))
+            await context.Database.MigrateAsync();
 
         var companyId = await CompanySeeder.SeedDefaultCompanyAsync(context);
         await IdentitySeeder.SeedRolesAndPermissionsAsync(roleManager, context);
-        await AdminSeeder.SeedAdminAsync(userManager, configuration, companyId);
+        await AdminSeeder.SeedAdminAsync(userManager, context, configuration, companyId);
 
         // Every existing company must have its own role set (no-ops once already provisioned) —
         // covers companies created before per-tenant roles existed, and any created outside the
         // normal CreateCompany flow.
         var allCompanyIds = await context.Companies.Select(c => c.Id).ToListAsync();
         foreach (var id in allCompanyIds)
+        {
             await identityAdminService.CloneDefaultRolesForCompanyAsync(id);
+            await defaultsSeeder.EnsureDefaultsAsync(id);
+        }
 
         return app;
     }

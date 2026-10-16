@@ -13,6 +13,8 @@ public sealed class PosLoginCommandHandler
     : IRequestHandler<PosLoginCommand, BaseResponse<LoginResponse>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IStaffCodeResolver _staffCodeResolver;
+    private readonly IWorkstationRepository _workstationRepository;
     private readonly ICompanySettingsRepository _companySettingsRepository;
     private readonly UserManager<Domain.Entities.User> _userManager;
     private readonly IAuthTokenIssuer _authTokenIssuer;
@@ -20,12 +22,16 @@ public sealed class PosLoginCommandHandler
 
     public PosLoginCommandHandler(
         IUserRepository userRepository,
+        IStaffCodeResolver staffCodeResolver,
+        IWorkstationRepository workstationRepository,
         ICompanySettingsRepository companySettingsRepository,
         UserManager<Domain.Entities.User> userManager,
         IAuthTokenIssuer authTokenIssuer,
         ILogger<PosLoginCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _staffCodeResolver = staffCodeResolver;
+        _workstationRepository = workstationRepository;
         _companySettingsRepository = companySettingsRepository;
         _userManager = userManager;
         _authTokenIssuer = authTokenIssuer;
@@ -68,6 +74,9 @@ public sealed class PosLoginCommandHandler
 
         await _userManager.ResetAccessFailedCountAsync(user);
 
+        if (dto.WorkstationId is > 0)
+            await _workstationRepository.TouchLastSeenAsync(dto.WorkstationId.Value, dto.CompanyId, cancellationToken);
+
         var tokenResponse = await _authTokenIssuer.IssueForUserAsync(user, request.IpAddress, cancellationToken);
 
         _logger.LogInformation("POS login successful for user {UserId}", user.Id);
@@ -75,37 +84,8 @@ public sealed class PosLoginCommandHandler
         return BaseResponse<LoginResponse>.Ok(tokenResponse, "Login successful");
     }
 
-    private async Task<Domain.Entities.User?> HandleCodeLoginAsync(int companyId, string submittedCode, CancellationToken cancellationToken)
-    {
-        var codeCandidate = submittedCode[^4..];
-
-        var user = await _userRepository.GetByCompanyAndCodeAsync(companyId, codeCandidate, cancellationToken);
-        if (user is null)
-        {
-            _logger.LogWarning("POS login failed. No user found for CompanyId {CompanyId} and submitted code", companyId);
-            return null;
-        }
-
-        if (await _userManager.IsLockedOutAsync(user))
-        {
-            _logger.LogWarning("POS login failed. User {UserId} is locked out", user.Id);
-            return null;
-        }
-
-        var requiresRotatingPin = await _userRepository.HasRotatingPinRoleAsync(user.Id, cancellationToken);
-        var expectedLength = requiresRotatingPin ? 8 : 4;
-        var isValid = submittedCode.Length == expectedLength
-            && (expectedLength == 4 || submittedCode[..4] == BusinessTime.Now.ToString("ddMM"));
-
-        if (!isValid)
-        {
-            await _userManager.AccessFailedAsync(user);
-            _logger.LogWarning("POS login failed. Code mismatch for user {UserId}", user.Id);
-            return null;
-        }
-
-        return user;
-    }
+    private Task<Domain.Entities.User?> HandleCodeLoginAsync(int companyId, string submittedCode, CancellationToken cancellationToken)
+        => _staffCodeResolver.ResolveAsync(companyId, submittedCode, cancellationToken);
 
     private async Task<Domain.Entities.User?> HandleRfidLoginAsync(int companyId, string rfidCardId, CancellationToken cancellationToken)
     {

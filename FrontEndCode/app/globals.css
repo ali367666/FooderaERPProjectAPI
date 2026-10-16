@@ -161,3 +161,13 @@
     transform: translate(6px, -4px);
   }
 }
+
+/* Toxunuşlu ekran rejimi — bigger tap targets across the POS (settings → Ümumi). */
+.touch-mode button {
+  min-height: 2.75rem;
+}
+.touch-mode input,
+.touch-mode select {
+  min-height: 3rem;
+  font-size: 1.125rem;
+}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Clock, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Trash2, User, UserCog, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, CalendarCheck, CalendarPlus, Clock, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -30,36 +30,62 @@ import {
   discardEmptyOrder,
   moveOrderTable,
   reassignOrderWaiter,
+  verifyRedirectCode,
+  setManualDiscount,
+  getOrderPayments,
+  getPaymentReceipt,
+  type OrderPaymentsDto,
+  type SetSelectionInput,
   setOrderDeliveryDriver,
   setOrderCounterparty,
   printKitchenTicket,
+  submitOrder,
+  sendMars,
+  markBillPrinted,
+  unlockBill,
   startTimeBasedLine,
   stopTimeBasedLine,
   startTableRental,
   stopTableRental,
-  applyDiscountToOrder,
   removeDiscountFromOrder,
   updateOrder,
   type OrderDto,
   type OrderLineDto,
   type OrderReceiptDto,
-  type OrderReceiptLineDto,
   type PaymentMethod,
 } from "@/lib/services/order-service";
+import { useCancelReason } from "@/components/cancel-reason-dialog";
 import { getCounterparties, type Counterparty } from "@/lib/services/counterparty-service";
 import { getMenuCategories, type MenuCategory } from "@/lib/services/menu-category-service";
-import { getMenuItems, getMenuItemAvailability, UnitOfMeasure, type MenuItem } from "@/lib/services/menu-item-service";
+import { getMenuItems, getMenuItemAvailability, MenuItemPriceType, UnitOfMeasure, type MenuItem } from "@/lib/services/menu-item-service";
 import {
   getRestaurantTables,
   getRestaurantTableById,
   updateRestaurantTable,
+  RestaurantTableType,
   type RestaurantTable,
 } from "@/lib/services/restaurant-table-service";
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
-import { getPrinters, printToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
+import { getPrinters, printImageToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
+import { canvasToRaster, designFromBranding, renderReceipt } from "@/lib/receipt-render";
+import { ReceiptPreview } from "@/components/receipt-preview";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
 import { escPosBarcode, receiptBarcodeValue } from "@/lib/receipt-barcode";
 import { BarcodeSvg } from "@/components/barcode-svg";
+import { getFiscalDevices } from "@/lib/services/fiscal-device-service";
+import { setFiscalMode, useFiscalMode } from "@/lib/pos-fiscal-mode";
+import { CustomerReceiptsDialog } from "@/components/pos/customer-receipts-dialog";
+import { PayDialog } from "@/components/pos/pay-dialog";
+import { SplitBillDialog } from "@/components/pos/split-bill-dialog";
+import { NewReservationDialog } from "@/components/pos/new-reservation-dialog";
+import { SetSelectionDialog } from "@/components/pos/set-selection-dialog";
+import { localIsoDate } from "@/lib/reservation-rules";
+import {
+  changeReservationStatus,
+  getReservations,
+  type ReservationDto,
+} from "@/lib/services/reservation-service";
+import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getStoredAuthUser } from "@/lib/auth-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
@@ -73,29 +99,28 @@ function isWaiterRole(): boolean {
   return roles.some((r) => r.trim().toLowerCase() === "waiter");
 }
 
+/** Lower-cases and folds Azerbaijani letters so typing "aci" finds "Acı", "qehve" finds "Qəhvə". */
+function normalizeSearch(s: string): string {
+  let lower: string;
+  try {
+    lower = s.toLocaleLowerCase("az");
+  } catch {
+    lower = s.toLowerCase();
+  }
+  return lower
+    .replace(/ı/g, "i")
+    .replace(/ə/g, "e")
+    .replace(/ö/g, "o")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ç/g, "c")
+    .replace(/ğ/g, "g");
+}
+
 function formatEmployeeName(e: Employee): string {
   const n = e.fullName?.trim();
   if (n) return n;
   return `${e.firstName} ${e.lastName}`.trim() || `Employee #${e.id}`;
-}
-
-function groupReceiptLines(lines: OrderReceiptLineDto[], group: boolean): OrderReceiptLineDto[] {
-  if (!group) return lines;
-  const grouped: OrderReceiptLineDto[] = [];
-  const indexByKey = new Map<string, number>();
-  for (const line of lines) {
-    const key = `${line.menuItemName}__${line.unitPrice}`;
-    const existingIndex = indexByKey.get(key);
-    if (existingIndex === undefined) {
-      indexByKey.set(key, grouped.length);
-      grouped.push({ ...line });
-    } else {
-      grouped[existingIndex].quantity += line.quantity;
-      grouped[existingIndex].lineTotal += line.lineTotal;
-      grouped[existingIndex].vatAmount += line.vatAmount;
-    }
-  }
-  return grouped;
 }
 
 function formatDuration(ms: number): string {
@@ -119,6 +144,7 @@ export default function PosOrderPage() {
   const [activeSubCategoryId, setActiveSubCategoryId] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState("");
   const [weightDialogItem, setWeightDialogItem] = useState<MenuItem | null>(null);
+  const [setDialogItem, setSetDialogItem] = useState<MenuItem | null>(null);
   const [weightDialogLineId, setWeightDialogLineId] = useState<number | null>(null);
   const [weightKgInput, setWeightKgInput] = useState("");
   const [weightBusy, setWeightBusy] = useState(false);
@@ -130,19 +156,35 @@ export default function PosOrderPage() {
   const [rateBusy, setRateBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [reasonDialog, askCancelReason] = useCancelReason();
   const [orderHoldBusy, setOrderHoldBusy] = useState(false);
   const [confirmPrintOpen, setConfirmPrintOpen] = useState(false);
 
   const [payOpen, setPayOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Cash");
-  const [paidAmountInput, setPaidAmountInput] = useState("");
   const [receipt, setReceipt] = useState<OrderReceiptDto | null>(null);
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
-  const [serviceChargeInput, setServiceChargeInput] = useState("");
 
   const [moveTableOpen, setMoveTableOpen] = useState(false);
   const [availableTables, setAvailableTables] = useState<RestaurantTable[]>([]);
   const [reassignOpen, setReassignOpen] = useState(false);
+  // "Ofisiantı dəyiş" is visible to everyone; without Pos.RedirectUser a supervisor's code approves it.
+  const [supervisorCodeOpen, setSupervisorCodeOpen] = useState(false);
+  const [supervisorCodeInput, setSupervisorCodeInput] = useState("");
+  const [supervisorCodeError, setSupervisorCodeError] = useState<string | null>(null);
+  const [supervisorCode, setSupervisorCode] = useState<string | null>(null);
+  // Double-tap on a line opens its note.
+  const [lineNoteLine, setLineNoteLine] = useState<OrderLineDto | null>(null);
+  const [lineNoteInput, setLineNoteInput] = useState("");
+  // "Qiymət" mode: tap a product, then pick one of its price lists.
+  const [priceMode, setPriceMode] = useState(false);
+  // "Hədiyyə" mode: tap a product to make it a gift — or, if it is one already, to take it off the gifts.
+  const [giftMode, setGiftMode] = useState(false);
+  const fiscalOn = useFiscalMode();
+  // "₼" / "%" buttons — a hand-typed order discount.
+  const [manualDiscountKind, setManualDiscountKind] = useState<"Amount" | "Percent" | null>(null);
+  const [manualDiscountInput, setManualDiscountInput] = useState("");
+  const [manualDiscountBusy, setManualDiscountBusy] = useState(false);
+  const [priceLine, setPriceLine] = useState<OrderLineDto | null>(null);
   const [driverDialogOpen, setDriverDialogOpen] = useState(false);
   const [employeesList, setEmployeesList] = useState<Employee[]>([]);
   const [currentEmployeeId, setCurrentEmployeeId] = useState<number | null>(null);
@@ -158,25 +200,73 @@ export default function PosOrderPage() {
   const [counterpartySearch, setCounterpartySearch] = useState("");
   const [counterpartyBusy, setCounterpartyBusy] = useState(false);
 
-  const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
-  const [discountCodeInput, setDiscountCodeInput] = useState("");
   const [discountBusy, setDiscountBusy] = useState(false);
 
   const isStoreMode = branding?.moduleDataSecimi === true;
   const canEditProduct = useHasPermission("Pos.EditProductInSale");
   const canDeleteProduct = useHasPermission("Pos.DeleteProductInSale");
   const canDeleteOrder = useHasPermission("Pos.DeleteOrder");
-  const canMoveTable = useHasPermission("Pos.MoveTable");
   const canRedirectUser = useHasPermission("Pos.RedirectUser");
+  // Every action button shows only for someone who may use it (the server enforces the same permissions).
+  const canMoveTable = useHasPermission("Pos.MoveTable");
+  const canChangeWaiter = useHasPermission("Pos.ChangeWaiter");
+  const canPay = useHasPermission("Orders.Pay");
+  const canReserve = useHasPermission("Reservation.Create");
+  const canViewReservations = useHasPermission("Reservation.View");
+  const canConfirmReservation = useHasPermission("Reservation.Confirm");
+  const [reserveOpen, setReserveOpen] = useState(false);
+  // The pending/confirmed reservation held on this order's table — the guest sat down, so it can be completed here.
+  const [tableReservation, setTableReservation] = useState<ReservationDto | null>(null);
+  const [reservationBusy, setReservationBusy] = useState(false);
+  const orderTableId = order?.tableId;
+
+  const loadTableReservation = useCallback(() => {
+    if (!orderTableId || !canViewReservations) {
+      setTableReservation(null);
+      return;
+    }
+    getReservations(localIsoDate())
+      .then((rows) =>
+        setTableReservation(
+          rows.find(
+            (r) => r.tableId === orderTableId && (r.status === "Pending" || r.status === "Confirmed"),
+          ) ?? null,
+        ),
+      )
+      .catch(() => setTableReservation(null));
+  }, [orderTableId, canViewReservations]);
+
+  useEffect(() => {
+    loadTableReservation();
+  }, [loadTableReservation]);
+
+  const handleCompleteReservation = async () => {
+    if (!tableReservation) return;
+    setReservationBusy(true);
+    try {
+      await changeReservationStatus(tableReservation.id, "complete");
+      toast.success("Rezervasiya tamamlandı");
+      setTableReservation(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Rezervasiya tamamlanmadı");
+    } finally {
+      setReservationBusy(false);
+    }
+  };
   const canChangePrice = useHasPermission("Pos.ChangePrice");
   const canApplyDiscount = useHasPermission("Discount.Apply");
-  const canTableServiceCharge = useHasPermission("Pos.TableServiceCharge");
   const canPrint = useHasPermission("Printer.Print");
-  const canPay = useHasPermission("Orders.Pay");
   const canPrintBill = useHasPermission("Pos.PrintReceipt");
+  const canUnlockBill = useHasPermission("Pos.UnlockBill");
 
   const [printers, setPrinters] = useState<PrinterProfile[]>([]);
   const [printingId, setPrintingId] = useState<number | null>(null);
+  const [pinPrinter, setPinPrinter] = useState<PrinterProfile | null>(null);
+  const [pinInput, setPinInput] = useState("");
+  // "OK" — confirm the order and send it to the kitchen.
+  const [okPinOpen, setOkPinOpen] = useState(false);
+  const [okBusy, setOkBusy] = useState(false);
+  const [marsBusy, setMarsBusy] = useState(false);
   const [outOfStockIds, setOutOfStockIds] = useState<Set<number>>(new Set());
 
   const loadAvailability = useCallback(async (restaurantId: number) => {
@@ -326,11 +416,63 @@ export default function PosOrderPage() {
     return Array.from(groups.values());
   }, [order, items, printers]);
 
-  const handlePrintGroup = async (printer: PrinterProfile) => {
+  // "OK": confirms the order (draft → open, so the kitchen display sees it) and sends every station its
+  // new items. Back to the tables when everything went out; stays put if a printer failed.
+  const handleOk = async (pin?: string) => {
+    if (!order || okBusy) return;
+    if (order.lines.length === 0) {
+      toast.error("Sifariş boşdur");
+      return;
+    }
+    const sendsToKitchen = canPrint && printerGroups.length > 0;
+    if (sendsToKitchen && branding?.waiterConfirmWithPin === true && pin === undefined) {
+      setPinInput("");
+      setOkPinOpen(true);
+      return;
+    }
+    setOkBusy(true);
+    let failed = false;
+    try {
+      if (order.status === "draft") await submitOrder(order.id);
+      let sent = 0;
+      if (sendsToKitchen) {
+        for (const group of printerGroups) {
+          try {
+            sent += await printKitchenTicket(order.id, group.printer.id, pin);
+          } catch (err) {
+            failed = true;
+            toast.error(
+              err instanceof Error ? `${group.printer.name}: ${err.message}` : `${group.printer.name}-ə göndərilmədi`,
+            );
+          }
+        }
+      }
+      setOkPinOpen(false);
+      if (failed) {
+        await load();
+        return;
+      }
+      toast.success(sent > 0 ? `Sifariş mətbəxə göndərildi (${sent} məhsul)` : "Sifariş təsdiqləndi");
+      router.replace("/pos");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sifariş təsdiqlənmədi");
+    } finally {
+      setOkBusy(false);
+    }
+  };
+
+  const handlePrintGroup = async (printer: PrinterProfile, pin?: string) => {
     if (!order) return;
+    // "Ofisiant təsdiqlə" — ask the order's waiter for their code before the kitchen gets it.
+    if (branding?.waiterConfirmWithPin === true && pin === undefined) {
+      setPinInput("");
+      setPinPrinter(printer);
+      return;
+    }
     setPrintingId(printer.id);
     try {
-      const count = await printKitchenTicket(order.id, printer.id);
+      const count = await printKitchenTicket(order.id, printer.id, pin);
+      setPinPrinter(null);
       toast.success(count > 0 ? `${printer.name}-ə ${count} məhsul göndərildi` : "Yeni məhsul yoxdur");
       await load();
     } catch (err) {
@@ -340,46 +482,48 @@ export default function PosOrderPage() {
     }
   };
 
-  const groupedReceiptLines = useMemo<OrderReceiptLineDto[]>(
-    () => groupReceiptLines(receipt?.lines ?? [], branding?.printGroupQuantities !== false),
-    [receipt, branding?.printGroupQuantities],
-  );
+  const receiptCategoryName = (id: number | null | undefined) =>
+    id == null ? "" : categories.find((c) => c.id === id)?.name ?? "";
 
-  const buildReceiptContent = (r: OrderReceiptDto | null = receipt) => {
-    if (!r) return "";
-    const lines: string[] = [];
-    if (branding?.receiptShowBusinessName !== false) {
-      lines.push((order?.restaurantName ?? r.restaurantName ?? "").toUpperCase());
-      lines.push("");
+
+  const handleMars = async () => {
+    if (!order) return;
+    setMarsBusy(true);
+    try {
+      const count = await sendMars(order.id);
+      toast.success(`Marş ${count} mətbəx printerinə göndərildi`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Marş göndərilmədi");
+    } finally {
+      setMarsBusy(false);
     }
-    if (branding?.receiptShowOrderNumber !== false) lines.push(`Sifariş: ${r.orderNumber}`);
-    if (branding?.receiptShowTableName !== false) lines.push(`Masa: ${r.tableName}`);
-    if (branding?.receiptShowWaiterName !== false) lines.push(`Ofisiant: ${r.waiterName}`);
-    if (branding?.receiptShowTime !== false) {
-      lines.push(`Vaxt: ${new Date(r.paidAt ?? r.openedAt).toLocaleString("az-AZ")}`);
-    }
-    if (branding?.receiptShowPaymentMethod !== false) lines.push(`Ödəniş: ${r.paymentMethod}`);
-    lines.push("-".repeat(32));
-    for (const line of groupReceiptLines(r.lines, branding?.printGroupQuantities !== false)) {
-      lines.push(`${line.quantity} x ${line.menuItemName}`.padEnd(24) + `${line.lineTotal.toFixed(2)} ₼`);
-    }
-    lines.push("-".repeat(32));
-    lines.push(`Cəm: ${r.totalAmount.toFixed(2)} ₼`);
-    if (r.vatAmount > 0) lines.push(`ƏDV daxildir: ${r.vatAmount.toFixed(2)} ₼`);
-    if (r.paymentMethod === "Cash") {
-      lines.push(`Alınan: ${r.paidAmount.toFixed(2)} ₼`);
-      lines.push(`Qalıq: ${r.changeAmount.toFixed(2)} ₼`);
-    }
-    if (branding?.slogan) lines.push(branding.slogan);
-    if (branding?.contactPhoneNumber) lines.push(branding.contactPhoneNumber);
-    if (order) lines.push("", escPosBarcode(receiptBarcodeValue(order.id)));
-    return lines.join("\n");
   };
 
-  const handlePrintReceiptToPrinter = async (printer: PrinterProfile, r?: OrderReceiptDto) => {
+  const handleUnlockBill = async () => {
+    if (!order) return;
+    try {
+      await unlockBill(order.id);
+      toast.success("Hesab kilidi açıldı");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Hesab kilidi açılmadı");
+    }
+  };
+
+  // The customer receipt is drawn as an image (logo, every Azerbaijani letter, adjustable fonts)
+  // — the dialog shows that same image, and network printers receive it as ESC/POS raster.
+  const receiptDesign = useMemo(() => designFromBranding(branding), [branding]);
+
+  const handlePrintReceiptToPrinter = async (printer: PrinterProfile, r?: OrderReceiptDto, opts?: { preCheck?: boolean }) => {
+    const target = r ?? receipt;
+    if (!target) return;
     setPrintingId(printer.id);
     try {
-      await printToPrinter(printer.id, buildReceiptContent(r ?? receipt));
+      const canvas = await renderReceipt(target, receiptDesign, receiptCategoryName, opts);
+      const trailer = order ? `
+${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
+      await printImageToPrinter(printer.id, canvasToRaster(canvas), trailer);
       toast.success(`${printer.name}-ə göndərildi`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Printerə qoşulmaq mümkün olmadı");
@@ -392,6 +536,94 @@ export default function PosOrderPage() {
     () => [...printers].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)),
     [printers],
   );
+
+  // Part payments ("Hesab"): who already paid for what.
+  const [payments, setPayments] = useState<OrderPaymentsDto | null>(null);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [receiptsOpen, setReceiptsOpen] = useState(false);
+  const hasPartPayments = payments != null && payments.payments.length > 0;
+  // What is still to pay (without service charge): the whole bill, or what is left after part payments.
+  const dueBase = hasPartPayments
+    ? payments!.remainingAmount
+    : (order?.totalAmount ?? 0) + (order?.tableRentalAmount ?? 0);
+
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
+
+  const refreshPayments = useCallback(async (id: number) => {
+    try {
+      setPayments(await getOrderPayments(id));
+      setPaymentsError(null);
+    } catch (err) {
+      setPayments(null);
+      setPaymentsError(err instanceof Error ? err.message : "Ödənişlər yüklənmədi");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (order?.id) void refreshPayments(order.id);
+  }, [order?.id, order?.isPaid, order?.totalAmount, order?.lines.length, refreshPayments]);
+
+  const printPaymentReceipt = async (paymentId: number) => {
+    if (!order) return;
+    const printer = sortedPrinters[0];
+    if (!printer) {
+      toast.error("Çek çıxarmaq üçün aktiv printer tapılmadı.");
+      return;
+    }
+    try {
+      const r = await getPaymentReceipt(order.id, paymentId);
+      await handlePrintReceiptToPrinter(printer, r);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Çek çıxarıla bilmədi");
+    }
+  };
+
+  // One guest paid their items: the dialog closes, the rest of the order stays on the page (paid
+  // items are tagged) and the guest's customer receipt comes out of the printer automatically.
+  const handlePartPaid = async (result: { paymentId: number; amount: number; orderClosed: boolean }) => {
+    if (!order) return;
+    setSplitOpen(false);
+    // A printer problem never undoes the payment — it is reported and "Müştəri qəbzi" can retry.
+    await printPaymentReceipt(result.paymentId);
+    if (result.orderClosed) {
+      // The last guest: the table is closed; their receipt (earlier guests' items marked paid) stays on screen.
+      setFiscalMode(false);
+      try {
+        setReceipt(await getPaymentReceipt(order.id, result.paymentId));
+      } catch {
+        router.replace("/pos");
+      }
+      return;
+    }
+    toast.success(`Hesab ödənildi: ${result.amount.toFixed(2)} ₼`);
+    try {
+      setOrder(await getOrderById(order.id));
+    } catch {
+      /* the list refreshes on the next load */
+    }
+    await refreshPayments(order.id);
+  };
+
+  // "Müştəri qəbzi": the pre-check for the guest. Nothing is recorded or locked — the order can still be changed.
+  const printWholeReceipt = async () => {
+    if (!order) return;
+    const printer = sortedPrinters[0];
+    if (!printer) {
+      toast.error("Çek çıxarmaq üçün aktiv printer tapılmadı.");
+      return;
+    }
+    try {
+      await handlePrintReceiptToPrinter(printer, await getOrderReceipt(order.id, fiscalOn), { preCheck: !order.isPaid });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Çek çıxarıla bilmədi");
+    }
+  };
+
+  const handleCustomerReceipt = () => {
+    // Nobody paid a share yet: print the pre-check straight away. Otherwise pick whose receipt.
+    if (hasPartPayments) setReceiptsOpen(true);
+    else void printWholeReceipt();
+  };
 
   const topLevelCategories = useMemo(
     () => categories.filter((c) => c.parentCategoryId == null),
@@ -420,10 +652,10 @@ export default function PosOrderPage() {
   const productSearchTrimmed = productSearch.trim();
   const searchResults = useMemo(() => {
     if (!productSearchTrimmed) return [];
-    const term = productSearchTrimmed.toLowerCase();
+    const term = normalizeSearch(productSearchTrimmed);
     return items.filter((i) => {
       if (i.hideFromPosSearch) return false;
-      const nameMatch = i.name.toLowerCase().includes(term);
+      const nameMatch = normalizeSearch(i.name).includes(term);
       const codeMatch =
         !i.hideBarcode &&
         ((i.barcode != null && i.barcode === productSearchTrimmed) ||
@@ -443,11 +675,11 @@ export default function PosOrderPage() {
     }
   };
 
-  const handleAddItem = async (menuItemId: number) => {
+  const handleAddItem = async (menuItemId: number, quantity = 1) => {
     if (!order || busy || outOfStockIds.has(menuItemId)) return;
     setBusy(true);
     try {
-      const updated = await addOrderLine({ orderId: order.id, menuItemId, quantity: 1 });
+      const updated = await addOrderLine({ orderId: order.id, menuItemId, quantity });
       setOrder(updated);
       void loadAvailability(order.restaurantId);
     } catch (err) {
@@ -460,7 +692,43 @@ export default function PosOrderPage() {
   const isWeightBasedItem = (item: MenuItem) =>
     item.unitId === UnitOfMeasure.Kg || item.unitId === UnitOfMeasure.Gram;
 
+  /** "Məhsul kodu zorunlu" — the barcode is the product code; weight-sold items may use their weight code. */
+  const lacksProductCode = (item: MenuItem) =>
+    branding?.requireProductCode === true &&
+    !item.barcode?.trim() &&
+    !(isWeightBasedItem(item) && item.weightCode?.trim());
+
+  const handleConfirmSetSelections = async (selections: SetSelectionInput[]) => {
+    if (!order || !setDialogItem || busy) return;
+    setBusy(true);
+    try {
+      const updated = await addOrderLine({
+        orderId: order.id,
+        menuItemId: setDialogItem.id,
+        quantity: 1,
+        setSelections: selections,
+      });
+      setOrder(updated);
+      setSetDialogItem(null);
+      void loadAvailability(order.restaurantId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Set əlavə olunmadı");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleItemClick = (item: MenuItem) => {
+    // A SET with choice groups: the waiter picks its products first.
+    if (item.isSet && item.setGroups.length > 0) {
+      if (!outOfStockIds.has(item.id)) setSetDialogItem(item);
+      return;
+    }
+    // Weigh window switched off: add 1 kg (1000 g) straight away — it can be re-weighed on the line.
+    if (isWeightBasedItem(item) && branding?.posShowWeighWindow === false) {
+      void handleAddItem(item.id, 1000);
+      return;
+    }
     if (isWeightBasedItem(item)) {
       setWeightDialogItem(item);
       setWeightDialogLineId(null);
@@ -503,14 +771,30 @@ export default function PosOrderPage() {
     }
   };
 
+  /**
+   * Removing a product that was already sent to the kitchen needs a reason (ləğvlər hesabatı);
+   * one still only on the screen is removed straight away. Returns false if the user backed out.
+   */
+  const removeLineWithReason = async (lineId: number): Promise<boolean> => {
+    if (!order) return false;
+    const line = order.lines.find((l) => l.id === lineId);
+    let cancel;
+    if (line?.kitchenPrintedAt) {
+      cancel = await askCancelReason(`"${line.menuItemName}" ləğv et`);
+      if (!cancel) return false;
+    }
+    const updated = await deleteOrderLine(lineId, cancel ?? undefined);
+    setOrder(updated);
+    return true;
+  };
+
   const handleQuantityChange = async (lineId: number, currentQty: number, delta: number) => {
     if (!order || busy) return;
     const newQty = currentQty + delta;
     setBusy(true);
     try {
       if (newQty <= 0) {
-        const updated = await deleteOrderLine(lineId);
-        setOrder(updated);
+        await removeLineWithReason(lineId);
       } else {
         const updated = await updateOrderLine({ id: lineId, quantity: newQty });
         setOrder(updated);
@@ -526,8 +810,7 @@ export default function PosOrderPage() {
     if (!order || busy) return;
     setBusy(true);
     try {
-      const updated = await deleteOrderLine(lineId);
-      setOrder(updated);
+      await removeLineWithReason(lineId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sətir silinmədi");
     } finally {
@@ -556,6 +839,134 @@ export default function PosOrderPage() {
       setOrder(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Taymer dayandırılmadı");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLineDoubleClick = (e: React.MouseEvent, line: OrderLineDto) => {
+    if (!order || busy || order.isPaid || order.isBillLocked) return;
+    // Quick taps on +/- or other controls must not count as a double-tap on the line itself.
+    if ((e.target as HTMLElement).closest("button, input, a")) return;
+    if (line.isTimeBased) {
+      // Minute-billed items (PlayStation...): double-tap stops the clock.
+      if (line.timeBasedStartedAt != null && line.timeBasedStoppedAt == null && canEditProduct) {
+        void handleStopTimer(line.id);
+      }
+      return;
+    }
+    if (!canEditProduct) return;
+    setLineNoteLine(line);
+    setLineNoteInput(line.note ?? "");
+  };
+
+  const priceOptionsFor = (line: OrderLineDto) => {
+    const item = items.find((i) => i.id === line.menuItemId);
+    if (!item) return [];
+    const options: { type: number; label: string; value: number | null }[] = [
+      { type: MenuItemPriceType.Price, label: "Satış qiyməti", value: item.price },
+      { type: MenuItemPriceType.Station, label: "Dəzgah qiyməti", value: item.stationPrice },
+      { type: MenuItemPriceType.Package, label: "Paket qiyməti", value: item.packagePrice },
+      { type: MenuItemPriceType.Special1, label: "Xüsusi qiymət 1", value: item.specialPrice1 },
+      { type: MenuItemPriceType.Special2, label: "Xüsusi qiymət 2", value: item.specialPrice2 },
+      { type: MenuItemPriceType.Special3, label: "Xüsusi qiymət 3", value: item.specialPrice3 },
+      { type: MenuItemPriceType.Special4, label: "Xüsusi qiymət 4", value: item.specialPrice4 },
+      { type: MenuItemPriceType.Special5, label: "Xüsusi qiymət 5", value: item.specialPrice5 },
+    ];
+    return options.filter((o): o is { type: number; label: string; value: number } => o.value != null && o.value > 0);
+  };
+
+  const handleLineClick = (e: React.MouseEvent, line: OrderLineDto) => {
+    if ((!priceMode && !giftMode) || !order || busy || order.isPaid || order.isBillLocked) return;
+    if ((e.target as HTMLElement).closest("button, input, a")) return;
+    if (giftMode) {
+      if (line.isTimeBased) {
+        toast.error("Dəqiqə ilə hesablanan məhsul hədiyyə edilə bilməz.");
+        return;
+      }
+      void handleToggleGift(line.id, line.quantity, !line.isGift).then(() => setGiftMode(false));
+      return;
+    }
+    if (line.isGift) {
+      toast.error("Hədiyyə məhsulun qiymətini dəyişmək olmaz.");
+      return;
+    }
+    setPriceLine(line);
+  };
+
+  const handlePickPrice = async (priceType: number) => {
+    if (!priceLine || busy) return;
+    setBusy(true);
+    try {
+      const updated = await updateOrderLine({ id: priceLine.id, quantity: priceLine.quantity, priceType });
+      setOrder(updated);
+      setPriceLine(null);
+      setPriceMode(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Qiymət dəyişdirilmədi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleManualDiscount = async () => {
+    if (!order || !manualDiscountKind || manualDiscountBusy) return;
+    const value = Number(manualDiscountInput.replace(",", "."));
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error("Endirimi düzgün daxil edin");
+      return;
+    }
+    if (manualDiscountKind === "Percent" && value > 100) {
+      toast.error("Faiz 100-dən çox ola bilməz");
+      return;
+    }
+    setManualDiscountBusy(true);
+    try {
+      const amount = await setManualDiscount(order.id, manualDiscountKind, value);
+      setOrder(await getOrderById(order.id));
+      setManualDiscountKind(null);
+      toast.success(`Endirim tətbiq edildi: -${amount.toFixed(2)} ₼`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Endirim tətbiq edilmədi");
+    } finally {
+      setManualDiscountBusy(false);
+    }
+  };
+
+  // The lamp: on = this sale goes through the fiscal (tax) register. It switches on only when the
+  // branch has an active fiscal device registered (when that cannot be checked, it is allowed).
+  const toggleFiscal = async () => {
+    if (fiscalOn) {
+      setFiscalMode(false);
+      return;
+    }
+    if (order) {
+      try {
+        const devices = await getFiscalDevices(order.restaurantId);
+        if (!devices.some((d) => d.isActive)) {
+          toast.error("Bu filial üçün aktiv vergi kassası (fiskal cihaz) qeydiyyatdan keçməyib.");
+          return;
+        }
+      } catch {
+        /* no right to list devices — let the cashier switch it on */
+      }
+    }
+    setFiscalMode(true);
+  };
+
+  const handleSaveLineNote = async () => {
+    if (!lineNoteLine || busy) return;
+    setBusy(true);
+    try {
+      const updated = await updateOrderLine({
+        id: lineNoteLine.id,
+        quantity: lineNoteLine.quantity,
+        note: lineNoteInput.trim() || null,
+      });
+      setOrder(updated);
+      setLineNoteLine(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Qeyd saxlanmadı");
     } finally {
       setBusy(false);
     }
@@ -595,9 +1006,6 @@ export default function PosOrderPage() {
       toast.error("Əvvəlcə icarə taymerini dayandırın");
       return;
     }
-    setPaymentMethod("Cash");
-    setServiceChargeInput("");
-    setPaidAmountInput((order.totalAmount + (order.tableRentalAmount ?? 0)).toFixed(2));
     setPayOpen(true);
   };
 
@@ -628,13 +1036,17 @@ export default function PosOrderPage() {
     router.push("/pos");
   };
 
+  // "Qəbz çap et" is the final print: afterwards the order cannot be edited (only unlocked by a manager).
   const handlePrintBill = async () => {
     if (!order || order.lines.length === 0) return;
+    if (!window.confirm("Qəbz çap edildikdən sonra sifarişə düzəliş etmək olmaz. Davam edək?")) return;
     setBusy(true);
     try {
-      const r = await getOrderReceipt(order.id);
+      const locked = await markBillPrinted(order.id, true);
+      const r = await getOrderReceipt(order.id, fiscalOn);
       setReceipt(r);
       maybeAutoPrint(false);
+      if (locked) await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Qəbz alına bilmədi");
     } finally {
@@ -642,27 +1054,13 @@ export default function PosOrderPage() {
     }
   };
 
-  const serviceCharge = canTableServiceCharge ? Number(serviceChargeInput) || 0 : 0;
-  const paidAmount = Number(paidAmountInput) || 0;
-  const totalWithService = (order?.totalAmount ?? 0) + (order?.tableRentalAmount ?? 0) + serviceCharge;
-  const changeAmount = paymentMethod === "Cash" ? Math.max(0, paidAmount - totalWithService) : 0;
-
-  const handleConfirmPayment = async () => {
+  // The last payment closed the order: show its receipt and run the "on payment" prints.
+  const finishAfterClose = async (paymentId?: number) => {
     if (!order) return;
-    if (paymentMethod === "Cash" && paidAmount < totalWithService) {
-      toast.error("Ödənilən məbləğ cəmdən az ola bilməz");
-      return;
-    }
-    setBusy(true);
     try {
-      await payOrder(order.id, {
-        paymentMethod,
-        paidAmount: paymentMethod === "Cash" ? paidAmount : totalWithService,
-        serviceChargeAmount: canTableServiceCharge && serviceCharge > 0 ? serviceCharge : null,
-      });
-      const r = await getOrderReceipt(order.id);
+      const r = paymentId ? await getPaymentReceipt(order.id, paymentId) : await getOrderReceipt(order.id);
+      setFiscalMode(false);
       setReceipt(r);
-      setPayOpen(false);
       maybeAutoPrint(true);
       if (branding?.printAutoOnPayment === true) {
         const primaryPrinter = printers.find((p) => p.isPrimary);
@@ -683,18 +1081,38 @@ export default function PosOrderPage() {
         await load();
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Ödəniş uğursuz oldu");
-    } finally {
-      setBusy(false);
+      toast.error(err instanceof Error ? err.message : "Qəbz alına bilmədi");
     }
+  };
+
+  // After a cash/card payment in the "Hesab" dialog: either the bill is settled, or part of it
+  // was deducted and the rest is still to pay.
+  const handleTenderPaid = async (result: { amount: number; orderClosed: boolean; remainingAmount: number }) => {
+    if (!order) return;
+    if (result.orderClosed) {
+      setPayOpen(false);
+      await finishAfterClose();
+      return;
+    }
+    // Part of the bill is paid: the dialog closes and the rest stays on the page ("Ödənilib" / "Qalıq"
+    // in the totals) until the guest pays it with the "Hesab" button again.
+    setPayOpen(false);
+    toast.success(`${result.amount.toFixed(2)} ₼ ödənildi. Qalıq: ${result.remainingAmount.toFixed(2)} ₼`);
+    try {
+      setOrder(await getOrderById(order.id));
+    } catch {
+      /* refreshed on the next load */
+    }
+    await refreshPayments(order.id);
   };
 
   const handleDeleteOrder = async () => {
     if (!order || busy) return;
-    if (!window.confirm("Sifarişi ləğv etmək istədiyinizə əminsiniz?")) return;
+    const cancel = await askCancelReason("Sifarişi ləğv et");
+    if (!cancel) return;
     setBusy(true);
     try {
-      await cancelOrder(order.id);
+      await cancelOrder(order.id, cancel);
       toast.success("Sifariş ləğv edildi");
       router.replace("/pos");
     } catch (err) {
@@ -709,7 +1127,11 @@ export default function PosOrderPage() {
     try {
       const tables = await getRestaurantTables();
       setAvailableTables(
-        tables.filter((t) => t.restaurantId === order.restaurantId && t.isActive && !t.isOccupied),
+        tables.filter((t) => t.restaurantId === order.restaurantId &&
+          t.isActive &&
+          !t.isOccupied &&
+          t.type !== RestaurantTableType.Delivery &&
+          t.type !== RestaurantTableType.TakeAway),
       );
     } catch {
       setAvailableTables([]);
@@ -741,12 +1163,42 @@ export default function PosOrderPage() {
     }
   };
 
+  const startReassign = () => {
+    if (canRedirectUser) {
+      setSupervisorCode(null);
+      void openReassignDialog();
+      return;
+    }
+    setSupervisorCodeInput("");
+    setSupervisorCodeError(null);
+    setSupervisorCodeOpen(true);
+  };
+
+  const submitSupervisorCode = async () => {
+    const code = supervisorCodeInput.trim();
+    if (!code) return;
+    setBusy(true);
+    setSupervisorCodeError(null);
+    try {
+      await verifyRedirectCode(code);
+      setSupervisorCode(code);
+      setSupervisorCodeOpen(false);
+      setSupervisorCodeInput("");
+      await openReassignDialog();
+    } catch (err) {
+      setSupervisorCodeError(err instanceof Error ? err.message : "Kod yanlışdır");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleReassignWaiter = async (newEmployeeId: number) => {
     if (!order || busy) return;
     setBusy(true);
     try {
-      const updated = await reassignOrderWaiter(order.id, newEmployeeId);
+      const updated = await reassignOrderWaiter(order.id, newEmployeeId, supervisorCode);
       setOrder(updated);
+      setSupervisorCode(null);
       toast.success("Ofisiant dəyişdirildi");
       setReassignOpen(false);
     } catch (err) {
@@ -804,21 +1256,6 @@ export default function PosOrderPage() {
       toast.error(err instanceof Error ? err.message : "Müştəri təyin edilmədi");
     } finally {
       setCounterpartyBusy(false);
-    }
-  };
-
-  const handleApplyDiscount = async () => {
-    if (!order || !discountCodeInput.trim()) return;
-    setDiscountBusy(true);
-    try {
-      const updated = await applyDiscountToOrder(order.id, discountCodeInput.trim());
-      setOrder(updated);
-      setDiscountDialogOpen(false);
-      setDiscountCodeInput("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Endirim tətbiq edilmədi");
-    } finally {
-      setDiscountBusy(false);
     }
   };
 
@@ -992,22 +1429,6 @@ export default function PosOrderPage() {
 
   // Simple-receipt mode uses its own independently-configured field toggles instead of the
   // normal receipt's — each company decides separately what appears in each mode.
-  const receiptSimpleMode = branding?.receiptSimpleMode === true;
-  const showReceiptOrderNumber = receiptSimpleMode
-    ? branding?.receiptSimpleShowOrderNumber === true
-    : branding?.receiptShowOrderNumber !== false;
-  const showReceiptWaiterName = receiptSimpleMode
-    ? branding?.receiptSimpleShowWaiterName === true
-    : branding?.receiptShowWaiterName !== false;
-  const showReceiptTime = receiptSimpleMode
-    ? branding?.receiptSimpleShowTime === true
-    : branding?.receiptShowTime !== false;
-  const showReceiptPaymentMethod = receiptSimpleMode
-    ? branding?.receiptSimpleShowPaymentMethod === true
-    : branding?.receiptShowPaymentMethod !== false;
-  const showReceiptVat = receiptSimpleMode ? branding?.receiptSimpleShowVat === true : true;
-  const showReceiptFooter = receiptSimpleMode ? branding?.receiptSimpleShowFooter === true : true;
-
   const isRentalRunning =
     order.tableHourlyRate != null && order.tableRentalStartedAt != null && order.tableRentalStoppedAt == null;
   const rentalElapsedMs = isRentalRunning ? now - new Date(order.tableRentalStartedAt!).getTime() : 0;
@@ -1017,6 +1438,13 @@ export default function PosOrderPage() {
 
   return (
     <div className="flex h-full flex-col md:flex-row">
+      {reasonDialog}
+      <NewReservationDialog
+        open={reserveOpen}
+        onOpenChange={setReserveOpen}
+        restaurantId={order.restaurantId}
+        onCreated={loadTableReservation}
+      />
       {/* Menu */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
@@ -1060,43 +1488,77 @@ export default function PosOrderPage() {
             </span>
           )}
           <div className="ml-auto flex items-center gap-1">
-            {!isPaid && (
+            {!isPaid && branding?.posShowCustomerSelect !== false && (
               <Button variant="outline" size="sm" onClick={() => void openCounterpartyDialog()} disabled={busy}>
                 <User className="mr-1 h-3.5 w-3.5" />
                 Müştəri seç
               </Button>
             )}
-            {!isPaid && canApplyDiscount && !order.discountCode && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setDiscountCodeInput("");
-                  setDiscountDialogOpen(true);
-                }}
-                disabled={busy}
-              >
-                <Tag className="mr-1 h-3.5 w-3.5" />
-                Endirim tətbiq et
-              </Button>
+            {!isPaid && canApplyDiscount && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  title="Endirim — manatla"
+                  aria-label="Endirim — manatla"
+                  disabled={busy || order.isBillLocked}
+                  onClick={() => {
+                    setManualDiscountInput("");
+                    setManualDiscountKind("Amount");
+                  }}
+                >
+                  <span className="text-sm font-bold leading-none">₼</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  title="Endirim — faizlə"
+                  aria-label="Endirim — faizlə"
+                  disabled={busy || order.isBillLocked}
+                  onClick={() => {
+                    setManualDiscountInput("");
+                    setManualDiscountKind("Percent");
+                  }}
+                >
+                  <Percent className="h-3.5 w-3.5" />
+                </Button>
+              </>
             )}
             <Button variant="outline" size="sm" onClick={openNoteDialog} disabled={busy}>
               <StickyNote className="mr-1 h-3.5 w-3.5" />
               Qeyd
             </Button>
+            {!isPaid && !isStoreMode && canReserve && (
+              <Button variant="outline" size="sm" onClick={() => setReserveOpen(true)} disabled={busy}>
+                <CalendarPlus className="mr-1 h-3.5 w-3.5" />
+                Rezerv et
+              </Button>
+            )}
+            {!isPaid && tableReservation && canConfirmReservation && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                onClick={() => void handleCompleteReservation()}
+                disabled={busy || reservationBusy}
+              >
+                <CalendarCheck className="mr-1 h-3.5 w-3.5" />
+                Rezervasiyanı tamamla ({tableReservation.guestName})
+              </Button>
+            )}
             {!isPaid && !isStoreMode && canMoveTable && (
               <Button variant="outline" size="sm" onClick={() => void openMoveTableDialog()} disabled={busy}>
                 <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
                 Masanı dəyiş
               </Button>
             )}
-            {!isPaid && !isStoreMode && canRedirectUser && (
-              <Button variant="outline" size="sm" onClick={() => void openReassignDialog()} disabled={busy}>
+            {!isPaid && !isStoreMode && canChangeWaiter && (
+              <Button variant="outline" size="sm" onClick={startReassign} disabled={busy}>
                 <UserCog className="mr-1 h-3.5 w-3.5" />
                 Ofisiantı dəyiş
               </Button>
             )}
-            {!isPaid && canEditProduct && (
+            {!isPaid && canEditProduct && (branding?.posShowHoldButton !== false || order.holdUntilUtc) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1122,6 +1584,16 @@ export default function PosOrderPage() {
             )}
           </div>
         </div>
+        {order.isBillLocked && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+            <span>Hesab verilib — sifarişə dəyişiklik etmək olmaz.</span>
+            {canUnlockBill && (
+              <Button size="sm" variant="outline" onClick={() => void handleUnlockBill()}>
+                Kilidi aç
+              </Button>
+            )}
+          </div>
+        )}
         {order.holdUntilUtc && (
           <div className="flex items-center gap-2 border-b bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
             <Clock className="h-4 w-4" />
@@ -1254,15 +1726,16 @@ export default function PosOrderPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {searchResults.map((item) => {
                 const isOutOfStock = outOfStockIds.has(item.id);
+                const isMissingCode = lacksProductCode(item);
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    disabled={busy || isOutOfStock}
+                    disabled={busy || isOutOfStock || isMissingCode}
                     onClick={() => handleItemClick(item)}
                     className={cn(
                       "relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50",
-                      isOutOfStock && "bg-muted grayscale",
+                      (isOutOfStock || isMissingCode) && "bg-muted grayscale",
                     )}
                   >
                     {isOutOfStock && (
@@ -1270,7 +1743,15 @@ export default function PosOrderPage() {
                         Bitib
                       </span>
                     )}
+                    {isMissingCode && !isOutOfStock && (
+                      <span className="absolute right-1 top-1 rounded-full bg-muted-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
+                        Kodsuz
+                      </span>
+                    )}
                     <span className="text-sm font-semibold leading-tight">{item.name}</span>
+                    {isWeightBasedItem(item) && (
+                      <Scale className="absolute left-1.5 top-1.5 h-3.5 w-3.5 text-violet-700" aria-label="Çəki ilə satılır" />
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {(item.stationPrice ?? item.price).toFixed(2)} ₼
                     </span>
@@ -1315,15 +1796,16 @@ export default function PosOrderPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {itemsInCategory.map((item) => {
               const isOutOfStock = outOfStockIds.has(item.id);
+                const isMissingCode = lacksProductCode(item);
               return (
                 <button
                   key={item.id}
                   type="button"
-                  disabled={busy || isOutOfStock}
+                  disabled={busy || isOutOfStock || isMissingCode}
                   onClick={() => handleItemClick(item)}
                   className={cn(
                     "relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50",
-                    isOutOfStock && "bg-muted grayscale",
+                    (isOutOfStock || isMissingCode) && "bg-muted grayscale",
                   )}
                 >
                   {isOutOfStock && (
@@ -1331,7 +1813,15 @@ export default function PosOrderPage() {
                       Bitib
                     </span>
                   )}
+                  {isMissingCode && !isOutOfStock && (
+                    <span className="absolute right-1 top-1 rounded-full bg-muted-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
+                      Kodsuz
+                    </span>
+                  )}
                   <span className="text-sm font-semibold leading-tight">{item.name}</span>
+                    {isWeightBasedItem(item) && (
+                      <Scale className="absolute left-1.5 top-1.5 h-3.5 w-3.5 text-violet-700" aria-label="Çəki ilə satılır" />
+                    )}
                   <span className="text-xs text-muted-foreground">
                     {(item.stationPrice ?? item.price).toFixed(2)} ₼
                   </span>
@@ -1351,6 +1841,42 @@ export default function PosOrderPage() {
 
       {/* Cart */}
       <div className="flex w-full flex-col border-t bg-background md:w-[360px] md:border-l md:border-t-0">
+        {!isPaid && order.lines.length > 0 && (
+          <div className="flex items-center gap-2 border-b px-3 py-2">
+            <Button
+              size="sm"
+              variant={priceMode ? "default" : "outline"}
+              disabled={busy || order.isBillLocked}
+              onClick={() => {
+                setGiftMode(false);
+                setPriceMode((v) => !v);
+              }}
+            >
+              <Tag className="mr-1 h-3.5 w-3.5" />
+              Qiymət
+            </Button>
+            {canApplyDiscount && (
+              <Button
+                size="sm"
+                variant={giftMode ? "default" : "outline"}
+                disabled={busy || order.isBillLocked}
+                onClick={() => {
+                  setPriceMode(false);
+                  setGiftMode((v) => !v);
+                }}
+              >
+                <Gift className="mr-1 h-3.5 w-3.5" />
+                Hədiyyə
+              </Button>
+            )}
+            {priceMode && (
+              <span className="text-xs text-muted-foreground">Qiymətini dəyişəcəyiniz məhsula toxunun</span>
+            )}
+            {giftMode && (
+              <span className="text-xs text-muted-foreground">Hədiyyə edəcəyiniz (və ya hədiyyədən çıxaracağınız) məhsula toxunun</span>
+            )}
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto p-3">
           {order.lines.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">Sifariş boşdur</p>
@@ -1374,7 +1900,12 @@ export default function PosOrderPage() {
               const timerElapsedMs = isTimerRunning ? now - new Date(line.timeBasedStartedAt!).getTime() : 0;
               const timerLiveTotal = isTimerRunning ? line.unitPrice * (timerElapsedMs / 3_600_000) : line.lineTotal;
               return (
-                <div key={line.id} className="rounded-lg border p-2">
+                <div
+                  key={line.id}
+                  className={cn("select-none rounded-lg border p-2", (priceMode || giftMode) && "cursor-pointer border-primary/60 ring-1 ring-primary/30")}
+                  onClick={(e) => handleLineClick(e, line)}
+                  onDoubleClick={(e) => handleLineDoubleClick(e, line)}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-medium">
                       {line.menuItemName}
@@ -1391,19 +1922,6 @@ export default function PosOrderPage() {
                       )}
                     </span>
                     <div className="flex items-center gap-2">
-                      {canApplyDiscount && !line.isTimeBased && (
-                        <button
-                          type="button"
-                          onClick={() => void handleToggleGift(line.id, line.quantity, !line.isGift)}
-                          className={cn(
-                            "text-muted-foreground hover:text-pink-600",
-                            line.isGift && "text-pink-600 hover:text-pink-700",
-                          )}
-                          title={line.isGift ? "Hədiyyədən çıxar" : "Hədiyyə et"}
-                        >
-                          <Gift className="h-4 w-4" />
-                        </button>
-                      )}
                       {canApplyDiscount && !line.isTimeBased && !line.isGift && (
                         <button
                           type="button"
@@ -1418,6 +1936,7 @@ export default function PosOrderPage() {
                         </button>
                       )}
                       {canEditProduct &&
+                        (branding?.posShowHoldButton !== false || isHeld) &&
                         line.status !== "InPreparation" &&
                         line.status !== "Ready" &&
                         line.status !== "Served" && (
@@ -1447,6 +1966,33 @@ export default function PosOrderPage() {
                         )}
                     </div>
                   </div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {line.createdAtUtc &&
+                      `${new Date(line.createdAtUtc.endsWith("Z") ? line.createdAtUtc : `${line.createdAtUtc}Z`).toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit" })} · `}
+                    {line.isTimeBased
+                      ? `${line.unitPrice.toFixed(2)} ₼ / saat`
+                      : line.isWeightBased
+                        ? `${(line.quantity / 1000).toFixed(3)} kq × ${line.unitPrice.toFixed(2)} ₼`
+                        : `${line.quantity} × ${line.unitPrice.toFixed(2)} ₼`}
+                    {" = "}
+                    {line.lineTotal.toFixed(2)} ₼
+                  </p>
+                  {(() => {
+                    const paidQty = payments?.paidLines.find((p) => p.orderLineId === line.id)?.paidQuantity ?? 0;
+                    if (paidQty <= 0) return null;
+                    const all = paidQty >= line.quantity;
+                    return (
+                      <p className="mt-0.5 text-[11px] font-semibold text-emerald-700">
+                        {all || line.isWeightBased || line.isTimeBased ? "Ödənilib" : `Ödənilib: ${paidQty} / ${line.quantity}`}
+                      </p>
+                    );
+                  })()}
+                  {line.note && (
+                    <p className="mt-0.5 flex items-center gap-1 text-[11px] italic text-amber-700">
+                      <StickyNote className="h-3 w-3 shrink-0" />
+                      {line.note}
+                    </p>
+                  )}
                   {isHeld && (
                     <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
                       <Clock className="h-3 w-3" />
@@ -1611,6 +2157,19 @@ export default function PosOrderPage() {
             })}
           </div>
         </div>
+        {canPrint && !isPaid && branding?.posMarsEnabled === true && order.lines.some((l) => l.kitchenPrintedAt != null) && (
+          <div className="border-t p-3">
+            <Button
+              variant="outline"
+              className="w-full border-orange-300 text-orange-700 hover:bg-orange-50"
+              disabled={marsBusy}
+              onClick={() => void handleMars()}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Marş — mətbəx indi hazırlasın
+            </Button>
+          </div>
+        )}
         {canPrint && printerGroups.length > 0 && !isPaid && (
           <div className="flex flex-wrap gap-2 border-t p-3">
             {printerGroups.map(({ printer, lines }) => (
@@ -1628,10 +2187,58 @@ export default function PosOrderPage() {
           </div>
         )}
         <div className="border-t p-3">
-          <div className="mb-3 flex items-center justify-between text-lg font-bold">
-            <span>Cəm</span>
-            <span>{(order.totalAmount + (isRentalRunning ? rentalLiveTotal : order.tableRentalAmount ?? 0)).toFixed(2)} ₼</span>
-          </div>
+          {(() => {
+            // After payment totalAmount already includes the service charge; before it, rental is added on top.
+            const service = order.serviceChargeAmount ?? 0;
+            const grand = isPaid
+              ? order.totalAmount
+              : order.totalAmount + (isRentalRunning ? rentalLiveTotal : order.tableRentalAmount ?? 0) + service;
+            const subtotal = grand + order.discountAmount - service;
+            return (
+              <div className="mb-3 space-y-1 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Cəm</span>
+                  <span>{subtotal.toFixed(2)} ₼</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Endirim</span>
+                  <span>{order.discountAmount > 0 ? `-${order.discountAmount.toFixed(2)}` : "0.00"} ₼</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Servis haqqı</span>
+                  <span>{service.toFixed(2)} ₼</span>
+                </div>
+                <div className="flex justify-between border-t pt-1 text-lg font-bold">
+                  <span>Ümumi məbləğ</span>
+                  <span>{grand.toFixed(2)} ₼</span>
+                </div>
+                {!isPaid && hasPartPayments && (
+                  <>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Ödənilib</span>
+                      <span>{payments!.paidAmount.toFixed(2)} ₼</span>
+                    </div>
+                    <div className="flex justify-between font-semibold">
+                      <span>Qalıq</span>
+                      <span>{payments!.remainingAmount.toFixed(2)} ₼</span>
+                    </div>
+                  </>
+                )}
+                {isPaid && (
+                  <>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Alınan</span>
+                      <span>{order.paidAmount.toFixed(2)} ₼</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Qaytarılan</span>
+                      <span>{order.changeAmount.toFixed(2)} ₼</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
           {isPaid ? (
             <div className="space-y-2">
               <p className="text-center text-sm text-muted-foreground">
@@ -1643,15 +2250,23 @@ export default function PosOrderPage() {
             </div>
           ) : (
             <div className="space-y-2">
+              <Button
+                className="h-12 w-full text-base font-semibold"
+                disabled={order.lines.length === 0 || busy || okBusy}
+                onClick={() => void handleOk()}
+              >
+                {okBusy ? "Göndərilir…" : "OK"}
+              </Button>
               {canPrintBill && (
                 <Button
                   variant="outline"
                   className="h-12 w-full text-base font-semibold"
                   disabled={order.lines.length === 0 || busy}
                   onClick={() => void handlePrintBill()}
+                  title="Qəbz çap et"
+                  aria-label="Qəbz çap et"
                 >
-                  <Receipt className="mr-2 h-4 w-4" />
-                  Qəbz çap et
+                  <Printer className="h-5 w-5" />
                 </Button>
               )}
               {canPay && (
@@ -1660,106 +2275,147 @@ export default function PosOrderPage() {
                   disabled={order.lines.length === 0 || busy}
                   onClick={openPayDialog}
                 >
-                  Ödə
+                  Hesab
                 </Button>
               )}
+              {canPrintBill && (
+                <Button
+                  variant="outline"
+                  className="h-12 w-full text-base font-semibold"
+                  disabled={order.lines.length === 0}
+                  onClick={handleCustomerReceipt}
+                >
+                  <Receipt className="mr-2 h-4 w-4" />
+                  Müştəri qəbzi
+                </Button>
+              )}
+              <Button
+                variant={fiscalOn ? "default" : "outline"}
+                className={cn("h-12 w-full", fiscalOn && "bg-amber-500 text-white hover:bg-amber-500/90")}
+                onClick={() => void toggleFiscal()}
+                title={fiscalOn ? "Vergi kassası işləyir — söndürmək üçün basın" : "Vergi kassasını yandır"}
+                aria-label="Vergi kassası"
+              >
+                <Lightbulb className={cn("h-5 w-5", fiscalOn && "fill-white")} />
+              </Button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Payment dialog */}
-      <Dialog open={payOpen} onOpenChange={setPayOpen}>
-        <DialogContent className="sm:max-w-sm">
+      {/* "OK" — the order's waiter confirms with their code before the kitchen gets the order */}
+      <Dialog open={okPinOpen} onOpenChange={(o) => !o && setOkPinOpen(false)}>
+        <DialogContent className="sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle>Ödəniş</DialogTitle>
-            <DialogDescription>Cəm: {totalWithService.toFixed(2)} ₼</DialogDescription>
+            <DialogTitle>Ofisiant təsdiqi</DialogTitle>
+            <DialogDescription>Sifarişi mətbəxə göndərmək üçün ofisiant öz kodunu daxil etsin.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            {canTableServiceCharge && (
-              <div className="space-y-1">
-                <Label htmlFor="service-charge">Servis haqqı (opsional)</Label>
-                <Input
-                  id="service-charge"
-                  type="number"
-                  step="0.01"
-                  value={serviceChargeInput}
-                  onChange={(e) => {
-                    setServiceChargeInput(e.target.value);
-                    if (paymentMethod === "Card") {
-                      setPaidAmountInput(
-                        (order.totalAmount + (order.tableRentalAmount ?? 0) + (Number(e.target.value) || 0)).toFixed(2),
-                      );
-                    }
-                  }}
-                  placeholder="0.00"
-                />
-              </div>
-            )}
-            <div className={cn("grid gap-2", order.counterpartyId != null ? "grid-cols-3" : "grid-cols-2")}>
-              <Button
-                type="button"
-                variant={paymentMethod === "Cash" ? "default" : "outline"}
-                onClick={() => setPaymentMethod("Cash")}
-              >
-                Nəğd
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pinInput.trim()) void handleOk(pinInput.trim());
+            }}
+          >
+            <Input
+              type="password"
+              inputMode="numeric"
+              autoFocus
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              placeholder="Ofisiant kodu"
+            />
+            {branding?.touchScreenMode === true && <TouchNumpad value={pinInput} onChange={setPinInput} />}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOkPinOpen(false)}>
+                İmtina et
               </Button>
-              <Button
-                type="button"
-                variant={paymentMethod === "Card" ? "default" : "outline"}
-                onClick={() => {
-                  setPaymentMethod("Card");
-                  setPaidAmountInput(totalWithService.toFixed(2));
-                }}
-              >
-                Kart
+              <Button type="submit" disabled={!pinInput.trim() || okBusy}>
+                Təsdiqlə
               </Button>
-              {order.counterpartyId != null && (
-                <Button
-                  type="button"
-                  variant={paymentMethod === "Credit" ? "default" : "outline"}
-                  onClick={() => {
-                    setPaymentMethod("Credit");
-                    setPaidAmountInput(totalWithService.toFixed(2));
-                  }}
-                >
-                  Borca yaz
-                </Button>
-              )}
-            </div>
-            {paymentMethod === "Credit" && (
-              <p className="text-sm text-muted-foreground">
-                {order.counterpartyName} adına {totalWithService.toFixed(2)} ₼ borc yazılacaq
-                {order.counterpartyDebtAmount != null && order.counterpartyDebtAmount > 0 && (
-                  <> (əvvəlki borc: {order.counterpartyDebtAmount.toFixed(2)} ₼)</>
-                )}
-                .
-              </p>
-            )}
-            {paymentMethod === "Cash" && (
-              <div className="space-y-2">
-                <Label htmlFor="paid-amount">Alınan məbləğ</Label>
-                <Input
-                  id="paid-amount"
-                  type="number"
-                  step="0.01"
-                  value={paidAmountInput}
-                  onChange={(e) => setPaidAmountInput(e.target.value)}
-                />
-                <p className="text-sm text-muted-foreground">Qalıq: {changeAmount.toFixed(2)} ₼</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPayOpen(false)} disabled={busy}>
-              Ləğv et
-            </Button>
-            <Button onClick={() => void handleConfirmPayment()} disabled={busy}>
-              Təsdiqlə
-            </Button>
-          </DialogFooter>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
+
+      {/* Waiter PIN — "Ofisiant təsdiqlə" */}
+      <Dialog open={pinPrinter !== null} onOpenChange={(o) => !o && setPinPrinter(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Ofisiant təsdiqi</DialogTitle>
+            <DialogDescription>
+              {pinPrinter?.name}-ə göndərmək üçün sifarişin ofisiantı öz kodunu daxil etsin.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pinPrinter && pinInput.trim()) void handlePrintGroup(pinPrinter, pinInput.trim());
+            }}
+          >
+            <Input
+              type="password"
+              inputMode="numeric"
+              autoFocus
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              placeholder="Ofisiant kodu"
+            />
+            {branding?.touchScreenMode === true && <TouchNumpad value={pinInput} onChange={setPinInput} />}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPinPrinter(null)}>
+                İmtina et
+              </Button>
+              <Button type="submit" disabled={!pinInput.trim() || printingId !== null}>
+                Təsdiqlə
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <SplitBillDialog
+        open={splitOpen}
+        onOpenChange={setSplitOpen}
+        order={order}
+        payments={payments}
+        loadError={paymentsError}
+        onRetry={() => order && void refreshPayments(order.id)}
+        cashEnabled={branding?.paymentCashEnabled !== false}
+        cardEnabled={branding?.paymentCardEnabled !== false}
+        creditEnabled={branding?.paymentCreditEnabled !== false}
+        touchScreen={branding?.touchScreenMode === true}
+        onPaid={handlePartPaid}
+        onPrintPayment={(id) => void printPaymentReceipt(id)}
+      />
+
+      <CustomerReceiptsDialog
+        open={receiptsOpen}
+        onOpenChange={setReceiptsOpen}
+        tableName={order.tableName}
+        payments={payments}
+        onPrintPayment={(id) => void printPaymentReceipt(id)}
+        onPrintWhole={() => void printWholeReceipt()}
+      />
+
+      <PayDialog
+        open={payOpen}
+        onOpenChange={setPayOpen}
+        order={order}
+        payments={payments}
+        loadError={paymentsError}
+        onRetry={() => order && void refreshPayments(order.id)}
+        cashEnabled={branding?.paymentCashEnabled !== false}
+        cardEnabled={branding?.paymentCardEnabled !== false}
+        creditEnabled={branding?.paymentCreditEnabled !== false}
+        touchScreen={branding?.touchScreenMode === true}
+        onSplit={() => {
+          setPayOpen(false);
+          setSplitOpen(true);
+        }}
+        onPaid={handleTenderPaid}
+      />
 
       {/* Confirm auto-print dialog */}
       <Dialog open={confirmPrintOpen} onOpenChange={(o) => !o && setConfirmPrintOpen(false)}>
@@ -1795,98 +2451,13 @@ export default function PosOrderPage() {
             id="receipt-print-area"
             style={branding?.receiptFontSize ? { fontSize: `${branding.receiptFontSize}px` } : undefined}
           >
-            <DialogHeader>
-              {branding?.reportLogoUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={branding.reportLogoUrl}
-                  alt=""
-                  className="mx-auto mb-1 h-12 w-auto object-contain"
-                />
-              )}
-              {branding?.receiptShowBusinessName !== false && (
-                <p
-                  className="text-center font-bold uppercase tracking-wide"
-                  style={{
-                    fontSize: branding?.receiptRestaurantNameFontSize
-                      ? `${branding.receiptRestaurantNameFontSize}px`
-                      : "18px",
-                    color: branding?.productColor || undefined,
-                  }}
-                >
-                  {receipt?.restaurantName}
-                </p>
-              )}
-              <DialogTitle className="sr-only">Qəbz</DialogTitle>
-              {(branding?.receiptShowTableName !== false && receipt?.tableName) || branding?.floorLabel ? (
-                <DialogDescription className="text-center">
-                  {branding?.receiptShowTableName !== false && receipt?.tableName}
-                  {branding?.floorLabel &&
-                    (branding?.receiptShowTableName !== false && receipt?.tableName
-                      ? ` — ${branding.floorLabel}`
-                      : branding.floorLabel)}
-                </DialogDescription>
-              ) : null}
-              {receipt &&
-                (showReceiptOrderNumber || showReceiptWaiterName || showReceiptTime || showReceiptPaymentMethod) && (
-                  <div className="space-y-0.5 text-xs text-muted-foreground">
-                    {showReceiptOrderNumber && <p>Sifariş: {receipt.orderNumber}</p>}
-                    {showReceiptWaiterName && <p>Ofisiant: {receipt.waiterName}</p>}
-                    {showReceiptTime && (
-                      <p>Vaxt: {new Date(receipt.paidAt ?? receipt.openedAt).toLocaleString("az-AZ")}</p>
-                    )}
-                    {showReceiptPaymentMethod && <p>Ödəniş: {receipt.paymentMethod}</p>}
-                  </div>
-                )}
+            <DialogHeader className="sr-only">
+              <DialogTitle>Qəbz</DialogTitle>
+              <DialogDescription>{receipt?.tableName}</DialogDescription>
             </DialogHeader>
             <div className="space-y-1 text-sm">
-              {groupedReceiptLines.map((line, i) => (
-                <div key={i} className="flex justify-between">
-                  <span>
-                    {line.quantity} × {line.menuItemName}
-                  </span>
-                  <span>{line.lineTotal.toFixed(2)} ₼</span>
-                </div>
-              ))}
-              <div
-                className="mt-2 border-t pt-2 font-semibold"
-                style={branding?.productColor ? { color: branding.productColor } : undefined}
-              >
-                {(order.serviceChargeAmount ?? 0) > 0 && (
-                  <div className="flex justify-between font-normal text-muted-foreground">
-                    <span>Servis haqqı</span>
-                    <span>{(order.serviceChargeAmount ?? 0).toFixed(2)} ₼</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Cəm</span>
-                  <span>{receipt?.totalAmount.toFixed(2)} ₼</span>
-                </div>
-                {receipt && receipt.vatAmount > 0 && showReceiptVat && (
-                  <div className="flex justify-between font-normal text-muted-foreground">
-                    <span>ƏDV daxildir</span>
-                    <span>{receipt.vatAmount.toFixed(2)} ₼</span>
-                  </div>
-                )}
-                {receipt && receipt.paymentMethod === "Cash" && (
-                  <>
-                    <div className="flex justify-between font-normal text-muted-foreground">
-                      <span>Alınan</span>
-                      <span>{receipt.paidAmount.toFixed(2)} ₼</span>
-                    </div>
-                    <div className="flex justify-between font-normal text-muted-foreground">
-                      <span>Qalıq</span>
-                      <span>{receipt.changeAmount.toFixed(2)} ₼</span>
-                    </div>
-                  </>
-                )}
-              </div>
-              {showReceiptFooter && (branding?.slogan || branding?.contactPhoneNumber || branding?.socialLinks) && (
-                <div className="mt-3 border-t pt-2 text-center text-xs text-muted-foreground">
-                  {branding?.slogan && <p>{branding.slogan}</p>}
-                  {branding?.contactPhoneNumber && <p>{branding.contactPhoneNumber}</p>}
-                  {branding?.socialLinks && <p>{branding.socialLinks}</p>}
-                </div>
+              {receipt && (
+                <ReceiptPreview receipt={receipt} design={receiptDesign} categoryName={receiptCategoryName} />
               )}
               {order && receipt && (
                 <div className="mt-3 flex justify-center">
@@ -1950,6 +2521,163 @@ export default function PosOrderPage() {
               <p className="col-span-3 py-4 text-center text-sm text-muted-foreground">Boş masa yoxdur</p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* "Ofisiantı dəyiş" — supervisor code */}
+      <Dialog
+        open={supervisorCodeOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSupervisorCodeOpen(false);
+            setSupervisorCodeInput("");
+            setSupervisorCodeError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ofisiantı dəyiş</DialogTitle>
+            <DialogDescription>Bu əməliyyat üçün icazəsi olan şəxsin kodunu daxil edin.</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitSupervisorCode();
+            }}
+          >
+            {supervisorCodeError && <p className="text-sm text-destructive">{supervisorCodeError}</p>}
+            <Input
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              autoFocus
+              value={supervisorCodeInput}
+              onChange={(e) => setSupervisorCodeInput(e.target.value.replace(/\D/g, ""))}
+              placeholder="Kod"
+            />
+            {branding?.touchScreenMode === true && (
+              <TouchNumpad value={supervisorCodeInput} onChange={setSupervisorCodeInput} />
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSupervisorCodeOpen(false)} disabled={busy}>
+                Ləğv et
+              </Button>
+              <Button type="submit" disabled={busy || !supervisorCodeInput.trim()}>
+                Təsdiqlə
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* "₼" / "%" — hand-typed order discount */}
+      <Dialog open={manualDiscountKind !== null} onOpenChange={(o) => !o && setManualDiscountKind(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>{manualDiscountKind === "Percent" ? "Endirim — faiz" : "Endirim — manat"}</DialogTitle>
+            <DialogDescription>
+              {manualDiscountKind === "Percent"
+                ? "Sifarişin cəmindən neçə faiz endirim olunsun?"
+                : "Sifarişin cəmindən neçə manat endirim olunsun?"}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleManualDiscount();
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                step={manualDiscountKind === "Percent" ? "1" : "0.01"}
+                min={0}
+                autoFocus
+                value={manualDiscountInput}
+                onChange={(e) => setManualDiscountInput(e.target.value)}
+                placeholder={manualDiscountKind === "Percent" ? "10" : "0.00"}
+              />
+              <span className="text-lg font-semibold">{manualDiscountKind === "Percent" ? "%" : "₼"}</span>
+            </div>
+            {branding?.touchScreenMode === true && (
+              <TouchNumpad value={manualDiscountInput} onChange={setManualDiscountInput} allowDecimal />
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setManualDiscountKind(null)} disabled={manualDiscountBusy}>
+                Ləğv et
+              </Button>
+              <Button type="submit" disabled={manualDiscountBusy || !manualDiscountInput.trim()}>
+                Tətbiq et
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* "Qiymət" — pick one of the product's price lists */}
+      <Dialog open={priceLine !== null} onOpenChange={(o) => !o && setPriceLine(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{priceLine?.menuItemName}</DialogTitle>
+            <DialogDescription>Hansı qiymətlə satılsın?</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            {priceLine &&
+              priceOptionsFor(priceLine).map((o) => {
+                const current = Math.abs(o.value - priceLine.unitPrice) < 0.005;
+                return (
+                  <button
+                    key={o.type}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handlePickPrice(o.type)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm hover:bg-muted disabled:opacity-50",
+                      current && "border-primary bg-primary/5",
+                    )}
+                  >
+                    <span>
+                      {o.label}
+                      {current && <span className="ml-2 text-xs text-primary">(indiki)</span>}
+                    </span>
+                    <span className="font-semibold">{o.value.toFixed(2)} ₼</span>
+                  </button>
+                );
+              })}
+            {priceLine && priceOptionsFor(priceLine).length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">Bu məhsul üçün qiymət siyahısı yoxdur.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Line note (double-tap on a line) */}
+      <Dialog open={lineNoteLine !== null} onOpenChange={(o) => !o && setLineNoteLine(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{lineNoteLine?.menuItemName}</DialogTitle>
+            <DialogDescription>Məhsul üçün qeyd (məs: şəkərsiz, acısız).</DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={lineNoteInput}
+            onChange={(e) => setLineNoteInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleSaveLineNote();
+            }}
+            placeholder="Qeyd"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLineNoteLine(null)} disabled={busy}>
+              Ləğv et
+            </Button>
+            <Button onClick={() => void handleSaveLineNote()} disabled={busy}>
+              Saxla
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -2038,6 +2766,13 @@ export default function PosOrderPage() {
         </DialogContent>
       </Dialog>
 
+      <SetSelectionDialog
+        item={setDialogItem}
+        busy={busy}
+        onClose={() => setSetDialogItem(null)}
+        onConfirm={(selections) => void handleConfirmSetSelections(selections)}
+      />
+
       <Dialog open={weightDialogItem != null} onOpenChange={(o) => !o && setWeightDialogItem(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -2062,6 +2797,9 @@ export default function PosOrderPage() {
               if (e.key === "Enter") void handleConfirmWeight();
             }}
           />
+          {branding?.touchScreenMode === true && (
+            <TouchNumpad value={weightKgInput} onChange={setWeightKgInput} allowDecimal />
+          )}
           {weightDialogItem && Number(weightKgInput) > 0 && (
             <p className="text-sm text-muted-foreground">
               Cəm: {((weightDialogItem.stationPrice ?? weightDialogItem.price) * Number(weightKgInput)).toFixed(2)} ₼
@@ -2073,32 +2811,6 @@ export default function PosOrderPage() {
             </Button>
             <Button onClick={() => void handleConfirmWeight()} disabled={weightBusy || !(Number(weightKgInput) > 0)}>
               {weightDialogLineId != null ? "Yenilə" : "Əlavə et"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={discountDialogOpen} onOpenChange={setDiscountDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Endirim tətbiq et</DialogTitle>
-            <DialogDescription>Endirim kodunu daxil edin.</DialogDescription>
-          </DialogHeader>
-          <Input
-            placeholder="Endirim kodu"
-            autoFocus
-            value={discountCodeInput}
-            onChange={(e) => setDiscountCodeInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void handleApplyDiscount();
-            }}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDiscountDialogOpen(false)} disabled={discountBusy}>
-              Ləğv et
-            </Button>
-            <Button onClick={() => void handleApplyDiscount()} disabled={discountBusy || !discountCodeInput.trim()}>
-              Tətbiq et
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -191,7 +191,7 @@ export default function DeliveryIntegrationsPage() {
     { key: "integrationId" as const, label: "ID" },
     { key: "name" as const, label: "Ad" },
     { key: "providerLabel" as const, label: "Platforma" },
-    { key: "externalVenueId" as const, label: "Venue/Store ID" },
+    { key: "externalVenueId" as const, label: "Firma ID" },
     {
       key: "isActive" as const,
       label: "Status",
@@ -291,7 +291,7 @@ export default function DeliveryIntegrationsPage() {
                 </select>
               </div>
               <div>
-                <Label htmlFor="di-venue">Venue/Store ID</Label>
+                <Label htmlFor="di-venue">Firma ID (platformdakı mağaza/venue ID)</Label>
                 <Input
                   id="di-venue"
                   className="mt-1"

@@ -18,11 +18,13 @@ import {
   type OrderDto,
 } from "@/lib/services/order-service";
 import { toast } from "sonner";
+import { useCancelReason } from "@/components/cancel-reason-dialog";
 import { hasPermission, usePermissionSet } from "@/hooks/use-auth-permissions";
 import { formatCurrency } from "@/lib/format-currency";
 
 export function OrderListPage() {
   const router = useRouter();
+  const [reasonDialog, askCancelReason] = useCancelReason();
   const permissions = usePermissionSet();
   const canCreateOrder = hasPermission("Orders.Create", permissions);
   const [orders, setOrders] = useState<OrderDto[]>([]);
@@ -71,7 +73,9 @@ export function OrderListPage() {
           await serveOrder(orderId);
           toast.success("Order served");
         } else if (action === "cancel") {
-          const updated = await cancelOrder(orderId);
+          const cancel = await askCancelReason("Sifarişi ləğv et");
+          if (!cancel) return;
+          const updated = await cancelOrder(orderId, cancel);
           setOrders((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
           toast.success("Order cancelled");
         } else {
@@ -94,7 +98,7 @@ export function OrderListPage() {
         setPendingById((prev) => ({ ...prev, [orderId]: false }));
       }
     },
-    [loadOrders, orders],
+    [loadOrders, orders, askCancelReason],
   );
 
   const selectedOrder = useMemo(
@@ -146,6 +150,7 @@ export function OrderListPage() {
 
   return (
     <div className="space-y-6">
+      {reasonDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Orders</h1>

@@ -24,32 +24,56 @@ export type OrderLineDto = {
   isWeightBased: boolean;
   isGift: boolean;
   discountAmount: number;
+  /** When the line was rung up (UTC). */
+  createdAtUtc: string | null;
 };
 
 export type PaymentMethod = "Cash" | "Card" | "Credit";
 
 export type OrderReceiptLineDto = {
   menuItemName: string;
+  menuCategoryId: number | null;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
   vatAmount: number;
+  /** Gift — the backend also appends " (Hədiyyə)" to menuItemName for plain-text receipts. */
+  isGift: boolean;
+  /** Part-payment receipt: an earlier guest already paid this item — listed, but not in the total. */
+  paidEarlier: boolean;
 };
 
 export type OrderReceiptDto = {
   receiptNumber: string;
   orderNumber: string;
   restaurantName: string;
+  restaurantAddress: string | null;
   tableName: string;
+  /** Hall / section of the table. */
+  sectionName: string | null;
   waiterName: string;
   openedAt: string;
   paidAt: string | null;
+  /** When the guests left (payment time, else close time). */
+  closedAt: string | null;
   paymentMethod: string;
   lines: OrderReceiptLineDto[];
+  /** Sum of the product lines, before discount and service charge. */
   totalAmount: number;
+  discountAmount: number;
+  serviceChargeAmount: number;
+  tableRentalAmount: number;
+  /** What the customer pays. */
+  grandTotal: number;
   paidAmount: number;
   changeAmount: number;
   vatAmount: number;
+  /** Rung through the fiscal (tax) register — only then does the receipt carry VAT. */
+  isFiscal: boolean;
+  /** How the bill was settled (shown under the grand total); all 0 for an unpaid pre-check. */
+  cashPaidAmount: number;
+  cardPaidAmount: number;
+  creditPaidAmount: number;
 };
 
 export type OrderDto = {
@@ -89,6 +113,8 @@ export type OrderDto = {
   tableRentalStoppedAt: string | null;
   tableRentalAmount: number | null;
   holdUntilUtc: string | null;
+  billPrintedAt: string | null;
+  isBillLocked: boolean;
   isDelivery: boolean;
   deliveryAddress: string | null;
   deliveryPhone: string | null;
@@ -105,8 +131,17 @@ export type CreateOrderPayload = {
   note?: string | null;
   guestCount?: number | null;
   isDelivery?: boolean;
+  /** Quick take-away sale — the backend creates a dedicated virtual table, like for delivery. */
+  isTakeAway?: boolean;
   deliveryAddress?: string | null;
   deliveryPhone?: string | null;
+};
+
+/** The waiter's pick for one choice group of a SET, counted per 1 set. */
+export type SetSelectionInput = {
+  groupId: number;
+  menuItemId: number;
+  quantity: number;
 };
 
 export type AddOrderLinePayload = {
@@ -115,6 +150,7 @@ export type AddOrderLinePayload = {
   quantity: number;
   note?: string | null;
   holdMinutes?: number | null;
+  setSelections?: SetSelectionInput[];
 };
 
 export type UpdateOrderPayload = {
@@ -132,6 +168,8 @@ export type UpdateOrderLinePayload = {
   note?: string | null;
   status?: string | null;
   unitPrice?: number | null;
+  /** One of the item's own price lists (MenuItemPriceType in menu-item-service). */
+  priceType?: number | null;
   isGift?: boolean | null;
   discountAmount?: number | null;
 };
@@ -231,6 +269,7 @@ function normalizeOrder(raw: unknown): OrderDto | null {
             isWeightBased: Boolean(pick(l, "isWeightBased", "IsWeightBased") ?? false),
             isGift: Boolean(pick(l, "isGift", "IsGift") ?? false),
             discountAmount: Number(pick(l, "discountAmount", "DiscountAmount") ?? 0),
+            createdAtUtc: (pick(l, "createdAtUtc", "CreatedAtUtc") as string | null | undefined) ?? null,
           } satisfies OrderLineDto;
         })
         .filter((line): line is OrderLineDto => line !== null)
@@ -294,6 +333,8 @@ function normalizeOrder(raw: unknown): OrderDto | null {
       return v == null ? null : Number(v);
     })(),
     holdUntilUtc: (pick(o, "holdUntilUtc", "HoldUntilUtc") as string | null | undefined) ?? null,
+    billPrintedAt: (pick(o, "billPrintedAt", "BillPrintedAt") as string | null | undefined) ?? null,
+    isBillLocked: Boolean(pick(o, "isBillLocked", "IsBillLocked") ?? false),
     isDelivery: Boolean(pick(o, "isDelivery", "IsDelivery") ?? false),
     deliveryAddress: (pick(o, "deliveryAddress", "DeliveryAddress") as string | null | undefined) ?? null,
     deliveryPhone: (pick(o, "deliveryPhone", "DeliveryPhone") as string | null | undefined) ?? null,
@@ -314,10 +355,13 @@ function normalizeReceipt(raw: unknown): OrderReceiptDto | null {
     receiptNumber: String(pick(o, "receiptNumber", "ReceiptNumber") ?? ""),
     orderNumber: String(pick(o, "orderNumber", "OrderNumber") ?? ""),
     restaurantName: String(pick(o, "restaurantName", "RestaurantName") ?? ""),
+    restaurantAddress: (pick(o, "restaurantAddress", "RestaurantAddress") as string | null | undefined) ?? null,
     tableName: String(pick(o, "tableName", "TableName") ?? ""),
+    sectionName: (pick(o, "sectionName", "SectionName") as string | null | undefined) ?? null,
     waiterName: String(pick(o, "waiterName", "WaiterName") ?? ""),
     openedAt: String(pick(o, "openedAt", "OpenedAt") ?? ""),
     paidAt: (pick(o, "paidAt", "PaidAt") as string | null | undefined) ?? null,
+    closedAt: (pick(o, "closedAt", "ClosedAt") as string | null | undefined) ?? null,
     paymentMethod: String(pick(o, "paymentMethod", "PaymentMethod") ?? ""),
     lines: Array.isArray(rawLines)
       ? rawLines
@@ -326,18 +370,29 @@ function normalizeReceipt(raw: unknown): OrderReceiptDto | null {
             const l = line as Record<string, unknown>;
             return {
               menuItemName: String(pick(l, "menuItemName", "MenuItemName") ?? ""),
+              menuCategoryId: Number(pick(l, "menuCategoryId", "MenuCategoryId") ?? 0) || null,
               quantity: Number(pick(l, "quantity", "Quantity") ?? 0),
               unitPrice: Number(pick(l, "unitPrice", "UnitPrice") ?? 0),
               lineTotal: Number(pick(l, "lineTotal", "LineTotal") ?? 0),
               vatAmount: Number(pick(l, "vatAmount", "VatAmount") ?? 0),
+              isGift: Boolean(pick(l, "isGift", "IsGift") ?? false),
+              paidEarlier: Boolean(pick(l, "paidEarlier", "PaidEarlier") ?? false),
             } satisfies OrderReceiptLineDto;
           })
           .filter((x): x is OrderReceiptLineDto => x !== null)
       : [],
     totalAmount: Number(pick(o, "totalAmount", "TotalAmount") ?? 0),
+    discountAmount: Number(pick(o, "discountAmount", "DiscountAmount") ?? 0),
+    serviceChargeAmount: Number(pick(o, "serviceChargeAmount", "ServiceChargeAmount") ?? 0),
+    tableRentalAmount: Number(pick(o, "tableRentalAmount", "TableRentalAmount") ?? 0),
+    grandTotal: Number(pick(o, "grandTotal", "GrandTotal") ?? pick(o, "totalAmount", "TotalAmount") ?? 0),
     paidAmount: Number(pick(o, "paidAmount", "PaidAmount") ?? 0),
     changeAmount: Number(pick(o, "changeAmount", "ChangeAmount") ?? 0),
     vatAmount: Number(pick(o, "vatAmount", "VatAmount") ?? 0),
+    isFiscal: Boolean(pick(o, "isFiscal", "IsFiscal") ?? false),
+    cashPaidAmount: Number(pick(o, "cashPaidAmount", "CashPaidAmount") ?? 0),
+    cardPaidAmount: Number(pick(o, "cardPaidAmount", "CardPaidAmount") ?? 0),
+    creditPaidAmount: Number(pick(o, "creditPaidAmount", "CreditPaidAmount") ?? 0),
   };
 }
 
@@ -376,6 +431,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<OrderDto
       note: payload.note ?? null,
       guestCount: payload.guestCount ?? null,
       isDelivery: payload.isDelivery ?? false,
+      isTakeAway: payload.isTakeAway ?? false,
       deliveryAddress: payload.deliveryAddress ?? null,
       deliveryPhone: payload.deliveryPhone ?? null,
     });
@@ -427,6 +483,7 @@ export async function addOrderLine(payload: AddOrderLinePayload): Promise<OrderD
       quantity: payload.quantity,
       note: payload.note ?? null,
       holdMinutes: payload.holdMinutes ?? null,
+      setSelections: payload.setSelections ?? [],
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
@@ -445,6 +502,7 @@ export async function updateOrderLine(payload: UpdateOrderLinePayload): Promise<
       note: payload.note ?? null,
       status: payload.status ?? null,
       unitPrice: payload.unitPrice ?? null,
+      priceType: payload.priceType ?? null,
       isGift: payload.isGift ?? null,
       discountAmount: payload.discountAmount ?? null,
     });
@@ -471,16 +529,62 @@ export async function setOrderCounterparty(id: number, counterpartyId: number | 
   }
 }
 
-export async function printKitchenTicket(id: number, printerId: number): Promise<number> {
+export async function printKitchenTicket(id: number, printerId: number, pin?: string): Promise<number> {
   try {
     const response = await api.post<unknown>(`/Orders/${id}/print-kitchen`, null, {
-      params: { printerId },
+      params: { printerId, pin: pin || undefined },
     });
     const data = unwrapData<unknown>(response.data);
     const count = Number(data ?? response.data);
     return Number.isFinite(count) ? count : 0;
   } catch (error) {
     throw toApiFormError(error, "Failed to print kitchen ticket");
+  }
+}
+
+/** "Marş" — releases holds and prints a MARŞ ticket to every kitchen printer. Returns printers reached. */
+export async function sendMars(id: number): Promise<number> {
+  try {
+    const response = await api.post<unknown>(`/Orders/${id}/mars`);
+    const data = unwrapData<unknown>(response.data);
+    const count = Number(data ?? response.data);
+    return Number.isFinite(count) ? count : 0;
+  } catch (error) {
+    throw toApiFormError(error, "Marş göndərilmədi");
+  }
+}
+
+/** Records that the bill was printed; returns whether the order is now locked. */
+/** `final`: the last print ("Qəbz çap et") — always locks the order. The pre-check never calls this. */
+export async function markBillPrinted(id: number, final = false): Promise<boolean> {
+  try {
+    const response = await api.post<unknown>(`/Orders/${id}/bill-printed`, null, { params: { final } });
+    const data = unwrapData<unknown>(response.data);
+    return Boolean(data ?? response.data);
+  } catch (error) {
+    throw toApiFormError(error, "Hesab qeydə alınmadı");
+  }
+}
+
+/** "₼" / "%" buttons: a hand-typed order discount (no code). Returns the discount in manat. */
+export async function setManualDiscount(id: number, kind: "Amount" | "Percent", value: number): Promise<number> {
+  try {
+    // Same names as the backend's Domain.Enums.DiscountType.
+    const type = kind === "Percent" ? "Percentage" : "FixedAmount";
+    const response = await api.post<unknown>(`/Orders/${id}/manual-discount`, null, { params: { type, value } });
+    const data = unwrapData<unknown>(response.data);
+    const amount = Number(data ?? response.data);
+    return Number.isFinite(amount) ? amount : 0;
+  } catch (error) {
+    throw toApiFormError(error, "Endirim tətbiq edilmədi");
+  }
+}
+
+export async function unlockBill(id: number): Promise<void> {
+  try {
+    await api.post(`/Orders/${id}/unlock-bill`);
+  } catch (error) {
+    throw toApiFormError(error, "Hesab kilidi açılmadı");
   }
 }
 
@@ -584,9 +688,14 @@ export async function stopTableRental(orderId: number): Promise<OrderDto> {
   }
 }
 
-export async function deleteOrderLine(id: number): Promise<OrderDto> {
+/** Why an order/product was cancelled — required for products already sent to the kitchen. */
+export type CancelReason = { reason: string; note?: string };
+
+export async function deleteOrderLine(id: number, cancel?: CancelReason): Promise<OrderDto> {
   try {
-    const response = await api.delete<unknown>(`/Orders/lines/${id}`);
+    const response = await api.delete<unknown>(`/Orders/lines/${id}`, {
+      params: cancel ? { reason: cancel.reason, note: cancel.note || undefined } : undefined,
+    });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
     if (!row) throw new Error("Invalid delete line response");
@@ -599,9 +708,10 @@ export async function deleteOrderLine(id: number): Promise<OrderDto> {
 async function runWorkflow(
   id: number,
   action: "start" | "complete" | "cancel" | "submit",
+  params?: Record<string, string | undefined>,
 ): Promise<OrderDto> {
   try {
-    const response = await api.post<unknown>(`/Orders/${id}/${action}`);
+    const response = await api.post<unknown>(`/Orders/${id}/${action}`, null, { params });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
     if (!row) {
@@ -621,17 +731,19 @@ export function completeOrder(id: number): Promise<OrderDto> {
   return runWorkflow(id, "complete");
 }
 
-export function cancelOrder(id: number): Promise<OrderDto> {
-  return runWorkflow(id, "cancel");
+export function cancelOrder(id: number, cancel: CancelReason): Promise<OrderDto> {
+  return runWorkflow(id, "cancel", { reason: cancel.reason, note: cancel.note || undefined });
 }
 
 export function submitOrder(id: number): Promise<OrderDto> {
   return runWorkflow(id, "submit");
 }
 
-export async function deleteOrder(id: number): Promise<void> {
+export async function deleteOrder(id: number, cancel?: CancelReason): Promise<void> {
   try {
-    const response = await api.delete<unknown>(`/Orders/${id}`);
+    const response = await api.delete<unknown>(`/Orders/${id}`, {
+      params: cancel ? { reason: cancel.reason, note: cancel.note || undefined } : undefined,
+    });
     assertApiSuccess(response.data);
   } catch (error) {
     throw toApiFormError(error, "Failed to delete order");
@@ -652,10 +764,19 @@ export async function moveOrderTable(id: number, newTableId: number): Promise<Or
   }
 }
 
-export async function reassignOrderWaiter(id: number, newEmployeeId: number): Promise<OrderDto> {
+/**
+ * `supervisorCode` is the POS code of someone holding Pos.RedirectUser — needed when the signed-in
+ * user doesn't hold it themselves. Sent in the body, never in the URL.
+ */
+export async function reassignOrderWaiter(
+  id: number,
+  newEmployeeId: number,
+  supervisorCode?: string | null,
+): Promise<OrderDto> {
   try {
-    const response = await api.put<unknown>(`/Orders/${id}/reassign-waiter`, null, {
-      params: { newEmployeeId },
+    const response = await api.put<unknown>(`/Orders/${id}/reassign-waiter`, {
+      newEmployeeId,
+      supervisorCode: supervisorCode ?? null,
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
@@ -663,6 +784,15 @@ export async function reassignOrderWaiter(id: number, newEmployeeId: number): Pr
     return row;
   } catch (error) {
     throw toApiFormError(error, "Failed to reassign waiter");
+  }
+}
+
+/** Rejects (with the server's message) unless the code belongs to someone allowed to redirect orders. */
+export async function verifyRedirectCode(code: string): Promise<void> {
+  try {
+    await api.post<unknown>("/Orders/verify-redirect-code", { code });
+  } catch (error) {
+    throw toApiFormError(error, "Kod yanlışdır");
   }
 }
 
@@ -682,7 +812,7 @@ export function serveOrder(id: number): Promise<void> {
   })();
 }
 
-export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number; serviceChargeAmount?: number | null }): Promise<OrderDto | null> {
+export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number; isFiscal?: boolean }): Promise<OrderDto | null> {
   try {
     const response = await api.put<unknown>(`/Orders/${id}/pay`, payload);
     assertApiSuccess(response.data);
@@ -720,9 +850,155 @@ export async function removeDiscountFromOrder(id: number): Promise<OrderDto> {
   }
 }
 
-export async function getOrderReceipt(id: number): Promise<OrderReceiptDto> {
+/** `fiscal`: for a bill not yet paid (pre-check) — print it as a fiscal or ordinary receipt. Paid orders use what was stored. */
+export async function getOrderReceipt(id: number, fiscal?: boolean): Promise<OrderReceiptDto> {
   try {
-    const response = await api.get<unknown>(`/Orders/${id}/receipt`);
+    const response = await api.get<unknown>(`/Orders/${id}/receipt`, { params: fiscal === undefined ? undefined : { fiscal } });
+    assertApiSuccess(response.data);
+    const row = normalizeReceipt(unwrapData<unknown>(response.data));
+    if (!row) throw new Error("Invalid receipt response");
+    return row;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to load receipt");
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Part payments ("Hesab"): each guest pays for their own items; the order closes with the last one.
+// ---------------------------------------------------------------------------------------------
+
+export type OrderPaymentLineDto = {
+  orderLineId: number;
+  menuItemName: string;
+  quantity: number;
+  amount: number;
+};
+
+export type OrderPaymentDto = {
+  id: number;
+  method: string;
+  amount: number;
+  serviceChargeAmount: number;
+  receivedAmount: number;
+  changeAmount: number;
+  paidAtUtc: string;
+  lines: OrderPaymentLineDto[];
+};
+
+export type OrderPaymentsDto = {
+  payments: OrderPaymentDto[];
+  /** How much of each line is already paid for (the line's own unit). */
+  paidLines: { orderLineId: number; paidQuantity: number }[];
+  /** Σ of the payments' amounts, without service charge. */
+  paidAmount: number;
+  /** What is still to pay of the bill (lines − discount + table rental), without service charge. */
+  remainingAmount: number;
+  /** Share of each line's price left after the order discount (1 = none). */
+  discountFactor: number;
+};
+
+export type PartPaymentResultDto = {
+  paymentId: number;
+  amount: number;
+  changeAmount: number;
+  orderClosed: boolean;
+  remainingAmount: number;
+};
+
+export type PayOrderPartPayload = {
+  paymentMethod: PaymentMethod;
+  paidAmount: number;
+  /** Pay "by amount": settle this sum with no items attached (cash + card on one bill). */
+  amount?: number | null;
+  /** Rung through the fiscal (tax) register. */
+  isFiscal?: boolean;
+  lines: { orderLineId: number; quantity: number }[];
+};
+
+function num(raw: Record<string, unknown>, camel: string, pascal: string, fallback = 0): number {
+  const v = Number(pick<unknown>(raw, camel, pascal));
+  return Number.isFinite(v) ? v : fallback;
+}
+
+function normalizePayments(body: unknown): OrderPaymentsDto {
+  const raw = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const list = (v: unknown): Record<string, unknown>[] =>
+    Array.isArray(v) ? (v.filter((x) => x && typeof x === "object") as Record<string, unknown>[]) : [];
+  return {
+    payments: list(pick<unknown>(raw, "payments", "Payments")).map((p) => ({
+      id: num(p, "id", "Id"),
+      method: String(pick<unknown>(p, "method", "Method") ?? ""),
+      amount: num(p, "amount", "Amount"),
+      serviceChargeAmount: num(p, "serviceChargeAmount", "ServiceChargeAmount"),
+      receivedAmount: num(p, "receivedAmount", "ReceivedAmount"),
+      changeAmount: num(p, "changeAmount", "ChangeAmount"),
+      paidAtUtc: String(pick<unknown>(p, "paidAtUtc", "PaidAtUtc") ?? ""),
+      lines: list(pick<unknown>(p, "lines", "Lines")).map((l) => ({
+        orderLineId: num(l, "orderLineId", "OrderLineId"),
+        menuItemName: String(pick<unknown>(l, "menuItemName", "MenuItemName") ?? ""),
+        quantity: num(l, "quantity", "Quantity"),
+        amount: num(l, "amount", "Amount"),
+      })),
+    })),
+    paidLines: list(pick<unknown>(raw, "paidLines", "PaidLines")).map((l) => ({
+      orderLineId: num(l, "orderLineId", "OrderLineId"),
+      paidQuantity: num(l, "paidQuantity", "PaidQuantity"),
+    })),
+    paidAmount: num(raw, "paidAmount", "PaidAmount"),
+    remainingAmount: num(raw, "remainingAmount", "RemainingAmount"),
+    discountFactor: num(raw, "discountFactor", "DiscountFactor", 1),
+  };
+}
+
+export async function getOrderPayments(id: number): Promise<OrderPaymentsDto> {
+  try {
+    const response = await api.get<unknown>(`/Orders/${id}/payments`);
+    assertApiSuccess(response.data);
+    return normalizePayments(unwrapData<unknown>(response.data) ?? response.data);
+  } catch (error) {
+    throw toApiFormError(error, "Failed to load payments");
+  }
+}
+
+export async function payOrderPart(id: number, payload: PayOrderPartPayload): Promise<PartPaymentResultDto> {
+  try {
+    const response = await api.post<unknown>(`/Orders/${id}/pay-part`, {
+      paymentMethod: payload.paymentMethod,
+      paidAmount: payload.paidAmount,
+      amount: payload.amount ?? null,
+      isFiscal: payload.isFiscal ?? false,
+      lines: payload.lines,
+    });
+    assertApiSuccess(response.data);
+    const raw = (unwrapData<unknown>(response.data) ?? response.data) as Record<string, unknown>;
+    return {
+      paymentId: num(raw, "paymentId", "PaymentId"),
+      amount: num(raw, "amount", "Amount"),
+      changeAmount: num(raw, "changeAmount", "ChangeAmount"),
+      orderClosed: Boolean(pick<unknown>(raw, "orderClosed", "OrderClosed")),
+      remainingAmount: num(raw, "remainingAmount", "RemainingAmount"),
+    };
+  } catch (error) {
+    throw toApiFormError(error, "Failed to pay part of the order");
+  }
+}
+
+/** "Servis haqqı qeyd etmək": the table's service charge in manat (0 clears it). Added to the closing payment. */
+export async function setOrderServiceCharge(id: number, amount: number): Promise<number> {
+  try {
+    const response = await api.put<unknown>(`/Orders/${id}/service-charge`, null, { params: { amount } });
+    const data = unwrapData<unknown>(response.data);
+    const value = Number(data ?? response.data);
+    return Number.isFinite(value) ? value : 0;
+  } catch (error) {
+    throw toApiFormError(error, "Servis haqqı yazılmadı");
+  }
+}
+
+/** The receipt of one part payment (a single guest's share). */
+export async function getPaymentReceipt(orderId: number, paymentId: number): Promise<OrderReceiptDto> {
+  try {
+    const response = await api.get<unknown>(`/Orders/${orderId}/receipt`, { params: { paymentId } });
     assertApiSuccess(response.data);
     const row = normalizeReceipt(unwrapData<unknown>(response.data));
     if (!row) throw new Error("Invalid receipt response");

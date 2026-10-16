@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Phone, RefreshCw, Users } from "lucide-react";
+import { Phone, Plus, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
+import { NewReservationDialog } from "@/components/pos/new-reservation-dialog";
 import {
   getReservations,
   changeReservationStatus,
@@ -63,6 +64,8 @@ export default function PosReservationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const canCancel = useHasPermission("Reservation.Cancel");
+  const canCreate = useHasPermission("Reservation.Create");
+  const [newOpen, setNewOpen] = useState(false);
 
   useEffect(() => {
     setTerminal(getPosTerminalContext());
@@ -110,10 +113,27 @@ export default function PosReservationsPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">Bugünkü rezervasiyalar</h1>
-        <Button variant="outline" size="sm" onClick={() => void load()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {canCreate && terminal?.restaurantId && (
+            <Button size="sm" onClick={() => setNewOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              Yeni rezervasiya
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+
+      {terminal?.restaurantId && (
+        <NewReservationDialog
+          open={newOpen}
+          onOpenChange={setNewOpen}
+          restaurantId={terminal.restaurantId}
+          onCreated={() => void load()}
+        />
+      )}
 
       {error && (
         <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">

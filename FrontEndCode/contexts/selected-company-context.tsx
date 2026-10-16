@@ -12,6 +12,8 @@ import {
 import { getCompanies, type Company } from "@/lib/services/company-service";
 import type { SelectedCompanyScope } from "@/lib/company-scope-utils";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
+import { getStoredToken } from "@/lib/auth-client";
+import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
 
 const STORAGE_KEY = "dashboardSelectedCompanyId";
 
@@ -52,6 +54,11 @@ export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!canViewCompanies) {
+      // A tenant user can't list companies — their "company list" is just their own company from
+      // the token. Pages that load per company (departments, positions, stock, …) then work for
+      // them too instead of seeing an empty list or a spinner that never stops.
+      const ownId = getCompanyIdFromToken(getStoredToken());
+      setCompanies(ownId ? [{ id: ownId, name: "Şirkətim", companyCode: "" } as Company] : []);
       setCompaniesLoading(false);
       return;
     }

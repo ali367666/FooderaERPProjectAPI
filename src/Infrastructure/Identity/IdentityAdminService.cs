@@ -13,6 +13,9 @@ namespace Infrastructure.Identity;
 
 public class IdentityAdminService : IIdentityAdminService
 {
+    private static readonly string StaffCodeLengthMessage =
+        $"Code must be {StaffCodeRules.MinLength} to {StaffCodeRules.MaxLength} digits.";
+
     /// <summary>Permissions reserved for the platform SuperAdmin — never visible/assignable to a tenant.</summary>
     private static readonly string[] PlatformOnlyPermissions =
     [
@@ -47,6 +50,41 @@ public class IdentityAdminService : IIdentityAdminService
 
     private bool IsSuperAdmin => _currentUserService.IsSuperAdmin;
 
+    private static readonly string SuperAdminNormalizedName = AppRoles.SuperAdmin.ToUpperInvariant();
+
+    /// <summary>Users holding the global (CompanyId = null) SuperAdmin role.</summary>
+    private IQueryable<int> PlatformSuperAdminUserIds =>
+        from ur in _db.UserRoles
+        join r in _db.Roles on ur.RoleId equals r.Id
+        where r.CompanyId == null && r.NormalizedName == SuperAdminNormalizedName
+        select ur.UserId;
+
+    private static readonly string CompanySuperAdminNormalizedName = AppRoles.CompanySuperAdmin.ToUpperInvariant();
+
+    /// <summary>Users holding a global role: the platform SuperAdmin or a company's own SuperAdmin.</summary>
+    private IQueryable<int> ProtectedUserIds =>
+        from ur in _db.UserRoles
+        join r in _db.Roles on ur.RoleId equals r.Id
+        where r.CompanyId == null
+            && (r.NormalizedName == SuperAdminNormalizedName || r.NormalizedName == CompanySuperAdminNormalizedName)
+        select ur.UserId;
+
+    /// <summary>The only global role the platform SuperAdmin may hand out from the Users screen.</summary>
+    private bool IsAssignableGlobalRole(AppRole r) =>
+        IsSuperAdmin && r.CompanyId == null && r.NormalizedName == CompanySuperAdminNormalizedName;
+
+    /// <summary>
+    /// The platform SuperAdmin (seeded into a regular company) and each company's own SuperAdmin
+    /// can only be edited, deleted or have their roles changed by the platform SuperAdmin — never
+    /// by anyone inside the company, the company SuperAdmin included.
+    /// </summary>
+    private async Task<bool> CanManageUserAsync(User user, CancellationToken cancellationToken)
+    {
+        if (!_currentUserService.CanAccessCompany(user.CompanyId)) return false;
+        if (IsSuperAdmin) return true;
+        return !await ProtectedUserIds.AnyAsync(id => id == user.Id, cancellationToken);
+    }
+
     private async Task<int> AddUserToRoleAsync(User user, AppRole role, CancellationToken cancellationToken)
     {
         var exists = await _db.UserRoles.AnyAsync(
@@ -79,8 +117,11 @@ public class IdentityAdminService : IIdentityAdminService
     public async Task<List<UserListItemDto>> GetUsersAsync(int? companyIdFilter, CancellationToken cancellationToken = default)
     {
         var q = _db.Users.AsNoTracking().Include(u => u.Company).Include(u => u.Restaurant).Include(u => u.Warehouse).AsQueryable();
-        if (companyIdFilter is > 0)
-            q = q.Where(u => u.CompanyId == companyIdFilter);
+        var effectiveCompanyId = IsSuperAdmin ? companyIdFilter : _currentUserService.CompanyId;
+        if (effectiveCompanyId is > 0)
+            q = q.Where(u => u.CompanyId == effectiveCompanyId);
+        if (!IsSuperAdmin)
+            q = q.Where(u => !PlatformSuperAdminUserIds.Contains(u.Id));
 
         var users = await q.OrderBy(u => u.Id).ToListAsync(cancellationToken);
         var result = new List<UserListItemDto>();
@@ -130,7 +171,7 @@ public class IdentityAdminService : IIdentityAdminService
         if (u is null) return null;
 
         var trackUser = await _userManager.FindByIdAsync(id.ToString());
-        if (trackUser is null) return null;
+        if (trackUser is null || !await CanManageUserAsync(trackUser, cancellationToken)) return null;
         var roles = (await _userManager.GetRolesAsync(trackUser)).ToList();
         var emp = await _db.Employees.AsNoTracking()
             .FirstOrDefaultAsync(e => e.UserId == u.Id, cancellationToken);
@@ -163,38 +204,39 @@ public class IdentityAdminService : IIdentityAdminService
         CreateUserAdminRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.CompanyId = _currentUserService.ResolveCompanyId(request.CompanyId);
         if (!await _companyRepository.ExistsAsync(request.CompanyId, cancellationToken))
             return (false, null, "Company was not found.", null);
 
-        var email = request.Email.Trim();
+        // Company staff are identified by username + numeric code only; full name and email are
+        // optional (the display name falls back to the linked employee or the username).
+        var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
         var userName = request.UserName.Trim();
-        var fullName = request.FullName.Trim();
-        if (string.IsNullOrEmpty(fullName))
-            return (false, null, "Full name is required.",
-                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["FullName"] = new[] { "Full name is required." } });
+        var fullName = request.FullName?.Trim();
         if (string.IsNullOrEmpty(userName))
             return (false, null, "Username is required.",
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["UserName"] = new[] { "Username is required." } });
-        if (string.IsNullOrEmpty(email))
-            return (false, null, "Email is required.",
-                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Email"] = new[] { "Email is required." } });
-        if (string.IsNullOrEmpty(request.Password))
-            return (false, null, "Password is required.",
-                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Password"] = new[] { "Password is required." } });
 
-        if (await _userManager.FindByEmailAsync(email) is not null)
+        if (email is not null && await _userManager.FindByEmailAsync(email) is not null)
             return (false, null, "This email is already in use.",
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Email"] = new[] { "This email is already in use." } });
         if (await _userManager.FindByNameAsync(userName) is not null)
             return (false, null, "This username is already in use.",
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["UserName"] = new[] { "This username is already in use." } });
 
+        if (request.CanAccessAdminPanel && request.CanAccessFrontOffice)
+            return (false, null, "İstifadəçi ya POS-a, ya admin panelə giriş ala bilər — ikisi birlikdə yox.", null);
+
         var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
+        // The code is the staff member's only secret: as-is on the POS, Code + MMdd for the admin panel.
+        if (code is null && (request.CanAccessAdminPanel || request.CanAccessFrontOffice))
+            return (false, null, "Kod tələb olunur.",
+                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Kod tələb olunur." } });
         if (code is not null)
         {
-            if (code.Length != 4 || !code.All(char.IsDigit))
-                return (false, null, "Code must be exactly 4 digits.",
-                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be exactly 4 digits." } });
+            if (code.Length is < StaffCodeRules.MinLength or > StaffCodeRules.MaxLength || !code.All(char.IsDigit))
+                return (false, null, StaffCodeLengthMessage,
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { StaffCodeLengthMessage } });
 
             var codeTaken = await _db.Users.AsNoTracking()
                 .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code, cancellationToken);
@@ -236,6 +278,9 @@ public class IdentityAdminService : IIdentityAdminService
                 return (false, null, "Warehouse was not found for this company.", null);
         }
 
+        if (string.IsNullOrEmpty(fullName))
+            fullName = employee is not null ? $"{employee.FirstName} {employee.LastName}".Trim() : userName;
+
         var user = new User
         {
             UserName = userName,
@@ -254,7 +299,9 @@ public class IdentityAdminService : IIdentityAdminService
             CanAccessFrontOffice = request.CanAccessFrontOffice
         };
 
-        var res = await _userManager.CreateAsync(user, request.Password);
+        var res = string.IsNullOrEmpty(request.Password)
+            ? await _userManager.CreateAsync(user)
+            : await _userManager.CreateAsync(user, request.Password);
         if (!res.Succeeded)
         {
             var fe = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
@@ -276,9 +323,10 @@ public class IdentityAdminService : IIdentityAdminService
 
         if (request.RoleIds is { Count: > 0 })
         {
-            var roles = await _roleManager.Roles
-                .Where(r => request.RoleIds.Contains(r.Id) && r.CompanyId == user.CompanyId)
-                .ToListAsync(cancellationToken);
+            var roles = (await _roleManager.Roles
+                    .Where(r => request.RoleIds.Contains(r.Id) && (r.CompanyId == user.CompanyId || r.CompanyId == null))
+                    .ToListAsync(cancellationToken))
+                .Where(r => r.CompanyId == user.CompanyId || IsAssignableGlobalRole(r));
             foreach (var role in roles)
                 await AddUserToRoleAsync(user, role, cancellationToken);
         }
@@ -291,23 +339,31 @@ public class IdentityAdminService : IIdentityAdminService
         UpdateUserAdminRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.CompanyId = _currentUserService.ResolveCompanyId(request.CompanyId);
         if (!await _companyRepository.ExistsAsync(request.CompanyId, cancellationToken))
             return (false, "Company was not found.", null);
 
         var user = await _userManager.FindByIdAsync(id.ToString());
-        if (user is null) return (false, "User was not found.", null);
+        if (user is null || !await CanManageUserAsync(user, cancellationToken)) return (false, "User was not found.", null);
 
-        var email = request.Email.Trim();
+        // Empty full name / email keep the current values — the staff form no longer sends them,
+        // and the SuperAdmin accounts edited through the same screen must not lose theirs.
+        var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
         var userName = request.UserName.Trim();
-        var fullName = request.FullName.Trim();
+        if (string.IsNullOrEmpty(userName))
+            return (false, "Username is required.",
+                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["UserName"] = new[] { "Username is required." } });
+        var fullName = request.FullName?.Trim();
         if (string.IsNullOrEmpty(fullName))
-            return (false, "Full name is required.",
-                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["FullName"] = new[] { "Full name is required." } });
+            fullName = user.FullName == user.UserName || string.IsNullOrEmpty(user.FullName) ? userName : user.FullName;
 
-        var byEmail = await _userManager.FindByEmailAsync(email);
-        if (byEmail is not null && byEmail.Id != id)
-            return (false, "This email is already in use by another user.",
-                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Email"] = new[] { "This email is already in use." } });
+        if (email is not null)
+        {
+            var byEmail = await _userManager.FindByEmailAsync(email);
+            if (byEmail is not null && byEmail.Id != id)
+                return (false, "This email is already in use by another user.",
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Email"] = new[] { "This email is already in use." } });
+        }
         var byName = await _userManager.FindByNameAsync(userName);
         if (byName is not null && byName.Id != id)
             return (false, "This username is already in use by another user.",
@@ -316,9 +372,9 @@ public class IdentityAdminService : IIdentityAdminService
         var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
         if (code is not null)
         {
-            if (code.Length != 4 || !code.All(char.IsDigit))
-                return (false, "Code must be exactly 4 digits.",
-                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Code must be exactly 4 digits." } });
+            if (code.Length is < StaffCodeRules.MinLength or > StaffCodeRules.MaxLength || !code.All(char.IsDigit))
+                return (false, StaffCodeLengthMessage,
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { StaffCodeLengthMessage } });
 
             var codeTaken = await _db.Users.AsNoTracking()
                 .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code && x.Id != id, cancellationToken);
@@ -353,6 +409,14 @@ public class IdentityAdminService : IIdentityAdminService
         user.CompanyId = request.CompanyId;
         user.Code = code;
         user.RfidCardId = string.IsNullOrWhiteSpace(request.RfidCardId) ? null : request.RfidCardId.Trim();
+        // Company staff sign in with their code; the SuperAdmin accounts keep their real password.
+        var isProtectedAccount = await ProtectedUserIds.AnyAsync(x => x == user.Id, cancellationToken);
+        if (!isProtectedAccount && request.CanAccessAdminPanel && request.CanAccessFrontOffice)
+            return (false, "İstifadəçi ya POS-a, ya admin panelə giriş ala bilər — ikisi birlikdə yox.", null);
+        if (!isProtectedAccount && code is null && (request.CanAccessAdminPanel || request.CanAccessFrontOffice))
+            return (false, "Kod tələb olunur.",
+                new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Kod tələb olunur." } });
+
         user.CanAccessAdminPanel = request.CanAccessAdminPanel;
         user.CanAccessFrontOffice = request.CanAccessFrontOffice;
         user.WorkplaceType = request.WorkplaceType;
@@ -362,9 +426,12 @@ public class IdentityAdminService : IIdentityAdminService
         var unRes = await _userManager.SetUserNameAsync(user, userName);
         if (!unRes.Succeeded)
             return (false, string.Join(" ", unRes.Errors.Select(x => x.Description)), null);
-        var emRes = await _userManager.SetEmailAsync(user, email);
-        if (!emRes.Succeeded)
-            return (false, string.Join(" ", emRes.Errors.Select(x => x.Description)), null);
+        if (email is not null && !string.Equals(email, user.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            var emRes = await _userManager.SetEmailAsync(user, email);
+            if (!emRes.Succeeded)
+                return (false, string.Join(" ", emRes.Errors.Select(x => x.Description)), null);
+        }
 
         var updateRes = await _userManager.UpdateAsync(user);
         if (!updateRes.Succeeded)
@@ -426,13 +493,25 @@ public class IdentityAdminService : IIdentityAdminService
         {
             // Diffed by RoleId (not name) — role names are only unique within a company, so a
             // name-based diff could pick up or drop another tenant's same-named role by mistake.
-            var currentRoleIds = await _db.UserRoles
-                .Where(ur => ur.UserId == user.Id)
-                .Select(ur => ur.RoleId)
+            // Only the user's company roles are edited here. Global roles (CompanyId = null, i.e. the
+            // platform SuperAdmin) can never be in the target list, so diffing against them would
+            // silently strip them on every save.
+            // The platform SuperAdmin may additionally grant/revoke the company SuperAdmin role here.
+            var currentRoles = await (
+                    from ur in _db.UserRoles
+                    join r in _db.Roles on ur.RoleId equals r.Id
+                    where ur.UserId == user.Id && (r.CompanyId == user.CompanyId || r.CompanyId == null)
+                    select r)
                 .ToListAsync(cancellationToken);
-            var targetRoles = await _roleManager.Roles
-                .Where(r => request.RoleIds.Contains(r.Id) && r.CompanyId == user.CompanyId)
-                .ToListAsync(cancellationToken);
+            var currentRoleIds = currentRoles
+                .Where(r => r.CompanyId == user.CompanyId || IsAssignableGlobalRole(r))
+                .Select(r => r.Id)
+                .ToList();
+            var targetRoles = (await _roleManager.Roles
+                    .Where(r => request.RoleIds.Contains(r.Id) && (r.CompanyId == user.CompanyId || r.CompanyId == null))
+                    .ToListAsync(cancellationToken))
+                .Where(r => r.CompanyId == user.CompanyId || IsAssignableGlobalRole(r))
+                .ToList();
             var targetRoleIds = targetRoles.Select(r => r.Id).ToList();
 
             var toRemoveIds = currentRoleIds.Except(targetRoleIds).ToList();
@@ -458,7 +537,7 @@ public class IdentityAdminService : IIdentityAdminService
     public async Task<(bool Ok, string? Error)> DeleteUserAsync(int id, CancellationToken cancellationToken = default)
     {
         var user = await _userManager.FindByIdAsync(id.ToString());
-        if (user is null) return (false, "User was not found.");
+        if (user is null || !await CanManageUserAsync(user, cancellationToken)) return (false, "User was not found.");
         var emps = await _db.Employees.Where(e => e.UserId == id).ToListAsync(cancellationToken);
         foreach (var e in emps)
         {
@@ -483,9 +562,15 @@ public class IdentityAdminService : IIdentityAdminService
             ? companyId.Value
             : _currentUserService.CompanyId;
 
+        // The platform SuperAdmin also sees the shared CompanySuperAdmin template, so they can set
+        // its permissions (the ceiling for every company) and assign it from the Users screen.
+        var includeCompanySuperAdmin = _currentUserService.IsSuperAdmin;
+
         return await _roleManager.Roles.AsNoTracking()
-            .Where(r => r.CompanyId == effectiveCompanyId)
-            .OrderBy(r => r.Id)
+            .Where(r => r.CompanyId == effectiveCompanyId
+                || (includeCompanySuperAdmin && r.CompanyId == null && r.NormalizedName == CompanySuperAdminNormalizedName))
+            .OrderBy(r => r.CompanyId != null)
+            .ThenBy(r => r.Id)
             .Select(r => new RoleListItemDto
             {
                 Id = r.Id,
@@ -530,7 +615,8 @@ public class IdentityAdminService : IIdentityAdminService
     /// falsely grant themselves the platform-wide bypass the moment they're assigned to it.
     /// </summary>
     private static bool IsReservedRoleName(string normalizedName) =>
-        normalizedName == AppRoles.SuperAdmin.ToUpperInvariant();
+        normalizedName == AppRoles.SuperAdmin.ToUpperInvariant()
+        || normalizedName == AppRoles.CompanySuperAdmin.ToUpperInvariant();
 
     public async Task<(bool Ok, int? RoleId, string? Error)> CreateRoleAsync(CreateRoleRequest request, CancellationToken cancellationToken = default)
     {
@@ -567,6 +653,15 @@ public class IdentityAdminService : IIdentityAdminService
         if (r is null) return (false, "Role was not found.");
         var newName = request.Name.Trim();
         var newNormalized = newName.ToUpperInvariant();
+        if (r.CompanyId == null)
+        {
+            // Global roles keep their name — code and tokens identify them by it.
+            if (newNormalized != r.NormalizedName)
+                return (false, "Bu sistem rolunun adı dəyişdirilə bilməz.");
+            r.RequiresRotatingPin = request.RequiresRotatingPin;
+            await _db.SaveChangesAsync(cancellationToken);
+            return (true, null);
+        }
         if (IsReservedRoleName(newNormalized))
             return (false, "This role name is reserved.");
         var companyId = _currentUserService.CompanyId;
@@ -585,6 +680,8 @@ public class IdentityAdminService : IIdentityAdminService
     {
         var r = await FindOwnedRoleAsync(id, cancellationToken);
         if (r is null) return (false, "Role was not found.");
+        if (r.CompanyId == null)
+            return (false, "Sistem rolu silinə bilməz.");
         if (string.Equals(r.Name, AppRoles.Admin, StringComparison.OrdinalIgnoreCase))
             return (false, "The system administrator role cannot be deleted.");
         var res = await _roleManager.DeleteAsync(r);
@@ -594,11 +691,10 @@ public class IdentityAdminService : IIdentityAdminService
 
     public async Task<List<PermissionDto>> GetPermissionsAsync(CancellationToken cancellationToken = default)
     {
-        var query = _db.Permissions.AsNoTracking();
-        if (!IsSuperAdmin)
-            query = query.Where(x => !PlatformOnlyPermissions.Contains(x.Name));
+        var hidden = await GetHiddenPermissionPredicateAsync(cancellationToken);
 
-        return await query
+        var permissions = await _db.Permissions
+            .AsNoTracking()
             .OrderBy(x => x.Module)
             .ThenBy(x => x.Action)
             .Select(x => new PermissionDto
@@ -610,6 +706,73 @@ public class IdentityAdminService : IIdentityAdminService
                 Action = x.Action
             })
             .ToListAsync(cancellationToken);
+
+        return permissions.Where(x => !hidden(x.Name)).ToList();
+    }
+
+    private static readonly HashSet<string> KnownPermissions = typeof(AppPermissions)
+        .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+        .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+        .Select(f => (string)f.GetRawConstantValue()!)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Which permissions the role editor must not offer: leftovers of removed modules (e.g. BscInvoice)
+    /// for everyone; for a tenant also platform-only permissions and those of modules the company
+    /// doesn't use — a store (Mağaza) sees no tables/kitchen/reservations, a company without the
+    /// warehouse module sees no stock permissions, and so on. The SuperAdmin sees everything that exists.
+    /// </summary>
+    private async Task<Func<string, bool>> GetHiddenPermissionPredicateAsync(CancellationToken cancellationToken)
+    {
+        if (IsSuperAdmin)
+            return name => !KnownPermissions.Contains(name);
+
+        var s = await _db.CompanySettings.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CompanyId == _currentUserService.CompanyId, cancellationToken);
+
+        // No settings row yet = defaults (restaurant, core modules on).
+        var isStore = s?.ModuleDataSecimi == true;
+        var anbar = s?.ModuleAnbar ?? true;
+        var rezervasyon = s?.ModuleRezervasyon ?? true;
+        var masaBolge = s?.ModuleMasaBolge ?? true;
+        var filial = s?.ModuleFilial ?? true;
+        var delivery = s is not null && (s.IntegrationWolt || s.IntegrationBolt || s.Integration189Delivery);
+
+        return name =>
+        {
+            if (!KnownPermissions.Contains(name) || PlatformOnlyPermissions.Contains(name))
+                return true;
+
+            // Nobody can hand out a permission they don't hold themselves. Their own permissions
+            // are already capped by the CompanySuperAdmin template when the token is issued.
+            if (!_currentUserService.HasPermission(name))
+                return true;
+
+            var group = name.Split('.')[0];
+
+            if (isStore && (group is "RestaurantTable" or "RestaurantSection" or "Kitchen" or "Reservation"
+                    || name is AppPermissions.OrdersServe or AppPermissions.PosMoveTable
+                        or AppPermissions.PosTableServiceCharge or AppPermissions.PosRedirectUser))
+                return true;
+
+            if (!anbar && (group is "Warehouse" or "WarehouseStock" or "StockItem" or "StockCategory"
+                    or "StockRequest" or "StockPurchase" || name == AppPermissions.PosWarehouseAmountChange))
+                return true;
+
+            if (!rezervasyon && group == "Reservation")
+                return true;
+
+            if (!masaBolge && group == "RestaurantSection")
+                return true;
+
+            if (!filial && name is AppPermissions.RestaurantCreate or AppPermissions.RestaurantDelete)
+                return true;
+
+            if (!delivery && group == "DeliveryIntegration")
+                return true;
+
+            return false;
+        };
     }
 
     public async Task<List<int>> GetRolePermissionIdsAsync(int roleId, CancellationToken cancellationToken = default)
@@ -657,6 +820,21 @@ public class IdentityAdminService : IIdentityAdminService
         var existing = await _db.RolePermissions
             .Where(x => x.RoleId == roleId)
             .ToListAsync(cancellationToken);
+
+        // The page only shows permissions that fit the company's business type and modules. The
+        // ones it can't show are kept exactly as they were, so switching a module off and on again
+        // doesn't strip roles of what they had — and nothing hidden can be granted through here.
+        var hidden = await GetHiddenPermissionPredicateAsync(cancellationToken);
+        var nameById = await _db.Permissions.AsNoTracking()
+            .ToDictionaryAsync(x => x.Id, x => x.Name, cancellationToken);
+        var keptHidden = existing
+            .Where(x => nameById.TryGetValue(x.PermissionId, out var n) && hidden(n))
+            .Select(x => x.PermissionId);
+        distinctIds = distinctIds
+            .Where(id => !hidden(nameById[id]))
+            .Concat(keptHidden)
+            .Distinct()
+            .ToList();
 
         _db.RolePermissions.RemoveRange(existing);
         foreach (var permissionId in distinctIds)
@@ -719,7 +897,7 @@ public class IdentityAdminService : IIdentityAdminService
                      select new { u, role };
 
         if (!IsSuperAdmin)
-            query = query.Where(x => x.u.CompanyId == companyId);
+            query = query.Where(x => x.u.CompanyId == companyId && !PlatformSuperAdminUserIds.Contains(x.u.Id));
 
         return await query
             .OrderBy(x => x.u.Id).ThenBy(x => x.role.Name)
@@ -741,7 +919,7 @@ public class IdentityAdminService : IIdentityAdminService
         if (user is null) return (false, "User was not found.");
         var role = await FindOwnedRoleAsync(request.RoleId, cancellationToken);
         if (role is null) return (false, "Role was not found.");
-        if (user.CompanyId != _currentUserService.CompanyId) return (false, "User was not found.");
+        if (user.CompanyId != _currentUserService.CompanyId || !await CanManageUserAsync(user, cancellationToken)) return (false, "User was not found.");
         var alreadyAssigned = await _db.UserRoles.AnyAsync(
             ur => ur.UserId == user.Id && ur.RoleId == role.Id, cancellationToken);
         if (alreadyAssigned) return (false, "The user already has this role.");
@@ -755,7 +933,7 @@ public class IdentityAdminService : IIdentityAdminService
         if (user is null) return (false, "User was not found.");
         var role = await FindOwnedRoleAsync(request.RoleId, cancellationToken);
         if (role is null) return (false, "Role was not found.");
-        if (user.CompanyId != _currentUserService.CompanyId) return (false, "User was not found.");
+        if (user.CompanyId != _currentUserService.CompanyId || !await CanManageUserAsync(user, cancellationToken)) return (false, "User was not found.");
         await RemoveUserFromRoleAsync(user, role, cancellationToken);
         return (true, null);
     }
@@ -792,5 +970,54 @@ public class IdentityAdminService : IIdentityAdminService
 
             await SyncRolePermissionClaimsAsync(clone, cancellationToken);
         }
+    }
+
+    public async Task<string?> ValidateCompanySuperAdminAsync(
+        string userName, string email, string password, CancellationToken cancellationToken = default)
+    {
+        if (await _userManager.FindByEmailAsync(email.Trim()) is not null)
+            return "Bu email ilə istifadəçi artıq mövcuddur.";
+        if (await _userManager.FindByNameAsync(userName.Trim()) is not null)
+            return "Bu istifadəçi adı artıq mövcuddur.";
+
+        var probe = new User { UserName = userName.Trim(), Email = email.Trim() };
+        foreach (var validator in _userManager.PasswordValidators)
+        {
+            var result = await validator.ValidateAsync(_userManager, probe, password);
+            if (!result.Succeeded)
+                return string.Join(" ", result.Errors.Select(x => x.Description));
+        }
+
+        return null;
+    }
+
+    public async Task<(bool Ok, string? Error)> CreateCompanySuperAdminAsync(
+        int companyId, string fullName, string userName, string email, string password,
+        CancellationToken cancellationToken = default)
+    {
+        var role = await _roleManager.Roles.FirstOrDefaultAsync(
+            r => r.CompanyId == null && r.NormalizedName == CompanySuperAdminNormalizedName, cancellationToken);
+        if (role is null)
+            return (false, "CompanySuperAdmin rolu tapılmadı.");
+
+        var user = new User
+        {
+            FullName = fullName.Trim(),
+            UserName = userName.Trim(),
+            Email = email.Trim(),
+            EmailConfirmed = true,
+            IsActive = true,
+            CompanyId = companyId,
+            WorkplaceType = EmployeeWorkplaceType.HeadOffice,
+            CanAccessAdminPanel = true,
+            CanAccessFrontOffice = false
+        };
+
+        var res = await _userManager.CreateAsync(user, password);
+        if (!res.Succeeded)
+            return (false, string.Join(" ", res.Errors.Select(x => x.Description)));
+
+        await AddUserToRoleAsync(user, role, cancellationToken);
+        return (true, null);
     }
 }
