@@ -56,6 +56,31 @@ public class ReservationRepository : IReservationRepository
             .FirstOrDefault();
     }
 
+    public async Task<Reservation?> FindOverlappingAsync(
+        int companyId, int tableId, DateTime start, int durationMinutes, int? excludeReservationId, CancellationToken ct)
+    {
+        var end = start.AddMinutes(durationMinutes);
+        var from = start.Date.AddDays(-1);
+        var to = start.Date.AddDays(1);
+
+        var candidates = await _context.Reservations
+            .AsNoTracking()
+            .Where(r => r.CompanyId == companyId
+                && r.TableId == tableId
+                && r.Id != excludeReservationId
+                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
+                && r.ReservationDate >= from
+                && r.ReservationDate <= to)
+            .ToListAsync(ct);
+
+        return candidates
+            .Select(r => new { Reservation = r, Start = r.ReservationDate.Date + r.ReservationTime })
+            .Where(x => x.Start < end && start < x.Start.AddMinutes(x.Reservation.DurationMinutes))
+            .OrderBy(x => x.Start)
+            .Select(x => x.Reservation)
+            .FirstOrDefault();
+    }
+
     public async Task AddAsync(Reservation reservation, CancellationToken ct)
         => await _context.Reservations.AddAsync(reservation, ct);
 

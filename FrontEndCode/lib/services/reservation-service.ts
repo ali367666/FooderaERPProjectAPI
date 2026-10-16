@@ -78,6 +78,26 @@ export async function changeReservationStatus(
   }
 }
 
+/** Holds the table longer: adds minutes to the reservation's duration. */
+export async function extendReservation(id: number, minutes: number): Promise<ReservationDto> {
+  try {
+    const res = await api.post<ReservationDto>(`/Reservations/${id}/extend`, null, { params: { minutes } });
+    return res.data;
+  } catch (e) {
+    throw toApiFormError(e, "Rezervasiyanın müddəti artırılmadı");
+  }
+}
+
+/** Moves the reservation to another table of the same branch. */
+export async function moveReservation(id: number, tableId: number): Promise<ReservationDto> {
+  try {
+    const res = await api.post<ReservationDto>(`/Reservations/${id}/move`, null, { params: { tableId } });
+    return res.data;
+  } catch (e) {
+    throw toApiFormError(e, "Rezervasiya başqa masaya keçirilmədi");
+  }
+}
+
 export async function deleteReservation(id: number): Promise<void> {
   try {
     await api.delete(`/Reservations/${id}`);
