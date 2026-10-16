@@ -2,6 +2,7 @@
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.Employees.Dtos;
+using Domain.Constants;
 using MediatR;
 
 namespace Application.Employees.Queries.GetAll;
@@ -31,6 +32,33 @@ public class GetAllEmployeesQueryHandler
             : _currentUserService.CompanyId;
 
         var employees = await _employeeRepository.GetAllAsync(companyId, cancellationToken);
+
+        // Staff without Employee.View (POS waiters) only get what the POS pickers need: no contact
+        // details, hire/termination data or addresses, and only active employees.
+        if (!_currentUserService.HasPermission(AppPermissions.EmployeeView))
+        {
+            var lookup = employees
+                .Where(employee => employee.IsActive)
+                .Select(employee => new EmployeeResponse
+                {
+                    Id = employee.Id,
+                    FullName = $"{employee.FirstName} {employee.LastName}".Trim(),
+                    FirstName = employee.FirstName,
+                    LastName = employee.LastName,
+                    IsActive = employee.IsActive,
+                    PositionId = employee.PositionId,
+                    PositionName = employee.Position?.Name ?? string.Empty,
+                    RestaurantId = employee.RestaurantId,
+                    UserId = employee.UserId
+                }).ToList();
+
+            return new BaseResponse<List<EmployeeResponse>>
+            {
+                Success = true,
+                Message = "Employees retrieved successfully.",
+                Data = lookup
+            };
+        }
 
         var response = employees.Select(employee => new EmployeeResponse
         {
