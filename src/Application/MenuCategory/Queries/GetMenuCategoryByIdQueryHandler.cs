@@ -39,6 +39,7 @@ public class GetMenuCategoryByIdQueryHandler
             Description = entity.Description,
             ImageUrl = entity.ImageUrl,
             IsActive = entity.IsActive,
+            IsSetCategory = entity.IsSetCategory,
             ParentCategoryId = entity.ParentCategoryId,
             ParentCategoryName = entity.ParentCategory?.Name
         };

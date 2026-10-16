@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Clock, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, CalendarCheck, CalendarPlus, Clock, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ import {
   getOrderPayments,
   getPaymentReceipt,
   type OrderPaymentsDto,
+  type SetSelectionInput,
   setOrderDeliveryDriver,
   setOrderCounterparty,
   printKitchenTicket,
@@ -76,6 +77,14 @@ import { setFiscalMode, useFiscalMode } from "@/lib/pos-fiscal-mode";
 import { CustomerReceiptsDialog } from "@/components/pos/customer-receipts-dialog";
 import { PayDialog } from "@/components/pos/pay-dialog";
 import { SplitBillDialog } from "@/components/pos/split-bill-dialog";
+import { NewReservationDialog } from "@/components/pos/new-reservation-dialog";
+import { SetSelectionDialog } from "@/components/pos/set-selection-dialog";
+import { localIsoDate } from "@/lib/reservation-rules";
+import {
+  changeReservationStatus,
+  getReservations,
+  type ReservationDto,
+} from "@/lib/services/reservation-service";
 import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getStoredAuthUser } from "@/lib/auth-client";
@@ -135,6 +144,7 @@ export default function PosOrderPage() {
   const [activeSubCategoryId, setActiveSubCategoryId] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState("");
   const [weightDialogItem, setWeightDialogItem] = useState<MenuItem | null>(null);
+  const [setDialogItem, setSetDialogItem] = useState<MenuItem | null>(null);
   const [weightDialogLineId, setWeightDialogLineId] = useState<number | null>(null);
   const [weightKgInput, setWeightKgInput] = useState("");
   const [weightBusy, setWeightBusy] = useState(false);
@@ -201,6 +211,48 @@ export default function PosOrderPage() {
   const canMoveTable = useHasPermission("Pos.MoveTable");
   const canChangeWaiter = useHasPermission("Pos.ChangeWaiter");
   const canPay = useHasPermission("Orders.Pay");
+  const canReserve = useHasPermission("Reservation.Create");
+  const canViewReservations = useHasPermission("Reservation.View");
+  const canConfirmReservation = useHasPermission("Reservation.Confirm");
+  const [reserveOpen, setReserveOpen] = useState(false);
+  // The pending/confirmed reservation held on this order's table — the guest sat down, so it can be completed here.
+  const [tableReservation, setTableReservation] = useState<ReservationDto | null>(null);
+  const [reservationBusy, setReservationBusy] = useState(false);
+  const orderTableId = order?.tableId;
+
+  const loadTableReservation = useCallback(() => {
+    if (!orderTableId || !canViewReservations) {
+      setTableReservation(null);
+      return;
+    }
+    getReservations(localIsoDate())
+      .then((rows) =>
+        setTableReservation(
+          rows.find(
+            (r) => r.tableId === orderTableId && (r.status === "Pending" || r.status === "Confirmed"),
+          ) ?? null,
+        ),
+      )
+      .catch(() => setTableReservation(null));
+  }, [orderTableId, canViewReservations]);
+
+  useEffect(() => {
+    loadTableReservation();
+  }, [loadTableReservation]);
+
+  const handleCompleteReservation = async () => {
+    if (!tableReservation) return;
+    setReservationBusy(true);
+    try {
+      await changeReservationStatus(tableReservation.id, "complete");
+      toast.success("Rezervasiya tamamlandı");
+      setTableReservation(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Rezervasiya tamamlanmadı");
+    } finally {
+      setReservationBusy(false);
+    }
+  };
   const canChangePrice = useHasPermission("Pos.ChangePrice");
   const canApplyDiscount = useHasPermission("Discount.Apply");
   const canPrint = useHasPermission("Printer.Print");
@@ -646,7 +698,32 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     !item.barcode?.trim() &&
     !(isWeightBasedItem(item) && item.weightCode?.trim());
 
+  const handleConfirmSetSelections = async (selections: SetSelectionInput[]) => {
+    if (!order || !setDialogItem || busy) return;
+    setBusy(true);
+    try {
+      const updated = await addOrderLine({
+        orderId: order.id,
+        menuItemId: setDialogItem.id,
+        quantity: 1,
+        setSelections: selections,
+      });
+      setOrder(updated);
+      setSetDialogItem(null);
+      void loadAvailability(order.restaurantId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Set əlavə olunmadı");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleItemClick = (item: MenuItem) => {
+    // A SET with choice groups: the waiter picks its products first.
+    if (item.isSet && item.setGroups.length > 0) {
+      if (!outOfStockIds.has(item.id)) setSetDialogItem(item);
+      return;
+    }
     // Weigh window switched off: add 1 kg (1000 g) straight away — it can be re-weighed on the line.
     if (isWeightBasedItem(item) && branding?.posShowWeighWindow === false) {
       void handleAddItem(item.id, 1000);
@@ -1362,6 +1439,12 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
   return (
     <div className="flex h-full flex-col md:flex-row">
       {reasonDialog}
+      <NewReservationDialog
+        open={reserveOpen}
+        onOpenChange={setReserveOpen}
+        restaurantId={order.restaurantId}
+        onCreated={loadTableReservation}
+      />
       {/* Menu */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
@@ -1445,6 +1528,24 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
               <StickyNote className="mr-1 h-3.5 w-3.5" />
               Qeyd
             </Button>
+            {!isPaid && !isStoreMode && canReserve && (
+              <Button variant="outline" size="sm" onClick={() => setReserveOpen(true)} disabled={busy}>
+                <CalendarPlus className="mr-1 h-3.5 w-3.5" />
+                Rezerv et
+              </Button>
+            )}
+            {!isPaid && tableReservation && canConfirmReservation && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                onClick={() => void handleCompleteReservation()}
+                disabled={busy || reservationBusy}
+              >
+                <CalendarCheck className="mr-1 h-3.5 w-3.5" />
+                Rezervasiyanı tamamla ({tableReservation.guestName})
+              </Button>
+            )}
             {!isPaid && !isStoreMode && canMoveTable && (
               <Button variant="outline" size="sm" onClick={() => void openMoveTableDialog()} disabled={busy}>
                 <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
@@ -2664,6 +2765,13 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SetSelectionDialog
+        item={setDialogItem}
+        busy={busy}
+        onClose={() => setSetDialogItem(null)}
+        onConfirm={(selections) => void handleConfirmSetSelections(selections)}
+      />
 
       <Dialog open={weightDialogItem != null} onOpenChange={(o) => !o && setWeightDialogItem(null)}>
         <DialogContent className="sm:max-w-sm">
