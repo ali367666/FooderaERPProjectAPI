@@ -91,7 +91,7 @@ public static class RolePermissionSeeder
             {
                 AppPermissions.OrdersView, AppPermissions.OrdersCreate, AppPermissions.OrdersAdd,
                 AppPermissions.OrdersServe, AppPermissions.MenuItemView, AppPermissions.MenuCategoryView,
-                AppPermissions.RestaurantView, AppPermissions.RestaurantTableView, AppPermissions.EmployeeView,
+                AppPermissions.RestaurantView, AppPermissions.RestaurantTableView, AppPermissions.RestaurantSectionView,
                 AppPermissions.ReservationView, AppPermissions.CounterpartyView,
                 AppPermissions.PosEditProductInSale, AppPermissions.PosDeleteProductInSale,
                 AppPermissions.PosPrintReceipt, AppPermissions.PrinterPrint

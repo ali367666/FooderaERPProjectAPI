@@ -42,6 +42,8 @@ export type MenuCategory = {
   description: string | null;
   imageUrl: string | null;
   isActive: boolean;
+  /** Sets category: its products are SETs the waiter fills by picking products. */
+  isSetCategory: boolean;
   parentCategoryId: number | null;
   parentCategoryName: string | null;
 };
@@ -50,6 +52,7 @@ export type MenuCategoryCreateInput = {
   name: string;
   description?: string | null;
   imageUrl?: string | null;
+  isSetCategory?: boolean;
   parentCategoryId?: number | null;
 };
 
@@ -58,6 +61,7 @@ export type MenuCategoryUpdateInput = {
   description?: string | null;
   imageUrl?: string | null;
   isActive: boolean;
+  isSetCategory?: boolean;
   parentCategoryId?: number | null;
 };
 
@@ -76,6 +80,7 @@ function normalizeMenuCategory(item: unknown): MenuCategory | null {
         : String(raw.description ?? raw.Description ?? "") || null,
     imageUrl: (raw.imageUrl ?? raw.ImageUrl) != null ? String(raw.imageUrl ?? raw.ImageUrl) : null,
     isActive: Boolean(raw.isActive ?? raw.IsActive ?? true),
+    isSetCategory: Boolean(raw.isSetCategory ?? raw.IsSetCategory ?? false),
     parentCategoryId: (() => {
       const v = raw.parentCategoryId ?? raw.ParentCategoryId;
       return v == null ? null : Number(v);
@@ -122,6 +127,7 @@ export async function createMenuCategory(data: MenuCategoryCreateInput): Promise
       name: data.name.trim(),
       description: data.description?.trim() || null,
       imageUrl: data.imageUrl?.trim() || null,
+      isSetCategory: data.isSetCategory ?? false,
       parentCategoryId: data.parentCategoryId ?? null,
     });
   } catch (error) {
@@ -144,6 +150,7 @@ export async function updateMenuCategory(
         description: data.description?.trim() || null,
         imageUrl: data.imageUrl?.trim() || null,
         isActive: data.isActive,
+        isSetCategory: data.isSetCategory ?? false,
         parentCategoryId: data.parentCategoryId ?? null,
       },
       { params: { companyId: resolvedCompanyId } },

@@ -8,7 +8,8 @@ import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Scale, Trash2, X } from "lucide-react";
+import { Plus, Scale, Trash2 } from "lucide-react";
+import { SetComponentsEditor } from "@/components/menu-items/set-components-editor";
 import { ScaleExportDialog, isWeightSold } from "@/components/menu-items/scale-export-dialog";
 import {
   Dialog,
@@ -171,11 +172,6 @@ export default function MenuItemsPage() {
   // SET (bundle)
   const [isSet, setIsSet] = useState(false);
   const [setComponents, setSetComponents] = useState<SetComponentInput[]>([]);
-  const [setComponentNames, setSetComponentNames] = useState<Record<number, string>>({});
-  const [newComponentId, setNewComponentId] = useState("");
-  const [newComponentQty, setNewComponentQty] = useState("1");
-  const [newComponentLimit, setNewComponentLimit] = useState("");
-  const [componentSearch, setComponentSearch] = useState("");
   const [scaleExportOpen, setScaleExportOpen] = useState(false);
 
   // Inline category creation
@@ -502,9 +498,6 @@ export default function MenuItemsPage() {
 
     setIsSet(false);
     setSetComponents([]);
-    setSetComponentNames({});
-    setNewComponentId("");
-    setNewComponentQty("1");
 
     setStockItemId("");
     setStockInfo(null);
@@ -566,15 +559,9 @@ export default function MenuItemsPage() {
         setSetComponents(
           components.map((c) => ({ componentMenuItemId: c.componentMenuItemId, quantity: c.quantity, limit: c.limit })),
         );
-        setSetComponentNames(
-          Object.fromEntries(components.map((c) => [c.componentMenuItemId, c.componentMenuItemName])),
-        );
       } else {
         setSetComponents([]);
-        setSetComponentNames({});
       }
-      setNewComponentId("");
-      setNewComponentQty("1");
 
       setStockItemId(item.stockItemId ? String(item.stockItemId) : "");
       setStockInfo(null);
@@ -606,30 +593,6 @@ export default function MenuItemsPage() {
       setError(message);
       window.alert(message);
     }
-  };
-
-  const handleAddSetComponent = () => {
-    const componentId = Number(newComponentId);
-    const qty = Number(newComponentQty);
-    if (!Number.isFinite(componentId) || componentId <= 0) return;
-    if (!Number.isFinite(qty) || qty <= 0) return;
-    if (editingId != null && componentId === editingId) return;
-    if (setComponents.some((c) => c.componentMenuItemId === componentId)) return;
-
-    const limitValue = Number(newComponentLimit);
-    const limit = newComponentLimit.trim() && Number.isFinite(limitValue) && limitValue > 0 ? Math.max(limitValue, qty) : null;
-
-    const component = items.find((i) => i.id === componentId);
-    setSetComponents((prev) => [...prev, { componentMenuItemId: componentId, quantity: qty, limit }]);
-    setSetComponentNames((prev) => ({ ...prev, [componentId]: component?.name ?? `#${componentId}` }));
-    setNewComponentId("");
-    setNewComponentQty("1");
-    setNewComponentLimit("");
-    setComponentSearch("");
-  };
-
-  const handleRemoveSetComponent = (componentMenuItemId: number) => {
-    setSetComponents((prev) => prev.filter((c) => c.componentMenuItemId !== componentMenuItemId));
   };
 
   const handleCreateCategory = async () => {
@@ -741,6 +704,7 @@ export default function MenuItemsPage() {
       setPrinterId: isSet && setItemPrinterId ? Number(setItemPrinterId) : null,
 
       isSet,
+      setComponents: isSet ? setComponents : [],
 
       stockItemId: stockItemId ? Number(stockItemId) : null,
     };
@@ -755,7 +719,6 @@ export default function MenuItemsPage() {
           ...basePayload,
           isActive,
           resetWeightCode,
-          setComponents: isSet ? setComponents : [],
         });
       } else {
         await createMenuItem(basePayload);
@@ -976,7 +939,11 @@ export default function MenuItemsPage() {
                   </label>
                   <select
                     value={menuCategoryId}
-                    onChange={(e) => setMenuCategoryId(e.target.value)}
+                    onChange={(e) => {
+                      setMenuCategoryId(e.target.value);
+                      // A product of a sets category is a SET: switch it on so the groups editor shows up.
+                      if (categories.find((c) => String(c.id) === e.target.value)?.isSetCategory) setIsSet(true);
+                    }}
                     className={selectClass}
                   >
                     <option value="">Select category</option>
@@ -1297,96 +1264,13 @@ export default function MenuItemsPage() {
                 </div>
               )}
 
-              {isSet && !isEditMode && (
-                <p className="text-xs text-muted-foreground">
-                  Əvvəlcə məhsulu yaradın, sonra redaktə edərək tərkib məhsulları əlavə edin.
-                </p>
-              )}
-
-              {isSet && isEditMode && (
-                <div className="space-y-3">
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1 space-y-2">
-                      <label className="block text-sm font-medium text-foreground">Tərkib məhsulu</label>
-                      <Input
-                        value={componentSearch}
-                        onChange={(e) => setComponentSearch(e.target.value)}
-                        placeholder="Məhsul axtar…"
-                      />
-                      <select
-                        value={newComponentId}
-                        onChange={(e) => setNewComponentId(e.target.value)}
-                        className={selectClass}
-                      >
-                        <option value="">Seçin</option>
-                        {items
-                          .filter((i) => i.id !== editingId && !i.isSet)
-                          .filter(
-                            (i) =>
-                              !componentSearch.trim() ||
-                              i.name.toLowerCase().includes(componentSearch.trim().toLowerCase()) ||
-                              String(i.id) === newComponentId,
-                          )
-                          .map((i) => (
-                            <option key={i.id} value={String(i.id)}>
-                              {i.name}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                    <div className="w-24">
-                      <label className="mb-2 block text-sm font-medium text-foreground">Say</label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={newComponentQty}
-                        onChange={(e) => setNewComponentQty(e.target.value)}
-                      />
-                    </div>
-                    <div className="w-24">
-                      <label className="mb-2 block text-sm font-medium text-foreground" title="Bir SET-də bu məhsuldan ən çox neçə ola bilər (boş = limitsiz)">
-                        Limit
-                      </label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={newComponentLimit}
-                        onChange={(e) => setNewComponentLimit(e.target.value)}
-                        placeholder="—"
-                      />
-                    </div>
-                    <Button type="button" variant="outline" onClick={handleAddSetComponent}>
-                      Əlavə et
-                    </Button>
-                  </div>
-
-                  {setComponents.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Hələ tərkib məhsulu əlavə edilməyib.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {setComponents.map((c) => (
-                        <div
-                          key={c.componentMenuItemId}
-                          className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-                        >
-                          <span>
-                            {setComponentNames[c.componentMenuItemId] ?? `#${c.componentMenuItemId}`} × {c.quantity}
-                            {c.limit != null && (
-                              <span className="ml-2 text-xs text-muted-foreground">(limit: {c.limit})</span>
-                            )}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSetComponent(c.componentMenuItemId)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {isSet && (
+                <SetComponentsEditor
+                  components={setComponents}
+                  onChange={setSetComponents}
+                  items={items.filter((i) => i.id !== editingId && !i.isSet && i.isActive)}
+                  categories={categories.filter((c) => !c.isSetCategory && c.isActive)}
+                />
               )}
             </TabsContent>
 

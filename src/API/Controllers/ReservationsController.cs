@@ -1,9 +1,12 @@
 using Application.Reservations.Commands.ChangeStatus;
 using Application.Reservations.Commands.Create;
 using Application.Reservations.Commands.Delete;
+using Application.Reservations.Commands.Extend;
+using Application.Reservations.Commands.Move;
 using Application.Reservations.Commands.Update;
 using Application.Reservations.Dtos;
 using Application.Reservations.Queries;
+using Application.RestaurantTables.Dtos;
 using Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -51,6 +54,34 @@ public class ReservationsController : ControllerBase
         int id, [FromQuery] string action, CancellationToken ct)
     {
         var result = await _mediator.Send(new ChangeReservationStatusCommand { Id = id, Action = action }, ct);
+        return Ok(result);
+    }
+
+    /// <summary>Holds the table longer: adds <paramref name="minutes"/> to the reservation's duration.</summary>
+    [HttpPost("{id}/extend")]
+    public async Task<ActionResult<ReservationResponse>> Extend(
+        int id, [FromQuery] int minutes, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new ExtendReservationCommand { Id = id, Minutes = minutes }, ct);
+        return Ok(result);
+    }
+
+    /// <summary>Tables of the reservation's branch that are free for its date, time and duration.</summary>
+    [HttpGet("{id}/available-tables")]
+    [Authorize(Policy = AppPermissions.ReservationView)]
+    public async Task<ActionResult<List<RestaurantTableResponse>>> GetAvailableTables(
+        int id, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetAvailableTablesForReservationQuery { ReservationId = id }, ct);
+        return Ok(result);
+    }
+
+    /// <summary>Moves the reservation to another table of the same branch.</summary>
+    [HttpPost("{id}/move")]
+    public async Task<ActionResult<ReservationResponse>> Move(
+        int id, [FromQuery] int tableId, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new MoveReservationCommand { Id = id, TableId = tableId }, ct);
         return Ok(result);
     }
 

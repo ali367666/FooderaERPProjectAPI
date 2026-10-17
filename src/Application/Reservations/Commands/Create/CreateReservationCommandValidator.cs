@@ -26,5 +26,8 @@ public class CreateReservationCommandValidator : AbstractValidator<CreateReserva
         RuleFor(x => x.Request.ReservationTime)
             .NotEmpty().WithMessage("Saat mütləqdir.")
             .Must(t => TimeSpan.TryParse(t, out _)).WithMessage("Saat formatı yanlışdır. HH:mm formatında daxil edin.");
+
+        RuleFor(x => x.Request.DurationMinutes)
+            .InclusiveBetween(15, 24 * 60).WithMessage("Saxlama müddəti 15 dəqiqə ilə 24 saat arasında olmalıdır.");
     }
 }

@@ -37,6 +37,7 @@ public class CreateMenuItemRequest
     public int? SetPrinterId { get; set; }
 
     public bool IsSet { get; set; }
+    public List<SetComponentInput> SetComponents { get; set; } = new();
 
     public int? StockItemId { get; set; }
 }

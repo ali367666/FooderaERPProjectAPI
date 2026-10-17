@@ -74,6 +74,7 @@ public class CreateMenuCategoryCommandHandler
                 ? null
                 : request.Request.ImageUrl.Trim(),
             IsActive = true,
+            IsSetCategory = request.Request.IsSetCategory,
             ParentCategoryId = request.Request.ParentCategoryId
         };
 

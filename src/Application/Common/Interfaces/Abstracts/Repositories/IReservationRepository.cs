@@ -13,6 +13,13 @@ public interface IReservationRepository
     /// </summary>
     Task<Reservation?> FindBlockingForTableAsync(
         int companyId, int tableId, DateTime nowLocal, int blockMinutes, CancellationToken ct);
+
+    /// <summary>
+    /// A pending/confirmed reservation on the table whose time span overlaps [start, start + duration) —
+    /// used to stop two parties being booked on one table at the same time.
+    /// </summary>
+    Task<Reservation?> FindOverlappingAsync(
+        int companyId, int tableId, DateTime start, int durationMinutes, int? excludeReservationId, CancellationToken ct);
     Task AddAsync(Reservation reservation, CancellationToken ct);
     void Update(Reservation reservation);
     void Remove(Reservation reservation);

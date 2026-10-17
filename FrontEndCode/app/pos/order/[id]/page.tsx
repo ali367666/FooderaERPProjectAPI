@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Banknote, CalendarPlus, ChevronDown, ChevronUp, Clock, CreditCard, Hash, Keyboard, LayoutGrid, LogOut, MoreHorizontal, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, UtensilsCrossed, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Banknote, CalendarCheck, CalendarPlus, ChevronDown, ChevronUp, Clock, CreditCard, Hash, Keyboard, LayoutGrid, LogOut, MoreHorizontal, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, UtensilsCrossed, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ import {
   getOrderPayments,
   getPaymentReceipt,
   type OrderPaymentsDto,
+  type SetSelectionInput,
   setOrderDeliveryDriver,
   setOrderCounterparty,
   printKitchenTicket,
@@ -79,6 +80,13 @@ import { NewReservationDialog } from "@/components/pos/new-reservation-dialog";
 import { VirtualKeyboard } from "@/components/pos/virtual-keyboard";
 import { getRestaurantSections } from "@/lib/services/restaurant-section-service";
 import { SplitBillDialog } from "@/components/pos/split-bill-dialog";
+import { SetSelectionDialog } from "@/components/pos/set-selection-dialog";
+import { localIsoDate } from "@/lib/reservation-rules";
+import {
+  changeReservationStatus,
+  getReservations,
+  type ReservationDto,
+} from "@/lib/services/reservation-service";
 import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getStoredAuthUser } from "@/lib/auth-client";
@@ -138,6 +146,7 @@ export default function PosOrderPage() {
   const [activeSubCategoryId, setActiveSubCategoryId] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState("");
   const [weightDialogItem, setWeightDialogItem] = useState<MenuItem | null>(null);
+  const [setDialogItem, setSetDialogItem] = useState<MenuItem | null>(null);
   const [weightDialogLineId, setWeightDialogLineId] = useState<number | null>(null);
   const [weightKgInput, setWeightKgInput] = useState("");
   const [weightBusy, setWeightBusy] = useState(false);
@@ -233,6 +242,46 @@ export default function PosOrderPage() {
   const canMoveTable = useHasPermission("Pos.MoveTable");
   const canChangeWaiter = useHasPermission("Pos.ChangeWaiter");
   const canPay = useHasPermission("Orders.Pay");
+  const canViewReservations = useHasPermission("Reservation.View");
+  const canConfirmReservation = useHasPermission("Reservation.Confirm");
+  // The pending/confirmed reservation held on this order's table — the guest sat down, so it can be completed here.
+  const [tableReservation, setTableReservation] = useState<ReservationDto | null>(null);
+  const [reservationBusy, setReservationBusy] = useState(false);
+  const orderTableId = order?.tableId;
+
+  const loadTableReservation = useCallback(() => {
+    if (!orderTableId || !canViewReservations) {
+      setTableReservation(null);
+      return;
+    }
+    getReservations(localIsoDate())
+      .then((rows) =>
+        setTableReservation(
+          rows.find(
+            (r) => r.tableId === orderTableId && (r.status === "Pending" || r.status === "Confirmed"),
+          ) ?? null,
+        ),
+      )
+      .catch(() => setTableReservation(null));
+  }, [orderTableId, canViewReservations]);
+
+  useEffect(() => {
+    loadTableReservation();
+  }, [loadTableReservation]);
+
+  const handleCompleteReservation = async () => {
+    if (!tableReservation) return;
+    setReservationBusy(true);
+    try {
+      await changeReservationStatus(tableReservation.id, "complete");
+      toast.success("Rezervasiya tamamlandı");
+      setTableReservation(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Rezervasiya tamamlanmadı");
+    } finally {
+      setReservationBusy(false);
+    }
+  };
   const canChangePrice = useHasPermission("Pos.ChangePrice");
   const canApplyDiscount = useHasPermission("Discount.Apply");
   const canPrint = useHasPermission("Printer.Print");
@@ -358,7 +407,6 @@ export default function PosOrderPage() {
   }, [loadAvailability]);
 
   // "ZAL" in the order header: the hall (restaurant section) of this order's table.
-  const orderTableId = order?.tableId;
   const orderRestaurantId = order?.restaurantId;
   useEffect(() => {
     if (!orderTableId || !orderRestaurantId) return;
@@ -709,7 +757,32 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     !item.barcode?.trim() &&
     !(isWeightBasedItem(item) && item.weightCode?.trim());
 
+  const handleConfirmSetSelections = async (selections: SetSelectionInput[]) => {
+    if (!order || !setDialogItem || busy) return;
+    setBusy(true);
+    try {
+      const updated = await addOrderLine({
+        orderId: order.id,
+        menuItemId: setDialogItem.id,
+        quantity: 1,
+        setSelections: selections,
+      });
+      setOrder(updated);
+      setSetDialogItem(null);
+      void loadAvailability(order.restaurantId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Set əlavə olunmadı");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleItemClick = (item: MenuItem) => {
+    // A SET with choice groups: the waiter picks its products first.
+    if (item.isSet && item.setGroups.length > 0) {
+      if (!outOfStockIds.has(item.id)) setSetDialogItem(item);
+      return;
+    }
     // Weigh window switched off: add 1 kg (1000 g) straight away — it can be re-weighed on the line.
     if (isWeightBasedItem(item) && branding?.posShowWeighWindow === false) {
       void handleAddItem(item.id, 1000);
@@ -2332,6 +2405,16 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
         {!isStoreMode && canCreateReservation && branding?.moduleRezervasyon !== false && (
           <BarButton icon={CalendarPlus} label="Rezerv et" tone="reserve" onClick={() => setReservationOpen(true)} />
         )}
+        {!isPaid && tableReservation && canConfirmReservation && (
+          <BarButton
+            icon={CalendarCheck}
+            label="Rezervasiyanı tamamla"
+            title={`Rezervasiyanı tamamla (${tableReservation.guestName})`}
+            tone="reserve"
+            disabled={busy || reservationBusy}
+            onClick={() => void handleCompleteReservation()}
+          />
+        )}
         <BarButton icon={LogOut} label="Çıxış" tone="danger" onClick={() => void handleBack()} />
       </footer>
 
@@ -2507,7 +2590,10 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
         open={reservationOpen}
         onOpenChange={setReservationOpen}
         restaurantId={order.restaurantId}
-        onCreated={() => setReservationOpen(false)}
+        onCreated={() => {
+          setReservationOpen(false);
+          loadTableReservation();
+        }}
       />
 
       {/* "OK" — the order's waiter confirms with their code before the kitchen gets the order */}
@@ -2973,6 +3059,13 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SetSelectionDialog
+        item={setDialogItem}
+        busy={busy}
+        onClose={() => setSetDialogItem(null)}
+        onConfirm={(selections) => void handleConfirmSetSelections(selections)}
+      />
 
       <Dialog open={weightDialogItem != null} onOpenChange={(o) => !o && setWeightDialogItem(null)}>
         <DialogContent className="sm:max-w-sm">

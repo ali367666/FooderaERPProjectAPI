@@ -137,12 +137,20 @@ export type CreateOrderPayload = {
   deliveryPhone?: string | null;
 };
 
+/** The waiter's pick for one choice group of a SET, counted per 1 set. */
+export type SetSelectionInput = {
+  groupId: number;
+  menuItemId: number;
+  quantity: number;
+};
+
 export type AddOrderLinePayload = {
   orderId: number;
   menuItemId: number;
   quantity: number;
   note?: string | null;
   holdMinutes?: number | null;
+  setSelections?: SetSelectionInput[];
 };
 
 export type UpdateOrderPayload = {
@@ -475,6 +483,7 @@ export async function addOrderLine(payload: AddOrderLinePayload): Promise<OrderD
       quantity: payload.quantity,
       note: payload.note ?? null,
       holdMinutes: payload.holdMinutes ?? null,
+      setSelections: payload.setSelections ?? [],
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));

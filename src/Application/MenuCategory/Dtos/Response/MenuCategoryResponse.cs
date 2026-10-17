@@ -7,6 +7,7 @@ public class MenuCategoryResponse
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
     public bool IsActive { get; set; }
+    public bool IsSetCategory { get; set; }
     public int? ParentCategoryId { get; set; }
     public string? ParentCategoryName { get; set; }
 }

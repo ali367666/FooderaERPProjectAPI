@@ -1,4 +1,4 @@
-using Application.MenuItems.Commands.BulkResetWeightCodes;
+﻿using Application.MenuItems.Commands.BulkResetWeightCodes;
 using Application.MenuItems.Commands.Create;
 using Application.MenuItems.Commands.Delete;
 using Application.MenuItems.Commands.Update;
@@ -8,6 +8,7 @@ using Application.MenuItems.Queries.GetAvailability;
 using Application.MenuItems.Queries.GetById;
 using Application.MenuItems.Queries.GetSetComponents;
 using Application.MenuItems.Queries.GetStockInfo;
+using Application.MenuItems.Queries.Search;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -108,6 +109,21 @@ public class MenuItemsController : ControllerBase
     {
         var result = await _mediator.Send(
             new GetMenuItemSetComponentsQuery(id),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    /// <summary>POS product search: every typed word may appear anywhere in the name; result is A–Z with the price.</summary>
+    [Authorize(Policy = AppPermissions.MenuItemView)]
+    [HttpGet("search")]
+    public async Task<ActionResult<List<MenuItemSearchResponse>>> Search(
+        [FromQuery] string? q,
+        [FromQuery] bool isDelivery,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new SearchMenuItemsQuery { Term = q, IsDelivery = isDelivery },
             cancellationToken);
 
         return Ok(result);

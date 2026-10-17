@@ -90,6 +90,7 @@ public class UpdateMenuCategoryCommandHandler
             throw new BadRequestException("Kateqoriya öz-özünün alt-kateqoriyası ola bilməz.");
 
         entity.IsActive = request.Request.IsActive;
+        entity.IsSetCategory = request.Request.IsSetCategory;
         entity.ParentCategoryId = request.Request.ParentCategoryId;
 
         _menuCategoryRepository.Update(entity);

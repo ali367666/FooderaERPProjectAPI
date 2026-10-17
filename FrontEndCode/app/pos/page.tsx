@@ -8,6 +8,7 @@ import {
   ArrowLeftRight,
   Banknote,
   BarChart3,
+  CalendarPlus,
   Lock,
   LogOut,
   Receipt,
@@ -55,6 +56,9 @@ import {
 import { getEmployees, type Employee } from "@/lib/services/employee-service";
 import { getRestaurantSections, type RestaurantSection } from "@/lib/services/restaurant-section-service";
 import { getReservations, type ReservationDto } from "@/lib/services/reservation-service";
+import { NewReservationDialog } from "@/components/pos/new-reservation-dialog";
+import { ReservationActionsDialog } from "@/components/pos/reservation-actions-dialog";
+import { isReservationExpired, localIsoDate, reservationEndMs, reservationStartMs } from "@/lib/reservation-rules";
 import { useHasPermission, usePermissionSet } from "@/hooks/use-auth-permissions";
 import { ANY_POS_REPORT_PERMISSION } from "@/lib/pos-reports";
 import {
@@ -130,6 +134,8 @@ export default function PosTablesPage() {
   const canMoveTable = useHasPermission("Pos.MoveTable");
   const canChangeWaiter = useHasPermission("Pos.ChangeWaiter");
   const canPay = useHasPermission("Orders.Pay");
+  const canReserve = useHasPermission("Reservation.Create");
+  const canViewReservations = useHasPermission("Reservation.View");
   const permissionSet = usePermissionSet();
   const canSeeReports = ANY_POS_REPORT_PERMISSION.some((p) => permissionSet.has(p));
   // One-shot modes armed by the header buttons: the next table(s) tapped act instead of opening.
@@ -139,8 +145,9 @@ export default function PosTablesPage() {
   //   move-pick   "Masa dəyiş"    — step 1: pick the table to move
   //   move-target                 — step 2: pick the empty table it goes to
   //   waiter-pick "Ofisiant dəyiş" — pick the table whose waiter changes (approval: see below)
+  //   reserve     "Rezerv"        — pick the table to book; the reservation form opens for it
   const canRedirectUser = useHasPermission("Pos.RedirectUser");
-  const [mode, setMode] = useState<"pay" | "bill" | "move-pick" | "move-target" | "waiter-pick" | null>(null);
+  const [mode, setMode] = useState<"pay" | "bill" | "move-pick" | "move-target" | "waiter-pick" | "reserve" | null>(null);
   const [modeBusy, setModeBusy] = useState(false);
   const [moveSource, setMoveSource] = useState<TableWithOrder | null>(null);
   // "Ofisiant dəyiş" needs Pos.ChangeWaiter to show; whoever lacks Pos.RedirectUser must get a supervisor's
@@ -169,10 +176,9 @@ export default function PosTablesPage() {
   const [deliveryAddressInput, setDeliveryAddressInput] = useState("");
   const [deliveryPhoneInput, setDeliveryPhoneInput] = useState("");
   const [deliveryCreating, setDeliveryCreating] = useState(false);
-  const [reservationWarning, setReservationWarning] = useState<{
-    table: TableWithOrder;
-    reservation: ReservationDto;
-  } | null>(null);
+  const [reserveTable, setReserveTable] = useState<TableWithOrder | null>(null);
+  const [actionReservation, setActionReservation] = useState<ReservationDto | null>(null);
+  const alertedReservationIds = useRef<Set<number>>(new Set());
   const { query: searchQuery, setQuery: setSearchQuery } = usePosSearch();
   const [hallKey, setHallKey] = useState<string>(() => {
     try {
@@ -325,29 +331,51 @@ export default function PosTablesPage() {
   }, [terminal]);
 
   // Reloaded every minute so a reservation the server cancelled automatically frees its table here too.
-  useEffect(() => {
-    if (!terminal?.restaurantId) return;
-    const loadReservations = () => {
-      const todayIso = new Date().toISOString().slice(0, 10);
-      getReservations(todayIso)
-        .then((rows) =>
-          setTodayReservations(
-            rows.filter(
-              (r) =>
-                r.restaurantId === terminal.restaurantId &&
-                r.tableId != null &&
-                r.status !== "Cancelled" &&
-                r.status !== "NoShow" &&
-                r.status !== "Completed",
-            ),
+  const restaurantIdForReservations = terminal?.restaurantId;
+  const loadReservations = useCallback(() => {
+    if (!restaurantIdForReservations || !canViewReservations) return;
+    getReservations(localIsoDate())
+      .then((rows) =>
+        setTodayReservations(
+          rows.filter(
+            (r) =>
+              r.restaurantId === restaurantIdForReservations &&
+              r.tableId != null &&
+              (r.status === "Pending" || r.status === "Confirmed"),
           ),
-        )
-        .catch(() => setTodayReservations([]));
-    };
+        ),
+      )
+      .catch(() => setTodayReservations([]));
+  }, [restaurantIdForReservations, canViewReservations]);
+
+  useEffect(() => {
     loadReservations();
     const timer = window.setInterval(loadReservations, 60_000);
     return () => window.clearInterval(timer);
-  }, [terminal]);
+  }, [loadReservations]);
+
+  // The held time of a reservation ran out and the guest never came: sound and a message, once per reservation;
+  // its table keeps blinking until someone completes, extends, moves or cancels it.
+  useEffect(() => {
+    const nowMs = now.getTime();
+    for (const r of todayReservations) {
+      if (!isReservationExpired(r, nowMs) || alertedReservationIds.current.has(r.id)) continue;
+      alertedReservationIds.current.add(r.id);
+      toast.warning(`${r.tableName ?? "Masa"}: ${r.guestName} adına rezervasiyanın vaxtı bitdi.`);
+      playPosAlert(branding);
+    }
+  }, [todayReservations, now, branding]);
+
+  /** The reservation that stands for the table on the tables screen: an expired one first, else the soonest. */
+  const findTableReservation = (tableId: number): ReservationDto | null => {
+    const nowMs = Date.now();
+    const mine = todayReservations.filter((r) => r.tableId === tableId);
+    return (
+      mine.find((r) => isReservationExpired(r, nowMs)) ??
+      [...mine].sort((x, y) => reservationStartMs(x) - reservationStartMs(y))[0] ??
+      null
+    );
+  };
 
   // Admin setting "Rezerv masaya öncədən sifariş açılmasın" (0 = off: only the old warning, 30 min).
   const reservationBlockMinutes = branding?.reservationBlockMinutes ?? 0;
@@ -363,10 +391,10 @@ export default function PosTablesPage() {
     for (const r of todayReservations) {
       if (r.tableId !== tableId) continue;
       if (r.status !== "Pending" && r.status !== "Confirmed") continue;
-      const start = new Date(`${r.reservationDate.slice(0, 10)}T${r.reservationTime}`).getTime();
+      const start = reservationStartMs(r);
       if (!Number.isFinite(start)) continue;
       const windowStart = start - before * 60_000;
-      const windowEnd = start + r.durationMinutes * 60_000;
+      const windowEnd = reservationEndMs(r);
       if (nowMs >= windowStart && nowMs <= windowEnd) return r;
     }
     return null;
@@ -650,6 +678,7 @@ export default function PosTablesPage() {
       if (mode === "pay") await payTable(table);
       else if (mode === "bill") await printBillForTable(table);
       else if (mode === "waiter-pick") await handleWaiterTap(table);
+      else if (mode === "reserve") handleReserveTap(table);
       else await handleMoveTap(table);
       return;
     }
@@ -664,31 +693,23 @@ export default function PosTablesPage() {
     }
     if (!terminal) return;
 
-    // With a block window the reserved table simply takes no order; without one, the old soft warning.
-    if (reservationBlockMinutes > 0) {
-      const blocking = findConflictingReservation(table.id);
-      if (blocking) {
-        toast.error(
-          `Bu masa ${blocking.reservationTime} üçün ${blocking.guestName} adına rezerv olunub — sifariş açmaq olmaz.`,
-        );
+    // A reserved table opens its reservation (complete / extend / move / cancel) instead of a new order.
+    // With the "soft warning" setting off and no block window running, it opens an order as before.
+    const reservation = findTableReservation(table.id);
+    if (reservation) {
+      const blocking = reservationBlockMinutes > 0 && findConflictingReservation(table.id) !== null;
+      if (blocking || isReservationExpired(reservation, Date.now()) || branding?.tableReservationWarning !== false) {
+        setActionReservation(reservation);
         return;
       }
-    }
-
-    const conflict = branding?.tableReservationWarning === false ? null : findConflictingReservation(table.id);
-    if (conflict) {
-      setReservationWarning({ table, reservation: conflict });
-      return;
     }
 
     proceedToOpenTable(table);
   };
 
-  const handleConfirmReservationWarning = () => {
-    if (!reservationWarning) return;
-    const { table } = reservationWarning;
-    setReservationWarning(null);
-    proceedToOpenTable(table);
+  const handleReserveTap = (table: TableWithOrder) => {
+    if (!table.isActive) return;
+    setReserveTable(table);
   };
 
   const handleConfirmGuestCount = () => {
@@ -760,7 +781,7 @@ export default function PosTablesPage() {
         ? [...regularGroups, ...cabinetGroup]
         : [{ key: activeHall.key, title: null, tables: activeHall.tables }];
 
-  const toggleMode = (next: "pay" | "bill" | "move-pick") => {
+  const toggleMode = (next: "pay" | "bill" | "move-pick" | "reserve") => {
     const active = next === "move-pick" ? mode === "move-pick" || mode === "move-target" : mode === next;
     resetMode();
     if (!active) setMode(next);
@@ -777,7 +798,8 @@ export default function PosTablesPage() {
     const canOverrideOwnership = branding?.singleWaiterMode === true ? false : canViewAllTables;
     const isOtherWaiterTable =
       occupied && !canOverrideOwnership && currentEmployeeId != null && order!.waiterId !== currentEmployeeId;
-    const reserved = !occupied && reservationBlockMinutes > 0 ? findConflictingReservation(table.id) : null;
+    const reserved = !occupied ? findTableReservation(table.id) : null;
+    const reservationExpired = reserved !== null && isReservationExpired(reserved, now.getTime());
 
     return (
       <button
@@ -793,6 +815,8 @@ export default function PosTablesPage() {
             : "border-border bg-card text-card-foreground hover:border-primary/40",
           !table.isActive && "cursor-not-allowed opacity-40",
           isOverdue && "ring-2 ring-red-500 ring-offset-1",
+          reserved && !reservationExpired && "border-amber-400 bg-amber-50 dark:bg-amber-950/30",
+          reservationExpired && "animate-pulse border-red-500 bg-red-100 ring-2 ring-red-500 dark:bg-red-950/40",
           isOtherWaiterTable && "opacity-60",
         )}
       >
@@ -825,9 +849,27 @@ export default function PosTablesPage() {
             )}
           </>
         ) : (
-          <span className={cn("mt-0.5 text-xs", reserved ? "font-semibold text-amber-600" : "text-muted-foreground")}>
-            {isCreating ? "..." : reserved ? `Rezerv · ${reserved.reservationTime}` : "Boş"}
-          </span>
+          <>
+            <span
+              className={cn(
+                "mt-0.5 text-xs",
+                reservationExpired ? "font-bold text-red-600" : reserved ? "font-semibold text-amber-600" : "text-muted-foreground",
+              )}
+            >
+              {isCreating
+                ? "..."
+                : reservationExpired
+                  ? "Rezerv vaxtı bitdi"
+                  : reserved
+                    ? `Rezerv · ${reserved.reservationTime}`
+                    : "Boş"}
+            </span>
+            {reserved && (
+              <span className="max-w-full truncate text-[11px] text-muted-foreground">
+                {reserved.guestName} · {reserved.guestCount} nəfər
+              </span>
+            )}
+          </>
         )}
       </button>
     );
@@ -847,7 +889,9 @@ export default function PosTablesPage() {
                     ? "Nağd ödəniləcək masaya toxunun — masa bağlanacaq və çek çıxacaq"
                     : mode === "bill"
                     ? "Hesabını (ön çek) çıxarmaq istədiyiniz masaya toxunun — masa bağlanmır"
-                    : mode === "move-pick"
+                    : mode === "reserve"
+                      ? "Rezerv etmək istədiyiniz masaya toxunun"
+                      : mode === "move-pick"
                       ? "Köçürmək istədiyiniz masaya toxunun"
                       : mode === "move-target"
                         ? `${moveSource?.name ?? "Masa"} hansı boş masaya köçürülsün?`
@@ -1011,6 +1055,15 @@ export default function PosTablesPage() {
         {canPrintBill && (
           <ActionButton icon={Receipt} label="Hesab" active={mode === "bill"} disabled={modeBusy} onClick={() => toggleMode("bill")} />
         )}
+        {canReserve && (
+          <ActionButton
+            icon={CalendarPlus}
+            label="Rezerv"
+            active={mode === "reserve"}
+            disabled={modeBusy}
+            onClick={() => toggleMode("reserve")}
+          />
+        )}
         {canMoveTable && (
           <ActionButton
             icon={ArrowLeftRight}
@@ -1146,26 +1199,29 @@ export default function PosTablesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={reservationWarning !== null} onOpenChange={(open) => !open && setReservationWarning(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Masa rezerv edilib</DialogTitle>
-          </DialogHeader>
-          {reservationWarning && (
-            <p className="text-sm text-muted-foreground">
-              {reservationWarning.table.name} masası saat {reservationWarning.reservation.reservationTime} üçün{" "}
-              <span className="font-medium text-foreground">{reservationWarning.reservation.guestName}</span> adına
-              rezerv edilib ({reservationWarning.reservation.guestCount} nəfər). Yenə də açmaq istəyirsiniz?
-            </p>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReservationWarning(null)}>
-              Ləğv et
-            </Button>
-            <Button onClick={handleConfirmReservationWarning}>Yenə də aç</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NewReservationDialog
+        open={reserveTable !== null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setReserveTable(null);
+            resetMode();
+          }
+        }}
+        restaurantId={terminal?.restaurantId ?? 0}
+        initialTableId={reserveTable?.id ?? null}
+        onCreated={loadReservations}
+      />
+
+      <ReservationActionsDialog
+        reservation={actionReservation}
+        tables={visibleTables.filter((t) => t.restaurantId === actionReservation?.restaurantId)}
+        onClose={() => setActionReservation(null)}
+        onChanged={loadReservations}
+        onCompleted={(done) => {
+          const table = tables.find((t) => t.id === done.tableId);
+          if (table && !table.activeOrder) proceedToOpenTable(table);
+        }}
+      />
 
       <Dialog open={deliveryDialogOpen} onOpenChange={(o) => !o && setDeliveryDialogOpen(false)}>
         <DialogContent className="sm:max-w-sm">

@@ -142,6 +142,21 @@ public class CreateMenuItemCommandHandler
             StockItemId = request.Request.StockItemId
         };
 
+        if (entity.IsSet)
+        {
+            foreach (var c in request.Request.SetComponents.DistinctBy(x => x.ComponentMenuItemId))
+            {
+                var quantity = c.Quantity < 1 ? 1 : c.Quantity;
+                entity.SetComponents.Add(new MenuItemSetComponent
+                {
+                    ComponentMenuItemId = c.ComponentMenuItemId,
+                    Quantity = quantity,
+                    // A limit below the default quantity would make the set invalid from the start.
+                    Limit = c.Limit is > 0 ? Math.Max(c.Limit.Value, quantity) : null
+                });
+            }
+        }
+
         await _menuItemRepository.AddAsync(entity, cancellationToken);
         await _menuItemRepository.SaveChangesAsync(cancellationToken);
 
