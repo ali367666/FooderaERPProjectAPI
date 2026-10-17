@@ -24,7 +24,7 @@ import { useFiscalMode } from "@/lib/pos-fiscal-mode";
 import { paymentMethodLabel } from "@/lib/payment-labels";
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-type Method = "Cash" | "Card" | "Credit";
+export type Method = "Cash" | "Card" | "Credit";
 
 type Props = {
   open: boolean;
@@ -41,6 +41,8 @@ type Props = {
   onSplit: () => void;
   /** Called after a payment; `orderClosed` tells whether it settled the whole bill. */
   onPaid: (result: PartPaymentResultDto) => void | Promise<void>;
+  /** "KART" / "NƏĞD" on the order screen open straight on that method instead of the chooser. */
+  initialMethod?: Method | null;
 };
 
 /**
@@ -61,6 +63,7 @@ export function PayDialog({
   touchScreen,
   onSplit,
   onPaid,
+  initialMethod = null,
 }: Props) {
   const [view, setView] = useState<"choose" | Method>("choose");
   const [amountInput, setAmountInput] = useState("");
@@ -79,13 +82,19 @@ export function PayDialog({
   const change = view === "Cash" && isFinal ? Math.max(0, r2(amount - due)) : 0;
   const leftAfter = isFinal ? 0 : r2(remaining - amount);
 
-  // Back to the chooser whenever the dialog opens or a payment changes what is left.
+  // Back to the chooser (or the requested method) whenever the dialog opens or a payment changes what is left.
   useEffect(() => {
     if (open) {
-      setView("choose");
+      if (initialMethod) {
+        setAmountInput(remaining > 0 ? r2(remaining + orderService).toFixed(2) : "");
+        setView(initialMethod);
+      } else {
+        setView("choose");
+      }
       setError(null);
     }
-  }, [open, payments?.paidAmount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, payments?.paidAmount, initialMethod]);
 
   const pick = (method: Method) => {
     setAmountInput(remaining > 0 ? r2(remaining + orderService).toFixed(2) : "");

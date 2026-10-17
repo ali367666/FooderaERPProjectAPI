@@ -1,5 +1,5 @@
 import { getStoredToken } from "@/lib/auth-client";
-import { getEmployees } from "@/lib/services/employee-service";
+import { getEmployees, type Employee } from "@/lib/services/employee-service";
 
 function base64UrlToUtf8(segment: string): string {
   const padded = segment + "=".repeat((4 - (segment.length % 4)) % 4);
@@ -10,20 +10,41 @@ function base64UrlToUtf8(segment: string): string {
   return new TextDecoder("utf8").decode(bytes);
 }
 
-/** Reads the current User.Id (uid/sub claim) from the stored access token. */
-export function getCurrentUserIdFromToken(): number | null {
+function readTokenPayload(): Record<string, unknown> | null {
   const token = getStoredToken();
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length < 2) return null;
   try {
-    const payload = JSON.parse(base64UrlToUtf8(parts[1])) as Record<string, unknown>;
-    const raw = payload.uid ?? payload.sub;
-    const id = Number(raw);
-    return Number.isFinite(id) && id > 0 ? id : null;
+    return JSON.parse(base64UrlToUtf8(parts[1])) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+/** Reads the current User.Id (uid/sub claim) from the stored access token. */
+export function getCurrentUserIdFromToken(): number | null {
+  const payload = readTokenPayload();
+  if (!payload) return null;
+  const id = Number(payload.uid ?? payload.sub);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+/** The signed-in user's UserName (ClaimTypes.Name, under whichever key the token handler wrote it). */
+export function getCurrentUserNameFromToken(): string | null {
+  const payload = readTokenPayload();
+  if (!payload) return null;
+  const raw =
+    payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ?? payload.unique_name ?? payload.name;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+/** The Employee record linked to the signed-in User, if any. */
+export async function getCurrentEmployee(): Promise<Employee | null> {
+  const userId = getCurrentUserIdFromToken();
+  if (!userId) return null;
+  const employees = await getEmployees();
+  return employees.find((e) => e.userId === userId) ?? null;
 }
 
 /**
@@ -32,9 +53,5 @@ export function getCurrentUserIdFromToken(): number | null {
  * linked to an Employee record before they can open an order.
  */
 export async function getCurrentEmployeeId(): Promise<number | null> {
-  const userId = getCurrentUserIdFromToken();
-  if (!userId) return null;
-  const employees = await getEmployees();
-  const match = employees.find((e) => e.userId === userId);
-  return match?.id ?? null;
+  return (await getCurrentEmployee())?.id ?? null;
 }

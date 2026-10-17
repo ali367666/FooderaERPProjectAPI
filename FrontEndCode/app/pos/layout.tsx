@@ -3,7 +3,7 @@
 import { LicenseStatusBadge } from "@/components/license-status-badge";
 import { FiscalLamp } from "@/components/pos/fiscal-lamp";
 import { applyTheme } from "@/lib/theme";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -18,8 +18,15 @@ import {
   History,
   Boxes,
   Undo2,
+  Search,
+  UserRound,
+  X,
 } from "lucide-react";
+import { format } from "date-fns";
 import PosAuthGuard from "@/components/pos/pos-auth-guard";
+import { PosSearchContext } from "@/components/pos/pos-search-context";
+import { VirtualKeyboard } from "@/components/pos/virtual-keyboard";
+import { getCurrentEmployee, getCurrentUserNameFromToken } from "@/lib/pos-session";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +88,27 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
 
   const isStoreMode = branding?.moduleDataSecimi === true;
   const showTabs = !pathname.startsWith("/pos/order");
+  // The tables screen fills the viewport (its action bar sits at the bottom) and owns the search box.
+  const isTablesPage = pathname === "/pos";
+  // The order screen is laid out the same way: fixed to the viewport, with its own scrolling panes.
+  const isOrderPage = pathname.startsWith("/pos/order/");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => {
+    if (!isTablesPage) setSearchQuery("");
+  }, [isTablesPage]);
+  const searchContext = useMemo(() => ({ query: searchQuery, setQuery: setSearchQuery }), [searchQuery]);
+
+  const [userName, setUserName] = useState<string | null>(null);
+  useEffect(() => {
+    setUserName(getCurrentUserNameFromToken());
+    getCurrentEmployee()
+      .then((e) => {
+        const name = e && (e.fullName?.trim() || `${e.firstName} ${e.lastName}`.trim());
+        if (name) setUserName(name);
+      })
+      .catch(() => undefined);
+  }, []);
   const hasOrdersView = useHasPermission("Orders.View");
   const hasReservationView = useHasPermission("Reservation.View");
   const hasKitchenView = useHasPermission("Kitchen.View");
@@ -172,9 +200,11 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
     <PosAuthGuard>
       {/* The dashboard mounts its own Toaster; without this one every POS message (errors included) was invisible. */}
       <Toaster richColors closeButton position="top-center" />
+      <PosSearchContext.Provider value={searchContext}>
       <div
         className={cn(
-          "flex min-h-screen flex-col",
+          "flex flex-col",
+          isTablesPage || isOrderPage ? "h-dvh" : "min-h-screen",
           !branding?.wallpaperUrl && "bg-muted/30",
           branding?.touchScreenMode === true && "touch-mode",
         )}
@@ -186,19 +216,45 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
             aria-hidden
           />
         )}
-        <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
-          <div className="flex items-center gap-2 font-semibold">
-            <ChefHat className="h-5 w-5 text-primary" />
-            <span>{terminal?.restaurantName ?? terminal?.companyName ?? "POS"}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <FiscalLamp />
-            <LicenseStatusBadge />
-            {branding?.posShowClock !== false && (
-              <span className="tabular-nums text-sm font-semibold text-muted-foreground">
-                {clockNow.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-              </span>
+        <header className="relative z-30 flex h-16 shrink-0 items-stretch border-b bg-background">
+          {/* Search on the tables screen; elsewhere the branch name holds the slot. */}
+          <div className="flex min-w-0 flex-1 items-center px-3">
+            {isTablesPage && !isBeforeOpening ? (
+              <HeaderSearch value={searchQuery} onChange={setSearchQuery} />
+            ) : (
+              <div className="flex min-w-0 items-center gap-2 font-semibold">
+                <ChefHat className="h-5 w-5 shrink-0 text-primary" />
+                <span className="truncate">{terminal?.restaurantName ?? terminal?.companyName ?? "POS"}</span>
+              </div>
             )}
+          </div>
+
+          <div className="hidden items-center border-l px-3 sm:flex">
+            <LicenseStatusBadge className="py-1.5 text-sm" />
+          </div>
+
+          <div className="hidden min-w-0 items-center gap-2.5 border-l px-4 md:flex">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <UserRound className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 leading-tight">
+              <p className="max-w-48 truncate text-sm font-semibold">{userName ?? "—"}</p>
+              <p className="max-w-48 truncate text-xs text-muted-foreground">
+                {terminal?.restaurantName ?? terminal?.companyName}
+                {terminal?.workstationName ? ` · ${terminal.workstationName}` : ""}
+              </p>
+            </div>
+          </div>
+
+          {branding?.posShowClock !== false && (
+            <div className="flex flex-col items-end justify-center border-l px-4 leading-tight">
+              <span className="text-lg font-bold tabular-nums">{format(clockNow, "HH:mm:ss")}</span>
+              <span className="text-xs tabular-nums text-muted-foreground">{format(clockNow, "dd.MM.yyyy")}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 border-l px-3">
+            <FiscalLamp />
             <button
               type="button"
               onClick={() => setShiftDialogOpen(true)}
@@ -208,25 +264,29 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
               )}
             >
               <Clock className="h-3.5 w-3.5" />
-              {shift ? "Növbə açıqdır" : "Növbə bağlıdır"}
+              <span className="hidden lg:inline">{shift ? "Növbə açıqdır" : "Növbə bağlıdır"}</span>
             </button>
             {canAccessSettings && (
               <button
                 type="button"
                 onClick={() => setSettingsOpen(true)}
-                className="flex items-center gap-2 rounded-md p-1.5 text-muted-foreground hover:bg-muted"
+                title="Ayarlar"
+                className="flex items-center gap-2 rounded-md p-2 text-muted-foreground hover:bg-muted"
               >
-                <Settings className="h-4 w-4" />
+                <Settings className="h-5 w-5" />
               </button>
             )}
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="Hesabı kilidlə"
-              className="flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted"
-            >
-              <Lock className="h-6 w-6" />
-            </button>
+            {/* The tables screen has its own "Çıxış" in the action bar. */}
+            {!isTablesPage && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Hesabı kilidlə"
+                className="flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted"
+              >
+                <Lock className="h-6 w-6" />
+              </button>
+            )}
           </div>
         </header>
         {isBeforeOpening ? (
@@ -264,10 +324,11 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
                 })}
               </nav>
             )}
-            <main className="flex-1 overflow-auto">{children}</main>
+            <main className="min-h-0 flex-1 overflow-auto">{children}</main>
           </>
         )}
       </div>
+      </PosSearchContext.Provider>
 
       {/* Shift open/close dialog */}
       <Dialog open={shiftDialogOpen} onOpenChange={setShiftDialogOpen}>
@@ -377,5 +438,70 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
         </DialogContent>
       </Dialog>
     </PosAuthGuard>
+  );
+}
+
+/** Search box of the tables screen; focusing it opens the on-screen keyboard below. */
+function HeaderSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!keyboardOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setKeyboardOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [keyboardOpen]);
+
+  const close = () => {
+    setKeyboardOpen(false);
+    inputRef.current?.blur();
+  };
+
+  return (
+    <div ref={containerRef} className="relative w-full max-w-xl">
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+      <input
+        ref={inputRef}
+        type="search"
+        // The on-screen keyboard replaces the OS one; a physical keyboard still types normally.
+        inputMode="none"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setKeyboardOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" || e.key === "Enter") close();
+        }}
+        placeholder="Masa, ofisiant və ya sifariş nömrəsi axtar…"
+        className={cn(
+          "h-11 w-full rounded-xl border-2 bg-muted/40 pl-11 pr-11 text-base outline-none transition-colors",
+          "placeholder:text-muted-foreground focus:border-primary focus:bg-background",
+          "[&::-webkit-search-cancel-button]:hidden",
+        )}
+      />
+      {value && (
+        <button
+          type="button"
+          aria-label="Axtarışı təmizlə"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onChange("")}
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+      {keyboardOpen && (
+        <VirtualKeyboard
+          value={value}
+          onChange={onChange}
+          onClose={close}
+          className="absolute left-0 top-full z-50 mt-2 w-[min(46rem,calc(100vw-1.5rem))]"
+        />
+      )}
+    </div>
   );
 }

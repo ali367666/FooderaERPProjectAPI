@@ -4,7 +4,24 @@ import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeftRight, Banknote, BarChart3, Lock, Receipt, RefreshCw, ShoppingBag, StickyNote, UserCog, Users } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Banknote,
+  BarChart3,
+  Lock,
+  LogOut,
+  Receipt,
+  RefreshCw,
+  SearchX,
+  ShoppingBag,
+  StickyNote,
+  Truck,
+  UserCog,
+  Users,
+  X,
+} from "lucide-react";
+import { clearStoredAuth } from "@/lib/auth-client";
+import { usePosSearch } from "@/components/pos/pos-search-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +66,9 @@ import { printBillForOrder, printReceiptForOrder } from "@/lib/pos-bill-print";
 import { getFiscalMode, setFiscalMode } from "@/lib/pos-fiscal-mode";
 
 type TableWithOrder = RestaurantTable & { activeOrder: OrderDto | null };
+
+// The chosen hall survives opening an order and coming back, for this browser tab.
+const HALL_STORAGE_KEY = "posSelectedHall";
 
 function isActiveStatus(status: OrderWorkflowStatus): boolean {
   return status !== "paid" && status !== "cancelled";
@@ -153,6 +173,29 @@ export default function PosTablesPage() {
     table: TableWithOrder;
     reservation: ReservationDto;
   } | null>(null);
+  const { query: searchQuery, setQuery: setSearchQuery } = usePosSearch();
+  const [hallKey, setHallKey] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem(HALL_STORAGE_KEY) ?? "all";
+    } catch {
+      return "all";
+    }
+  });
+
+  const selectHall = (key: string) => {
+    setHallKey(key);
+    setSearchQuery("");
+    try {
+      sessionStorage.setItem(HALL_STORAGE_KEY, key);
+    } catch {
+      // storage unavailable — the choice just isn't remembered
+    }
+  };
+
+  const handleLogout = () => {
+    clearStoredAuth();
+    router.replace("/pos-login");
+  };
 
   useEffect(() => {
     void getCurrentEmployeeId().then(setCurrentEmployeeId);
@@ -690,8 +733,40 @@ export default function PosTablesPage() {
     const inSection = regularTables.filter((t) => t.sectionId === sec.id);
     if (inSection.length > 0) regularGroups.push({ key: `s${sec.id}`, title: sec.name, tables: inSection });
   }
+  const cabinetGroup = cabinetTables.length > 0 ? [{ key: "kabinet", title: "Kabinet", tables: cabinetTables }] : [];
 
-  const renderTableTile = (table: TableWithOrder, wide = false) => {
+  // Halls on the right edge: every zone, the cabinets together, and "Hamısı" (the old all-in-one view).
+  const halls = [...regularGroups, ...cabinetGroup].map((g) => ({
+    key: g.key,
+    name: g.title ?? "Ümumi zal",
+    tables: g.tables,
+  }));
+  if (halls.length > 1) halls.unshift({ key: "all", name: "Hamısı", tables: visibleTables });
+  const activeHall = halls.find((h) => h.key === hallKey) ?? halls[0] ?? null;
+
+  // A search looks through every hall the user may see; otherwise the chosen hall is shown.
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase("az");
+  const matchesSearch = (t: TableWithOrder) =>
+    [t.name, t.activeOrder?.orderNumber, t.activeOrder?.waiterName, t.activeOrder?.note]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase("az")
+      .includes(normalizedQuery);
+  const shownGroups: { key: string; title: string | null; tables: TableWithOrder[] }[] = normalizedQuery
+    ? [{ key: "search", title: null, tables: visibleTables.filter(matchesSearch) }]
+    : !activeHall
+      ? []
+      : activeHall.key === "all"
+        ? [...regularGroups, ...cabinetGroup]
+        : [{ key: activeHall.key, title: null, tables: activeHall.tables }];
+
+  const toggleMode = (next: "pay" | "bill" | "move-pick") => {
+    const active = next === "move-pick" ? mode === "move-pick" || mode === "move-target" : mode === next;
+    resetMode();
+    if (!active) setMode(next);
+  };
+
+  const renderTableTile = (table: TableWithOrder) => {
     const occupied = table.activeOrder !== null;
     const status = table.activeOrder?.status ?? null;
     const isCreating = creatingTableId === table.id;
@@ -711,8 +786,7 @@ export default function PosTablesPage() {
         onClick={() => void openTable(table)}
         disabled={!table.isActive || isCreating}
         className={cn(
-          "relative flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1.5 transition-all",
-          wide ? "min-h-24 w-full" : "h-32",
+          "relative flex h-32 flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1.5 transition-all",
           "select-none active:scale-95",
           occupied
             ? "border-transparent text-white shadow-md " + statusBg(status)
@@ -760,109 +834,214 @@ export default function PosTablesPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Masalar</h1>
-        <div className="flex items-center gap-2">
-          {canQuickSale && (
-            <Button size="sm" disabled={takeAwayCreating || modeBusy} onClick={() => void handleCreateTakeAwayOrder()}>
-              <ShoppingBag className="mr-2 h-4 w-4" />
-              {takeAwayCreating ? "Açılır..." : "Tez satış"}
-            </Button>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 gap-3 p-3 sm:gap-4 sm:p-4">
+        {/* Padding keeps the overdue ring of edge tiles from being clipped by the scroll box. */}
+        <div className="-m-1 min-w-0 flex-1 space-y-4 overflow-y-auto p-1">
+          {mode && (
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-xl border-2 border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-medium backdrop-blur">
+              <span>
+                {modeBusy
+                  ? "Gözləyin..."
+                  : mode === "pay"
+                    ? "Nağd ödəniləcək masaya toxunun — masa bağlanacaq və çek çıxacaq"
+                    : mode === "bill"
+                    ? "Hesabını (ön çek) çıxarmaq istədiyiniz masaya toxunun — masa bağlanmır"
+                    : mode === "move-pick"
+                      ? "Köçürmək istədiyiniz masaya toxunun"
+                      : mode === "move-target"
+                        ? `${moveSource?.name ?? "Masa"} hansı boş masaya köçürülsün?`
+                        : "Ofisiantı dəyişəcəyiniz masaya toxunun"}
+              </span>
+              <Button size="sm" variant="outline" disabled={modeBusy} onClick={resetMode}>
+                <X className="h-4 w-4" />
+                Ləğv et
+              </Button>
+            </div>
           )}
-          {branding?.modulePaket === true && (
-            <Button size="sm" onClick={() => setDeliveryDialogOpen(true)}>
-              Çatdırılma sifarişi
-            </Button>
+
+          {(() => {
+            const takeAwayOrders = tables.filter(
+              (t) => t.type === RestaurantTableType.TakeAway && t.activeOrder && isActiveStatus(t.activeOrder.status),
+            );
+            if (takeAwayOrders.length === 0) return null;
+            return (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-muted-foreground">Aktiv tez satışlar</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+                  {takeAwayOrders.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      disabled={mode !== null}
+                      onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
+                      className="rounded-xl border bg-card p-3 text-left text-sm shadow-sm hover:bg-muted/50 disabled:opacity-50"
+                    >
+                      <p className="font-medium">{t.activeOrder!.orderNumber}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.activeOrder!.lines.length} məhsul · {t.activeOrder!.totalAmount.toFixed(2)} ₼
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {branding?.modulePaket === true &&
+            (() => {
+              const deliveryOrders = tables.filter((t) => t.activeOrder?.isDelivery);
+              if (deliveryOrders.length === 0) return null;
+              return (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-muted-foreground">Aktiv çatdırılmalar</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                    {deliveryOrders.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
+                        className="rounded-xl border bg-card p-3 text-left text-sm shadow-sm hover:bg-muted/50"
+                      >
+                        <p className="font-medium">{t.activeOrder!.orderNumber}</p>
+                        {t.activeOrder!.deliveryPhone && (
+                          <p className="text-xs text-muted-foreground">{t.activeOrder!.deliveryPhone}</p>
+                        )}
+                        {t.activeOrder!.deliveryAddress && (
+                          <p className="truncate text-xs text-muted-foreground">{t.activeOrder!.deliveryAddress}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {t.activeOrder!.deliveryDriverName
+                            ? `Kuryer: ${t.activeOrder!.deliveryDriverName}`
+                            : "Kuryer təyin edilməyib"}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+          {error && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
           )}
-          {canMoveTable && (
-            <Button
-              size="sm"
-              variant={mode === "move-pick" || mode === "move-target" ? "default" : "outline"}
-              disabled={modeBusy}
-              onClick={() => {
-                const active = mode === "move-pick" || mode === "move-target";
-                resetMode();
-                if (!active) setMode("move-pick");
-              }}
-            >
-              <ArrowLeftRight className="mr-2 h-4 w-4" />
-              Masa dəyiş
-            </Button>
+
+          {tables.length === 0 && !error && (
+            <p className="text-sm text-muted-foreground">Bu filial üçün masa tapılmadı.</p>
           )}
-          {canChangeWaiter && (
-            <Button
-              size="sm"
-              variant={mode === "waiter-pick" ? "default" : "outline"}
-              disabled={modeBusy}
-              onClick={startWaiterChange}
-            >
-              <UserCog className="mr-2 h-4 w-4" />
-              Ofisiant dəyiş
-            </Button>
+
+          {normalizedQuery && (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-muted-foreground">
+                “{searchQuery.trim()}” üzrə {shownGroups[0]?.tables.length ?? 0} masa
+              </p>
+              <Button size="sm" variant="ghost" onClick={() => setSearchQuery("")}>
+                <X className="h-4 w-4" />
+                Axtarışı təmizlə
+              </Button>
+            </div>
           )}
-          {canPrintBill && (
-            <Button
-              size="sm"
-              variant={mode === "bill" ? "default" : "outline"}
-              disabled={modeBusy}
-              onClick={() => {
-                const active = mode === "bill";
-                resetMode();
-                if (!active) setMode("bill");
-              }}
-            >
-              <Receipt className="mr-2 h-4 w-4" />
-              Hesab
-            </Button>
+          {normalizedQuery && shownGroups[0]?.tables.length === 0 && (
+            <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+              <SearchX className="h-10 w-10" />
+              <p className="text-sm">Axtarışa uyğun masa tapılmadı.</p>
+            </div>
           )}
-          {canPay && (
-            <Button
-              size="sm"
-              variant={mode === "pay" ? "default" : "outline"}
-              disabled={modeBusy}
-              onClick={() => {
-                const active = mode === "pay";
-                resetMode();
-                if (!active) setMode("pay");
-              }}
-            >
-              <Banknote className="mr-2 h-4 w-4" />
-              Ödəniş
-            </Button>
-          )}
-          {canSeeReports && (
-            <Button variant="outline" size="sm" disabled={modeBusy} onClick={() => router.push("/pos/reports")}>
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Hesabat
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => void load()}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+
+          {shownGroups
+            .filter((group) => group.tables.length > 0)
+            .map((group) => (
+              <div key={group.key}>
+                {group.title && (
+                  <p lang="az" className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.title}
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+                  {group.tables.map((table) => renderTableTile(table))}
+                </div>
+              </div>
+            ))}
         </div>
+
+        {/* Halls on the right edge */}
+        <aside className="flex w-28 shrink-0 flex-col gap-2 overflow-y-auto sm:w-40 lg:w-44">
+          {halls.map((hall) => {
+            const selected = !normalizedQuery && hall.key === activeHall?.key;
+            const busy = hall.tables.filter((t) => t.activeOrder !== null).length;
+            return (
+              <button
+                key={hall.key}
+                type="button"
+                onClick={() => selectHall(hall.key)}
+                className={cn(
+                  "flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl border-2 px-2 py-2 text-center shadow-sm transition-all active:scale-95",
+                  selected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-card-foreground hover:border-primary/40",
+                )}
+              >
+                {/* lang="az" so upper case keeps the dotted İ (KABİNET). */}
+                <span lang="az" className="line-clamp-2 text-sm font-bold uppercase leading-tight tracking-wide sm:text-base">
+                  {hall.name}
+                </span>
+                <span className={cn("text-xs", selected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                  {busy} / {hall.tables.length} dolu
+                </span>
+              </button>
+            );
+          })}
+          <Button variant="outline" className="mt-auto h-11 shrink-0" onClick={() => void load()}>
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Yenilə</span>
+          </Button>
+        </aside>
       </div>
 
-      {mode && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
-          <span>
-            {modeBusy
-              ? "Gözləyin..."
-              : mode === "pay"
-                ? "Nağd ödəniləcək masaya toxunun — masa bağlanacaq və çek çıxacaq"
-                : mode === "bill"
-                ? "Hesabını (ön çek) çıxarmaq istədiyiniz masaya toxunun — masa bağlanmır"
-                : mode === "move-pick"
-                  ? "Köçürmək istədiyiniz masaya toxunun"
-                  : mode === "move-target"
-                    ? `${moveSource?.name ?? "Masa"} hansı boş masaya köçürülsün?`
-                    : "Ofisiantı dəyişəcəyiniz masaya toxunun"}
-          </span>
-          <Button size="sm" variant="ghost" disabled={modeBusy} onClick={resetMode}>
-            Ləğv et
-          </Button>
-        </div>
-      )}
+      {/* Action bar */}
+      <footer className="flex shrink-0 flex-wrap gap-2 border-t bg-background/95 p-2 backdrop-blur sm:p-3">
+        {canSeeReports && (
+          <ActionButton icon={BarChart3} label="Hesabat" disabled={modeBusy} onClick={() => router.push("/pos/reports")} />
+        )}
+        {canPay && (
+          <ActionButton icon={Banknote} label="Ödəniş" active={mode === "pay"} disabled={modeBusy} onClick={() => toggleMode("pay")} />
+        )}
+        {canPrintBill && (
+          <ActionButton icon={Receipt} label="Hesab" active={mode === "bill"} disabled={modeBusy} onClick={() => toggleMode("bill")} />
+        )}
+        {canMoveTable && (
+          <ActionButton
+            icon={ArrowLeftRight}
+            label="Masa dəyiş"
+            active={mode === "move-pick" || mode === "move-target"}
+            disabled={modeBusy}
+            onClick={() => toggleMode("move-pick")}
+          />
+        )}
+        {canChangeWaiter && (
+          <ActionButton
+            icon={UserCog}
+            label="Ofisiant dəyiş"
+            active={mode === "waiter-pick"}
+            disabled={modeBusy}
+            onClick={startWaiterChange}
+          />
+        )}
+        {canQuickSale && (
+          <ActionButton
+            icon={ShoppingBag}
+            label={takeAwayCreating ? "Açılır..." : "Tez satış"}
+            disabled={takeAwayCreating || modeBusy}
+            onClick={() => void handleCreateTakeAwayOrder()}
+          />
+        )}
+        {branding?.modulePaket === true && (
+          <ActionButton icon={Truck} label="Çatdırılma" onClick={() => setDeliveryDialogOpen(true)} />
+        )}
+        <ActionButton icon={LogOut} label="Çıxış" tone="danger" onClick={handleLogout} />
+      </footer>
 
       {/* "Ofisiant dəyiş" — supervisor code */}
       <Dialog
@@ -935,100 +1114,6 @@ export default function PosTablesPage() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {(() => {
-        const takeAwayOrders = tables.filter(
-          (t) => t.type === RestaurantTableType.TakeAway && t.activeOrder && isActiveStatus(t.activeOrder.status),
-        );
-        if (takeAwayOrders.length === 0) return null;
-        return (
-          <div className="mb-4 space-y-2">
-            <p className="text-sm font-semibold text-muted-foreground">Aktiv tez satışlar</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-              {takeAwayOrders.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  disabled={mode !== null}
-                  onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
-                  className="rounded-md border bg-card p-3 text-left text-sm hover:bg-muted/50 disabled:opacity-50"
-                >
-                  <p className="font-medium">{t.activeOrder!.orderNumber}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t.activeOrder!.lines.length} məhsul · {t.activeOrder!.totalAmount.toFixed(2)} ₼
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
-      {branding?.modulePaket === true &&
-        (() => {
-          const deliveryOrders = tables.filter((t) => t.activeOrder?.isDelivery);
-          if (deliveryOrders.length === 0) return null;
-          return (
-            <div className="mb-4 space-y-2">
-              <p className="text-sm font-semibold text-muted-foreground">Aktiv çatdırılmalar</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
-                {deliveryOrders.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
-                    className="rounded-md border bg-card p-3 text-left text-sm hover:bg-muted/50"
-                  >
-                    <p className="font-medium">{t.activeOrder!.orderNumber}</p>
-                    {t.activeOrder!.deliveryPhone && (
-                      <p className="text-xs text-muted-foreground">{t.activeOrder!.deliveryPhone}</p>
-                    )}
-                    {t.activeOrder!.deliveryAddress && (
-                      <p className="truncate text-xs text-muted-foreground">{t.activeOrder!.deliveryAddress}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {t.activeOrder!.deliveryDriverName
-                        ? `Kuryer: ${t.activeOrder!.deliveryDriverName}`
-                        : "Kuryer təyin edilməyib"}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-
-      {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      {/* Regular tables on the left (grouped by zone); every cabinet / hall on the right edge, one under another. */}
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1 space-y-4">
-          {tables.length === 0 && !error && (
-            <p className="text-sm text-muted-foreground">Bu filial üçün masa tapılmadı.</p>
-          )}
-          {regularGroups.map((group) => (
-            <div key={group.key}>
-              {group.title && (
-                <p className="mb-2 text-sm font-semibold text-muted-foreground">{group.title}</p>
-              )}
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
-                {group.tables.map((table) => renderTableTile(table))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {cabinetTables.length > 0 && (
-          <aside className="sticky top-4 flex w-32 shrink-0 flex-col gap-2 sm:w-44">
-            <p className="text-sm font-semibold text-muted-foreground">Kabinet və zallar</p>
-            {cabinetTables.map((table) => renderTableTile(table, true))}
-          </aside>
-        )}
-      </div>
 
       <Dialog open={guestCountTable !== null} onOpenChange={(open) => !open && setGuestCountTable(null)}>
         <DialogContent className="sm:max-w-xs">
@@ -1118,5 +1203,42 @@ export default function PosTablesPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ActionButton({
+  icon: Icon,
+  label,
+  active = false,
+  tone = "default",
+  disabled,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  active?: boolean;
+  tone?: "default" | "danger";
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex h-16 min-w-[7.5rem] flex-1 select-none flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 text-sm font-semibold shadow-sm transition-all active:scale-95",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+        active
+          ? "border-primary bg-primary text-primary-foreground shadow-md"
+          : tone === "danger"
+            ? "border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10"
+            : "border-border bg-card text-card-foreground hover:border-primary/40 hover:bg-muted/50",
+      )}
+    >
+      <Icon className="h-5 w-5" />
+      <span className="leading-none">{label}</span>
+    </button>
   );
 }

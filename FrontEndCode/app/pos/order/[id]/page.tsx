@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Clock, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Banknote, CalendarPlus, ChevronDown, ChevronUp, Clock, CreditCard, Hash, Keyboard, LayoutGrid, LogOut, MoreHorizontal, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, UtensilsCrossed, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -74,7 +74,10 @@ import { BarcodeSvg } from "@/components/barcode-svg";
 import { getFiscalDevices } from "@/lib/services/fiscal-device-service";
 import { setFiscalMode, useFiscalMode } from "@/lib/pos-fiscal-mode";
 import { CustomerReceiptsDialog } from "@/components/pos/customer-receipts-dialog";
-import { PayDialog } from "@/components/pos/pay-dialog";
+import { PayDialog, type Method as PayMethod } from "@/components/pos/pay-dialog";
+import { NewReservationDialog } from "@/components/pos/new-reservation-dialog";
+import { VirtualKeyboard } from "@/components/pos/virtual-keyboard";
+import { getRestaurantSections } from "@/lib/services/restaurant-section-service";
 import { SplitBillDialog } from "@/components/pos/split-bill-dialog";
 import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
@@ -191,6 +194,35 @@ export default function PosOrderPage() {
   const [counterpartyBusy, setCounterpartyBusy] = useState(false);
 
   const [discountBusy, setDiscountBusy] = useState(false);
+
+  // The line the toolbar above the list ("Qiymət", "Miqdar", "+", "Silmə") acts on; it shows its own controls.
+  const [selectedLineId, setSelectedLineId] = useState<number | null>(null);
+  const [qtyLine, setQtyLine] = useState<OrderLineDto | null>(null);
+  const [qtyInput, setQtyInput] = useState("");
+  // Tapping a running minute-billed line asks "Dayandır" / "Davam et".
+  const [timerLine, setTimerLine] = useState<OrderLineDto | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [reservationOpen, setReservationOpen] = useState(false);
+  // "KART" / "NƏĞD" open the payment straight on that method; "Hesab" opens the chooser.
+  const [payMethod, setPayMethod] = useState<PayMethod | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchKeyboardOpen, setSearchKeyboardOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [hallName, setHallName] = useState<string | null>(null);
+  // ↑ / ↓ next to the categories page through the products.
+  const productScrollRef = useRef<HTMLDivElement | null>(null);
+  const [productScroll, setProductScroll] = useState({ up: false, down: false });
+  const syncProductScroll = useCallback(() => {
+    const el = productScrollRef.current;
+    if (!el) return;
+    setProductScroll({ up: el.scrollTop > 4, down: el.scrollTop + el.clientHeight < el.scrollHeight - 4 });
+  }, []);
+  const pageProducts = (direction: 1 | -1) => {
+    const el = productScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ top: direction * Math.max(el.clientHeight - 80, 120), behavior: "smooth" });
+  };
+  const canCreateReservation = useHasPermission("Reservation.Create");
 
   const isStoreMode = branding?.moduleDataSecimi === true;
   const canEditProduct = useHasPermission("Pos.EditProductInSale");
@@ -324,6 +356,23 @@ export default function PosOrderPage() {
       void loadAvailability(terminal.restaurantId);
     }
   }, [loadAvailability]);
+
+  // "ZAL" in the order header: the hall (restaurant section) of this order's table.
+  const orderTableId = order?.tableId;
+  const orderRestaurantId = order?.restaurantId;
+  useEffect(() => {
+    if (!orderTableId || !orderRestaurantId) return;
+    let cancelled = false;
+    Promise.all([getRestaurantTableById(orderTableId), getRestaurantSections(orderRestaurantId)])
+      .then(([table, sections]) => {
+        if (cancelled) return;
+        setHallName(sections.find((s) => s.id === table.sectionId)?.name ?? null);
+      })
+      .catch(() => !cancelled && setHallName(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [orderTableId, orderRestaurantId]);
 
   const orderedLines = useMemo(() => {
     const lines = order?.lines ?? [];
@@ -597,6 +646,20 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     return ownItems;
   }, [items, ownItems, activeSubCategoryId]);
 
+  // Whatever the product pane shows changed: back to its first page, then re-check the ↑ / ↓ buttons.
+  useEffect(() => {
+    productScrollRef.current?.scrollTo({ top: 0 });
+    syncProductScroll();
+  }, [activeCategoryId, activeSubCategoryId, productSearch, items, syncProductScroll]);
+
+  useEffect(() => {
+    const el = productScrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(syncProductScroll);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loading, syncProductScroll]);
+
   const productSearchTrimmed = productSearch.trim();
   const searchResults = useMemo(() => {
     if (!productSearchTrimmed) return [];
@@ -771,13 +834,8 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     if (!order || busy || order.isPaid || order.isBillLocked) return;
     // Quick taps on +/- or other controls must not count as a double-tap on the line itself.
     if ((e.target as HTMLElement).closest("button, input, a")) return;
-    if (line.isTimeBased) {
-      // Minute-billed items (PlayStation...): double-tap stops the clock.
-      if (line.timeBasedStartedAt != null && line.timeBasedStoppedAt == null && canEditProduct) {
-        void handleStopTimer(line.id);
-      }
-      return;
-    }
+    // Minute-billed items (PlayStation...) take no note: a tap on them asks "Dayandır" / "Davam et".
+    if (line.isTimeBased) return;
     if (!canEditProduct) return;
     setLineNoteLine(line);
     setLineNoteInput(line.note ?? "");
@@ -800,8 +858,14 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
   };
 
   const handleLineClick = (e: React.MouseEvent, line: OrderLineDto) => {
-    if ((!priceMode && !giftMode) || !order || busy || order.isPaid || order.isBillLocked) return;
     if ((e.target as HTMLElement).closest("button, input, a")) return;
+    if (!priceMode && !giftMode) {
+      setSelectedLineId(line.id);
+      const timerRunning = line.isTimeBased && line.timeBasedStartedAt != null && line.timeBasedStoppedAt == null;
+      if (timerRunning && canEditProduct && order && !busy && !order.isPaid && !order.isBillLocked) setTimerLine(line);
+      return;
+    }
+    if (!order || busy || order.isPaid || order.isBillLocked) return;
     if (giftMode) {
       if (line.isTimeBased) {
         toast.error("Dəqiqə ilə hesablanan məhsul hədiyyə edilə bilməz.");
@@ -921,7 +985,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     }
   };
 
-  const openPayDialog = () => {
+  const openPayDialog = (method: PayMethod | null = null) => {
     if (!order) return;
     const hasRental = order.tableHourlyRate != null;
     if (order.lines.length === 0 && !hasRental) return;
@@ -929,7 +993,21 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
       toast.error("Əvvəlcə icarə taymerini dayandırın");
       return;
     }
+    setPayMethod(method);
     setPayOpen(true);
+  };
+
+  // "Miqdar": type the new count on the number pad; 0 removes the line (with a reason if it reached the kitchen).
+  const handleSaveQuantity = async () => {
+    if (!qtyLine) return;
+    const quantity = Math.floor(Number(qtyInput));
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      toast.error("Miqdar düzgün deyil");
+      return;
+    }
+    const line = qtyLine;
+    setQtyLine(null);
+    if (quantity !== line.quantity) await handleQuantityChange(line.id, line.quantity, quantity - line.quantity);
   };
 
   const maybeAutoPrint = (isFromPayment: boolean) => {
@@ -1359,848 +1437,1078 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     ? (order.tableHourlyRate ?? 0) * (rentalElapsedMs / 3_600_000)
     : order.tableRentalAmount ?? 0;
 
-  return (
-    <div className="flex h-full flex-col md:flex-row">
-      {reasonDialog}
-      {/* Menu */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
-          <Button variant="ghost" size="icon-sm" onClick={() => void handleBack()}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <span className="font-semibold">{order.tableName}</span>
-          {order.counterpartyName && (
-            <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-              <User className="h-3 w-3" />
-              {order.counterpartyName}
-              {order.counterpartyDebtAmount != null && order.counterpartyDebtAmount > 0 && (
-                <span className="text-destructive">— borc: {order.counterpartyDebtAmount.toFixed(2)} ₼</span>
-              )}
-            </span>
-          )}
-          {order.discountCode && (
-            <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
-              <Tag className="h-3 w-3" />
-              {order.discountCode} (-{order.discountAmount.toFixed(2)} ₼)
-              {!isPaid && (
-                <button
-                  type="button"
-                  onClick={() => void handleRemoveDiscount()}
-                  disabled={discountBusy}
-                  className="ml-0.5 hover:text-blue-950"
-                  title="Endirimi sil"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </span>
-          )}
-          {order.note && (
-            <span
-              className="flex max-w-[160px] items-center gap-1 truncate rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
-              title={order.note}
-            >
-              <StickyNote className="h-3 w-3 shrink-0" />
-              {order.note}
-            </span>
-          )}
-          <div className="ml-auto flex items-center gap-1">
-            {!isPaid && branding?.posShowCustomerSelect !== false && (
-              <Button variant="outline" size="sm" onClick={() => void openCounterpartyDialog()} disabled={busy}>
-                <User className="mr-1 h-3.5 w-3.5" />
-                Müştəri seç
-              </Button>
-            )}
-            {!isPaid && canApplyDiscount && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  title="Endirim — manatla"
-                  aria-label="Endirim — manatla"
-                  disabled={busy || order.isBillLocked}
-                  onClick={() => {
-                    setManualDiscountInput("");
-                    setManualDiscountKind("Amount");
-                  }}
-                >
-                  <span className="text-sm font-bold leading-none">₼</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  title="Endirim — faizlə"
-                  aria-label="Endirim — faizlə"
-                  disabled={busy || order.isBillLocked}
-                  onClick={() => {
-                    setManualDiscountInput("");
-                    setManualDiscountKind("Percent");
-                  }}
-                >
-                  <Percent className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            )}
-            <Button variant="outline" size="sm" onClick={openNoteDialog} disabled={busy}>
-              <StickyNote className="mr-1 h-3.5 w-3.5" />
-              Qeyd
-            </Button>
-            {!isPaid && !isStoreMode && canMoveTable && (
-              <Button variant="outline" size="sm" onClick={() => void openMoveTableDialog()} disabled={busy}>
-                <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
-                Masanı dəyiş
-              </Button>
-            )}
-            {!isPaid && !isStoreMode && canChangeWaiter && (
-              <Button variant="outline" size="sm" onClick={startReassign} disabled={busy}>
-                <UserCog className="mr-1 h-3.5 w-3.5" />
-                Ofisiantı dəyiş
-              </Button>
-            )}
-            {!isPaid && canEditProduct && (branding?.posShowHoldButton !== false || order.holdUntilUtc) && (
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(order.holdUntilUtc && "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100")}
-                onClick={() => void handleToggleOrderHold()}
-                disabled={orderHoldBusy}
-              >
-                <Clock className="mr-1 h-3.5 w-3.5" />
-                {order.holdUntilUtc ? "Gözləməni ləğv et" : "Bütöv sifarişi gözlət"}
-              </Button>
-            )}
-            {!isPaid && order.isDelivery && canRedirectUser && (
-              <Button variant="outline" size="sm" onClick={() => void openDriverDialog()} disabled={busy}>
-                <UserCog className="mr-1 h-3.5 w-3.5" />
-                {order.deliveryDriverName ? `Kuryer: ${order.deliveryDriverName}` : "Kuryer təyin et"}
-              </Button>
-            )}
-            {canCancelOrderStatus && canDeleteOrder && (
-              <Button variant="outline" size="sm" className="text-destructive" onClick={() => void handleDeleteOrder()} disabled={busy}>
-                <X className="mr-1 h-3.5 w-3.5" />
-                Sifarişi ləğv et
-              </Button>
-            )}
-          </div>
+  const selectedLine = selectedLineId != null ? order.lines.find((l) => l.id === selectedLineId) ?? null : null;
+  const linesLocked = isPaid || order.isBillLocked;
+  const inKitchenStage = (l: OrderLineDto) => l.status === "InPreparation" || l.status === "Ready" || l.status === "Served";
+  const formatLineTime = (iso: string | null) =>
+    iso
+      ? new Date(iso.endsWith("Z") ? iso : `${iso}Z`).toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit" })
+      : "";
+
+  // After payment totalAmount already includes the service charge; before it, rental is added on top.
+  const service = order.serviceChargeAmount ?? 0;
+  const grandTotal = isPaid
+    ? order.totalAmount
+    : order.totalAmount + (isRentalRunning ? rentalLiveTotal : order.tableRentalAmount ?? 0) + service;
+  const subtotal = grandTotal + order.discountAmount - service;
+  const receivedAmount = isPaid ? order.paidAmount : hasPartPayments ? payments!.paidAmount : null;
+
+  const showProductSearch = searchOpen || productSearchTrimmed !== "" || isStoreMode;
+  const toggleProductSearch = () => {
+    if (searchOpen && !isStoreMode) {
+      setSearchOpen(false);
+      setSearchKeyboardOpen(false);
+      setProductSearch("");
+      return;
+    }
+    setSearchOpen(true);
+    setSearchKeyboardOpen(true);
+    window.setTimeout(() => searchInputRef.current?.focus(), 0);
+  };
+
+  const pendingKitchenLines = printerGroups.reduce((sum, g) => sum + g.lines.length, 0);
+  const lineColumns = "grid grid-cols-[3.25rem_minmax(0,1fr)_4rem_4.5rem_3rem] items-center gap-x-2";
+
+  const renderProduct = (item: MenuItem) => {
+    const isOutOfStock = outOfStockIds.has(item.id);
+    const isMissingCode = lacksProductCode(item);
+    return (
+      <button
+        key={item.id}
+        type="button"
+        disabled={busy || isOutOfStock || isMissingCode}
+        onClick={() => handleItemClick(item)}
+        className={cn(
+          "relative flex h-28 select-none flex-col overflow-hidden rounded-xl border-2 border-border bg-card text-left shadow-sm transition-all",
+          "hover:border-primary/50 active:scale-95 disabled:opacity-50",
+          (isOutOfStock || isMissingCode) && "bg-muted grayscale",
+        )}
+      >
+        {item.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.imageUrl} alt="" className="h-12 w-full shrink-0 object-cover" loading="lazy" />
+        )}
+        <div className="flex min-h-0 flex-1 flex-col justify-between gap-1 p-2.5">
+          <span className={cn("font-semibold leading-tight", item.imageUrl ? "line-clamp-1 text-sm" : "line-clamp-2 text-base")}>
+            {item.name}
+          </span>
+          <span className="text-sm font-bold tabular-nums text-primary">{(item.stationPrice ?? item.price).toFixed(2)} ₼</span>
         </div>
-        {order.isBillLocked && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
-            <span>Hesab verilib — sifarişə dəyişiklik etmək olmaz.</span>
-            {canUnlockBill && (
-              <Button size="sm" variant="outline" onClick={() => void handleUnlockBill()}>
-                Kilidi aç
-              </Button>
-            )}
-          </div>
+        {isWeightBasedItem(item) && (
+          <Scale className="absolute right-2 bottom-2.5 h-4 w-4 text-violet-700" aria-label="Çəki ilə satılır" />
         )}
-        {order.holdUntilUtc && (
-          <div className="flex items-center gap-2 border-b bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
-            <Clock className="h-4 w-4" />
-            Sifariş gözlədədir — mətbəxə göndərilmir, "Gözləməni ləğv et" ilə buraxın.
-          </div>
+        {isOutOfStock && (
+          <span className="absolute right-1 top-1 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
+            Bitib
+          </span>
         )}
-        {order.isDelivery && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-sky-50 px-3 py-2 text-sm text-sky-900">
-            <span className="font-medium">Çatdırılma sifarişi</span>
-            {order.deliveryPhone && <span>Tel: {order.deliveryPhone}</span>}
-            {order.deliveryAddress && <span>Ünvan: {order.deliveryAddress}</span>}
-            <span>{order.deliveryDriverName ? `Kuryer: ${order.deliveryDriverName}` : "Kuryer təyin edilməyib"}</span>
-          </div>
+        {isMissingCode && !isOutOfStock && (
+          <span className="absolute right-1 top-1 rounded-full bg-muted-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
+            Kodsuz
+          </span>
         )}
-        {order.tableHourlyRate != null && (
-          <div
-            className={cn(
-              "flex flex-wrap items-center gap-3 border-b px-3 py-2",
-              isRentalRunning ? "bg-emerald-50" : "bg-muted/40",
-            )}
-          >
-            {rateEditing ? (
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium">Saatlıq icarə —</span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  autoFocus
-                  value={rateInput}
-                  onChange={(e) => setRateInput(e.target.value)}
-                  className="h-7 w-20 text-sm"
-                />
-                <span className="text-sm text-muted-foreground">₼/saat</span>
-                <Button size="sm" className="h-7 px-2" disabled={rateBusy} onClick={() => void handleSaveRate()}>
-                  OK
-                </Button>
-              </div>
-            ) : (
-              <span className="flex items-center gap-1 text-sm font-medium">
-                Saatlıq icarə — {order.tableHourlyRate.toFixed(2)} ₼/saat
-                {canChangePrice && !isRentalRunning && !isPaid && (
-                  <button type="button" onClick={startRateEdit} className="text-muted-foreground hover:text-primary">
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                )}
-              </span>
-            )}
-            {isRentalRunning ? (
-              <>
-                <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700">
-                  <Clock className="h-3.5 w-3.5" />
-                  {formatDuration(rentalElapsedMs)} — {rentalLiveTotal.toFixed(2)} ₼
-                </span>
-                {!isPaid && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="ml-auto gap-1 text-emerald-700"
-                    disabled={busy}
-                    onClick={() => void handleStopRental()}
-                  >
-                    <Square className="h-3.5 w-3.5" />
-                    Dayandır
-                  </Button>
-                )}
-              </>
-            ) : order.tableRentalStoppedAt != null ? (
-              <span className="ml-auto text-sm text-muted-foreground">
-                Dayandırılıb — {(order.tableRentalAmount ?? 0).toFixed(2)} ₼
-              </span>
-            ) : (
-              !isPaid && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="ml-auto gap-1"
-                  disabled={busy}
-                  onClick={() => void handleStartRental()}
-                >
-                  <Play className="h-3.5 w-3.5" />
-                  Başlat
-                </Button>
-              )
-            )}
-          </div>
-        )}
-        <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <Input
-            value={productSearch}
-            onChange={(e) => setProductSearch(e.target.value)}
-            onKeyDown={handleBarcodeEnter}
-            placeholder="Məhsul axtar və ya barkod skan et..."
-            className="h-8"
-          />
-          {productSearch && (
+      </button>
+    );
+  };
+
+  // The selected line's own controls (quantity, timer, weight, discount, hold, price lists, delete).
+  const renderLineControls = (line: OrderLineDto, isHeld: boolean, isTimerRunning: boolean) => (
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background p-2 shadow-sm">
+      <div className="flex items-center gap-2">
+        {line.isTimeBased ? (
+          isTimerRunning ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1 px-2 text-emerald-700"
+              disabled={busy || !canEditProduct}
+              onClick={() => setTimerLine(line)}
+            >
+              <Square className="h-3 w-3" />
+              Dayandır
+            </Button>
+          ) : line.timeBasedStoppedAt != null ? (
+            <span className="text-xs text-muted-foreground">Dayandırılıb</span>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1 px-2"
+              disabled={busy || !canEditProduct}
+              onClick={() => void handleStartTimer(line.id)}
+            >
+              <Play className="h-3 w-3" />
+              Başlat
+            </Button>
+          )
+        ) : line.isWeightBased ? (
+          canEditProduct && (
+            <Button size="sm" variant="outline" className="h-8 gap-1 px-2" disabled={busy} onClick={() => openReweighDialog(line)}>
+              <Scale className="h-3.5 w-3.5" />
+              Çəkini dəyiş
+            </Button>
+          )
+        ) : (
+          <>
             <button
               type="button"
-              onClick={() => setProductSearch("")}
-              className="shrink-0 text-muted-foreground hover:text-foreground"
+              disabled={busy || !canEditProduct}
+              onClick={() => void handleQuantityChange(line.id, line.quantity, -1)}
+              className="flex h-8 w-8 items-center justify-center rounded-md border disabled:opacity-50"
+              aria-label="Azalt"
             >
-              <X className="h-4 w-4" />
+              <Minus className="h-3.5 w-3.5" />
             </button>
-          )}
-        </div>
-        <div className={cn("flex gap-2 overflow-x-auto border-b bg-background px-3 py-2", productSearchTrimmed && "hidden")}>
-          {topLevelCategories.map((cat) => (
+            <span className="w-7 text-center text-sm font-semibold">{line.quantity}</span>
             <button
-              key={cat.id}
+              type="button"
+              disabled={busy || !canEditProduct}
+              onClick={() => void handleQuantityChange(line.id, line.quantity, 1)}
+              className="flex h-8 w-8 items-center justify-center rounded-md border disabled:opacity-50"
+              aria-label="Artır"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
+      </div>
+
+      {priceEditingLineId === line.id ? (
+        <div className="flex items-center gap-1">
+          <Input
+            type="number"
+            step="0.01"
+            autoFocus
+            value={priceInput}
+            onChange={(e) => setPriceInput(e.target.value)}
+            className="h-8 w-20 text-right text-sm"
+          />
+          <Button size="sm" className="h-8 px-2" disabled={busy} onClick={() => void handleSavePrice(line.id, line.quantity)}>
+            OK
+          </Button>
+        </div>
+      ) : discountEditingLineId === line.id ? (
+        <div className="flex items-center gap-1">
+          <Input
+            type="number"
+            step="0.01"
+            min={0}
+            autoFocus
+            value={discountAmountInput}
+            onChange={(e) => setDiscountAmountInput(e.target.value)}
+            placeholder="Endirim ₼"
+            className="h-8 w-24 text-right text-sm"
+          />
+          <Button size="sm" className="h-8 px-2" disabled={busy} onClick={() => void handleSaveDiscount(line.id, line.quantity)}>
+            OK
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2.5">
+          {canEditProduct && !line.isTimeBased && (
+            <button
               type="button"
               onClick={() => {
-                setActiveCategoryId(cat.id);
-                setActiveSubCategoryId(null);
+                setLineNoteLine(line);
+                setLineNoteInput(line.note ?? "");
               }}
-              style={branding?.categoryFontSize ? { fontSize: `${branding.categoryFontSize}px` } : undefined}
-              className={cn(
-                "shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                cat.id === activeCategoryId
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/70",
-              )}
+              className={cn("text-muted-foreground hover:text-amber-700", line.note && "text-amber-600")}
+              title="Qeyd"
             >
-              {cat.name}
+              <StickyNote className="h-4 w-4" />
             </button>
-          ))}
-        </div>
-        <div className="flex-1 overflow-y-auto p-3">
-          {productSearchTrimmed ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {searchResults.map((item) => {
-                const isOutOfStock = outOfStockIds.has(item.id);
-                const isMissingCode = lacksProductCode(item);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    disabled={busy || isOutOfStock || isMissingCode}
-                    onClick={() => handleItemClick(item)}
-                    className={cn(
-                      "relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50",
-                      (isOutOfStock || isMissingCode) && "bg-muted grayscale",
-                    )}
-                  >
-                    {isOutOfStock && (
-                      <span className="absolute right-1 top-1 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
-                        Bitib
-                      </span>
-                    )}
-                    {isMissingCode && !isOutOfStock && (
-                      <span className="absolute right-1 top-1 rounded-full bg-muted-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
-                        Kodsuz
-                      </span>
-                    )}
-                    <span className="text-sm font-semibold leading-tight">{item.name}</span>
-                    {isWeightBasedItem(item) && (
-                      <Scale className="absolute left-1.5 top-1.5 h-3.5 w-3.5 text-violet-700" aria-label="Çəki ilə satılır" />
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {(item.stationPrice ?? item.price).toFixed(2)} ₼
-                    </span>
-                  </button>
-                );
-              })}
-              {searchResults.length === 0 && (
-                <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-                  Nəticə tapılmadı
-                </p>
-              )}
-            </div>
-          ) : (
-          <>
-          {activeSubCategoryId != null && (
+          )}
+          {canApplyDiscount && !line.isTimeBased && !line.isGift && (
             <button
               type="button"
-              onClick={() => setActiveSubCategoryId(null)}
-              className="mb-3 flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => startDiscountEdit(line.id, line.discountAmount)}
+              className={cn(
+                "text-muted-foreground hover:text-blue-600",
+                line.discountAmount > 0 && "text-blue-600 hover:text-blue-700",
+              )}
+              title="Endirim tətbiq et"
             >
-              <ArrowLeft className="h-4 w-4" />
-              {categories.find((c) => c.id === activeSubCategoryId)?.name}
+              <Tag className="h-4 w-4" />
             </button>
           )}
-
-          {activeSubCategoryId == null && subCategoriesWithItems.length > 0 && (
-            <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {subCategoriesWithItems.map((sub) => (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => setActiveSubCategoryId(sub.id)}
-                  className="flex h-24 flex-col items-center justify-center gap-1 rounded-xl border-2 border-primary/30 bg-primary/5 p-2 text-center shadow-sm transition-transform active:scale-95 hover:bg-primary/10"
-                >
-                  <span className="text-sm font-semibold leading-tight text-foreground">{sub.name}</span>
-                  <span className="text-xs text-muted-foreground">Bölmə</span>
-                </button>
-              ))}
-            </div>
+          {canEditProduct && (branding?.posShowHoldButton !== false || isHeld) && !inKitchenStage(line) && (
+            <button
+              type="button"
+              onClick={() => openHoldDialog(line)}
+              className={cn("text-muted-foreground hover:text-foreground", isHeld && "text-amber-600 hover:text-amber-700")}
+              title="Gözlət"
+            >
+              <Clock className="h-4 w-4" />
+            </button>
           )}
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {itemsInCategory.map((item) => {
-              const isOutOfStock = outOfStockIds.has(item.id);
-                const isMissingCode = lacksProductCode(item);
+          {canChangePrice && !line.isTimeBased && (
+            <button
+              type="button"
+              onClick={() => startPriceEdit(line.id, line.unitPrice)}
+              className="text-muted-foreground hover:text-primary"
+              title="Qiyməti dəyiş"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {canChangePrice &&
+            !line.isTimeBased &&
+            !busy &&
+            (() => {
+              const packagePrice = items.find((i) => i.id === line.menuItemId)?.packagePrice;
+              if (packagePrice == null || packagePrice === line.unitPrice) return null;
               return (
                 <button
-                  key={item.id}
                   type="button"
-                  disabled={busy || isOutOfStock || isMissingCode}
-                  onClick={() => handleItemClick(item)}
-                  className={cn(
-                    "relative flex h-24 flex-col items-center justify-center gap-1 rounded-xl border bg-card p-2 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-50",
-                    (isOutOfStock || isMissingCode) && "bg-muted grayscale",
-                  )}
+                  onClick={() => void applyQuickPrice(line.id, line.quantity, packagePrice)}
+                  className="text-muted-foreground hover:text-primary"
+                  title={`Paket qiyməti tətbiq et (${packagePrice.toFixed(2)} ₼)`}
                 >
-                  {isOutOfStock && (
-                    <span className="absolute right-1 top-1 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
-                      Bitib
-                    </span>
-                  )}
-                  {isMissingCode && !isOutOfStock && (
-                    <span className="absolute right-1 top-1 rounded-full bg-muted-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
-                      Kodsuz
-                    </span>
-                  )}
-                  <span className="text-sm font-semibold leading-tight">{item.name}</span>
-                    {isWeightBasedItem(item) && (
-                      <Scale className="absolute left-1.5 top-1.5 h-3.5 w-3.5 text-violet-700" aria-label="Çəki ilə satılır" />
-                    )}
-                  <span className="text-xs text-muted-foreground">
-                    {(item.stationPrice ?? item.price).toFixed(2)} ₼
-                  </span>
+                  <Package className="h-4 w-4" />
+                </button>
+              );
+            })()}
+          {canChangePrice &&
+            !line.isTimeBased &&
+            !busy &&
+            ([1, 2, 3] as const).map((n) => {
+              const menuItem = items.find((i) => i.id === line.menuItemId);
+              const price = n === 1 ? menuItem?.specialPrice1 : n === 2 ? menuItem?.specialPrice2 : menuItem?.specialPrice3;
+              if (price == null || price === line.unitPrice) return null;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => void applyQuickPrice(line.id, line.quantity, price)}
+                  className="text-xs font-bold text-muted-foreground hover:text-primary"
+                  title={`Qiymət ${n} tətbiq et (${price.toFixed(2)} ₼)`}
+                >
+                  Q{n}
                 </button>
               );
             })}
-            {itemsInCategory.length === 0 && subCategoriesWithItems.length === 0 && (
-              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-                Bu kateqoriyada məhsul yoxdur
-              </p>
-            )}
-          </div>
-          </>
+          {canDeleteProduct && !inKitchenStage(line) && (
+            <button
+              type="button"
+              onClick={() => void handleRemoveLine(line.id)}
+              className="text-muted-foreground hover:text-destructive"
+              title="Sil"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           )}
         </div>
-      </div>
+      )}
+    </div>
+  );
 
-      {/* Cart */}
-      <div className="flex w-full flex-col border-t bg-background md:w-[360px] md:border-l md:border-t-0">
-        {!isPaid && order.lines.length > 0 && (
-          <div className="flex items-center gap-2 border-b px-3 py-2">
-            <Button
-              size="sm"
-              variant={priceMode ? "default" : "outline"}
-              disabled={busy || order.isBillLocked}
-              onClick={() => {
-                setGiftMode(false);
-                setPriceMode((v) => !v);
-              }}
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {reasonDialog}
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        {/* Order */}
+        <section className="flex min-h-0 w-full shrink-0 flex-col border-b bg-background md:w-[360px] md:border-b-0 md:border-r lg:w-[420px]">
+          <div className="flex items-stretch border-b">
+            {!isStoreMode && (
+              <>
+                <InfoCell label="Zal" value={hallName ?? (order.isDelivery ? "Çatdırılma" : "—")} />
+                <InfoCell label="Masa" value={order.tableName ?? "—"} strong />
+              </>
+            )}
+            <InfoCell label="Çek №" value={order.orderNumber} />
+            <InfoCell label="İstifadəçi" value={order.waiterName ?? "—"} grow />
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              className="relative flex w-12 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Əlavə əməliyyatlar"
+              aria-label="Əlavə əməliyyatlar"
             >
-              <Tag className="mr-1 h-3.5 w-3.5" />
-              Qiymət
-            </Button>
-            {canApplyDiscount && (
-              <Button
-                size="sm"
-                variant={giftMode ? "default" : "outline"}
-                disabled={busy || order.isBillLocked}
-                onClick={() => {
-                  setPriceMode(false);
-                  setGiftMode((v) => !v);
-                }}
-              >
-                <Gift className="mr-1 h-3.5 w-3.5" />
-                Hədiyyə
-              </Button>
-            )}
-            {priceMode && (
-              <span className="text-xs text-muted-foreground">Qiymətini dəyişəcəyiniz məhsula toxunun</span>
-            )}
-            {giftMode && (
-              <span className="text-xs text-muted-foreground">Hədiyyə edəcəyiniz (və ya hədiyyədən çıxaracağınız) məhsula toxunun</span>
-            )}
+              <MoreHorizontal className="h-5 w-5" />
+              {pendingKitchenLines > 0 && canPrint && !isPaid && (
+                <span className="absolute right-1.5 top-2 min-w-4 rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+                  {pendingKitchenLines}
+                </span>
+              )}
+            </button>
           </div>
-        )}
-        <div className="flex-1 overflow-y-auto p-3">
-          {order.lines.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">Sifariş boşdur</p>
+
+          {/* The customer (and their debt) shows under "Müştəri adı" in the totals. */}
+          {(order.discountCode || order.note) && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
+              {order.discountCode && (
+                <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
+                  <Tag className="h-3 w-3" />
+                  {order.discountCode} (-{order.discountAmount.toFixed(2)} ₼)
+                  {!isPaid && (
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveDiscount()}
+                      disabled={discountBusy}
+                      className="ml-0.5 hover:text-blue-950"
+                      title="Endirimi sil"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </span>
+              )}
+              {order.note && (
+                <span
+                  className="flex max-w-[200px] items-center gap-1 truncate rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
+                  title={order.note}
+                >
+                  <StickyNote className="h-3 w-3 shrink-0" />
+                  {order.note}
+                </span>
+              )}
+            </div>
           )}
-          <div className="space-y-2">
+
+          {order.isBillLocked && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+              <span>Hesab verilib — sifarişə dəyişiklik etmək olmaz.</span>
+              {canUnlockBill && (
+                <Button size="sm" variant="outline" onClick={() => void handleUnlockBill()}>
+                  Kilidi aç
+                </Button>
+              )}
+            </div>
+          )}
+          {order.holdUntilUtc && (
+            <div className="flex items-center gap-2 border-b bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+              <Clock className="h-4 w-4 shrink-0" />
+              Sifariş gözlədədir — mətbəxə göndərilmir.
+            </div>
+          )}
+          {order.isDelivery && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-sky-50 px-3 py-2 text-sm text-sky-900">
+              <span className="font-medium">Çatdırılma sifarişi</span>
+              {order.deliveryPhone && <span>Tel: {order.deliveryPhone}</span>}
+              {order.deliveryAddress && <span>Ünvan: {order.deliveryAddress}</span>}
+              <span>{order.deliveryDriverName ? `Kuryer: ${order.deliveryDriverName}` : "Kuryer təyin edilməyib"}</span>
+            </div>
+          )}
+          {order.tableHourlyRate != null && (
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-3 border-b px-3 py-2",
+                isRentalRunning ? "bg-emerald-50" : "bg-muted/40",
+              )}
+            >
+              {rateEditing ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium">Saatlıq icarə —</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    autoFocus
+                    value={rateInput}
+                    onChange={(e) => setRateInput(e.target.value)}
+                    className="h-7 w-20 text-sm"
+                  />
+                  <span className="text-sm text-muted-foreground">₼/saat</span>
+                  <Button size="sm" className="h-7 px-2" disabled={rateBusy} onClick={() => void handleSaveRate()}>
+                    OK
+                  </Button>
+                </div>
+              ) : (
+                <span className="flex items-center gap-1 text-sm font-medium">
+                  Saatlıq icarə — {order.tableHourlyRate.toFixed(2)} ₼/saat
+                  {canChangePrice && !isRentalRunning && !isPaid && (
+                    <button type="button" onClick={startRateEdit} className="text-muted-foreground hover:text-primary">
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  )}
+                </span>
+              )}
+              {isRentalRunning ? (
+                <>
+                  <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700">
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatDuration(rentalElapsedMs)} — {rentalLiveTotal.toFixed(2)} ₼
+                  </span>
+                  {!isPaid && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="ml-auto gap-1 text-emerald-700"
+                      disabled={busy}
+                      onClick={() => void handleStopRental()}
+                    >
+                      <Square className="h-3.5 w-3.5" />
+                      Dayandır
+                    </Button>
+                  )}
+                </>
+              ) : order.tableRentalStoppedAt != null ? (
+                <span className="ml-auto text-sm text-muted-foreground">
+                  Dayandırılıb — {(order.tableRentalAmount ?? 0).toFixed(2)} ₼
+                </span>
+              ) : (
+                !isPaid && (
+                  <Button size="sm" variant="outline" className="ml-auto gap-1" disabled={busy} onClick={() => void handleStartRental()}>
+                    <Play className="h-3.5 w-3.5" />
+                    Başlat
+                  </Button>
+                )
+              )}
+            </div>
+          )}
+
+          {/* Toolbar for the selected line */}
+          {!isPaid && (
+            <div className="space-y-1.5 border-b px-3 py-2">
+              <div className="grid grid-cols-4 gap-1.5">
+                <ToolButton
+                  icon={Tag}
+                  label="Qiymət"
+                  active={priceMode}
+                  disabled={busy || order.isBillLocked || order.lines.length === 0}
+                  onClick={() => {
+                    setGiftMode(false);
+                    if (selectedLine && !priceMode && !selectedLine.isGift && !selectedLine.isTimeBased) {
+                      setPriceLine(selectedLine);
+                      return;
+                    }
+                    setPriceMode((v) => !v);
+                  }}
+                />
+                <ToolButton
+                  icon={Hash}
+                  label="Miqdar"
+                  disabled={busy || !selectedLine || linesLocked || !canEditProduct || selectedLine.isTimeBased}
+                  onClick={() => {
+                    if (!selectedLine) return;
+                    if (selectedLine.isWeightBased) {
+                      openReweighDialog(selectedLine);
+                      return;
+                    }
+                    setQtyInput(String(selectedLine.quantity));
+                    setQtyLine(selectedLine);
+                  }}
+                />
+                <ToolButton
+                  icon={Plus}
+                  label="+1"
+                  disabled={
+                    busy || !selectedLine || linesLocked || !canEditProduct || selectedLine.isTimeBased || selectedLine.isWeightBased
+                  }
+                  onClick={() => selectedLine && void handleQuantityChange(selectedLine.id, selectedLine.quantity, 1)}
+                />
+                <ToolButton
+                  icon={Trash2}
+                  label="Silmə"
+                  tone="danger"
+                  disabled={busy || !selectedLine || linesLocked || !canDeleteProduct || inKitchenStage(selectedLine)}
+                  onClick={() => selectedLine && void handleRemoveLine(selectedLine.id)}
+                />
+              </div>
+              {(priceMode || giftMode) && (
+                <p className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                  {priceMode
+                    ? "Qiymətini dəyişəcəyiniz məhsula toxunun"
+                    : "Hədiyyə edəcəyiniz (və ya hədiyyədən çıxaracağınız) məhsula toxunun"}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Lines */}
+          <div className={cn(lineColumns, "border-b bg-muted/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground")}>
+            <span className="text-center">Miqdar</span>
+            <span>Məhsul</span>
+            <span className="text-right">Qiymət</span>
+            <span className="text-right">Cəmi</span>
+            <span className="text-right">Saat</span>
+          </div>
+          <div className="min-h-32 flex-1 overflow-y-auto">
+            {order.lines.length === 0 && (
+              <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
+                <UtensilsCrossed className="h-8 w-8" />
+                <p className="text-sm">Sifariş boşdur — sağdan məhsul seçin</p>
+              </div>
+            )}
             {orderedLines.map((line) => {
-              const isChild = line.parentLineId != null;
-              if (isChild) {
+              if (line.parentLineId != null) {
                 return (
-                  <div key={line.id} className="ml-4 flex items-center justify-between gap-2 border-l-2 pl-2 text-sm text-muted-foreground">
-                    <span>↳ {line.menuItemName}</span>
-                    <span>x{line.quantity}</span>
+                  <div key={line.id} className={cn(lineColumns, "border-b px-3 py-1 text-xs text-muted-foreground")}>
+                    <span className="text-center">x{line.quantity}</span>
+                    <span className="truncate pl-2">↳ {line.menuItemName}</span>
                   </div>
                 );
               }
+              const isSelected = line.id === selectedLineId;
               const isHeld = line.holdUntilUtc != null && new Date(line.holdUntilUtc).getTime() > now;
-              const holdRemainingMinutes = isHeld
-                ? Math.ceil((new Date(line.holdUntilUtc!).getTime() - now) / 60000)
-                : 0;
+              const holdRemainingMinutes = isHeld ? Math.ceil((new Date(line.holdUntilUtc!).getTime() - now) / 60000) : 0;
               const isTimerRunning = line.isTimeBased && line.timeBasedStartedAt != null && line.timeBasedStoppedAt == null;
               const timerElapsedMs = isTimerRunning ? now - new Date(line.timeBasedStartedAt!).getTime() : 0;
               const timerLiveTotal = isTimerRunning ? line.unitPrice * (timerElapsedMs / 3_600_000) : line.lineTotal;
+              const paidQty = payments?.paidLines.find((p) => p.orderLineId === line.id)?.paidQuantity ?? 0;
               return (
                 <div
                   key={line.id}
-                  className={cn("select-none rounded-lg border p-2", (priceMode || giftMode) && "cursor-pointer border-primary/60 ring-1 ring-primary/30")}
+                  className={cn(
+                    "cursor-pointer select-none border-b px-3 py-2 transition-colors",
+                    isSelected ? "bg-primary/10 shadow-[inset_3px_0_0] shadow-primary" : "hover:bg-muted/50",
+                    (priceMode || giftMode) && "ring-1 ring-inset ring-primary/30",
+                  )}
                   onClick={(e) => handleLineClick(e, line)}
                   onDoubleClick={(e) => handleLineDoubleClick(e, line)}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-medium">
-                      {line.menuItemName}
-                      {line.isGift && (
-                        <Badge className="ml-1.5 bg-pink-100 text-pink-800 hover:bg-pink-100">
-                          <Gift className="mr-1 h-3 w-3" />
-                          Hədiyyə
-                        </Badge>
-                      )}
-                      {!line.isGift && line.discountAmount > 0 && (
-                        <Badge className="ml-1.5 bg-blue-100 text-blue-800 hover:bg-blue-100">
-                          -{line.discountAmount.toFixed(2)} ₼
-                        </Badge>
+                  <div className={lineColumns}>
+                    <span className="text-center text-base font-bold tabular-nums">
+                      {line.isTimeBased ? (
+                        <Clock className={cn("mx-auto h-4 w-4", isTimerRunning ? "text-emerald-600" : "text-muted-foreground")} />
+                      ) : line.isWeightBased ? (
+                        <span className="text-sm">
+                          {(line.quantity / 1000).toFixed(3)}
+                          <span className="block text-[10px] font-medium text-muted-foreground">kq</span>
+                        </span>
+                      ) : (
+                        line.quantity
                       )}
                     </span>
-                    <div className="flex items-center gap-2">
-                      {canApplyDiscount && !line.isTimeBased && !line.isGift && (
-                        <button
-                          type="button"
-                          onClick={() => startDiscountEdit(line.id, line.discountAmount)}
-                          className={cn(
-                            "text-muted-foreground hover:text-blue-600",
-                            line.discountAmount > 0 && "text-blue-600 hover:text-blue-700",
-                          )}
-                          title="Endirim tətbiq et"
-                        >
-                          <Tag className="h-4 w-4" />
-                        </button>
-                      )}
-                      {canEditProduct &&
-                        (branding?.posShowHoldButton !== false || isHeld) &&
-                        line.status !== "InPreparation" &&
-                        line.status !== "Ready" &&
-                        line.status !== "Served" && (
-                          <button
-                            type="button"
-                            onClick={() => openHoldDialog(line)}
-                            className={cn(
-                              "text-muted-foreground hover:text-foreground",
-                              isHeld && "text-amber-600 hover:text-amber-700",
-                            )}
-                            title="Gözlət"
-                          >
-                            <Clock className="h-4 w-4" />
-                          </button>
-                        )}
-                      {canDeleteProduct &&
-                        line.status !== "InPreparation" &&
-                        line.status !== "Ready" &&
-                        line.status !== "Served" && (
-                          <button
-                            type="button"
-                            onClick={() => void handleRemoveLine(line.id)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                    </div>
-                  </div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {line.createdAtUtc &&
-                      `${new Date(line.createdAtUtc.endsWith("Z") ? line.createdAtUtc : `${line.createdAtUtc}Z`).toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit" })} · `}
-                    {line.isTimeBased
-                      ? `${line.unitPrice.toFixed(2)} ₼ / saat`
-                      : line.isWeightBased
-                        ? `${(line.quantity / 1000).toFixed(3)} kq × ${line.unitPrice.toFixed(2)} ₼`
-                        : `${line.quantity} × ${line.unitPrice.toFixed(2)} ₼`}
-                    {" = "}
-                    {line.lineTotal.toFixed(2)} ₼
-                  </p>
-                  {(() => {
-                    const paidQty = payments?.paidLines.find((p) => p.orderLineId === line.id)?.paidQuantity ?? 0;
-                    if (paidQty <= 0) return null;
-                    const all = paidQty >= line.quantity;
-                    return (
-                      <p className="mt-0.5 text-[11px] font-semibold text-emerald-700">
-                        {all || line.isWeightBased || line.isTimeBased ? "Ödənilib" : `Ödənilib: ${paidQty} / ${line.quantity}`}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium leading-tight" title={line.menuItemName}>
+                        {line.menuItemName}
                       </p>
-                    );
-                  })()}
+                      <div className="flex flex-wrap items-center gap-1">
+                        {line.isGift && (
+                          <Badge className="h-4 bg-pink-100 px-1.5 text-[10px] text-pink-800 hover:bg-pink-100">
+                            <Gift className="mr-0.5 h-2.5 w-2.5" />
+                            Hədiyyə
+                          </Badge>
+                        )}
+                        {!line.isGift && line.discountAmount > 0 && (
+                          <Badge className="h-4 bg-blue-100 px-1.5 text-[10px] text-blue-800 hover:bg-blue-100">
+                            -{line.discountAmount.toFixed(2)} ₼
+                          </Badge>
+                        )}
+                        {paidQty > 0 && (
+                          <span className="text-[11px] font-semibold text-emerald-700">
+                            {paidQty >= line.quantity || line.isWeightBased || line.isTimeBased
+                              ? "Ödənilib"
+                              : `Ödənilib: ${paidQty} / ${line.quantity}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-right text-sm tabular-nums text-muted-foreground">
+                      {line.unitPrice.toFixed(2)}
+                      {line.isTimeBased && <span className="block text-[10px]">/ saat</span>}
+                    </span>
+                    <span className="text-right text-sm font-semibold tabular-nums">{timerLiveTotal.toFixed(2)}</span>
+                    <span className="text-right text-xs tabular-nums text-muted-foreground">{formatLineTime(line.createdAtUtc)}</span>
+                  </div>
                   {line.note && (
-                    <p className="mt-0.5 flex items-center gap-1 text-[11px] italic text-amber-700">
+                    <p className="mt-0.5 flex items-center gap-1 pl-[3.75rem] text-[11px] italic text-amber-700">
                       <StickyNote className="h-3 w-3 shrink-0" />
                       {line.note}
                     </p>
                   )}
                   {isHeld && (
-                    <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
+                    <p className="mt-0.5 flex items-center gap-1 pl-[3.75rem] text-[11px] font-medium text-amber-600">
                       <Clock className="h-3 w-3" />
                       Gözlədə — {holdRemainingMinutes} dəq sonra
                     </p>
                   )}
                   {isTimerRunning && (
-                    <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                    <p className="mt-0.5 flex items-center gap-1 pl-[3.75rem] text-[11px] font-medium text-emerald-600">
                       <Clock className="h-3 w-3" />
-                      İşləyir — {formatDuration(timerElapsedMs)} — {timerLiveTotal.toFixed(2)} ₼
+                      İşləyir — {formatDuration(timerElapsedMs)}
                     </p>
                   )}
-                  <div className="mt-1 flex items-center justify-between">
-                    {line.isTimeBased ? (
-                      <div className="flex items-center gap-2">
-                        {isTimerRunning ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 gap-1 px-2 text-emerald-700"
-                            disabled={busy || !canEditProduct}
-                            onClick={() => void handleStopTimer(line.id)}
-                          >
-                            <Square className="h-3 w-3" />
-                            Dayandır
-                          </Button>
-                        ) : line.timeBasedStoppedAt != null ? (
-                          <span className="text-xs text-muted-foreground">Dayandırılıb</span>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 gap-1 px-2"
-                            disabled={busy || !canEditProduct}
-                            onClick={() => void handleStartTimer(line.id)}
-                          >
-                            <Play className="h-3 w-3" />
-                            Başlat
-                          </Button>
-                        )}
-                      </div>
-                    ) : line.isWeightBased ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">{(line.quantity / 1000).toFixed(3)} kq</span>
-                        {canEditProduct && (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => openReweighDialog(line)}
-                            className="text-muted-foreground hover:text-primary"
-                            title="Çəkini dəyiş"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={busy || !canEditProduct}
-                          onClick={() => void handleQuantityChange(line.id, line.quantity, -1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="w-6 text-center text-sm font-semibold">{line.quantity}</span>
-                        <button
-                          type="button"
-                          disabled={busy || !canEditProduct}
-                          onClick={() => void handleQuantityChange(line.id, line.quantity, 1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )}
-                    {priceEditingLineId === line.id ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          autoFocus
-                          value={priceInput}
-                          onChange={(e) => setPriceInput(e.target.value)}
-                          className="h-7 w-20 text-right text-sm"
-                        />
-                        <Button size="sm" className="h-7 px-2" disabled={busy} onClick={() => void handleSavePrice(line.id, line.quantity)}>
-                          OK
-                        </Button>
-                      </div>
-                    ) : discountEditingLineId === line.id ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          autoFocus
-                          value={discountAmountInput}
-                          onChange={(e) => setDiscountAmountInput(e.target.value)}
-                          placeholder="Endirim ₼"
-                          className="h-7 w-24 text-right text-sm"
-                        />
-                        <Button size="sm" className="h-7 px-2" disabled={busy} onClick={() => void handleSaveDiscount(line.id, line.quantity)}>
-                          OK
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        {canChangePrice && !line.isTimeBased && (
-                          <button
-                            type="button"
-                            onClick={() => startPriceEdit(line.id, line.unitPrice)}
-                            className="text-muted-foreground hover:text-primary"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                        )}
-                        {canChangePrice &&
-                          !line.isTimeBased &&
-                          !busy &&
-                          (() => {
-                            const packagePrice = items.find((i) => i.id === line.menuItemId)?.packagePrice;
-                            if (packagePrice == null || packagePrice === line.unitPrice) return null;
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => void applyQuickPrice(line.id, line.quantity, packagePrice)}
-                                className="text-muted-foreground hover:text-primary"
-                                title={`Paket qiyməti tətbiq et (${packagePrice.toFixed(2)} ₼)`}
-                              >
-                                <Package className="h-3 w-3" />
-                              </button>
-                            );
-                          })()}
-                        {canChangePrice &&
-                          !line.isTimeBased &&
-                          !busy &&
-                          ([1, 2, 3] as const).map((n) => {
-                            const menuItem = items.find((i) => i.id === line.menuItemId);
-                            const price =
-                              n === 1 ? menuItem?.specialPrice1 : n === 2 ? menuItem?.specialPrice2 : menuItem?.specialPrice3;
-                            if (price == null || price === line.unitPrice) return null;
-                            return (
-                              <button
-                                key={n}
-                                type="button"
-                                onClick={() => void applyQuickPrice(line.id, line.quantity, price)}
-                                className="text-[10px] font-bold text-muted-foreground hover:text-primary"
-                                title={`Qiymət ${n} tətbiq et (${price.toFixed(2)} ₼)`}
-                              >
-                                Q{n}
-                              </button>
-                            );
-                          })}
-                        <span className="text-sm font-semibold">{timerLiveTotal.toFixed(2)} ₼</span>
-                      </div>
-                    )}
-                  </div>
+                  {isSelected && !priceMode && !giftMode && !linesLocked && renderLineControls(line, isHeld, isTimerRunning)}
                 </div>
               );
             })}
           </div>
-        </div>
-        {canPrint && !isPaid && branding?.posMarsEnabled === true && order.lines.some((l) => l.kitchenPrintedAt != null) && (
-          <div className="border-t p-3">
-            <Button
-              variant="outline"
-              className="w-full border-orange-300 text-orange-700 hover:bg-orange-50"
-              disabled={marsBusy}
-              onClick={() => void handleMars()}
-            >
-              <Play className="mr-2 h-4 w-4" />
-              Marş — mətbəx indi hazırlasın
-            </Button>
-          </div>
-        )}
-        {canPrint && printerGroups.length > 0 && !isPaid && (
-          <div className="flex flex-wrap gap-2 border-t p-3">
-            {printerGroups.map(({ printer, lines }) => (
-              <Button
-                key={printer.id}
-                size="sm"
-                variant="outline"
-                disabled={printingId === printer.id}
-                onClick={() => void handlePrintGroup(printer)}
-              >
-                <Printer className="mr-1 h-3.5 w-3.5" />
-                {printer.name}-ə göndər ({lines.length})
-              </Button>
-            ))}
-          </div>
-        )}
-        <div className="border-t p-3">
-          {(() => {
-            // After payment totalAmount already includes the service charge; before it, rental is added on top.
-            const service = order.serviceChargeAmount ?? 0;
-            const grand = isPaid
-              ? order.totalAmount
-              : order.totalAmount + (isRentalRunning ? rentalLiveTotal : order.tableRentalAmount ?? 0) + service;
-            const subtotal = grand + order.discountAmount - service;
-            return (
-              <div className="mb-3 space-y-1 text-sm">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Cəm</span>
-                  <span>{subtotal.toFixed(2)} ₼</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Endirim</span>
-                  <span>{order.discountAmount > 0 ? `-${order.discountAmount.toFixed(2)}` : "0.00"} ₼</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Servis haqqı</span>
-                  <span>{service.toFixed(2)} ₼</span>
-                </div>
-                <div className="flex justify-between border-t pt-1 text-lg font-bold">
-                  <span>Ümumi məbləğ</span>
-                  <span>{grand.toFixed(2)} ₼</span>
-                </div>
-                {!isPaid && hasPartPayments && (
+
+          {/* Totals */}
+          <div className="shrink-0 space-y-2 border-t bg-muted/20 p-3">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
+              <TotalRow label="Cəm" value={`${subtotal.toFixed(2)} ₼`} />
+              <TotalRow label="Endirim" value={order.discountAmount > 0 ? `-${order.discountAmount.toFixed(2)} ₼` : "0.00 ₼"} />
+              <TotalRow label="Alınan pul" value={receivedAmount != null ? `${receivedAmount.toFixed(2)} ₼` : "—"} />
+              <TotalRow label="Qaytarılan məbləğ" value={isPaid ? `${order.changeAmount.toFixed(2)} ₼` : "—"} />
+              {service > 0 && <TotalRow label="Servis haqqı" value={`${service.toFixed(2)} ₼`} />}
+              {!isPaid && hasPartPayments && (
+                <TotalRow label="Qalıq" value={`${payments!.remainingAmount.toFixed(2)} ₼`} strong />
+              )}
+              <div className="col-span-2 flex items-center justify-between gap-2 border-t pt-1">
+                <dt className="text-muted-foreground">Müştəri adı</dt>
+                <dd className="min-w-0 truncate text-right font-semibold" title={order.counterpartyName ?? undefined}>
+                  {order.counterpartyName ?? "—"}
+                  {order.counterpartyDebtAmount != null && order.counterpartyDebtAmount > 0 && (
+                    <span className="ml-1 text-xs font-medium text-destructive">
+                      (borc: {order.counterpartyDebtAmount.toFixed(2)} ₼)
+                    </span>
+                  )}
+                </dd>
+              </div>
+            </dl>
+            {!isPaid && (
+              <div className="flex gap-1.5">
+                {canApplyDiscount && (
                   <>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Ödənilib</span>
-                      <span>{payments!.paidAmount.toFixed(2)} ₼</span>
-                    </div>
-                    <div className="flex justify-between font-semibold">
-                      <span>Qalıq</span>
-                      <span>{payments!.remainingAmount.toFixed(2)} ₼</span>
-                    </div>
+                    <ToolButton
+                      label="₼"
+                      className="w-11 flex-none"
+                      title="Endirim — manatla"
+                      disabled={busy || order.isBillLocked}
+                      onClick={() => {
+                        setManualDiscountInput("");
+                        setManualDiscountKind("Amount");
+                      }}
+                    />
+                    <ToolButton
+                      icon={Percent}
+                      className="w-11 flex-none"
+                      title="Endirim — faizlə"
+                      disabled={busy || order.isBillLocked}
+                      onClick={() => {
+                        setManualDiscountInput("");
+                        setManualDiscountKind("Percent");
+                      }}
+                    />
+                    <ToolButton
+                      icon={Gift}
+                      label="Hədiyyə"
+                      active={giftMode}
+                      disabled={busy || order.isBillLocked || order.lines.length === 0}
+                      onClick={() => {
+                        setPriceMode(false);
+                        setGiftMode((v) => !v);
+                      }}
+                    />
                   </>
                 )}
-                {isPaid && (
-                  <>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Alınan</span>
-                      <span>{order.paidAmount.toFixed(2)} ₼</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Qaytarılan</span>
-                      <span>{order.changeAmount.toFixed(2)} ₼</span>
-                    </div>
-                  </>
+                <ToolButton
+                  icon={Lightbulb}
+                  className="w-11 flex-none"
+                  title={fiscalOn ? "Vergi kassası işləyir — söndürmək üçün basın" : "Vergi kassasını yandır"}
+                  active={fiscalOn}
+                  activeClassName="border-amber-500 bg-amber-500 text-white"
+                  onClick={() => void toggleFiscal()}
+                />
+                {branding?.posShowCustomerSelect !== false && (
+                  <ToolButton
+                    icon={User}
+                    label="Müştəri"
+                    disabled={busy}
+                    onClick={() => void openCounterpartyDialog()}
+                  />
                 )}
               </div>
-            );
-          })()}
-          {isPaid ? (
-            <div className="space-y-2">
-              <p className="text-center text-sm text-muted-foreground">
-                Sifariş ödənilib, düzəlişlər avtomatik saxlanılır.
-              </p>
-              <Button className="h-12 w-full text-base font-semibold" onClick={() => router.replace("/pos")}>
-                Masalara qayıt
-              </Button>
+            )}
+            <div className="flex items-baseline justify-between rounded-xl bg-primary px-4 py-2 text-primary-foreground">
+              <span className="text-sm font-semibold uppercase tracking-wide" lang="az">
+                Ümumi məbləğ
+              </span>
+              <span className="text-2xl font-bold tabular-nums">{grandTotal.toFixed(2)} ₼</span>
             </div>
-          ) : (
-            <div className="space-y-2">
+            {isPaid && (
+              <p className="text-center text-xs text-muted-foreground">Sifariş ödənilib, düzəlişlər avtomatik saxlanılır.</p>
+            )}
+          </div>
+        </section>
+
+        {/* Products */}
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {showProductSearch && (
+            <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  handleBarcodeEnter(e);
+                  if (e.key === "Escape") setSearchKeyboardOpen(false);
+                }}
+                inputMode={searchKeyboardOpen ? "none" : undefined}
+                placeholder="Məhsul axtar və ya barkod skan et..."
+                className="h-10 text-base"
+              />
               <Button
-                className="h-12 w-full text-base font-semibold"
-                disabled={order.lines.length === 0 || busy || okBusy}
-                onClick={() => void handleOk()}
+                type="button"
+                variant={searchKeyboardOpen ? "default" : "outline"}
+                size="icon"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setSearchKeyboardOpen((v) => !v)}
+                title="Ekran klaviaturası"
+                aria-label="Ekran klaviaturası"
               >
-                {okBusy ? "Göndərilir…" : "OK"}
+                <Keyboard className="h-4 w-4" />
               </Button>
-              {canPrintBill && (
+              {(productSearch || (searchOpen && !isStoreMode)) && (
                 <Button
-                  variant="outline"
-                  className="h-12 w-full text-base font-semibold"
-                  disabled={order.lines.length === 0 || busy}
-                  onClick={() => void handlePrintBill()}
-                  title="Qəbz çap et"
-                  aria-label="Qəbz çap et"
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => (productSearch ? setProductSearch("") : toggleProductSearch())}
+                  title={productSearch ? "Təmizlə" : "Bağla"}
+                  aria-label={productSearch ? "Təmizlə" : "Bağla"}
                 >
-                  <Printer className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </Button>
               )}
-              {canPay && (
-                <Button
-                  className="h-12 w-full text-base font-semibold"
-                  disabled={order.lines.length === 0 || busy}
-                  onClick={openPayDialog}
-                >
-                  Hesab
-                </Button>
-              )}
-              {canPrintBill && (
-                <Button
-                  variant="outline"
-                  className="h-12 w-full text-base font-semibold"
-                  disabled={order.lines.length === 0}
-                  onClick={handleCustomerReceipt}
-                >
-                  <Receipt className="mr-2 h-4 w-4" />
-                  Müştəri qəbzi
-                </Button>
-              )}
-              <Button
-                variant={fiscalOn ? "default" : "outline"}
-                className={cn("h-12 w-full", fiscalOn && "bg-amber-500 text-white hover:bg-amber-500/90")}
-                onClick={() => void toggleFiscal()}
-                title={fiscalOn ? "Vergi kassası işləyir — söndürmək üçün basın" : "Vergi kassasını yandır"}
-                aria-label="Vergi kassası"
-              >
-                <Lightbulb className={cn("h-5 w-5", fiscalOn && "fill-white")} />
-              </Button>
             </div>
           )}
-        </div>
+
+          <div ref={productScrollRef} onScroll={syncProductScroll} className="min-h-0 flex-1 overflow-y-auto p-3">
+            {productSearchTrimmed ? (
+              <>
+                <p className="mb-2 text-sm font-semibold text-muted-foreground">
+                  “{productSearchTrimmed}” üzrə {searchResults.length} məhsul
+                </p>
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                  {searchResults.map(renderProduct)}
+                  {searchResults.length === 0 && (
+                    <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Nəticə tapılmadı</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-2 flex items-center gap-2">
+                  {activeSubCategoryId != null ? (
+                    <button
+                      type="button"
+                      onClick={() => setActiveSubCategoryId(null)}
+                      className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      {categories.find((c) => c.id === activeCategoryId)?.name}
+                      <span className="text-foreground">/ {categories.find((c) => c.id === activeSubCategoryId)?.name}</span>
+                    </button>
+                  ) : (
+                    <p className="flex items-center gap-1.5 px-1 text-sm font-semibold text-muted-foreground">
+                      <LayoutGrid className="h-4 w-4" />
+                      {categories.find((c) => c.id === activeCategoryId)?.name ?? "Məhsullar"}
+                    </p>
+                  )}
+                </div>
+
+                {activeSubCategoryId == null && subCategoriesWithItems.length > 0 && (
+                  <div className="mb-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                    {subCategoriesWithItems.map((sub) => (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => setActiveSubCategoryId(sub.id)}
+                        className="flex h-20 flex-col items-center justify-center gap-1 rounded-xl border-2 border-primary/30 bg-primary/5 p-2 text-center shadow-sm transition-transform hover:bg-primary/10 active:scale-95"
+                      >
+                        <span className="text-sm font-semibold leading-tight text-foreground">{sub.name}</span>
+                        <span className="text-xs text-muted-foreground">Bölmə</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                  {itemsInCategory.map(renderProduct)}
+                  {itemsInCategory.length === 0 && subCategoriesWithItems.length === 0 && (
+                    <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Bu kateqoriyada məhsul yoxdur</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {showProductSearch && searchKeyboardOpen && (
+            <VirtualKeyboard
+              value={productSearch}
+              onChange={setProductSearch}
+              onClose={() => setSearchKeyboardOpen(false)}
+              className="m-2 mt-0 shrink-0"
+            />
+          )}
+        </section>
+
+        {/* Categories */}
+        <aside className="flex min-h-0 w-full shrink-0 flex-col border-t bg-background md:w-28 md:border-l md:border-t-0 lg:w-40">
+          <button
+            type="button"
+            onClick={() => pageProducts(-1)}
+            disabled={!productScroll.up}
+            className="hidden h-14 shrink-0 flex-col items-center justify-center border-b text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 md:flex"
+            title="Əvvəlki səhifəyə keç"
+          >
+            <ChevronUp className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Əvvəlki səhifə</span>
+          </button>
+          <div className="flex min-h-0 flex-1 gap-2 overflow-auto p-2 md:flex-col">
+            {topLevelCategories.map((cat) => {
+              const active = !productSearchTrimmed && cat.id === activeCategoryId;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveCategoryId(cat.id);
+                    setActiveSubCategoryId(null);
+                    setProductSearch("");
+                  }}
+                  style={branding?.categoryFontSize ? { fontSize: `${branding.categoryFontSize}px` } : undefined}
+                  className={cn(
+                    "flex min-h-14 shrink-0 items-center justify-center rounded-xl border-2 px-2 py-2 text-center text-sm font-semibold leading-tight shadow-sm transition-all active:scale-95",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-card-foreground hover:border-primary/40",
+                  )}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => pageProducts(1)}
+            disabled={!productScroll.down}
+            className="hidden h-14 shrink-0 flex-col items-center justify-center border-t text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 md:flex"
+            title="Növbəti səhifəyə keç"
+          >
+            <span className="text-[10px] font-medium">Növbəti səhifə</span>
+            <ChevronDown className="h-6 w-6" />
+          </button>
+        </aside>
       </div>
+
+      {/* Action bar */}
+      <footer className="flex shrink-0 flex-wrap gap-1.5 border-t bg-background p-2">
+        {!isPaid && (
+          <BarButton
+            label={okBusy ? "Göndərilir…" : "OK"}
+            tone="primary"
+            className="min-w-[6.5rem] flex-[1.4] text-xl"
+            disabled={order.lines.length === 0 || busy || okBusy}
+            onClick={() => void handleOk()}
+          />
+        )}
+        {!isPaid && canPrintBill && (
+          <BarButton icon={Receipt} label="Müştəri qəbzi" disabled={order.lines.length === 0} onClick={handleCustomerReceipt} />
+        )}
+        {!isPaid && canPay && branding?.paymentCardEnabled !== false && (
+          <BarButton
+            icon={CreditCard}
+            label="Kart"
+            tone="card"
+            disabled={order.lines.length === 0 || busy}
+            onClick={() => openPayDialog("Card")}
+          />
+        )}
+        {!isPaid && canPay && branding?.paymentCashEnabled !== false && (
+          <BarButton
+            icon={Banknote}
+            label="Nəğd"
+            tone="cash"
+            disabled={order.lines.length === 0 || busy}
+            onClick={() => openPayDialog("Cash")}
+          />
+        )}
+        {!isPaid && canPay && (
+          <BarButton icon={Receipt} label="Hesab" disabled={order.lines.length === 0 || busy} onClick={() => openPayDialog()} />
+        )}
+        <BarButton icon={Search} label="Məhsul axtarışı" active={searchOpen && !isStoreMode} onClick={toggleProductSearch} />
+        {!isPaid && !isStoreMode && canChangeWaiter && (
+          <BarButton icon={UserCog} label="Ofisiant dəyiş" disabled={busy} onClick={startReassign} />
+        )}
+        {!isPaid && !isStoreMode && canMoveTable && (
+          <BarButton icon={ArrowLeftRight} label="Masa dəyiş" disabled={busy} onClick={() => void openMoveTableDialog()} />
+        )}
+        {!isPaid && canPrintBill && (
+          <BarButton
+            icon={Printer}
+            title="Qəbz çap et"
+            className="max-w-20 flex-[0.7]"
+            disabled={order.lines.length === 0 || busy}
+            onClick={() => void handlePrintBill()}
+          />
+        )}
+        {!isStoreMode && canCreateReservation && branding?.moduleRezervasyon !== false && (
+          <BarButton icon={CalendarPlus} label="Rezerv et" tone="reserve" onClick={() => setReservationOpen(true)} />
+        )}
+        <BarButton icon={LogOut} label="Çıxış" tone="danger" onClick={() => void handleBack()} />
+      </footer>
+
+      {/* "Əlavə" — the order's other actions */}
+      <Dialog open={moreOpen} onOpenChange={setMoreOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Əlavə əməliyyatlar</DialogTitle>
+            <DialogDescription>
+              {order.tableName} · Çek № {order.orderNumber}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Button
+              variant="outline"
+              className="h-11 justify-start gap-2"
+              disabled={busy}
+              onClick={() => {
+                setMoreOpen(false);
+                openNoteDialog();
+              }}
+            >
+              <StickyNote className="h-4 w-4" />
+              Sifarişə qeyd
+            </Button>
+            {!isPaid && canEditProduct && (branding?.posShowHoldButton !== false || order.holdUntilUtc) && (
+              <Button
+                variant="outline"
+                className={cn("h-11 justify-start gap-2", order.holdUntilUtc && "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100")}
+                disabled={orderHoldBusy}
+                onClick={() => {
+                  setMoreOpen(false);
+                  void handleToggleOrderHold();
+                }}
+              >
+                <Clock className="h-4 w-4" />
+                {order.holdUntilUtc ? "Gözləməni ləğv et" : "Bütöv sifarişi gözlət"}
+              </Button>
+            )}
+            {!isPaid && order.isDelivery && canRedirectUser && (
+              <Button
+                variant="outline"
+                className="h-11 justify-start gap-2"
+                disabled={busy}
+                onClick={() => {
+                  setMoreOpen(false);
+                  void openDriverDialog();
+                }}
+              >
+                <UserCog className="h-4 w-4" />
+                {order.deliveryDriverName ? `Kuryer: ${order.deliveryDriverName}` : "Kuryer təyin et"}
+              </Button>
+            )}
+            {canPrint && !isPaid && branding?.posMarsEnabled === true && order.lines.some((l) => l.kitchenPrintedAt != null) && (
+              <Button
+                variant="outline"
+                className="h-11 justify-start gap-2 border-orange-300 text-orange-700 hover:bg-orange-50"
+                disabled={marsBusy}
+                onClick={() => {
+                  setMoreOpen(false);
+                  void handleMars();
+                }}
+              >
+                <Play className="h-4 w-4" />
+                Marş — mətbəx indi hazırlasın
+              </Button>
+            )}
+            {canPrint &&
+              !isPaid &&
+              printerGroups.map(({ printer, lines }) => (
+                <Button
+                  key={printer.id}
+                  variant="outline"
+                  className="h-11 justify-start gap-2"
+                  disabled={printingId === printer.id}
+                  onClick={() => {
+                    setMoreOpen(false);
+                    void handlePrintGroup(printer);
+                  }}
+                >
+                  <Printer className="h-4 w-4" />
+                  {printer.name}-ə göndər ({lines.length})
+                </Button>
+              ))}
+            {canCancelOrderStatus && canDeleteOrder && (
+              <Button
+                variant="outline"
+                className="h-11 justify-start gap-2 text-destructive"
+                disabled={busy}
+                onClick={() => {
+                  setMoreOpen(false);
+                  void handleDeleteOrder();
+                }}
+              >
+                <X className="h-4 w-4" />
+                Sifarişi ləğv et
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* "Miqdar" */}
+      <Dialog open={qtyLine !== null} onOpenChange={(o) => !o && setQtyLine(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Miqdar</DialogTitle>
+            <DialogDescription>{qtyLine?.menuItemName}</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSaveQuantity();
+            }}
+          >
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              autoFocus
+              value={qtyInput}
+              onChange={(e) => setQtyInput(e.target.value.replace(/\D/g, ""))}
+              className="h-12 text-center text-2xl font-bold"
+            />
+            <TouchNumpad value={qtyInput} onChange={setQtyInput} />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setQtyLine(null)}>
+                İmtina et
+              </Button>
+              <Button type="submit" disabled={busy || qtyInput === ""}>
+                Təsdiqlə
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Minute-billed line: stop or keep going */}
+      <Dialog open={timerLine !== null} onOpenChange={(o) => !o && setTimerLine(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>{timerLine?.menuItemName}</DialogTitle>
+            <DialogDescription>
+              {timerLine?.timeBasedStartedAt
+                ? `İşləyir — ${formatDuration(now - new Date(timerLine.timeBasedStartedAt).getTime())}`
+                : "Vaxt hesablanır"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              className="h-14 gap-2 text-base text-emerald-700"
+              disabled={busy}
+              onClick={() => {
+                const line = timerLine;
+                setTimerLine(null);
+                if (line) void handleStopTimer(line.id);
+              }}
+            >
+              <Square className="h-4 w-4" />
+              Dayandır
+            </Button>
+            <Button className="h-14 gap-2 text-base" onClick={() => setTimerLine(null)}>
+              <Play className="h-4 w-4" />
+              Davam et
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <NewReservationDialog
+        open={reservationOpen}
+        onOpenChange={setReservationOpen}
+        restaurantId={order.restaurantId}
+        onCreated={() => setReservationOpen(false)}
+      />
 
       {/* "OK" — the order's waiter confirms with their code before the kitchen gets the order */}
       <Dialog open={okPinOpen} onOpenChange={(o) => !o && setOkPinOpen(false)}>
@@ -2314,6 +2622,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
           setSplitOpen(true);
         }}
         onPaid={handleTenderPaid}
+        initialMethod={payMethod}
       />
 
       {/* Confirm auto-print dialog */}
@@ -2800,5 +3109,127 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
         }
       `}</style>
     </div>
+  );
+}
+
+type IconType = React.ComponentType<{ className?: string }>;
+
+/** One cell of the order header: ZAL · MASA · ÇEK № · İSTİFADƏÇİ. */
+function InfoCell({ label, value, strong, grow }: { label: string; value: string; strong?: boolean; grow?: boolean }) {
+  return (
+    <div className={cn("min-w-0 border-r px-3 py-2 leading-tight", grow ? "flex-1" : "shrink-0")}>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground" lang="az">
+        {label}
+      </p>
+      <p className={cn("truncate", strong ? "text-base font-bold" : "text-sm font-semibold")} title={value}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function TotalRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="truncate text-muted-foreground">{label}</dt>
+      <dd className={cn("shrink-0 tabular-nums", strong ? "font-bold" : "font-semibold")}>{value}</dd>
+    </div>
+  );
+}
+
+/** Compact button of the order panel (line toolbar, discount row). */
+function ToolButton({
+  icon: Icon,
+  label,
+  title,
+  active = false,
+  activeClassName = "border-primary bg-primary text-primary-foreground",
+  tone = "default",
+  className,
+  disabled,
+  onClick,
+}: {
+  icon?: IconType;
+  label?: string;
+  title?: string;
+  active?: boolean;
+  activeClassName?: string;
+  tone?: "default" | "danger";
+  className?: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={title ?? label}
+      aria-label={title ?? label}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "flex h-10 min-w-10 flex-1 select-none items-center justify-center gap-1.5 rounded-lg border-2 px-2 text-sm font-semibold transition-all active:scale-95",
+        "disabled:pointer-events-none disabled:opacity-40",
+        active
+          ? activeClassName
+          : tone === "danger"
+            ? "border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10"
+            : "border-border bg-card hover:border-primary/40 hover:bg-muted/50",
+        className,
+      )}
+    >
+      {Icon && <Icon className="h-4 w-4 shrink-0" />}
+      {label && <span className="truncate">{label}</span>}
+    </button>
+  );
+}
+
+const BAR_TONES = {
+  default: "border-border bg-card text-card-foreground hover:border-primary/40 hover:bg-muted/50",
+  primary: "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
+  card: "border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300",
+  cash: "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300",
+  reserve: "border-teal-300 bg-teal-50 text-teal-800 hover:bg-teal-100 dark:border-teal-500/40 dark:bg-teal-500/10 dark:text-teal-300",
+  danger: "border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10",
+} as const;
+
+/** Button of the bottom action bar. */
+function BarButton({
+  icon: Icon,
+  label,
+  title,
+  tone = "default",
+  active = false,
+  className,
+  disabled,
+  onClick,
+}: {
+  icon?: IconType;
+  label?: string;
+  title?: string;
+  tone?: keyof typeof BAR_TONES;
+  active?: boolean;
+  className?: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={title ?? label}
+      aria-label={title ?? label}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "flex h-16 min-w-[4.75rem] flex-1 select-none flex-col items-center justify-center gap-1 rounded-xl border-2 px-1.5 text-center text-xs font-semibold leading-tight shadow-sm transition-all active:scale-95 lg:text-sm",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40",
+        active ? BAR_TONES.primary : BAR_TONES[tone],
+        className,
+      )}
+    >
+      {Icon && <Icon className="h-5 w-5 shrink-0" />}
+      {label && <span lang="az">{label}</span>}
+    </button>
   );
 }
