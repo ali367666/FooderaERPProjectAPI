@@ -130,6 +130,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
   const [closingCashInput, setClosingCashInput] = useState("0");
   const [zReportResult, setZReportResult] = useState<ZReport | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [shiftBusy, setShiftBusy] = useState(false);
   const [clockNow, setClockNow] = useState(() => new Date());
 
@@ -432,9 +433,26 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
               {terminal?.companyName} — {terminal?.restaurantName}
             </DialogDescription>
           </DialogHeader>
-          <Button variant="destructive" onClick={handleResetTerminal}>
+          <Button variant="destructive" onClick={() => setResetConfirmOpen(true)}>
             Terminalı sıfırla
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset confirmation — the reset signs this machine out of its company and branch */}
+      <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Terminal sıfırlansın?</DialogTitle>
+            <DialogDescription>
+              Bu kompüter {terminal?.companyName} — {terminal?.restaurantName} terminalından çıxarılacaq və
+              giriş səhifəsində yenidən qoşulmalı olacaq.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetConfirmOpen(false)}>Ləğv et</Button>
+            <Button variant="destructive" onClick={handleResetTerminal}>Bəli, sıfırla</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </PosAuthGuard>
