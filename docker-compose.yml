@@ -21,7 +21,17 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+  seq:
+    image: datalust/seq
+    container_name: foodera-seq
+    environment:
+      ACCEPT_EULA: "Y"
+    ports:
+      - "5342:80"
+    volumes:
+      - seq_data:/data
 
 volumes:
   sqlserver_data:
   minio_data:
+  seq_data:
