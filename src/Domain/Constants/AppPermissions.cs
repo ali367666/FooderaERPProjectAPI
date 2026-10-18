@@ -180,4 +180,6 @@ public static class AppPermissions
 
     public const string CashRegisterView = "CashRegister.View";
     public const string CashRegisterManage = "CashRegister.Manage";
+
+    public const string ReportsView = "Reports.View";
 }
