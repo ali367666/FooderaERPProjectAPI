@@ -285,6 +285,17 @@ export default function ReportsPage() {
                 <SummaryCard label="Nağd" value={formatCurrency(report.cashTotal)} strong />
                 <SummaryCard label="Kart" value={formatCurrency(report.cardTotal)} strong />
               </div>
+              {(report.bankBreakdown?.length ?? 0) > 0 && (
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                  {report.bankBreakdown!.map((b) => (
+                    <SummaryCard
+                      key={b.bankName}
+                      label={`Kart — ${b.bankName} (${b.paymentCount})`}
+                      value={formatCurrency(b.totalAmount)}
+                    />
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <SummaryCard
                   label="Borc (nisyə)"

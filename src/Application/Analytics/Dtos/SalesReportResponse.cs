@@ -9,6 +9,8 @@ public class SalesReportResponse
     public decimal TotalDiscount { get; set; }
     public decimal CashTotal { get; set; }
     public decimal CardTotal { get; set; }
+    /// <summary>Card income split by payment bank.</summary>
+    public List<SalesReportBankDto> BankBreakdown { get; set; } = new();
     public int OrderCount { get; set; }
 
     public List<SalesReportProductLineDto> Products { get; set; } = new();

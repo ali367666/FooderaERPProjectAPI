@@ -57,7 +57,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         if (await _paymentRepository.AnyForOrderAsync(order.Id, cancellationToken))
         {
             await _paymentService.PayAsync(
-                order, null, null, paymentMethod, request.Request.PaidAmount, request.Request.IsFiscal, cancellationToken);
+                order, null, null, paymentMethod, request.Request.PaidAmount, request.Request.IsFiscal, request.Request.BankId, cancellationToken);
             return BuildResponse(order);
         }
 
@@ -73,6 +73,10 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         // The service charge recorded on the order ("Servis haqqı qeyd etmək").
         var serviceCharge = order.ServiceChargeAmount is > 0 ? order.ServiceChargeAmount : null;
         var totalAmount = Math.Max(0, subtotal - order.DiscountAmount + (serviceCharge ?? 0) + (order.TableRentalAmount ?? 0));
+
+        var bank = paymentMethod == PaymentMethod.Card
+            ? await PaymentBankResolver.RequireAsync(_counterpartyRepository, order.CompanyId, request.Request.BankId, cancellationToken)
+            : null;
 
         if (paymentMethod == PaymentMethod.Credit)
         {
@@ -99,6 +103,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         order.IsPaid = true;
         order.PaidAt = DateTime.UtcNow;
         order.PaymentMethod = paymentMethod;
+        order.BankCounterpartyId = bank?.Id;
         order.IsFiscal = request.Request.IsFiscal;
         order.PaidAmount = paymentMethod == PaymentMethod.Credit ? 0 : request.Request.PaidAmount;
         order.ChangeAmount = paymentMethod == PaymentMethod.Credit ? 0 : request.Request.PaidAmount - totalAmount;

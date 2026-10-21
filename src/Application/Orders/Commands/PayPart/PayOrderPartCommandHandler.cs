@@ -40,6 +40,7 @@ public class PayOrderPartCommandHandler : IRequestHandler<PayOrderPartCommand, P
             method,
             request.Request.PaidAmount,
             request.Request.IsFiscal,
+            request.Request.BankId,
             cancellationToken);
 
         return new PartPaymentResponse

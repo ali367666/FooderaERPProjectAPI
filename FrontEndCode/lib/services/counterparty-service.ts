@@ -9,6 +9,8 @@ export type Counterparty = {
   categoryId: number;
   categoryName: string;
   isActive: boolean;
+  /** One of the fixed payment banks (Kapital, Paşa, ABB, QR kod): can't be deleted or renamed. */
+  isBank: boolean;
   currentDebtAmount: number;
 };
 
@@ -46,6 +48,7 @@ function normalize(item: unknown): Counterparty | null {
     categoryId: Number(pick(raw, "categoryId", "CategoryId") ?? 0),
     categoryName: String(pick(raw, "categoryName", "CategoryName") ?? ""),
     isActive: Boolean(pick(raw, "isActive", "IsActive") ?? true),
+    isBank: Boolean(pick(raw, "isBank", "IsBank") ?? false),
     currentDebtAmount: Number(pick(raw, "currentDebtAmount", "CurrentDebtAmount") ?? 0),
   };
 }

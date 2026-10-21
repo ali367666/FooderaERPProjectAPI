@@ -19,6 +19,9 @@ public class CompanyDefaultsSeeder : ICompanyDefaultsSeeder
         "Personal"
     ];
 
+    /// <summary>The fixed banks a card payment is split by in the reports.</summary>
+    private static readonly string[] PaymentBanks = ["Kapital", "Paşa", "ABB", "QR kod"];
+
     private static readonly string[] PrinterStationTypes =
     [
         "Kassa",
@@ -52,6 +55,9 @@ public class CompanyDefaultsSeeder : ICompanyDefaultsSeeder
                 cancellationToken);
         }
 
+        await _context.SaveChangesAsync(cancellationToken);
+        await EnsurePaymentBanksAsync(companyId, now, cancellationToken);
+
         if (!await _context.PrinterStationTypes.AnyAsync(x => x.CompanyId == companyId, cancellationToken))
         {
             await _context.PrinterStationTypes.AddRangeAsync(
@@ -63,6 +69,49 @@ public class CompanyDefaultsSeeder : ICompanyDefaultsSeeder
                     CreatedAtUtc = now
                 }),
                 cancellationToken);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Every company gets the fixed banks as counterparties in the "Bank" category. A counterparty the
+    /// company already made with the same name is promoted to a bank instead of duplicated (names are unique).
+    /// </summary>
+    private async Task EnsurePaymentBanksAsync(int companyId, DateTime now, CancellationToken cancellationToken)
+    {
+        var category = await _context.CounterpartyCategories
+            .FirstOrDefaultAsync(x => x.CompanyId == companyId && x.Name == "Bank", cancellationToken);
+        if (category is null)
+        {
+            category = new CounterpartyCategory { CompanyId = companyId, Name = "Bank", IsActive = true, CreatedAtUtc = now };
+            _context.CounterpartyCategories.Add(category);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        var existing = await _context.Counterparties
+            .Where(x => x.CompanyId == companyId && PaymentBanks.Contains(x.Name))
+            .ToListAsync(cancellationToken);
+
+        foreach (var name in PaymentBanks)
+        {
+            var counterparty = existing.FirstOrDefault(x => x.Name == name);
+            if (counterparty is null)
+            {
+                _context.Counterparties.Add(new Counterparty
+                {
+                    CompanyId = companyId,
+                    Name = name,
+                    CategoryId = category.Id,
+                    IsActive = true,
+                    IsBank = true,
+                    CreatedAtUtc = now
+                });
+            }
+            else if (!counterparty.IsBank)
+            {
+                counterparty.IsBank = true;
+            }
         }
 
         await _context.SaveChangesAsync(cancellationToken);

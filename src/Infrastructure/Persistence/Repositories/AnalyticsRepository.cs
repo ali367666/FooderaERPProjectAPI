@@ -344,6 +344,10 @@ public class AnalyticsRepository : IAnalyticsRepository
         var totalRevenue = paidOrders.Sum(o => o.TotalAmount);
         var totalReturns = returns.Sum(r => r.TotalAmount);
 
+        var bankBreakdown = (await Infrastructure.Persistence.Repositories.CardBankTotals.ComputeAsync(_context, paidOrders.Select(o => o.Id).ToList(), cancellationToken))
+            .Select(b => new SalesReportBankDto { BankName = b.BankName, PaymentCount = b.PaymentCount, TotalAmount = b.TotalAmount })
+            .ToList();
+
         return new SalesReportResponse
         {
             From = from,
@@ -359,6 +363,7 @@ public class AnalyticsRepository : IAnalyticsRepository
             TotalDiscount = paidOrders.Sum(o => o.DiscountAmount),
             CashTotal = paidOrders.Where(o => o.PaymentMethod == PaymentMethod.Cash).Sum(o => o.TotalAmount),
             CardTotal = paidOrders.Where(o => o.PaymentMethod == PaymentMethod.Card).Sum(o => o.TotalAmount),
+            BankBreakdown = bankBreakdown,
             OrderCount = paidOrders.Count,
             Products = products,
             Waiters = waiters,

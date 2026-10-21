@@ -812,7 +812,23 @@ export function serveOrder(id: number): Promise<void> {
   })();
 }
 
-export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number; isFiscal?: boolean }): Promise<OrderDto | null> {
+export type PaymentBank = { id: number; name: string };
+
+/** The fixed banks (Kapital, Paşa, ABB, QR kod) a card payment is recorded against. */
+export async function getPaymentBanks(): Promise<PaymentBank[]> {
+  try {
+    const response = await api.get<unknown>("/Counterparties/banks");
+    const rows = Array.isArray(response.data) ? (response.data as Record<string, unknown>[]) : [];
+    return rows.map((r) => ({
+      id: Number(pick<unknown>(r, "id", "Id")),
+      name: String(pick<unknown>(r, "name", "Name") ?? ""),
+    }));
+  } catch (error) {
+    throw toApiFormError(error, "Failed to load banks");
+  }
+}
+
+export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number; isFiscal?: boolean; bankId?: number | null }): Promise<OrderDto | null> {
   try {
     const response = await api.put<unknown>(`/Orders/${id}/pay`, payload);
     assertApiSuccess(response.data);

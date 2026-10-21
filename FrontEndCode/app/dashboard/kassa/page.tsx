@@ -217,6 +217,18 @@ export default function KassaPage() {
             <SummaryCard label="Bugünkü çek sayı" value={String(report?.orderCount ?? 0)} />
           </div>
 
+          {(report?.bankBreakdown?.length ?? 0) > 0 && (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+              {report!.bankBreakdown!.map((b) => (
+                <SummaryCard
+                  key={b.bankName}
+                  label={`Pos — ${b.bankName} (${b.paymentCount})`}
+                  value={`${b.totalAmount.toFixed(2)} ₼`}
+                />
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-lg border bg-card">
               <div className="border-b px-4 py-3">

@@ -78,11 +78,25 @@ public class ReportsRepository : IReportsRepository
 
         var payments = await _context.OrderPayments.AsNoTracking()
             .Where(p => p.CompanyId == companyId && paidIds.Contains(p.OrderId))
-            .Select(p => new { p.OrderId, p.Method, Amount = p.Amount + (p.ServiceChargeAmount ?? 0) })
+            .Select(p => new { p.OrderId, p.Method, p.BankCounterpartyId, Amount = p.Amount + (p.ServiceChargeAmount ?? 0) })
             .ToListAsync(cancellationToken);
         var paymentsByOrder = payments.ToLookup(p => p.OrderId);
 
+        // The bank of orders paid by card in one go (parts carry theirs on the payment row).
+        var singleBankByOrder = await _context.Orders.AsNoTracking()
+            .Where(o => paidIds.Contains(o.Id) && o.BankCounterpartyId != null)
+            .Select(o => new { o.Id, o.BankCounterpartyId })
+            .ToDictionaryAsync(o => o.Id, o => o.BankCounterpartyId, cancellationToken);
+
         decimal cash = 0, bank = 0;
+        var bankTotals = new Dictionary<int, decimal>();
+        decimal bankUnassigned = 0;
+        void AddCard(int? bankId, decimal amount)
+        {
+            bank += amount;
+            if (bankId is { } id) bankTotals[id] = bankTotals.GetValueOrDefault(id) + amount;
+            else bankUnassigned += amount;
+        }
         foreach (var o in paidOrders)
         {
             if (paymentsByOrder.Contains(o.Id))
@@ -90,12 +104,22 @@ public class ReportsRepository : IReportsRepository
                 foreach (var p in paymentsByOrder[o.Id])
                 {
                     if (p.Method == PaymentMethod.Cash) cash += p.Amount;
-                    else if (p.Method == PaymentMethod.Card) bank += p.Amount;
+                    else if (p.Method == PaymentMethod.Card) AddCard(p.BankCounterpartyId, p.Amount);
                 }
             }
             else if (o.PaymentMethod == PaymentMethod.Cash) cash += o.Total;
-            else if (o.PaymentMethod == PaymentMethod.Card) bank += o.Total;
+            else if (o.PaymentMethod == PaymentMethod.Card) AddCard(singleBankByOrder.GetValueOrDefault(o.Id), o.Total);
         }
+
+        var bankNames = await _context.Counterparties.AsNoTracking()
+            .Where(c => bankTotals.Keys.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken);
+        var bankBreakdown = bankTotals
+            .Select(kv => new BusinessReportBankDto { BankName = bankNames.GetValueOrDefault(kv.Key, "Bank"), Amount = kv.Value })
+            .ToList();
+        if (bankUnassigned > 0)
+            bankBreakdown.Add(new BusinessReportBankDto { BankName = "Bank göstərilməyib", Amount = bankUnassigned });
+        bankBreakdown = bankBreakdown.OrderByDescending(b => b.Amount).ToList();
 
         var cashMovements = await _context.CashMovements.AsNoTracking()
             .Where(c => c.CompanyId == companyId && c.CreatedAtUtc >= from && c.CreatedAtUtc < to
@@ -124,6 +148,7 @@ public class ReportsRepository : IReportsRepository
         {
             Cash = cash,
             Bank = bank,
+            BankBreakdown = bankBreakdown,
             Total = cash + bank,
             CashIn = cashIn,
             CashOut = cashOut,

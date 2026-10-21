@@ -96,6 +96,18 @@ export default function ZReportPage() {
             <SummaryCard label="Çek sayı" value={String(report.orderCount)} />
           </div>
 
+          {(report.bankBreakdown?.length ?? 0) > 0 && (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+              {report.bankBreakdown!.map((b) => (
+                <SummaryCard
+                  key={b.bankName}
+                  label={`Kart — ${b.bankName} (${b.paymentCount})`}
+                  value={formatCurrency(b.totalAmount)}
+                />
+              ))}
+            </div>
+          )}
+
           {(report.returnCount ?? 0) > 0 && (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
               <SummaryCard

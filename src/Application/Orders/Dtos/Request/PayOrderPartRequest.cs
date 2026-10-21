@@ -8,6 +8,9 @@ public class PayOrderPartRequest
     /// <summary>Money handed over. Ignored for credit ("borca yaz").</summary>
     public decimal PaidAmount { get; set; }
 
+    /// <summary>The bank a card payment goes through (a counterparty with IsBank). Required for Card.</summary>
+    public int? BankId { get; set; }
+
     /// <summary>Rung through the fiscal (tax) register.</summary>
     public bool IsFiscal { get; set; }
 

@@ -185,6 +185,8 @@ export type ZReport = {
   totalDiscount: number;
   cashTotal: number;
   cardTotal: number;
+  /** Card income split by payment bank (Kapital, Paşa, ABB, QR kod). */
+  bankBreakdown?: { bankName: string; paymentCount: number; totalAmount: number }[];
   orderCount: number;
   products: ZReportProductLine[];
   waiters: ZReportWaiterLine[];

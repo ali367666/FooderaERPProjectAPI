@@ -45,6 +45,7 @@ type CounterpartyRow = {
   categoryLabel: string;
   categoryId: number;
   isActive: boolean;
+  isBank: boolean;
   debt: number;
 };
 
@@ -67,6 +68,8 @@ export default function CounterpartiesPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [isActive, setIsActive] = useState(true);
+  // The fixed payment banks keep their name and category; only "Aktiv" can change.
+  const [editingIsBank, setEditingIsBank] = useState(false);
 
   const [debtDialogOpen, setDebtDialogOpen] = useState(false);
   const [debtTarget, setDebtTarget] = useState<Counterparty | null>(null);
@@ -167,6 +170,7 @@ export default function CounterpartiesPage() {
     setPhoneNumber("");
     setCategoryId("");
     setIsActive(true);
+    setEditingIsBank(false);
     setConfirmStep(false);
   };
 
@@ -183,11 +187,16 @@ export default function CounterpartiesPage() {
     setPhoneNumber(target.phoneNumber ?? "");
     setCategoryId(String(target.categoryId));
     setIsActive(target.isActive);
+    setEditingIsBank(target.isBank);
     setConfirmStep(false);
     setDialogOpen(true);
   };
 
   const handleDelete = async (row: CounterpartyRow) => {
+    if (row.isBank) {
+      toast.error("Sabit bank silinə bilməz.");
+      return;
+    }
     if (!window.confirm(`"${row.name}" konturagentini silmək istəyirsiniz?`)) return;
     try {
       await deleteCounterparty(row.counterpartyId);
@@ -289,6 +298,7 @@ export default function CounterpartiesPage() {
         categoryLabel: c.categoryName || `#${c.categoryId}`,
         categoryId: c.categoryId,
         isActive: c.isActive,
+        isBank: c.isBank,
         debt: c.currentDebtAmount,
       })),
     [list],
@@ -494,7 +504,18 @@ export default function CounterpartiesPage() {
             <div className="space-y-3">
               <div>
                 <Label htmlFor="cp-name">Ad</Label>
-                <Input id="cp-name" className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input
+                  id="cp-name"
+                  className="mt-1"
+                  value={name}
+                  disabled={editingIsBank}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                {editingIsBank && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Sabit bank POS-da kart ödənişində göstərilir. Adı və kateqoriyası dəyişdirilə bilməz, silinə bilməz.
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="cp-phone">Telefon</Label>
@@ -506,6 +527,7 @@ export default function CounterpartiesPage() {
                   id="cp-category"
                   className={selectClass + " mt-1"}
                   value={categoryId}
+                  disabled={editingIsBank}
                   onChange={(e) => setCategoryId(e.target.value)}
                 >
                   <option value="">Kateqoriya seçin</option>

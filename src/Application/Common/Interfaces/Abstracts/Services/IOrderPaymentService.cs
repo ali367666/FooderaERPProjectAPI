@@ -18,5 +18,6 @@ public interface IOrderPaymentService
         PaymentMethod method,
         decimal receivedAmount,
         bool isFiscal,
+        int? bankId,
         CancellationToken cancellationToken);
 }

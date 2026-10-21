@@ -22,6 +22,11 @@ public class OrderPaymentConfiguration : IEntityTypeConfiguration<OrderPayment>
             .HasForeignKey(x => x.OrderId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(x => x.BankCounterparty)
+            .WithMany()
+            .HasForeignKey(x => x.BankCounterpartyId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(x => x.OrderId);
     }
 }

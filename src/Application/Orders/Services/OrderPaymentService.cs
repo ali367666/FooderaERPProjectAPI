@@ -42,6 +42,7 @@ public sealed class OrderPaymentService : IOrderPaymentService
         PaymentMethod method,
         decimal receivedAmount,
         bool isFiscal,
+        int? bankId,
         CancellationToken cancellationToken)
     {
         if (order.IsPaid || order.Status == OrderStatus.Paid)
@@ -131,6 +132,10 @@ public sealed class OrderPaymentService : IOrderPaymentService
             : null;
         var due = amount + (serviceCharge ?? 0);
 
+        var bank = method == PaymentMethod.Card
+            ? await PaymentBankResolver.RequireAsync(_counterpartyRepository, order.CompanyId, bankId, cancellationToken)
+            : null;
+
         decimal received;
         decimal change;
         if (method == PaymentMethod.Credit)
@@ -158,6 +163,7 @@ public sealed class OrderPaymentService : IOrderPaymentService
             CompanyId = order.CompanyId,
             OrderId = order.Id,
             Method = method,
+            BankCounterpartyId = bank?.Id,
             Amount = amount,
             ServiceChargeAmount = serviceCharge,
             ReceivedAmount = received,
@@ -208,6 +214,7 @@ public sealed class OrderPaymentService : IOrderPaymentService
             order.IsPaid = true;
             order.PaidAt = payment.PaidAtUtc;
             order.PaymentMethod = method;
+            order.BankCounterpartyId = all.Where(p => p.Method == PaymentMethod.Card).Select(p => p.BankCounterpartyId).LastOrDefault();
             order.IsFiscal = all.Any(p => p.IsFiscal);
             order.PaidAmount = all.Where(p => p.Method != PaymentMethod.Credit).Sum(p => p.ReceivedAmount);
             order.ChangeAmount = all.Where(p => p.Method != PaymentMethod.Credit).Sum(p => p.ChangeAmount);

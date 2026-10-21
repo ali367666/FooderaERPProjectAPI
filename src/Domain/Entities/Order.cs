@@ -28,6 +28,10 @@ public class Order : CompanyEntity<int>
     public bool IsPaid { get; set; }
     public DateTime? PaidAt { get; set; }
     public PaymentMethod? PaymentMethod { get; set; }
+
+    /// <summary>The bank of a card payment settled in one go (parts record theirs on OrderPayment).</summary>
+    public int? BankCounterpartyId { get; set; }
+    public Counterparty? BankCounterparty { get; set; }
     public decimal PaidAmount { get; set; }
     public decimal ChangeAmount { get; set; }
     public string? ReceiptNumber { get; set; }

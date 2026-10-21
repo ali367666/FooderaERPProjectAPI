@@ -38,6 +38,10 @@ public class UpdateCounterpartyCommandHandler : IRequestHandler<UpdateCounterpar
         if (category is null)
             throw new Exception("Kateqoriya tapılmadı.");
 
+        // The fixed payment banks keep their name and category; only their active flag may change.
+        if (counterparty.IsBank && (name != counterparty.Name || dto.CategoryId != counterparty.CategoryId))
+            throw new Exception("Sabit bankın adı və kateqoriyası dəyişdirilə bilməz.");
+
         counterparty.Name = name;
         counterparty.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber) ? null : dto.PhoneNumber.Trim();
         counterparty.CategoryId = category.Id;

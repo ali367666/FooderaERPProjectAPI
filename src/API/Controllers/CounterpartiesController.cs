@@ -28,6 +28,15 @@ public class CounterpartiesController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>The fixed payment banks (Kapital, Paşa, ABB, QR kod) the POS offers on a card payment.</summary>
+    [Authorize(Policy = AppPermissions.OrdersPay)]
+    [HttpGet("banks")]
+    public async Task<ActionResult<List<PaymentBankResponse>>> GetPaymentBanks()
+    {
+        var result = await _mediator.Send(new GetPaymentBanksQuery());
+        return Ok(result);
+    }
+
     [Authorize(Policy = AppPermissions.CounterpartyCreate)]
     [HttpPost]
     public async Task<ActionResult<CounterpartyResponse>> Create([FromBody] CreateCounterpartyRequest request)

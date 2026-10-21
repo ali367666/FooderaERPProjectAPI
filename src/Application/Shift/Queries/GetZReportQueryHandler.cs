@@ -10,17 +10,20 @@ public class GetZReportQueryHandler : IRequestHandler<GetZReportQuery, ZReportRe
     private readonly IShiftRepository _shiftRepository;
     private readonly IOrderRepository _orderRepository;
     private readonly ISaleReturnRepository _saleReturnRepository;
+    private readonly IOrderPaymentRepository _paymentRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public GetZReportQueryHandler(
         IShiftRepository shiftRepository,
         IOrderRepository orderRepository,
         ISaleReturnRepository saleReturnRepository,
+        IOrderPaymentRepository paymentRepository,
         ICurrentUserService currentUserService)
     {
         _shiftRepository = shiftRepository;
         _orderRepository = orderRepository;
         _saleReturnRepository = saleReturnRepository;
+        _paymentRepository = paymentRepository;
         _currentUserService = currentUserService;
     }
 
@@ -37,6 +40,9 @@ public class GetZReportQueryHandler : IRequestHandler<GetZReportQuery, ZReportRe
         var returns = await _saleReturnRepository.GetBetweenAsync(
             companyId, shift.RestaurantId, shift.OpenedAt, to, cancellationToken);
 
-        return ZReportBuilder.Build(shift, paidOrders, returns);
+        var bankBreakdown = await _paymentRepository.GetCardBankTotalsAsync(
+            paidOrders.Select(o => o.Id).ToList(), cancellationToken);
+
+        return ZReportBuilder.Build(shift, paidOrders, returns, bankBreakdown);
     }
 }

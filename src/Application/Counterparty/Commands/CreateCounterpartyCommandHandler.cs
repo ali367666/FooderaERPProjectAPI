@@ -59,6 +59,7 @@ public class CreateCounterpartyCommandHandler : IRequestHandler<CreateCounterpar
         CategoryId = c.CategoryId,
         CategoryName = c.Category?.Name ?? "",
         IsActive = c.IsActive,
+        IsBank = c.IsBank,
         CurrentDebtAmount = c.CurrentDebtAmount
     };
 }

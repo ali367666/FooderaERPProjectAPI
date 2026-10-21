@@ -677,6 +677,11 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsBank")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<DateTime?>("LastModifiedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -1566,6 +1571,9 @@ namespace Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("BankCounterpartyId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("BillPrintedAt")
                         .HasColumnType("datetime2");
 
@@ -1698,6 +1706,8 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BankCounterpartyId");
 
                     b.HasIndex("CounterpartyId");
 
@@ -1916,6 +1926,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("BankCounterpartyId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("ChangeAmount")
                         .HasColumnType("decimal(18,2)");
 
@@ -1956,6 +1969,8 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BankCounterpartyId");
 
                     b.HasIndex("CompanyId");
 
@@ -4124,6 +4139,11 @@ namespace Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
                 {
+                    b.HasOne("Domain.Entities.Counterparty", "BankCounterparty")
+                        .WithMany()
+                        .HasForeignKey("BankCounterpartyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Domain.Entities.Company", "Company")
                         .WithMany()
                         .HasForeignKey("CompanyId")
@@ -4166,6 +4186,8 @@ namespace Infrastructure.Persistence.Migrations
                         .HasForeignKey("WaiterId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("BankCounterparty");
 
                     b.Navigation("Company");
 
@@ -4230,6 +4252,11 @@ namespace Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.OrderPayment", b =>
                 {
+                    b.HasOne("Domain.Entities.Counterparty", "BankCounterparty")
+                        .WithMany()
+                        .HasForeignKey("BankCounterpartyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Domain.Entities.Company", "Company")
                         .WithMany()
                         .HasForeignKey("CompanyId")
@@ -4241,6 +4268,8 @@ namespace Infrastructure.Persistence.Migrations
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("BankCounterparty");
 
                     b.Navigation("Company");
 

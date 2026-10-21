@@ -13,6 +13,8 @@ public class ZReportResponse
     public decimal TotalDiscount { get; set; }
     public decimal TotalServiceCharge { get; set; }
     public List<ZReportPaymentBreakdown> PaymentBreakdown { get; set; } = new();
+    /// <summary>Card income split by bank (Kapital, Paşa, ABB, QR kod).</summary>
+    public List<ZReportBankBreakdown> BankBreakdown { get; set; } = new();
     public int ReturnCount { get; set; }
     public decimal TotalReturns { get; set; }
     /// <summary>GrossTotal minus returns made during the shift.</summary>
