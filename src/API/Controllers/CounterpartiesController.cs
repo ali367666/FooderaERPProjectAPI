@@ -22,9 +22,10 @@ public class CounterpartiesController : ControllerBase
 
     [Authorize(Policy = AppPermissions.CounterpartyView)]
     [HttpGet]
-    public async Task<ActionResult<List<CounterpartyResponse>>> GetAll()
+    public async Task<ActionResult<List<CounterpartyResponse>>> GetAll([FromQuery] string? status)
     {
-        var result = await _mediator.Send(new GetAllCounterpartiesQuery());
+        // status: "active" (default — passive counterparties stay out of every picker), "passive" or "all".
+        var result = await _mediator.Send(new GetAllCounterpartiesQuery(status));
         return Ok(result);
     }
 

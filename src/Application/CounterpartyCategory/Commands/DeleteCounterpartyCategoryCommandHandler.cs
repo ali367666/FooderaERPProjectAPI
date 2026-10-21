@@ -28,6 +28,9 @@ public class DeleteCounterpartyCategoryCommandHandler : IRequestHandler<DeleteCo
         if (category is null)
             throw new Exception("Kateqoriya tapılmadı.");
 
+        if (Domain.Constants.CounterpartyCategoryNames.IsFixed(category.Name))
+            throw new Exception("Sabit kateqoriya silinə bilməz.");
+
         if (await _counterpartyRepository.ExistsByCategoryIdAsync(category.Id, cancellationToken))
             throw new Exception("Bu kateqoriyanı istifadə edən konturagent(lər) var — əvvəlcə onların kateqoriyasını dəyişin.");
 

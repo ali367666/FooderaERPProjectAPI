@@ -1,6 +1,7 @@
 using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Services;
 using Application.Orders.Dtos;
 using Domain.Enums;
 using MediatR;
@@ -12,15 +13,18 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
     private readonly IOrderRepository _orderRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IOrderCancellationRepository _cancellationRepository;
+    private readonly IRecipeStockDeductionService _recipeStockDeductionService;
 
     public CancelOrderCommandHandler(
         IOrderRepository orderRepository,
         ICurrentUserService currentUserService,
-        IOrderCancellationRepository cancellationRepository)
+        IOrderCancellationRepository cancellationRepository,
+        IRecipeStockDeductionService recipeStockDeductionService)
     {
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
         _cancellationRepository = cancellationRepository;
+        _recipeStockDeductionService = recipeStockDeductionService;
     }
 
     public async Task<OrderResponse> Handle(CancelOrderCommand request, CancellationToken cancellationToken)
@@ -45,6 +49,11 @@ public class CancelOrderCommandHandler : IRequestHandler<CancelOrderCommand, Ord
             ?? throw new Exception("Sifarişi ləğv etmək üçün səbəb seçin.");
         await _cancellationRepository.AddAsync(
             OrderCancellations.ForOrder(order, reason, request.Note, userId), cancellationToken);
+
+        // Products take their ingredients out of the warehouse the moment they are added; a cancelled
+        // order never reached the kitchen, so every line puts its ingredients back.
+        foreach (var line in order.Lines.DistinctBy(x => x.Id))
+            await _recipeStockDeductionService.RestoreForOrderLineAsync(line, cancellationToken);
 
         order.Status = OrderStatus.Cancelled;
         order.ClosedAt = DateTime.UtcNow;

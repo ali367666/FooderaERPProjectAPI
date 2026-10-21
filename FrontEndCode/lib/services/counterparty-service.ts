@@ -60,9 +60,15 @@ export type CounterpartyInput = {
   isActive: boolean;
 };
 
-export async function getCounterparties(): Promise<Counterparty[]> {
+export type CounterpartyStatusFilter = "active" | "passive" | "all";
+
+/**
+ * Active counterparties by default, so passive ones stay out of every picker. The counterparties
+ * page asks for "all" and splits them into the Aktiv / Passiv tabs itself.
+ */
+export async function getCounterparties(status?: CounterpartyStatusFilter): Promise<Counterparty[]> {
   try {
-    const response = await api.get<unknown>("/Counterparties");
+    const response = await api.get<unknown>("/Counterparties", { params: status ? { status } : undefined });
     return unwrapList<unknown>(response.data).map(normalize).filter((x): x is Counterparty => x !== null);
   } catch (error) {
     throw toApiFormError(error, "Failed to fetch counterparties");

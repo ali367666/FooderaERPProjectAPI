@@ -78,11 +78,12 @@ export function StockPurchaseMasterForm({ companyId, initial, readOnly, onSave, 
         const [wh, si, cp] = await Promise.all([
           getWarehouses(),
           getStockItemsForAllCompanies(allCompanyIds),
-          getCounterparties(),
+          getCounterparties("all"),
         ]);
         setWarehouses(wh);
         setStockItems(si);
-        setCounterparties(cp);
+        // A passive supplier is not offered, except when this document already uses it.
+        setCounterparties(cp.filter((c) => c.isActive || c.id === Number(initial?.counterpartyId)));
       } catch {
         toast.error("Anbar / məhsul siyahısı yüklənmədi.");
       }

@@ -32,6 +32,9 @@ interface DataTableProps<T> {
   searchableFields?: (keyof T)[];
   /** When set, the matching column header toggles ID sort: none → asc → desc → none */
   idSortKey?: keyof T;
+  /** Clicking a row selects it; the row whose id equals selectedId is highlighted. */
+  onRowClick?: (item: T) => void;
+  selectedId?: string | null;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -44,6 +47,8 @@ export function DataTable<T extends { id: string }>({
   searchPlaceholder = "Search...",
   searchableFields = [],
   idSortKey,
+  onRowClick,
+  selectedId,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -192,7 +197,10 @@ export function DataTable<T extends { id: string }>({
               paginatedData.map((item) => (
                 <tr
                   key={item.id}
-                  className="border-b border-border hover:bg-muted/50 transition-colors"
+                  onClick={onRowClick ? () => onRowClick(item) : undefined}
+                  className={`border-b border-border hover:bg-muted/50 transition-colors${
+                    onRowClick ? " cursor-pointer" : ""
+                  }${selectedId != null && selectedId === item.id ? " bg-primary/10" : ""}`}
                 >
                   {columns.map((column) => (
                     <td

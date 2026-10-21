@@ -5,11 +5,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Repositories;
 
-/// <summary>
-/// Card income of paid orders grouped by payment bank: the card parts of orders paid in parts plus
-/// orders paid by card in one go. Card payments with no bank (made before banks existed) are grouped
-/// as "Bank göstərilməyib". Shared by the shift Z report and the sales reports.
-/// </summary>
 internal static class CardBankTotals
 {
     public const string NoBank = "Bank göstərilməyib";

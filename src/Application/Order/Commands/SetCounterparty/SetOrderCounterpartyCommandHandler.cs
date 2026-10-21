@@ -41,6 +41,9 @@ public class SetOrderCounterpartyCommandHandler : IRequestHandler<SetOrderCounte
             if (counterparty is null)
                 throw new Exception("Kontragent tapılmadı.");
 
+            if (!counterparty.IsActive)
+                throw new Application.Common.Exceptions.BadRequestException("Bu konturagent passivdir.");
+
             order.CounterpartyId = counterparty.Id;
         }
         else

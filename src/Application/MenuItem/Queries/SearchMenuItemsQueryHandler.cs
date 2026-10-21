@@ -55,7 +55,11 @@ public class SearchMenuItemsQueryHandler : IRequestHandler<SearchMenuItemsQuery,
                 IsTimeBased = x.Item.IsTimeBased,
                 PreparationType = x.Item.PreparationType,
                 MenuCategoryId = x.Item.MenuCategoryId,
-                MenuCategoryName = x.Item.MenuCategory.Name
+                MenuCategoryName = x.Item.MenuCategory.Name,
+                CategoryName = x.Item.MenuCategory.ParentCategory?.Name ?? x.Item.MenuCategory.Name,
+                SubCategoryName = x.Item.MenuCategory.ParentCategoryId is null ? null : x.Item.MenuCategory.Name,
+                Barcode = x.Item.HideBarcode ? null : x.Item.Barcode,
+                WeightCode = x.Item.HideBarcode ? null : x.Item.WeightCode
             })
             .ToList();
     }

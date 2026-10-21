@@ -15,6 +15,7 @@ public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, str
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly IOrderCancellationRepository _cancellationRepository;
+    private readonly IRecipeStockDeductionService _recipeStockDeductionService;
     private readonly ILogger<DeleteOrderCommandHandler> _logger;
 
     public DeleteOrderCommandHandler(
@@ -22,12 +23,14 @@ public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, str
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         IOrderCancellationRepository cancellationRepository,
+        IRecipeStockDeductionService recipeStockDeductionService,
         ILogger<DeleteOrderCommandHandler> logger)
     {
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _cancellationRepository = cancellationRepository;
+        _recipeStockDeductionService = recipeStockDeductionService;
         _logger = logger;
     }
 
@@ -77,6 +80,15 @@ public class DeleteOrderCommandHandler : IRequestHandler<DeleteOrderCommand, str
                 OrderCancellations.ForOrder(order, OrderCancellations.Clean(request.Reason) ?? "Çek silindi",
                     request.Note, _currentUserService.UserId),
                 cancellationToken);
+
+        // An order that never reached the kitchen (or was cancelled before it did) still holds the
+        // ingredients it took when its products were added: put them back. Once the kitchen started
+        // or the guests were served, the food is gone and the stock stays deducted.
+        if (order.Status is Domain.Enums.OrderStatus.Draft or Domain.Enums.OrderStatus.Open or Domain.Enums.OrderStatus.Cancelled)
+        {
+            foreach (var line in order.Lines.DistinctBy(x => x.Id))
+                await _recipeStockDeductionService.RestoreForOrderLineAsync(line, cancellationToken);
+        }
 
         _orderRepository.Delete(order);
         await _orderRepository.SaveChangesAsync(cancellationToken);

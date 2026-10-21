@@ -36,6 +36,7 @@ public class MenuItemRepository : IMenuItemRepository
     {
         return await _context.MenuItems
             .Include(x => x.MenuCategory)
+                .ThenInclude(c => c.ParentCategory)
             .Include(x => x.ItemType)
             .Include(x => x.StockItem)
             .Include(x => x.Printer)

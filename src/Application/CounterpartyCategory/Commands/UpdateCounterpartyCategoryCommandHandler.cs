@@ -25,6 +25,9 @@ public class UpdateCounterpartyCategoryCommandHandler : IRequestHandler<UpdateCo
         if (category is null)
             throw new Exception("Kateqoriya tapılmadı.");
 
+        if (Domain.Constants.CounterpartyCategoryNames.IsFixed(category.Name))
+            throw new Exception("Sabit kateqoriya dəyişdirilə bilməz.");
+
         var name = dto.Name.Trim();
         if (await _repository.ExistsByNameAsync(companyId, name, category.Id, cancellationToken))
             throw new Exception("Bu adda kateqoriya artıq mövcuddur.");

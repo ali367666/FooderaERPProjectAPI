@@ -14,4 +14,16 @@ public class MenuItemSearchResponse
     public PreparationType PreparationType { get; set; }
     public int MenuCategoryId { get; set; }
     public string MenuCategoryName { get; set; } = default!;
+
+    /// <summary>The top-level category ("Kateqoriya"): the product's own category, or its parent when that one is a sub-category.</summary>
+    public string CategoryName { get; set; } = default!;
+
+    /// <summary>The sub-category ("Alt kateqoriya") when the product sits in one, otherwise null.</summary>
+    public string? SubCategoryName { get; set; }
+
+    /// <summary>Null when the product's barcode is hidden (HideBarcode).</summary>
+    public string? Barcode { get; set; }
+
+    /// <summary>The product's scale code (the PLU column); null when the product's codes are hidden.</summary>
+    public string? WeightCode { get; set; }
 }

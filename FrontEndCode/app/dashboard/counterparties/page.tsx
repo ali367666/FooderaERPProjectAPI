@@ -5,7 +5,7 @@ import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2 } from "lucide-react";
 import { CounterpartyDebtDialog } from "@/components/counterparties/counterparty-debt-dialog";
 import { toast } from "sonner";
 import {
@@ -27,15 +26,21 @@ import {
   type Counterparty,
 } from "@/lib/services/counterparty-service";
 import {
-  createCounterpartyCategory,
-  deleteCounterpartyCategory,
   getCounterpartyCategories,
-  updateCounterpartyCategory,
   type CounterpartyCategory,
 } from "@/lib/services/counterparty-category-service";
 
-const selectClass =
-  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background";
+const FIXED_CATEGORY_ORDER = [
+  "tədarükçü",
+  "pərakəndə",
+  "satıcı/topdan",
+  "bank",
+  "əsas tədarükçü",
+  "şöbə",
+  "personal",
+];
+
+const fixedCategoryIndex = (name: string) => FIXED_CATEGORY_ORDER.indexOf(name.trim().toLocaleLowerCase("az"));
 
 type CounterpartyRow = {
   id: string;
@@ -55,10 +60,12 @@ export default function CounterpartiesPage() {
 
   const [categories, setCategories] = useState<CounterpartyCategory[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [savingCategory, setSavingCategory] = useState(false);
-  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
-  const [editingCategoryName, setEditingCategoryName] = useState("");
+  // Passive counterparties (no longer delivering) stay out of the active list; open one and tick
+  // "Aktiv" to bring it back.
+  const [statusView, setStatusView] = useState<"active" | "passive">("active");
+  const [categoryView, setCategoryView] = useState<string>("all");
+  // The row picked in the list: the Aktiv / Passiv choice below the list filters acts on it.
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -82,7 +89,7 @@ export default function CounterpartiesPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await getCounterparties();
+      const data = await getCounterparties("all");
       setList(data);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Konturagentlər yüklənmədi.");
@@ -110,60 +117,6 @@ export default function CounterpartiesPage() {
     void loadCategories();
   }, []);
 
-  const handleAddCategory = async () => {
-    const trimmed = newCategoryName.trim();
-    if (!trimmed) {
-      toast.error("Kateqoriya adı vacibdir.");
-      return;
-    }
-    setSavingCategory(true);
-    try {
-      await createCounterpartyCategory({ name: trimmed, isActive: true });
-      setNewCategoryName("");
-      toast.success("Kateqoriya əlavə edildi.");
-      await loadCategories();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Kateqoriya əlavə olunmadı.");
-    } finally {
-      setSavingCategory(false);
-    }
-  };
-
-  const startEditCategory = (c: CounterpartyCategory) => {
-    setEditingCategoryId(c.id);
-    setEditingCategoryName(c.name);
-  };
-
-  const handleSaveCategoryEdit = async (id: number) => {
-    const trimmed = editingCategoryName.trim();
-    if (!trimmed) {
-      toast.error("Kateqoriya adı vacibdir.");
-      return;
-    }
-    setSavingCategory(true);
-    try {
-      await updateCounterpartyCategory(id, { name: trimmed, isActive: true });
-      setEditingCategoryId(null);
-      toast.success("Kateqoriya yeniləndi.");
-      await loadCategories();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Kateqoriya yenilənmədi.");
-    } finally {
-      setSavingCategory(false);
-    }
-  };
-
-  const handleDeleteCategory = async (c: CounterpartyCategory) => {
-    if (!window.confirm(`"${c.name}" kateqoriyasını silmək istəyirsiniz?`)) return;
-    try {
-      await deleteCounterpartyCategory(c.id);
-      toast.success("Kateqoriya silindi.");
-      await loadCategories();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Kateqoriya silinmədi.");
-    }
-  };
-
   const resetForm = () => {
     setEditingId(null);
     setName("");
@@ -190,6 +143,27 @@ export default function CounterpartiesPage() {
     setEditingIsBank(target.isBank);
     setConfirmStep(false);
     setDialogOpen(true);
+  };
+
+  // Applies the Aktiv / Passiv choice to the counterparty picked in the list.
+  const handleSetActive = async (next: boolean) => {
+    if (!selected || selected.isActive === next) return;
+    const question = next
+      ? `"${selected.name}" yenidən aktiv edilsin?`
+      : `"${selected.name}" passiv edilsin? Siyahılarda görünməyəcək, sonra yenidən aktiv etmək olar.`;
+    if (!window.confirm(question)) return;
+    try {
+      await updateCounterparty(selected.id, {
+        name: selected.name,
+        phoneNumber: selected.phoneNumber,
+        categoryId: selected.categoryId,
+        isActive: next,
+      });
+      toast.success(next ? "Konturagent aktiv edildi." : "Konturagent passiv edildi.");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Status dəyişdirilmədi.");
+    }
   };
 
   const handleDelete = async (row: CounterpartyRow) => {
@@ -304,9 +278,31 @@ export default function CounterpartiesPage() {
     [list],
   );
 
-  const categoryOptions = useMemo(
-    () => categories.map((c) => ({ value: String(c.id), label: c.name })),
-    [categories],
+  // Only the fixed categories are offered; a counterparty still sitting in an old custom one keeps it visible.
+  const categoryChoices = useMemo(
+    () =>
+      categories
+        .filter((c) => fixedCategoryIndex(c.name) >= 0 || String(c.id) === categoryId)
+        .sort((a, b) => {
+          const ia = fixedCategoryIndex(a.name);
+          const ib = fixedCategoryIndex(b.name);
+          return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+        }),
+    [categories, categoryId],
+  );
+  const filterCategories = useMemo(() => categoryChoices.filter((c) => fixedCategoryIndex(c.name) >= 0), [categoryChoices]);
+  const selected = list.find((c) => c.id === selectedId) ?? null;
+
+  const activeCount = rows.filter((r) => r.isActive).length;
+  const passiveCount = rows.length - activeCount;
+  const visibleRows = useMemo(
+    () =>
+      rows.filter(
+        (r) =>
+          (statusView === "active" ? r.isActive : !r.isActive) &&
+          (categoryView === "all" || String(r.categoryId) === categoryView),
+      ),
+    [rows, statusView, categoryView],
   );
 
   const filterDefs = useMemo<TableFilterDef<CounterpartyRow>[]>(
@@ -321,31 +317,8 @@ export default function CounterpartiesPage() {
           return row.name.toLowerCase().includes(q);
         },
       },
-      {
-        id: "category",
-        label: "Kateqoriya",
-        ui: "select",
-        options: categoryOptions,
-        match: (row, get) => {
-          const v = get("category");
-          if (!v) return true;
-          return String(row.categoryId) === v;
-        },
-      },
-      {
-        id: "status",
-        label: "Status",
-        ui: "status",
-        match: (row, get) => {
-          const v = get("status");
-          if (v === "all" || !v) return true;
-          if (v === "active") return row.isActive;
-          if (v === "inactive") return !row.isActive;
-          return true;
-        },
-      },
     ],
-    [categoryOptions],
+    [],
   );
 
   const columns = [
@@ -388,59 +361,68 @@ export default function CounterpartiesPage() {
         <p className="text-muted-foreground mt-1">Təchizatçılar və digər tərəfdaşlar — borc izləməsi ilə.</p>
       </div>
 
-      <div className="rounded-xl border bg-card p-4">
-        <h2 className="mb-1 text-lg font-semibold">Kateqoriyalar</h2>
-        <p className="mb-3 text-sm text-muted-foreground">
-          Öz kateqoriyalarınızı yaradın (məs. Təchizatçı, Bank, Şöbə) — konturagent əlavə edərkən bu siyahıdan seçəcəksiniz.
-        </p>
-
-        <div className="mb-3 flex flex-wrap gap-2">
-          {categoriesLoading && <p className="text-sm text-muted-foreground">Yüklənir…</p>}
-          {!categoriesLoading && categories.length === 0 && (
-            <p className="text-sm text-muted-foreground">Hələ kateqoriya yoxdur.</p>
-          )}
-          {categories.map((c) =>
-            editingCategoryId === c.id ? (
-              <div key={c.id} className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
-                <Input
-                  autoFocus
-                  className="h-7 w-32 text-sm"
-                  value={editingCategoryName}
-                  onChange={(e) => setEditingCategoryName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && void handleSaveCategoryEdit(c.id)}
-                />
-                <Button size="sm" className="h-7 px-2" disabled={savingCategory} onClick={() => void handleSaveCategoryEdit(c.id)}>
-                  OK
-                </Button>
-              </div>
-            ) : (
-              <span key={c.id} className="flex items-center gap-2 rounded-full border bg-muted px-3 py-1.5 text-sm">
-                <button type="button" onClick={() => startEditCategory(c)} className="hover:underline">
-                  {c.name}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteCategory(c)}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </span>
-            ),
-          )}
+      <div className="space-y-3 rounded-md border bg-card p-4">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <span className="w-44 text-sm font-medium">Siyahı</span>
+          <RadioGroup
+            className="flex flex-wrap gap-x-6 gap-y-2"
+            value={statusView}
+            onValueChange={(v) => setStatusView(v as "active" | "passive")}
+          >
+            <div className="flex items-center gap-2">
+              <RadioGroupItem id="view-active" value="active" />
+              <Label htmlFor="view-active" className="font-normal">Aktiv ({activeCount})</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem id="view-passive" value="passive" />
+              <Label htmlFor="view-passive" className="font-normal">Passiv ({passiveCount})</Label>
+            </div>
+          </RadioGroup>
         </div>
 
-        <div className="flex max-w-sm items-center gap-2">
-          <Input
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            placeholder="Yeni kateqoriya adı"
-            onKeyDown={(e) => e.key === "Enter" && void handleAddCategory()}
-          />
-          <Button size="sm" disabled={savingCategory} onClick={() => void handleAddCategory()}>
-            <Plus className="mr-1 h-4 w-4" />
-            Əlavə et
-          </Button>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <span className="w-44 text-sm font-medium">Kateqoriya</span>
+          <RadioGroup className="flex flex-wrap gap-x-6 gap-y-2" value={categoryView} onValueChange={setCategoryView}>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem id="view-cat-all" value="all" />
+              <Label htmlFor="view-cat-all" className="font-normal">Hamısı</Label>
+            </div>
+            {filterCategories.map((c) => (
+              <div key={c.id} className="flex items-center gap-2">
+                <RadioGroupItem id={`view-cat-${c.id}`} value={String(c.id)} />
+                <Label htmlFor={`view-cat-${c.id}`} className="font-normal">{c.name}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-3">
+          <span className="w-44 text-sm font-medium">
+            Seçilmiş konturagent
+            <span className="block text-xs font-normal text-muted-foreground">
+              {selected ? selected.name : "Siyahıdan birini seçin"}
+            </span>
+          </span>
+          <RadioGroup
+            className="flex flex-wrap gap-x-6 gap-y-2"
+            value={selected ? (selected.isActive ? "active" : "passive") : ""}
+            onValueChange={(v) => void handleSetActive(v === "active")}
+            disabled={!selected}
+          >
+            <div className="flex items-center gap-2">
+              <RadioGroupItem id="sel-active" value="active" />
+              <Label htmlFor="sel-active" className="font-normal">Aktiv</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem id="sel-passive" value="passive" />
+              <Label htmlFor="sel-passive" className="font-normal">Passiv</Label>
+            </div>
+          </RadioGroup>
+          {selected && (
+            <span className="text-xs text-muted-foreground">
+              Passiv edilən siyahılarda görünmür; "Passiv" siyahısından yenidən aktiv edə bilərsiniz.
+            </span>
+          )}
         </div>
       </div>
 
@@ -451,7 +433,7 @@ export default function CounterpartiesPage() {
           if (!o) resetForm();
         }}
       >
-        <AdvancedTableFilters defs={filterDefs} data={rows}>
+        <AdvancedTableFilters defs={filterDefs} data={visibleRows}>
           {(filtered) => (
             <DataTable
               title="Konturagent siyahısı"
@@ -463,11 +445,13 @@ export default function CounterpartiesPage() {
               onAdd={handleAdd}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onRowClick={(row) => setSelectedId(row.counterpartyId)}
+              selectedId={selectedId == null ? null : String(selectedId)}
             />
           )}
         </AdvancedTableFilters>
 
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {confirmStep
@@ -477,7 +461,7 @@ export default function CounterpartiesPage() {
                   : "Konturagent əlavə et"}
             </DialogTitle>
             <DialogDescription>
-              {confirmStep ? "Aşağıdakı məlumatlar saxlanılacaq." : "Ad, telefon və kateqoriya."}
+              {confirmStep ? "Aşağıdakı məlumatlar saxlanılacaq." : "Ad, telefon, status və kateqoriya."}
             </DialogDescription>
           </DialogHeader>
 
@@ -521,33 +505,41 @@ export default function CounterpartiesPage() {
                 <Label htmlFor="cp-phone">Telefon</Label>
                 <Input id="cp-phone" className="mt-1" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="Opsional" />
               </div>
-              <div>
-                <Label htmlFor="cp-category">Kateqoriya</Label>
-                <select
-                  id="cp-category"
-                  className={selectClass + " mt-1"}
-                  value={categoryId}
-                  disabled={editingIsBank}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                >
-                  <option value="">Kateqoriya seçin</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                {categories.length === 0 && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Əvvəlcə yuxarıdakı "Kateqoriyalar" bölümündən bir kateqoriya yaradın.
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-md border p-3">
+                  <p className="mb-2 text-sm font-medium">Status</p>
+                  <RadioGroup
+                    value={isActive ? "active" : "passive"}
+                    onValueChange={(v) => setIsActive(v === "active")}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem id="cp-status-active" value="active" />
+                      <Label htmlFor="cp-status-active" className="font-normal">Aktiv</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem id="cp-status-passive" value="passive" />
+                      <Label htmlFor="cp-status-passive" className="font-normal">Passiv</Label>
+                    </div>
+                  </RadioGroup>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Passiv olanda siyahılarda görünmür. Lazım olanda burdan yenidən aktiv edə bilərsiniz.
                   </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox id="cp-active" checked={isActive} onCheckedChange={(v) => setIsActive(v === true)} />
-                <Label htmlFor="cp-active" className="text-sm font-normal">
-                  Aktiv
-                </Label>
+                </div>
+
+                <div className="rounded-md border p-3">
+                  <p className="mb-2 text-sm font-medium">Kateqoriya</p>
+                  <RadioGroup value={categoryId} onValueChange={setCategoryId} disabled={editingIsBank}>
+                    {categoryChoices.map((c) => (
+                      <div key={c.id} className="flex items-center gap-2">
+                        <RadioGroupItem id={`cp-category-${c.id}`} value={String(c.id)} />
+                        <Label htmlFor={`cp-category-${c.id}`} className="font-normal">{c.name}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                  {categories.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Kateqoriyalar yüklənir…</p>
+                  )}
+                </div>
               </div>
             </div>
           )}

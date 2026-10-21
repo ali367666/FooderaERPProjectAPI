@@ -90,7 +90,7 @@ export default function KassaPage() {
       const [movementsData, reportData, counterparties] = await Promise.all([
         getCashMovements(rid, from, to),
         getZReport(from, to),
-        getCounterparties(),
+        getCounterparties("all"),
       ]);
       setMovements(movementsData);
       setReport(reportData);
