@@ -22,7 +22,6 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
     private readonly IPrinterRepository _printerRepository;
     private readonly INetworkPrinterService _networkPrinterService;
     private readonly IEmployeeRepository _employeeRepository;
-    private readonly IReservationTableGuard _reservationTableGuard;
 
     public MoveOrderTableCommandHandler(
         IOrderRepository orderRepository,
@@ -32,8 +31,7 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         ICompanySettingsRepository companySettingsRepository,
         IPrinterRepository printerRepository,
         INetworkPrinterService networkPrinterService,
-        IEmployeeRepository employeeRepository,
-        IReservationTableGuard reservationTableGuard)
+        IEmployeeRepository employeeRepository)
     {
         _orderRepository = orderRepository;
         _tableRepository = tableRepository;
@@ -43,7 +41,6 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         _printerRepository = printerRepository;
         _networkPrinterService = networkPrinterService;
         _employeeRepository = employeeRepository;
-        _reservationTableGuard = reservationTableGuard;
     }
 
     public async Task<OrderResponse> Handle(MoveOrderTableCommand request, CancellationToken cancellationToken)
@@ -81,8 +78,6 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
 
         if (newTable.IsOccupied)
             throw new Exception("The selected table is already occupied.");
-
-        await _reservationTableGuard.EnsureTableFreeAsync(companyId, newTable.Id, cancellationToken);
 
         var oldTable = await _tableRepository.GetByIdAsync(order.TableId, companyId, cancellationToken);
         var oldTableId = order.TableId;

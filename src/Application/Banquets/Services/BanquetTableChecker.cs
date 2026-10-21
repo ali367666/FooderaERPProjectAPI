@@ -10,18 +10,15 @@ public sealed class BanquetTableChecker : IBanquetTableChecker
     private readonly IRestaurantTableRepository _tableRepository;
     private readonly IOrderRepository _orderRepository;
     private readonly IReservationRepository _reservationRepository;
-    private readonly IReservationTableGuard _reservationTableGuard;
 
     public BanquetTableChecker(
         IRestaurantTableRepository tableRepository,
         IOrderRepository orderRepository,
-        IReservationRepository reservationRepository,
-        IReservationTableGuard reservationTableGuard)
+        IReservationRepository reservationRepository)
     {
         _tableRepository = tableRepository;
         _orderRepository = orderRepository;
         _reservationRepository = reservationRepository;
-        _reservationTableGuard = reservationTableGuard;
     }
 
     public async Task<List<Domain.Entities.RestaurantTable>> LoadTablesAsync(
@@ -49,15 +46,6 @@ public sealed class BanquetTableChecker : IBanquetTableChecker
     {
         if (await _orderRepository.HasOpenOrderForTableAsync(table.Id, companyId, cancellationToken))
             return "Dolu: bu masada açıq sifariş var.";
-
-        try
-        {
-            await _reservationTableGuard.EnsureTableFreeAsync(companyId, table.Id, cancellationToken);
-        }
-        catch (BadRequestException ex)
-        {
-            return ex.Message;
-        }
 
         return null;
     }

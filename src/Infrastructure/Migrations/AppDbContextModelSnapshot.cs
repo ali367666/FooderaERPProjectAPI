@@ -573,12 +573,6 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<bool>("RequireProductCode")
                         .HasColumnType("bit");
 
-                    b.Property<int>("ReservationAutoCancelMinutes")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ReservationBlockMinutes")
-                        .HasColumnType("int");
-
                     b.Property<bool>("SingleWaiterMode")
                         .HasColumnType("bit");
 

@@ -58,8 +58,6 @@ public class GetCompanySettingsBrandingQueryHandler
                 AlertRingCount = settings.AlertRingCount,
                 AlertRingIntervalSeconds = settings.AlertRingIntervalSeconds,
                 TableTimeWarningMinutes = settings.TableTimeWarningMinutes,
-                ReservationBlockMinutes = settings.ReservationBlockMinutes,
-                ReservationAutoCancelMinutes = settings.ReservationAutoCancelMinutes,
                 ModuleFilial = settings.ModuleFilial,
                 ModuleAnbar = settings.ModuleAnbar,
                 ModuleRezervasyon = settings.ModuleRezervasyon,

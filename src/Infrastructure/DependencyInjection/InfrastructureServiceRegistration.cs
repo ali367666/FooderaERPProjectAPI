@@ -96,7 +96,6 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAuthTokenIssuer, AuthTokenIssuer>();
         services.AddScoped<IStaffCodeResolver, Application.Auth.Services.StaffCodeResolver>();
         services.AddScoped<IOrderPaymentService, Application.Orders.Services.OrderPaymentService>();
-        services.AddScoped<IReservationTableGuard, Application.Reservations.Services.ReservationTableGuard>();
         services.AddScoped<Application.Banquets.Services.IBanquetTableChecker, Application.Banquets.Services.BanquetTableChecker>();
         services.AddScoped<IOrderPaymentRepository, OrderPaymentRepository>();
         services.AddScoped<IMailActionTokenService, MailActionTokenService>();
@@ -119,7 +118,6 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IDeploymentInfo, DeploymentInfo>();
         services.AddMemoryCache();
         services.AddHostedService<LicenseExpiryNotifier>();
-        services.AddHostedService<ReservationAutoCancelService>();
         services.AddScoped<ICounterpartyRepository, CounterpartyRepository>();
         services.AddScoped<ICounterpartyCategoryRepository, CounterpartyCategoryRepository>();
         services.AddScoped<IMenuItemTypeRepository, MenuItemTypeRepository>();

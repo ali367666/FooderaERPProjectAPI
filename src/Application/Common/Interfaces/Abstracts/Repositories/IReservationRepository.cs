@@ -8,13 +8,6 @@ public interface IReservationRepository
     Task<Reservation?> GetByIdAsync(int id, int companyId, CancellationToken ct);
 
     /// <summary>
-    /// The pending/confirmed reservation that keeps the table closed right now: from
-    /// <paramref name="blockMinutes"/> before its time until it ends. Null when the table is free.
-    /// </summary>
-    Task<Reservation?> FindBlockingForTableAsync(
-        int companyId, int tableId, DateTime nowLocal, int blockMinutes, CancellationToken ct);
-
-    /// <summary>
     /// A pending/confirmed reservation on the table whose time span overlaps [start, start + duration) —
     /// used to stop two parties being booked on one table at the same time.
     /// </summary>

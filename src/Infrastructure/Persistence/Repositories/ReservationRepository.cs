@@ -35,29 +35,6 @@ public class ReservationRepository : IReservationRepository
             .Include(r => r.BanquetTables).ThenInclude(b => b.Table)
             .FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId, ct);
 
-    public async Task<Reservation?> FindBlockingForTableAsync(
-        int companyId, int tableId, DateTime nowLocal, int blockMinutes, CancellationToken ct)
-    {
-        var from = nowLocal.Date.AddDays(-1);
-        var to = nowLocal.Date.AddDays(1);
-
-        var candidates = await _context.Reservations
-            .AsNoTracking()
-            .Where(r => r.CompanyId == companyId
-                && (r.TableId == tableId || r.BanquetTables.Any(b => b.TableId == tableId))
-                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
-                && r.ReservationDate >= from
-                && r.ReservationDate <= to)
-            .ToListAsync(ct);
-
-        return candidates
-            .Select(r => new { Reservation = r, Start = r.ReservationDate.Date + r.ReservationTime })
-            .Where(x => nowLocal >= x.Start.AddMinutes(-blockMinutes) && nowLocal <= x.Start.AddMinutes(x.Reservation.DurationMinutes))
-            .OrderBy(x => x.Start)
-            .Select(x => x.Reservation)
-            .FirstOrDefault();
-    }
-
     public async Task<Reservation?> FindOverlappingAsync(
         int companyId, int tableId, DateTime start, int durationMinutes, int? excludeReservationId, CancellationToken ct)
     {

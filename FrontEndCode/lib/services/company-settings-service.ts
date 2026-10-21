@@ -24,9 +24,9 @@ export type CompanySettings = {
   alertRingCount: number | null;
   alertRingIntervalSeconds: number | null;
   tableTimeWarningMinutes: number | null;
-  /** A reserved table takes no new order this many minutes before the reservation (0 = off). */
+  /** Retired setting: the server no longer sends it (always 0). Kept so the POS screen that still reads it compiles. */
   reservationBlockMinutes: number;
-  /** A guest who has not come this many minutes after the reservation time is cancelled (0 = off). */
+  /** Retired setting: the server no longer sends it (always 0). */
   reservationAutoCancelMinutes: number;
 
   loginLogoUrl: string | null;

@@ -15,6 +15,9 @@ import { toast } from "sonner";
 import { hasPermission, usePermissionSet } from "@/hooks/use-auth-permissions";
 import { formatCurrency } from "@/lib/format-currency";
 import { ReceiptLinesTable } from "@/components/receipt-lines-table";
+import { designFromBranding, renderReceipt } from "@/lib/receipt-render";
+import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
+import { getMenuCategories } from "@/lib/services/menu-category-service";
 import { useCancelReason } from "@/components/cancel-reason-dialog";
 import {
   deleteOrder,
@@ -69,31 +72,42 @@ export default function SalesDocumentsPage() {
     return Math.round((order.discountAmount / subtotal) * 1000) / 10;
   };
 
+  // Prints the customer receipt exactly as the POS does: the same drawing (logo, fonts, VAT, footer —
+  // all from the company's receipt design settings), shown as one image on the paper's width.
   const printOrder = useCallback(async (order: OrderDto) => {
     try {
-      const receipt = await getOrderReceipt(order.id);
-      const html = `
-        <html><body>
-        <h3>${receipt.restaurantName}</h3>
-        <p>Çek: ${receipt.receiptNumber}</p>
-        <p>Sifariş: ${receipt.orderNumber}</p>
-        <p>Masa: ${receipt.tableName}</p>
-        <p>Ofisiant: ${receipt.waiterName}</p>
-        <hr />
-        ${receipt.lines.map((x) => `<div>${x.menuItemName} x${x.quantity} = ${formatCurrency(x.lineTotal)}</div>`).join("")}
-        <hr />
-        <p>Cəm: ${formatCurrency(receipt.totalAmount)}</p>
-        <p>Ödənilib: ${formatCurrency(receipt.paidAmount)}</p>
-        <p>Qalıq: ${formatCurrency(receipt.changeAmount)}</p>
-        </body></html>
-      `;
-      const printWindow = window.open("", "_blank", "width=500,height=700");
-      if (!printWindow) return;
-      printWindow.document.write(html);
+      const [receipt, branding, categories] = await Promise.all([
+        getOrderReceipt(order.id),
+        getCompanySettingsBranding(order.companyId, order.restaurantId).catch(() => null),
+        getMenuCategories().catch(() => []),
+      ]);
+      const categoryName = (id: number | null | undefined) =>
+        id == null ? "" : categories.find((c) => c.id === id)?.name ?? "";
+      const design = designFromBranding(branding);
+      const canvas = await renderReceipt(receipt, design, categoryName);
+      const src = canvas.toDataURL("image/png");
+
+      const printWindow = window.open("", "_blank", "width=420,height=720");
+      if (!printWindow) {
+        toast.error("Çap pəncərəsi açılmadı — brauzerin popup bloklamasını söndürün.");
+        return;
+      }
+      printWindow.document.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${receipt.receiptNumber ?? receipt.orderNumber}</title>
+    <style>
+      @page { margin: 0; }
+      html, body { margin: 0; padding: 0; background: #fff; }
+      img { display: block; width: ${design.paperWidth === 58 ? 58 : 80}mm; max-width: 100%; margin: 0 auto; }
+    </style>
+  </head>
+  <body>
+    <img src="${src}" alt="" onload="window.focus(); window.print(); window.close();" />
+  </body>
+</html>`);
       printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Çek çap edilmədi.");
     }

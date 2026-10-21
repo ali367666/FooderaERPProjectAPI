@@ -25,8 +25,6 @@ public class CompanySettingsBrandingResponse
     public int? AlertRingIntervalSeconds { get; set; }
     public int? TableTimeWarningMinutes { get; set; }
 
-    public int ReservationBlockMinutes { get; set; }
-    public int ReservationAutoCancelMinutes { get; set; }
 
     public bool ModuleFilial { get; set; }
     public bool ModuleAnbar { get; set; }
