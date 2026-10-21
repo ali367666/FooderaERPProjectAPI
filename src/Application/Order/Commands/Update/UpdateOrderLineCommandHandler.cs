@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Application.Common.Exceptions;
 using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -21,6 +22,8 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateOrderLineCommandHandler> _logger;
     private readonly IMenuItemSetComponentRepository _setComponentRepository;
+    private readonly IMenuItemRepository _menuItemRepository;
+    private readonly ICompanySettingsRepository _companySettingsRepository;
 
     public UpdateOrderLineCommandHandler(
         IOrderLineRepository orderLineRepository,
@@ -29,7 +32,9 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<UpdateOrderLineCommandHandler> logger,
-        IMenuItemSetComponentRepository setComponentRepository)
+        IMenuItemSetComponentRepository setComponentRepository,
+        IMenuItemRepository menuItemRepository,
+        ICompanySettingsRepository companySettingsRepository)
     {
         _orderLineRepository = orderLineRepository;
         _orderRepository = orderRepository;
@@ -38,6 +43,21 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         _auditLogService = auditLogService;
         _logger = logger;
         _setComponentRepository = setComponentRepository;
+        _menuItemRepository = menuItemRepository;
+        _companySettingsRepository = companySettingsRepository;
+    }
+
+    /// <summary>
+    /// The lowest price a line may be typed to without Pos.LowerPrice: the product's own price for this
+    /// order (the same one adding the product charges), or the line's current price if that is lower.
+    /// </summary>
+    private async Task<decimal> GetPriceFloorAsync(
+        OrderLine line, Domain.Entities.Order order, int companyId, CancellationToken cancellationToken)
+    {
+        var menuItem = await _menuItemRepository.GetByIdAsync(line.MenuItemId, companyId, cancellationToken) ?? line.MenuItem;
+        var settings = await _companySettingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
+        var standard = OrderLinePricing.ResolveUnitPrice(menuItem, order.IsDelivery, settings);
+        return Math.Min(standard, line.UnitPrice);
     }
 
     public async Task<OrderResponse> Handle(UpdateOrderLineCommand request, CancellationToken cancellationToken)
@@ -169,13 +189,30 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
                 throw new Exception("Bu məhsul üçün belə qiymət təyin edilməyib.");
         }
 
+        // A typed price needs Pos.ChangePrice. Raising it is open to everyone who holds that; going
+        // below the product's price (or the line's current price when that is already lower) also
+        // needs Pos.LowerPrice.
+        var typedPrice = parentLine is null && !chosenPrice.HasValue && request.Request.UnitPrice.HasValue
+            && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
+                ? request.Request.UnitPrice
+                : null;
+        if (typedPrice is { } requested)
+        {
+            if (requested < 0)
+                throw new BadRequestException("Qiymət mənfi ola bilməz.");
+
+            var floor = await GetPriceFloorAsync(line, order, companyId, cancellationToken);
+            if (requested < floor - 0.005m
+                && !_currentUserService.HasPermission(Domain.Constants.AppPermissions.PosLowerPrice))
+                throw new BadRequestException(
+                    $"Qiyməti {floor:0.00} ₼-dən aşağı salmaq üçün icazəniz yoxdur.");
+        }
+
         line.UnitPrice = parentLine is not null
             ? 0
             : chosenPrice.HasValue
                 ? chosenPrice.Value
-                : request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
-                    ? request.Request.UnitPrice.Value
-                    : line.UnitPrice;
+                : typedPrice ?? line.UnitPrice;
 
         if (_currentUserService.HasPermission(Domain.Constants.AppPermissions.DiscountApply))
         {

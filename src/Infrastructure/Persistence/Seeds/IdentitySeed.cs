@@ -92,9 +92,38 @@ public static class IdentitySeeder
             }
         }
 
+        await GrantLowerPriceToChangePriceRolesAsync(dbContext, newPermissionNames);
         await EnsureSuperAdminHasAllPermissionsAsync(roleManager, dbContext);
         await EnsureAdminTemplateHasBroadPermissionsAsync(roleManager, dbContext);
         await EnsureCompanySuperAdminTemplateAsync(roleManager, dbContext, newPermissionNames);
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Pos.ChangePrice used to let a role set any price. When Pos.LowerPrice first appears, every role
+    /// that already holds Pos.ChangePrice gets it too, so nobody loses the ability to lower prices.
+    /// </summary>
+    private static async Task GrantLowerPriceToChangePriceRolesAsync(AppDbContext dbContext, List<string> newPermissionNames)
+    {
+        if (!newPermissionNames.Contains(AppPermissions.PosLowerPrice))
+            return;
+
+        var lower = await dbContext.Permissions.FirstAsync(x => x.Name == AppPermissions.PosLowerPrice);
+        var roleIds = await dbContext.RolePermissions
+            .Where(x => x.Permission.Name == AppPermissions.PosChangePrice)
+            .Select(x => x.RoleId)
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var roleId in roleIds)
+        {
+            if (!await dbContext.RolePermissions.AnyAsync(x => x.RoleId == roleId && x.PermissionId == lower.Id))
+                dbContext.RolePermissions.Add(new RolePermission { RoleId = roleId, PermissionId = lower.Id });
+
+            if (!await dbContext.RoleClaims.AnyAsync(x => x.RoleId == roleId && x.ClaimType == "Permission" && x.ClaimValue == lower.Name))
+                dbContext.RoleClaims.Add(new IdentityRoleClaim<int> { RoleId = roleId, ClaimType = "Permission", ClaimValue = lower.Name });
+        }
 
         await dbContext.SaveChangesAsync();
     }

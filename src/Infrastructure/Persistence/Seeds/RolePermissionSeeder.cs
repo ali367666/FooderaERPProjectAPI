@@ -66,7 +66,7 @@ public static class RolePermissionSeeder
                 AppPermissions.PosDeleteOrder, AppPermissions.PosDeleteReceipt,
                 AppPermissions.PosEditProductInSale, AppPermissions.PosDeleteProductInSale,
                 AppPermissions.PosMoveTable, AppPermissions.PosRedirectUser, AppPermissions.PosChangeWaiter, AppPermissions.PosChangePrice,
-                AppPermissions.PosOverridePrice, AppPermissions.PosTableServiceCharge,
+                AppPermissions.PosLowerPrice, AppPermissions.PosOverridePrice, AppPermissions.PosTableServiceCharge,
                 AppPermissions.PosWarehouseAmountChange, AppPermissions.PosZReport,
                 AppPermissions.PosAccessSettings, AppPermissions.PosPrintOldReceipt, AppPermissions.PosReturnSale, AppPermissions.PosUnlockBill, AppPermissions.PosChangeDepartment,
                 AppPermissions.PosPrintReceipt,
@@ -94,7 +94,8 @@ public static class RolePermissionSeeder
                 AppPermissions.RestaurantView, AppPermissions.RestaurantTableView, AppPermissions.RestaurantSectionView,
                 AppPermissions.ReservationView, AppPermissions.CounterpartyView,
                 AppPermissions.PosEditProductInSale, AppPermissions.PosDeleteProductInSale,
-                AppPermissions.PosPrintReceipt, AppPermissions.PrinterPrint
+                AppPermissions.PosPrintReceipt, AppPermissions.PrinterPrint,
+                AppPermissions.PosChangePrice
             }
         },
         {

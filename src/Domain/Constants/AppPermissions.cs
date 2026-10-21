@@ -126,7 +126,10 @@ public static class AppPermissions
     public const string PosMoveTable = "Pos.MoveTable";
     public const string PosDeleteOrder = "Pos.DeleteOrder";
     public const string PosAccessSettings = "Pos.AccessSettings";
+    /// <summary>Type a sale price for a line in the POS. Alone it can only raise the price; lowering needs <see cref="PosLowerPrice"/>.</summary>
     public const string PosChangePrice = "Pos.ChangePrice";
+    /// <summary>Set a line's price below the product's price (raising needs only <see cref="PosChangePrice"/>).</summary>
+    public const string PosLowerPrice = "Pos.LowerPrice";
     public const string PosZReport = "Pos.ZReport";
     public const string PosPrintReceipt = "Pos.PrintReceipt";
     public const string PosOverridePrice = "Pos.OverridePrice";
