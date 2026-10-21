@@ -30,9 +30,8 @@ export type Employee = {
 };
 
 export type EmployeeMutationInput = {
-  firstName: string;
-  lastName: string;
-  fatherName?: string;
+  /** The whole name in one field; the server splits it into first and last name. */
+  fullName: string;
   phoneNumber?: string;
   email?: string;
   address?: string;

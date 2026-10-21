@@ -10,12 +10,13 @@ public class UpdateEmployeeCommandValidator : AbstractValidator<UpdateEmployeeCo
             .GreaterThan(0)
             .WithMessage("Id must be greater than 0.");
 
+        // The name is one field now: a last name is optional, the first word is enough.
         RuleFor(x => x.Request.FirstName)
             .NotEmpty()
+            .WithMessage("Ad və soyad mütləqdir.")
             .MaximumLength(100);
 
         RuleFor(x => x.Request.LastName)
-            .NotEmpty()
             .MaximumLength(100);
 
         RuleFor(x => x.Request.DepartmentId)

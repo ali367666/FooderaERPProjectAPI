@@ -56,9 +56,7 @@ type EmployeeRow = {
 
 type EmployeeFormState = {
   id: number | null;
-  firstName: string;
-  lastName: string;
-  fatherName: string;
+  fullName: string;
   email: string;
   phoneNumber: string;
   address: string;
@@ -72,9 +70,7 @@ function emptyEmployeeForm(): EmployeeFormState {
   const today = new Date().toISOString().split("T")[0] ?? "";
   return {
     id: null,
-    firstName: "",
-    lastName: "",
-    fatherName: "",
+    fullName: "",
     email: "",
     phoneNumber: "",
     address: "",
@@ -468,9 +464,7 @@ export default function EmployeesPage() {
 
     setForm({
       id: employee.id,
-      firstName: employee.firstName || "",
-      lastName: employee.lastName || "",
-      fatherName: employee.fatherName || "",
+      fullName: employee.fullName?.trim() || `${employee.firstName} ${employee.lastName}`.trim(),
       email: employee.email || "",
       phoneNumber: employee.phoneNumber || "",
       address: employee.address || "",
@@ -500,14 +494,13 @@ export default function EmployeesPage() {
   };
 
   const handleSave = async () => {
-    const firstName = form.firstName.trim();
-    const lastName = form.lastName.trim();
+    const fullName = form.fullName.trim().replace(/\s+/g, " ");
     const departmentId = Number(form.departmentId);
     const positionId = Number(form.positionId);
     const restaurantId = Number(form.restaurantId);
 
-    if (!firstName || !lastName) {
-      const msg = "First name and last name are required.";
+    if (!fullName) {
+      const msg = "Full name is required.";
       setError(msg);
       window.alert(msg);
       return;
@@ -542,9 +535,7 @@ export default function EmployeesPage() {
     }
 
     const payload = {
-      firstName,
-      lastName,
-      fatherName: form.fatherName.trim() || undefined,
+      fullName,
       phoneNumber: form.phoneNumber.trim() || undefined,
       email: form.email.trim() || undefined,
       address: form.address.trim() || undefined,
@@ -651,45 +642,18 @@ export default function EmployeesPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
-                First Name
+                Full Name
               </label>
               <Input
-                value={form.firstName}
-                onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                placeholder="Enter first name"
+                value={form.fullName}
+                onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+                placeholder="Enter full name"
               />
-              {getFieldErrorMessage(fieldErrors, "firstname") && (
+              {(getFieldErrorMessage(fieldErrors, "fullname") || getFieldErrorMessage(fieldErrors, "firstname")) && (
                 <p className="mt-1 text-xs text-red-600">
-                  {getFieldErrorMessage(fieldErrors, "firstname")}
+                  {getFieldErrorMessage(fieldErrors, "fullname") || getFieldErrorMessage(fieldErrors, "firstname")}
                 </p>
               )}
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">
-                Last Name
-              </label>
-              <Input
-                value={form.lastName}
-                onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                placeholder="Enter last name"
-              />
-              {getFieldErrorMessage(fieldErrors, "lastname") && (
-                <p className="mt-1 text-xs text-red-600">
-                  {getFieldErrorMessage(fieldErrors, "lastname")}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">
-                Father Name
-              </label>
-              <Input
-                value={form.fatherName}
-                onChange={(e) => setForm((f) => ({ ...f, fatherName: e.target.value }))}
-                placeholder="Enter father name"
-              />
             </div>
 
             <div>
@@ -710,7 +674,7 @@ export default function EmployeesPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
-                Email
+                Email (optional)
               </label>
               <Input
                 type="email"
@@ -727,7 +691,7 @@ export default function EmployeesPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
-                Phone
+                Phone (optional)
               </label>
               <Input
                 value={form.phoneNumber}
@@ -738,7 +702,7 @@ export default function EmployeesPage() {
 
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">
-                Address
+                Address (optional)
               </label>
               <Input
                 value={form.address}

@@ -2,8 +2,18 @@
 
 public class CreateEmployeeRequest
 {
-    public string FirstName { get; set; } = default!;
-    public string LastName { get; set; } = default!;
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The whole name in one field. Setting it fills <see cref="FirstName"/> and <see cref="LastName"/>
+    /// (the first word / the rest), so a client may send either form.
+    /// </summary>
+    public string? FullName
+    {
+        get => $"{FirstName} {LastName}".Trim();
+        set => (FirstName, LastName) = EmployeeNames.Split(value);
+    }
     public string? FatherName { get; set; }
 
     public string? PhoneNumber { get; set; }
