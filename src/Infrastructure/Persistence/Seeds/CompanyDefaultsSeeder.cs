@@ -19,7 +19,6 @@ public class CompanyDefaultsSeeder : ICompanyDefaultsSeeder
         "Personal"
     ];
 
-    /// <summary>The fixed banks a card payment is split by in the reports.</summary>
     private static readonly string[] PaymentBanks = ["Kapital", "Paşa", "ABB", "QR kod"];
 
     private static readonly string[] PrinterStationTypes =
