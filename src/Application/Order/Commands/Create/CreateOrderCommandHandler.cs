@@ -137,6 +137,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             OpenedAt = DateTime.UtcNow,
             TotalAmount = 0,
             IsDelivery = request.Request.IsDelivery,
+            IsBanquet = request.Request.IsBanquet,
             DeliveryAddress = request.Request.IsDelivery && !string.IsNullOrWhiteSpace(request.Request.DeliveryAddress)
                 ? request.Request.DeliveryAddress.Trim()
                 : null,

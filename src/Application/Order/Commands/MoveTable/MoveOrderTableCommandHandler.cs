@@ -66,6 +66,9 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Cancelled)
             throw new Exception("This order can no longer be moved.");
 
+        if (order.IsBanquet)
+            throw new BadRequestException("Banket sifarişi başqa masaya köçürülə bilməz.");
+
         if (order.TableId == request.NewTableId)
             throw new Exception("This order is already on that table.");
 
@@ -149,6 +152,7 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
             BillPrintedAt = updatedOrder.BillPrintedAt,
             IsBillLocked = updatedOrder.IsBillLocked,
             IsDelivery = updatedOrder.IsDelivery,
+            IsBanquet = updatedOrder.IsBanquet,
             DeliveryAddress = updatedOrder.DeliveryAddress,
             DeliveryPhone = updatedOrder.DeliveryPhone,
             DeliveryDriverEmployeeId = updatedOrder.DeliveryDriverEmployeeId,

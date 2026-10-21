@@ -61,6 +61,8 @@ export type MenuItem = {
   specialPrice3: number | null;
   specialPrice4: number | null;
   specialPrice5: number | null;
+  /** Banquet-menu price; a product that has one is on the banquet menu. */
+  banquetPrice: number | null;
 
   hideFromPosSearch: boolean;
   hideBarcode: boolean;
@@ -131,6 +133,7 @@ export type MenuItemCreateInput = {
   specialPrice3?: number | null;
   specialPrice4?: number | null;
   specialPrice5?: number | null;
+  banquetPrice?: number | null;
 
   hideFromPosSearch: boolean;
   hideBarcode: boolean;
@@ -240,6 +243,7 @@ function normalizeMenuItem(item: unknown): MenuItem | null {
     specialPrice3: nullableNumber(raw.specialPrice3 ?? raw.SpecialPrice3),
     specialPrice4: nullableNumber(raw.specialPrice4 ?? raw.SpecialPrice4),
     specialPrice5: nullableNumber(raw.specialPrice5 ?? raw.SpecialPrice5),
+    banquetPrice: nullableNumber(raw.banquetPrice ?? raw.BanquetPrice),
 
     hideFromPosSearch: Boolean(raw.hideFromPosSearch ?? raw.HideFromPosSearch ?? false),
     hideBarcode: Boolean(raw.hideBarcode ?? raw.HideBarcode ?? false),
@@ -339,6 +343,7 @@ function buildBasePayload(data: MenuItemCreateInput) {
     specialPrice3: data.specialPrice3 ?? null,
     specialPrice4: data.specialPrice4 ?? null,
     specialPrice5: data.specialPrice5 ?? null,
+    banquetPrice: data.banquetPrice ?? null,
 
     hideFromPosSearch: data.hideFromPosSearch,
     hideBarcode: data.hideBarcode,

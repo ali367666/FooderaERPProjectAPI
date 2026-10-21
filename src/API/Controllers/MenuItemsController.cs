@@ -120,10 +120,11 @@ public class MenuItemsController : ControllerBase
     public async Task<ActionResult<List<MenuItemSearchResponse>>> Search(
         [FromQuery] string? q,
         [FromQuery] bool isDelivery,
+        [FromQuery] bool isBanquet,
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(
-            new SearchMenuItemsQuery { Term = q, IsDelivery = isDelivery },
+            new SearchMenuItemsQuery { Term = q, IsDelivery = isDelivery, IsBanquet = isBanquet },
             cancellationToken);
 
         return Ok(result);

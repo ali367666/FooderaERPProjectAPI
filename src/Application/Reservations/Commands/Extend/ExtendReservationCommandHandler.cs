@@ -36,7 +36,10 @@ public class ExtendReservationCommandHandler : IRequestHandler<ExtendReservation
 
         var newDuration = Math.Min(r.DurationMinutes + request.Minutes, MaxDurationMinutes);
 
-        if (r.TableId is int tableId)
+        var tableIds = r.BanquetTables.Select(b => b.TableId).ToList();
+        if (r.TableId is int mainTableId && !tableIds.Contains(mainTableId))
+            tableIds.Add(mainTableId);
+        foreach (var tableId in tableIds)
         {
             var clash = await _repo.FindOverlappingAsync(
                 _currentUser.CompanyId, tableId, r.ReservationDate.Date + r.ReservationTime, newDuration, r.Id, cancellationToken);

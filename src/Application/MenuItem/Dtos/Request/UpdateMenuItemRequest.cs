@@ -28,6 +28,8 @@ public class UpdateMenuItemRequest
     public decimal? SpecialPrice3 { get; set; }
     public decimal? SpecialPrice4 { get; set; }
     public decimal? SpecialPrice5 { get; set; }
+    /// <summary>Banquet-menu price; a product that has one is on the banquet menu.</summary>
+    public decimal? BanquetPrice { get; set; }
 
     public bool HideFromPosSearch { get; set; }
     public bool HideBarcode { get; set; }

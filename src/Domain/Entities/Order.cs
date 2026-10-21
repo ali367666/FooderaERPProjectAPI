@@ -29,6 +29,15 @@ public class Order : CompanyEntity<int>
     public DateTime? PaidAt { get; set; }
     public PaymentMethod? PaymentMethod { get; set; }
 
+    /// <summary>
+    /// A banquet order: only banquet-menu products can be added, each at its banquet price, and line
+    /// prices can't be changed on the order screen.
+    /// </summary>
+    public bool IsBanquet { get; set; }
+
+    /// <summary>The tables of a banquet order (one bill for all of them); empty for ordinary orders.</summary>
+    public ICollection<OrderTable> BanquetTables { get; set; } = new List<OrderTable>();
+
     /// <summary>The bank of a card payment settled in one go (parts record theirs on OrderPayment).</summary>
     public int? BankCounterpartyId { get; set; }
     public Counterparty? BankCounterparty { get; set; }

@@ -130,6 +130,7 @@ public class CreateMenuItemCommandHandler
             SpecialPrice3 = request.Request.SpecialPrice3,
             SpecialPrice4 = request.Request.SpecialPrice4,
             SpecialPrice5 = request.Request.SpecialPrice5,
+            BanquetPrice = request.Request.BanquetPrice,
             HideFromPosSearch = request.Request.HideFromPosSearch,
             HideBarcode = request.Request.HideBarcode,
             ExcludeFromDiscount = request.Request.ExcludeFromDiscount,

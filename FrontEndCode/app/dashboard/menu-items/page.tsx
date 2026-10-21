@@ -158,6 +158,7 @@ export default function MenuItemsPage() {
   const [specialPrice3, setSpecialPrice3] = useState("");
   const [specialPrice4, setSpecialPrice4] = useState("");
   const [specialPrice5, setSpecialPrice5] = useState("");
+  const [banquetPrice, setBanquetPrice] = useState("");
 
   // Davranış
   const [hideFromPosSearch, setHideFromPosSearch] = useState(false);
@@ -486,6 +487,7 @@ export default function MenuItemsPage() {
     setSpecialPrice3("");
     setSpecialPrice4("");
     setSpecialPrice5("");
+    setBanquetPrice("");
 
     setHideFromPosSearch(false);
     setHideBarcode(false);
@@ -543,6 +545,7 @@ export default function MenuItemsPage() {
       setSpecialPrice3(item.specialPrice3 != null ? String(item.specialPrice3) : "");
       setSpecialPrice4(item.specialPrice4 != null ? String(item.specialPrice4) : "");
       setSpecialPrice5(item.specialPrice5 != null ? String(item.specialPrice5) : "");
+      setBanquetPrice(item.banquetPrice != null ? String(item.banquetPrice) : "");
 
       setHideFromPosSearch(item.hideFromPosSearch);
       setHideBarcode(item.hideBarcode);
@@ -693,6 +696,7 @@ export default function MenuItemsPage() {
       specialPrice3: toNumberOrNull(specialPrice3),
       specialPrice4: toNumberOrNull(specialPrice4),
       specialPrice5: toNumberOrNull(specialPrice5),
+      banquetPrice: toNumberOrNull(banquetPrice),
 
       hideFromPosSearch,
       hideBarcode,
@@ -1181,6 +1185,13 @@ export default function MenuItemsPage() {
                 <div>
                   <label className="mb-2 block text-sm font-medium text-foreground">Özəl qiymət 5</label>
                   <Input type="number" min={0} step="0.01" value={specialPrice5} onChange={(e) => setSpecialPrice5(e.target.value)} placeholder="Optional" disabled={isEditMode && !canOverridePrice} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-foreground">Banket qiyməti</label>
+                  <Input type="number" min={0} step="0.01" value={banquetPrice} onChange={(e) => setBanquetPrice(e.target.value)} placeholder="Boş qalsa məhsul banket menyusunda olmur" disabled={isEditMode && !canOverridePrice} />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Banket qiyməti olan məhsullar banket menyusuna düşür. Banket sifarişində yalnız onlar, yalnız bu qiymətlə satılır.
+                  </p>
                 </div>
               </div>
             </TabsContent>

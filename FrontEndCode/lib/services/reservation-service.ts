@@ -4,6 +4,13 @@ import { toApiFormError } from "@/lib/api-error";
 export type ReservationStatus =
   | "Pending" | "Confirmed" | "Seated" | "Completed" | "Cancelled" | "NoShow";
 
+export type BanquetTableRef = {
+  id: number;
+  name: string;
+  capacity: number;
+  sectionId: number | null;
+};
+
 export type ReservationDto = {
   id: number;
   restaurantId: number;
@@ -21,6 +28,32 @@ export type ReservationDto = {
   note: string | null;
   confirmedAt: string | null;
   createdAtUtc: string;
+  /** A banquet booking: several tables of a hall held together. */
+  isBanquet?: boolean;
+  banquetTables?: BanquetTableRef[];
+};
+
+/** A hall table as the banquet screen lists it: free to pick, or busy with the reason why not. */
+export type BanquetTableOption = {
+  id: number;
+  name: string;
+  capacity: number;
+  sectionId: number | null;
+  sectionName: string | null;
+  isAvailable: boolean;
+  busyReason: string | null;
+};
+
+export type CreateBanquetReservationInput = {
+  restaurantId: number;
+  tableIds: number[];
+  guestName: string;
+  guestPhone: string;
+  guestCount: number;
+  reservationDate: string;
+  reservationTime: string;
+  durationMinutes?: number;
+  note?: string | null;
 };
 
 export type CreateReservationInput = {
@@ -43,6 +76,30 @@ export async function getReservations(date?: string): Promise<ReservationDto[]> 
     return Array.isArray(res.data) ? res.data : [];
   } catch (e) {
     throw toApiFormError(e, "Rezervasiyalar yüklənmədi");
+  }
+}
+
+export async function getBanquetTables(params: {
+  restaurantId: number;
+  sectionId?: number;
+  date?: string;
+  time?: string;
+  durationMinutes?: number;
+}): Promise<BanquetTableOption[]> {
+  try {
+    const res = await api.get<BanquetTableOption[]>("/Banquets/tables", { params });
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (e) {
+    throw toApiFormError(e, "Masalar yüklənmədi");
+  }
+}
+
+export async function createBanquetReservation(data: CreateBanquetReservationInput): Promise<ReservationDto> {
+  try {
+    const res = await api.post<ReservationDto>("/Banquets/reservations", data);
+    return res.data;
+  } catch (e) {
+    throw toApiFormError(e, "Banket rezervi yaradılmadı");
   }
 }
 

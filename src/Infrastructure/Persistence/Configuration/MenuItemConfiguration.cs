@@ -43,6 +43,7 @@ public class MenuItemConfiguration : IEntityTypeConfiguration<MenuItem>
         builder.Property(x => x.SpecialPrice3).HasColumnType("decimal(18,2)");
         builder.Property(x => x.SpecialPrice4).HasColumnType("decimal(18,2)");
         builder.Property(x => x.SpecialPrice5).HasColumnType("decimal(18,2)");
+        builder.Property(x => x.BanquetPrice).HasColumnType("decimal(18,2)");
 
         builder.HasIndex(x => new { x.CompanyId, x.WeightCode }).IsUnique().HasFilter("[WeightCode] IS NOT NULL");
         builder.HasIndex(x => new { x.CompanyId, x.Barcode }).IsUnique().HasFilter("[Barcode] IS NOT NULL");

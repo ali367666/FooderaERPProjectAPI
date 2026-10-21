@@ -38,7 +38,7 @@ public class SearchMenuItemsQueryHandler : IRequestHandler<SearchMenuItemsQuery,
         var code = request.Term?.Trim();
 
         return items
-            .Where(i => i.IsActive && !i.HideFromPosSearch)
+            .Where(i => i.IsActive && !i.HideFromPosSearch && (!request.IsBanquet || i.BanquetPrice != null))
             .Select(i => new { Item = i, Key = SearchText.Fold(i.Name) })
             .Where(x => words.All(w => x.Key.Contains(w, StringComparison.Ordinal)) || MatchesCode(x.Item, code))
             .OrderBy(x => x.Key, StringComparer.Ordinal)
@@ -47,7 +47,9 @@ public class SearchMenuItemsQueryHandler : IRequestHandler<SearchMenuItemsQuery,
             {
                 Id = x.Item.Id,
                 Name = x.Item.Name,
-                Price = OrderLinePricing.ResolveUnitPrice(x.Item, request.IsDelivery, settings),
+                Price = request.IsBanquet
+                    ? x.Item.BanquetPrice!.Value
+                    : OrderLinePricing.ResolveUnitPrice(x.Item, request.IsDelivery, settings),
                 UnitId = x.Item.UnitId,
                 IsSet = x.Item.IsSet,
                 IsTimeBased = x.Item.IsTimeBased,

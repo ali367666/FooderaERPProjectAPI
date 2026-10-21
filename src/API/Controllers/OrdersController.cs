@@ -16,6 +16,7 @@ using Application.Orders.Commands.Delete;
 using Application.Orders.Commands.DiscardEmpty;
 using Application.Orders.Commands.SetCounterparty;
 using Application.Orders.Commands.SetOrderHold;
+using Application.Orders.Commands.SetBanquet;
 using Application.Orders.Commands.SetDeliveryDriver;
 using Application.Orders.Commands.PrintKitchenTicket;
 using Application.Orders.Commands.Bill;
@@ -91,6 +92,18 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<int>> PrintKitchenTicket(int id, [FromQuery] int printerId, [FromQuery] string? pin)
     {
         var result = await _mediator.Send(new PrintKitchenTicketCommand(id, printerId, pin));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Switches the order to the banquet menu (<c>banquet=true</c>) or back. Allowed only while the
+    /// order has no products; a banquet order sells banquet-menu products at banquet prices only.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.OrdersAdd)]
+    [HttpPut("{id:int}/banquet")]
+    public async Task<ActionResult<OrderResponse>> SetBanquet(int id, [FromQuery] bool banquet = true)
+    {
+        var result = await _mediator.Send(new SetOrderBanquetCommand(id, banquet));
         return Ok(result);
     }
 

@@ -25,6 +25,7 @@ public class OrderRepository : IOrderRepository
             .Include(x => x.Restaurant)
             .Include(x => x.Table)
                 .ThenInclude(x => x!.Section)
+            .Include(x => x.BanquetTables).ThenInclude(b => b.Table)
             .Include(x => x.Waiter)
             .Include(x => x.ProcessedByUser)
             .Include(x => x.Counterparty)
@@ -39,6 +40,7 @@ public class OrderRepository : IOrderRepository
         return await _context.Orders
             .Include(x => x.Restaurant)
             .Include(x => x.Table)
+            .Include(x => x.BanquetTables).ThenInclude(b => b.Table)
             .Include(x => x.Waiter)
             .Include(x => x.ProcessedByUser)
             .Include(x => x.Counterparty)
@@ -63,10 +65,25 @@ public class OrderRepository : IOrderRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<Order>> GetActiveForTablesAsync(int companyId, IReadOnlyCollection<int> tableIds, CancellationToken cancellationToken)
+    {
+        var ids = tableIds.ToList();
+        return await _context.Orders
+            .AsNoTracking()
+            .Include(x => x.Waiter)
+            .Include(x => x.Counterparty)
+            .Where(x => x.CompanyId == companyId
+                && ids.Contains(x.TableId)
+                && x.Status != Domain.Enums.OrderStatus.Paid
+                && x.Status != Domain.Enums.OrderStatus.Cancelled)
+            .OrderByDescending(x => x.OpenedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> HasOpenOrderForTableAsync(int tableId, int companyId, CancellationToken cancellationToken)
     {
         return await _context.Orders.AnyAsync(x =>
-            x.TableId == tableId &&
+            (x.TableId == tableId || x.BanquetTables.Any(b => b.TableId == tableId)) &&
             x.CompanyId == companyId &&
             x.Status != Domain.Enums.OrderStatus.Paid &&
             x.Status != Domain.Enums.OrderStatus.Cancelled,

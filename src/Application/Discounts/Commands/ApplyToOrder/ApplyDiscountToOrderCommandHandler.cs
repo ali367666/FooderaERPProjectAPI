@@ -142,6 +142,7 @@ public class ApplyDiscountToOrderCommandHandler : IRequestHandler<ApplyDiscountT
             BillPrintedAt = order.BillPrintedAt,
             IsBillLocked = order.IsBillLocked,
             IsDelivery = order.IsDelivery,
+            IsBanquet = order.IsBanquet,
             DeliveryAddress = order.DeliveryAddress,
             DeliveryPhone = order.DeliveryPhone,
             DeliveryDriverEmployeeId = order.DeliveryDriverEmployeeId,

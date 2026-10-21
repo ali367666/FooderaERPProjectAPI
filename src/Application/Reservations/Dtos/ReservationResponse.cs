@@ -16,6 +16,8 @@ public class ReservationResponse
     public int DurationMinutes { get; set; }
     public string Status { get; set; } = default!;
     public string? Note { get; set; }
+    public bool IsBanquet { get; set; }
+    public List<Application.Banquets.Dtos.BanquetTableRef> BanquetTables { get; set; } = new();
     public DateTime? ConfirmedAt { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }

@@ -17,6 +17,7 @@ public class ReservationRepository : IReservationRepository
         var q = _context.Reservations
             .Include(r => r.Restaurant)
             .Include(r => r.Table)
+            .Include(r => r.BanquetTables).ThenInclude(b => b.Table)
             .Where(r => r.CompanyId == companyId);
 
         if (date.HasValue)
@@ -31,6 +32,7 @@ public class ReservationRepository : IReservationRepository
         => _context.Reservations
             .Include(r => r.Restaurant)
             .Include(r => r.Table)
+            .Include(r => r.BanquetTables).ThenInclude(b => b.Table)
             .FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId, ct);
 
     public async Task<Reservation?> FindBlockingForTableAsync(
@@ -42,7 +44,7 @@ public class ReservationRepository : IReservationRepository
         var candidates = await _context.Reservations
             .AsNoTracking()
             .Where(r => r.CompanyId == companyId
-                && r.TableId == tableId
+                && (r.TableId == tableId || r.BanquetTables.Any(b => b.TableId == tableId))
                 && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
                 && r.ReservationDate >= from
                 && r.ReservationDate <= to)
@@ -66,7 +68,7 @@ public class ReservationRepository : IReservationRepository
         var candidates = await _context.Reservations
             .AsNoTracking()
             .Where(r => r.CompanyId == companyId
-                && r.TableId == tableId
+                && (r.TableId == tableId || r.BanquetTables.Any(b => b.TableId == tableId))
                 && r.Id != excludeReservationId
                 && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
                 && r.ReservationDate >= from

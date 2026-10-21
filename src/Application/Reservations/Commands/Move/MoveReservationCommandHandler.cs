@@ -32,6 +32,8 @@ public class MoveReservationCommandHandler : IRequestHandler<MoveReservationComm
 
         if (r.Status is not (ReservationStatus.Pending or ReservationStatus.Confirmed))
             throw new BadRequestException("Yalnız aktiv rezervasiyanı başqa masaya keçirmək olar.");
+        if (r.IsBanquet)
+            throw new BadRequestException("Banket rezervasiyasının masaları dəyişdirilə bilməz.");
         if (r.TableId == request.TableId)
             throw new BadRequestException("Rezervasiya artıq bu masadadır.");
 

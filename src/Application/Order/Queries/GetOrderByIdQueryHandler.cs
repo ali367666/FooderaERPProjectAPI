@@ -108,6 +108,16 @@ public class GetOrderByIdQueryHandler : IRequestHandler<GetOrderByIdQuery, Order
             BillPrintedAt = order.BillPrintedAt,
             IsBillLocked = order.IsBillLocked,
             IsDelivery = order.IsDelivery,
+            IsBanquet = order.IsBanquet,
+            BanquetTables = order.BanquetTables
+                .Select(b => new Application.Banquets.Dtos.BanquetTableRef
+                {
+                    Id = b.TableId,
+                    Name = b.Table?.Name ?? string.Empty,
+                    Capacity = b.Table?.Capacity ?? 0,
+                    SectionId = b.Table?.SectionId
+                })
+                .ToList(),
             DeliveryAddress = order.DeliveryAddress,
             DeliveryPhone = order.DeliveryPhone,
             DeliveryDriverEmployeeId = order.DeliveryDriverEmployeeId,

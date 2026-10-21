@@ -23,6 +23,10 @@ public class Reservation : CompanyEntity<int>
     public ReservationStatus Status { get; set; } = ReservationStatus.Pending;
     public string? Note { get; set; }
 
+    /// <summary>A banquet booking: several tables of a hall held together, opened later as one banquet order.</summary>
+    public bool IsBanquet { get; set; }
+    public ICollection<ReservationTable> BanquetTables { get; set; } = new List<ReservationTable>();
+
     public int? ConfirmedByUserId { get; set; }
     public User? ConfirmedByUser { get; set; }
     public DateTime? ConfirmedAt { get; set; }

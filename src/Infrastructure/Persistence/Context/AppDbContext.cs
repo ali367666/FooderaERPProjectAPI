@@ -55,6 +55,8 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<Shift> Shifts { get; set; } = null!;
     public DbSet<Restaurant> Restaurants { get; set; } = null!;
     public DbSet<Reservation> Reservations { get; set; } = null!;
+    public DbSet<OrderTable> OrderTables { get; set; } = null!;
+    public DbSet<ReservationTable> ReservationTables { get; set; } = null!;
     public DbSet<Discount> Discounts { get; set; } = null!;
 
     // Stock system

@@ -166,6 +166,7 @@ public class UpdateMenuItemCommandHandler
             entity.SpecialPrice3 = request.Request.SpecialPrice3;
             entity.SpecialPrice4 = request.Request.SpecialPrice4;
             entity.SpecialPrice5 = request.Request.SpecialPrice5;
+            entity.BanquetPrice = request.Request.BanquetPrice;
         }
 
         entity.HideFromPosSearch = request.Request.HideFromPosSearch;

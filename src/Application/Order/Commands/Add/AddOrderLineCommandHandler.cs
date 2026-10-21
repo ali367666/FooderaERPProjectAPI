@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Application.Common.Exceptions;
 using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -103,7 +104,12 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
         // Delivery orders (the restaurant's own courier delivery, not third-party Wolt/Bolt/189)
         // price from the item's Package price when one is configured, falling back like normal.
         var settings = await _companySettingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
-        var effectivePrice = OrderLinePricing.ResolveUnitPrice(menuItem, order.IsDelivery, settings);
+        // A banquet order sells only banquet-menu products, always at the banquet price.
+        if (order.IsBanquet && menuItem.BanquetPrice is null)
+            throw new BadRequestException("Bu məhsul banket menyusunda yoxdur.");
+        var effectivePrice = order.IsBanquet
+            ? menuItem.BanquetPrice!.Value
+            : OrderLinePricing.ResolveUnitPrice(menuItem, order.IsDelivery, settings);
         var quantity = menuItem.IsTimeBased ? 1 : request.Request.Quantity;
 
         var orderLine = new OrderLine
@@ -273,6 +279,7 @@ public class AddOrderLineCommandHandler : IRequestHandler<AddOrderLineCommand, O
             BillPrintedAt = updatedOrder.BillPrintedAt,
             IsBillLocked = updatedOrder.IsBillLocked,
             IsDelivery = updatedOrder.IsDelivery,
+            IsBanquet = updatedOrder.IsBanquet,
             DeliveryAddress = updatedOrder.DeliveryAddress,
             DeliveryPhone = updatedOrder.DeliveryPhone,
             DeliveryDriverEmployeeId = updatedOrder.DeliveryDriverEmployeeId,

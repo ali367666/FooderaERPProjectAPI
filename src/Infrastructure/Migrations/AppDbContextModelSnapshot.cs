@@ -1281,6 +1281,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<bool>("AllowQuantityPromptOverride")
                         .HasColumnType("bit");
 
+                    b.Property<decimal?>("BanquetPrice")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Barcode")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -1624,6 +1627,9 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("HoldUntilUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsBanquet")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsBillLocked")
                         .HasColumnType("bit");
@@ -2008,6 +2014,47 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("OrderPaymentLines", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.OrderTable", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TableId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("TableId");
+
+                    b.HasIndex("OrderId", "TableId")
+                        .IsUnique();
+
+                    b.ToTable("OrderTables", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.Permission", b =>
                 {
                     b.Property<int>("Id")
@@ -2288,6 +2335,9 @@ namespace Infrastructure.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<bool>("IsBanquet")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("LastModifiedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -2324,6 +2374,47 @@ namespace Infrastructure.Persistence.Migrations
                     b.HasIndex("CompanyId", "ReservationDate");
 
                     b.ToTable("Reservations", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.ReservationTable", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReservationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TableId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("TableId");
+
+                    b.HasIndex("ReservationId", "TableId")
+                        .IsUnique();
+
+                    b.ToTable("ReservationTables", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Restaurant", b =>
@@ -4295,6 +4386,33 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("OrderPayment");
                 });
 
+            modelBuilder.Entity("Domain.Entities.OrderTable", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Order", "Order")
+                        .WithMany("BanquetTables")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.RestaurantTable", "Table")
+                        .WithMany()
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Table");
+                });
+
             modelBuilder.Entity("Domain.Entities.Position", b =>
                 {
                     b.HasOne("Domain.Entities.Company", "Company")
@@ -4391,6 +4509,33 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("ConfirmedByUser");
 
                     b.Navigation("Restaurant");
+
+                    b.Navigation("Table");
+                });
+
+            modelBuilder.Entity("Domain.Entities.ReservationTable", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Reservation", "Reservation")
+                        .WithMany("BanquetTables")
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.RestaurantTable", "Table")
+                        .WithMany()
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Reservation");
 
                     b.Navigation("Table");
                 });
@@ -5045,6 +5190,8 @@ namespace Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
                 {
+                    b.Navigation("BanquetTables");
+
                     b.Navigation("Lines");
                 });
 
@@ -5061,6 +5208,11 @@ namespace Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Domain.Entities.Position", b =>
                 {
                     b.Navigation("Employees");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Reservation", b =>
+                {
+                    b.Navigation("BanquetTables");
                 });
 
             modelBuilder.Entity("Domain.Entities.RestaurantSection", b =>

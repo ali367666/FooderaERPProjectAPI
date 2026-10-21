@@ -109,6 +109,9 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
 
         OrderGuards.EnsureNotBillLocked(order);
 
+        if (order.IsBanquet && (request.Request.UnitPrice.HasValue || request.Request.PriceType.HasValue))
+            throw new BadRequestException("Banket sifarişində qiyməti dəyişmək olmaz.");
+
         var oldOrderLineValues = JsonSerializer.Serialize(new
         {
             line.Id,
@@ -390,6 +393,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             BillPrintedAt = updatedOrder.BillPrintedAt,
             IsBillLocked = updatedOrder.IsBillLocked,
             IsDelivery = updatedOrder.IsDelivery,
+            IsBanquet = updatedOrder.IsBanquet,
             DeliveryAddress = updatedOrder.DeliveryAddress,
             DeliveryPhone = updatedOrder.DeliveryPhone,
             DeliveryDriverEmployeeId = updatedOrder.DeliveryDriverEmployeeId,

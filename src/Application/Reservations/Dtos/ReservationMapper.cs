@@ -20,6 +20,16 @@ public static class ReservationMapper
         DurationMinutes = r.DurationMinutes,
         Status = r.Status.ToString(),
         Note = r.Note,
+        IsBanquet = r.IsBanquet,
+        BanquetTables = r.BanquetTables
+            .Select(b => new Application.Banquets.Dtos.BanquetTableRef
+            {
+                Id = b.TableId,
+                Name = b.Table?.Name ?? string.Empty,
+                Capacity = b.Table?.Capacity ?? 0,
+                SectionId = b.Table?.SectionId
+            })
+            .ToList(),
         ConfirmedAt = r.ConfirmedAt,
         CreatedAtUtc = r.CreatedAtUtc,
     };

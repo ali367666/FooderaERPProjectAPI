@@ -46,6 +46,15 @@ public class RestaurantTableRepository : IRestaurantTableRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<RestaurantTable>> GetForSearchAsync(int companyId, int? restaurantId, CancellationToken cancellationToken)
+    {
+        return await _context.RestaurantTables
+            .AsNoTracking()
+            .Include(x => x.Section)
+            .Where(x => x.CompanyId == companyId && (restaurantId == null || x.RestaurantId == restaurantId))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> RestaurantExistsAsync(int companyId, int restaurantId, CancellationToken cancellationToken)
     {
         return await _context.Restaurants
