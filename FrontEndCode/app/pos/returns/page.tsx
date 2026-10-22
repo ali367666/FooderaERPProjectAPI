@@ -25,6 +25,8 @@ import {
 import { getPrinters, printToPrinter, type Printer as PrinterProfile } from "@/lib/services/printer-service";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
+import { cn } from "@/lib/utils";
+import { PosPage, PosTileGrid, posTileClass } from "@/components/pos/pos-page";
 
 const PAYMENT_LABELS: Record<string, string> = {
   Cash: "Nağd",
@@ -175,11 +177,7 @@ export default function PosReturnsPage() {
   const paymentMethod = order?.paymentMethod ?? "";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4">
-      <div className="flex items-center gap-2">
-        <Undo2 className="h-5 w-5" />
-        <h1 className="text-xl font-semibold">Geri qaytarma</h1>
-      </div>
+    <PosPage title="Geri qaytarma" description="Qəbzi tapın və qaytarılacaq məhsulları seçin.">
 
       <form
         className="flex gap-2"
@@ -234,71 +232,64 @@ export default function PosReturnsPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-muted-foreground">
-                  <th className="py-2 pr-2 font-medium">Məhsul</th>
-                  <th className="px-2 py-2 text-right font-medium">Satılıb</th>
-                  <th className="px-2 py-2 text-right font-medium">Qaytarılıb</th>
-                  <th className="px-2 py-2 text-center font-medium">Qaytarılacaq</th>
-                  <th className="py-2 pl-2 text-right font-medium">Məbləğ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.lines.map((line) => {
-                  const qty = quantities[line.orderLineId] ?? 0;
-                  const exhausted = line.returnableQuantity <= 0;
-                  return (
-                    <tr key={line.orderLineId} className={exhausted ? "border-b text-muted-foreground" : "border-b"}>
-                      <td className="py-2 pr-2">{line.menuItemName}</td>
-                      <td className="px-2 py-2 text-right">{formatQuantity(line, line.quantity)}</td>
-                      <td className="px-2 py-2 text-right">{formatQuantity(line, line.returnedQuantity)}</td>
-                      <td className="px-2 py-2">
-                        {exhausted ? (
-                          <p className="text-center text-xs">Tam qaytarılıb</p>
-                        ) : (
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              disabled={qty <= 0}
-                              onClick={() => setQuantity(line, qty - 1)}
-                            >
-                              <Minus className="h-3.5 w-3.5" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={line.returnableQuantity}
-                              value={qty}
-                              onChange={(e) => setQuantity(line, Number(e.target.value))}
-                              className="h-8 w-20 text-center"
-                            />
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              disabled={qty >= line.returnableQuantity}
-                              onClick={() => setQuantity(line, qty + 1)}
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2 pl-2 text-right">
-                        {qty > 0 ? `${(line.refundUnitAmount * qty).toFixed(2)} ₼` : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <PosTileGrid wide>
+            {order.lines.map((line) => {
+              const qty = quantities[line.orderLineId] ?? 0;
+              const exhausted = line.returnableQuantity <= 0;
+              return (
+                <div
+                  key={line.orderLineId}
+                  className={cn(
+                    posTileClass(),
+                    qty > 0 && "border-primary bg-primary/5",
+                    exhausted && "opacity-50",
+                  )}
+                >
+                  <span className="line-clamp-2 text-base font-bold leading-tight">{line.menuItemName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Satılıb: {formatQuantity(line, line.quantity)} · Qaytarılıb: {formatQuantity(line, line.returnedQuantity)}
+                  </span>
+                  {exhausted ? (
+                    <span className="mt-1 text-xs font-medium">Tam qaytarılıb</span>
+                  ) : (
+                    <div className="mt-1.5 flex items-center justify-center gap-1">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8"
+                        disabled={qty <= 0}
+                        onClick={() => setQuantity(line, qty - 1)}
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </Button>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={line.returnableQuantity}
+                        value={qty}
+                        onChange={(e) => setQuantity(line, Number(e.target.value))}
+                        className="h-8 w-20 text-center"
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8"
+                        disabled={qty >= line.returnableQuantity}
+                        onClick={() => setQuantity(line, qty + 1)}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                  <span className="mt-1 text-sm font-semibold tabular-nums">
+                    {qty > 0 ? `${(line.refundUnitAmount * qty).toFixed(2)} ₼` : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </PosTileGrid>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
@@ -406,6 +397,6 @@ export default function PosReturnsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PosPage>
   );
 }

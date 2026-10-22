@@ -67,6 +67,8 @@ import {
 } from "@/lib/services/company-settings-service";
 
 const MAX_CODE_LENGTH = 24;
+// Shown on the login screen's "Servis xidməti" tile.
+const SERVICE_PHONE = "+994 55 200 08 97";
 // The PIN field shows one dot per digit up to this many, then a "+n" counter.
 const MAX_VISIBLE_DOTS = 12;
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? null;
@@ -170,6 +172,7 @@ export default function PosLoginPage() {
           terminal={terminal}
           logoUrl={branding?.loginLogoUrl ?? null}
           location={branding?.loginLocation ?? null}
+          licenseDaysLeft={branding?.licenseDaysLeft ?? null}
           onChangeTerminal={() => {
             clearPosTerminalContext();
             setTerminal(null);
@@ -275,8 +278,8 @@ function TerminalSetupView({
           {pendingRestaurant !== undefined
             ? "Bu monitorun adını seçin"
             : lookup
-            ? "Bu terminalın işləyəcəyi filialı seçin"
-            : "Bu terminalın aid olduğu biznesin kodunu daxil edin"}
+              ? "Bu terminalın işləyəcəyi filialı seçin"
+              : "Bu terminalın aid olduğu biznesin kodunu daxil edin"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -384,12 +387,14 @@ function PosLoginView({
   terminal,
   logoUrl,
   location,
+  licenseDaysLeft,
   onChangeTerminal,
   onSuccess,
 }: {
   terminal: PosTerminalContext;
   logoUrl: string | null;
   location: string | null;
+  licenseDaysLeft: number | null;
   onChangeTerminal: () => void;
   onSuccess: () => void;
 }) {
@@ -402,7 +407,6 @@ function PosLoginView({
   const fullscreen = useFullscreen();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [serviceOpen, setServiceOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
 
@@ -416,11 +420,7 @@ function PosLoginView({
   const [unlockChecking, setUnlockChecking] = useState(false);
   // While any dialog is open the RFID input must not steal focus from it.
   const dialogOpenRef = useRef(false);
-  dialogOpenRef.current = unlockOpen || settingsOpen || serviceOpen || exitOpen;
-
-  // The licence status endpoint needs a signed-in user, so the login screen has no source for the
-  // remaining days yet. It needs an anonymous value from the backend (e.g. in the branding response).
-  const licenseDaysLeft: number | null = null;
+  dialogOpenRef.current = unlockOpen || settingsOpen || exitOpen;
 
   const closeUnlock = () => {
     setUnlockOpen(false);
@@ -551,7 +551,7 @@ function PosLoginView({
     }, 300);
   };
 
-  const restaurantLabel = terminal.restaurantName ?? terminal.companyName;
+  const restaurantLabel = terminal.companyName;
   const visibleDots = Math.min(code.length, MAX_VISIBLE_DOTS);
   const hiddenDots = code.length - visibleDots;
 
@@ -589,20 +589,15 @@ function PosLoginView({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-between">
             <LicenseTile daysLeft={licenseDaysLeft} />
-            <button
-              type="button"
-              onClick={() => setServiceOpen(true)}
-              className="inline-flex items-center gap-3 rounded-xl border bg-background px-4 py-3 text-left shadow-sm transition-colors hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
+            <div className="inline-flex items-center gap-3 rounded-xl border bg-background px-4 py-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Headset className="h-5 w-5" />
               </span>
-              <span className="text-sm font-semibold leading-tight text-foreground">
-                Servis
-                <br />
-                xidməti
+              <span className="text-sm leading-tight">
+                <span className="block font-semibold text-foreground">Servis xidməti</span>
+                <span className="block select-all font-bold tabular-nums tracking-wide text-primary">{SERVICE_PHONE}</span>
               </span>
-            </button>
+            </div>
           </div>
         </section>
 
@@ -806,37 +801,6 @@ function PosLoginView({
         </DialogContent>
       </Dialog>
 
-      {/* Servis xidməti */}
-      <Dialog open={serviceOpen} onOpenChange={setServiceOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Servis xidməti</DialogTitle>
-            <DialogDescription>
-              Texniki dəstəyə müraciət edərkən bu terminalın məlumatlarını bildirin.
-            </DialogDescription>
-          </DialogHeader>
-          <dl className="divide-y rounded-lg border text-sm">
-            {[
-              ["Biznes kodu", terminal.companyCode],
-              ["Şirkət", terminal.companyName],
-              ["Filial", terminal.restaurantName ?? "—"],
-              ["Workstation", terminal.workstationName ?? "Təyin olunmayıb"],
-              ["Versiya", APP_VERSION ?? "—"],
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-4 px-3 py-2">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="truncate font-medium text-foreground">{value}</dd>
-              </div>
-            ))}
-          </dl>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setServiceOpen(false)}>
-              Bağla
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Çıxış */}
       <Dialog open={exitOpen} onOpenChange={setExitOpen}>
         <DialogContent className="sm:max-w-sm">
@@ -935,7 +899,7 @@ function LicenseTile({ daysLeft }: { daysLeft: number | null }) {
         expired && "border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300",
         soon && "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
         daysLeft != null && !expired && !soon &&
-          "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300",
+        "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300",
       )}
       title={daysLeft == null ? "Lisenziya məlumatı əlçatan deyil" : undefined}
     >

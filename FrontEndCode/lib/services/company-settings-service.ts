@@ -388,6 +388,7 @@ export type CompanySettingsBranding = {
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
   defaultVatPercent: number | null;
+  licenseDaysLeft: number | null;
 };
 
 function normalizeBranding(item: unknown): CompanySettingsBranding {
@@ -499,6 +500,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
+    licenseDaysLeft: numOrNull("licenseDaysLeft", "LicenseDaysLeft"),
   };
 }
 

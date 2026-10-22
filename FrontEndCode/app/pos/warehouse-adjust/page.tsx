@@ -21,6 +21,7 @@ import {
 } from "@/lib/services/warehouse-stock-service";
 import { unitLabel, type UnitOfMeasureValue } from "@/lib/services/stock-item-service";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
+import { PosEmpty, PosPage, PosPageLoading, PosTileGrid, posTileButtonClass } from "@/components/pos/pos-page";
 
 export default function PosWarehouseAdjustPage() {
   const [terminal, setTerminal] = useState<PosTerminalContext | null | undefined>(undefined);
@@ -89,42 +90,34 @@ export default function PosWarehouseAdjustPage() {
     }
   };
 
-  if (loading || terminal === undefined) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Yüklənir...</div>;
-  }
+  if (loading || terminal === undefined) return <PosPageLoading />;
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">Anbar düzəlişi</h1>
-          <p className="text-sm text-muted-foreground">Filialın anbar qalığını əl ilə düzəldin.</p>
-        </div>
+    <PosPage
+      title="Anbar düzəlişi"
+      description="Filialın anbar qalığını əl ilə düzəldin."
+      actions={
         <div className="relative w-64">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input className="pl-8" placeholder="Xammal axtar…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-      </div>
+      }
+    >
+      {filtered.length === 0 && <PosEmpty>Anbar qalığı tapılmadı</PosEmpty>}
 
-      <div className="space-y-2">
+      <PosTileGrid>
         {filtered.map((b) => (
-          <div key={b.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
-            <div>
-              <p className="text-sm font-semibold">{b.stockItemName}</p>
-              <p className="text-xs text-muted-foreground">
-                Hazırkı qalıq: {b.quantity} {unitLabel(b.unitId as UnitOfMeasureValue)}
-              </p>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => openEdit(b)}>
-              <Pencil className="mr-1 h-3.5 w-3.5" />
+          <button key={b.id} type="button" onClick={() => openEdit(b)} className={posTileButtonClass()}>
+            <span className="line-clamp-2 text-base font-bold leading-tight">{b.stockItemName}</span>
+            <span className="text-lg font-semibold tabular-nums">{b.quantity}</span>
+            <span className="text-xs text-muted-foreground">{unitLabel(b.unitId as UnitOfMeasureValue)}</span>
+            <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Pencil className="h-3 w-3" />
               Düzəlt
-            </Button>
-          </div>
+            </span>
+          </button>
         ))}
-        {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">Anbar qalığı tapılmadı</p>
-        )}
-      </div>
+      </PosTileGrid>
 
       <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="sm:max-w-sm">
@@ -156,6 +149,6 @@ export default function PosWarehouseAdjustPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PosPage>
   );
 }

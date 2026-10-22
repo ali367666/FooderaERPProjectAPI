@@ -1,6 +1,7 @@
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.CompanySettings.Dtos;
+using Application.License;
 using MediatR;
 
 namespace Application.CompanySettings.Queries;
@@ -10,13 +11,16 @@ public class GetCompanySettingsBrandingQueryHandler
 {
     private readonly ICompanySettingsRepository _repository;
     private readonly IRestaurantSettingsRepository _restaurantSettingsRepository;
+    private readonly ILicenseRepository _licenseRepository;
 
     public GetCompanySettingsBrandingQueryHandler(
         ICompanySettingsRepository repository,
-        IRestaurantSettingsRepository restaurantSettingsRepository)
+        IRestaurantSettingsRepository restaurantSettingsRepository,
+        ILicenseRepository licenseRepository)
     {
         _repository = repository;
         _restaurantSettingsRepository = restaurantSettingsRepository;
+        _licenseRepository = licenseRepository;
     }
 
     public async Task<BaseResponse<CompanySettingsBrandingResponse>> Handle(
@@ -152,6 +156,12 @@ public class GetCompanySettingsBrandingQueryHandler
                 response.ModuleQiymetSor = branchSettings.ModuleQiymetSor;
             }
         }
+
+        // The POS login screen has no signed-in user, so it reads the licence countdown from here.
+        var license = await _licenseRepository.GetByCompanyIdAsync(request.CompanyId, cancellationToken);
+        var licenseStatus = new LicenseStatusResponse();
+        LicenseMapping.Fill(licenseStatus, license, request.CompanyId, DateTime.UtcNow);
+        response.LicenseDaysLeft = licenseStatus.DaysLeft;
 
         return BaseResponse<CompanySettingsBrandingResponse>.Ok(response);
     }

@@ -904,34 +904,6 @@ export default function PosTablesPage() {
             </div>
           )}
 
-          {(() => {
-            const takeAwayOrders = tables.filter(
-              (t) => t.type === RestaurantTableType.TakeAway && t.activeOrder && isActiveStatus(t.activeOrder.status),
-            );
-            if (takeAwayOrders.length === 0) return null;
-            return (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-muted-foreground">Aktiv tez satışlar</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-                  {takeAwayOrders.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      disabled={mode !== null}
-                      onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
-                      className="rounded-xl border bg-card p-3 text-left text-sm shadow-sm hover:bg-muted/50 disabled:opacity-50"
-                    >
-                      <p className="font-medium">{t.activeOrder!.orderNumber}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t.activeOrder!.lines.length} məhsul · {t.activeOrder!.totalAmount.toFixed(2)} ₼
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-
           {branding?.modulePaket === true &&
             (() => {
               const deliveryOrders = tables.filter((t) => t.activeOrder?.isDelivery);
