@@ -107,4 +107,7 @@ public class CompanySettingsBrandingResponse
     public bool SingleWaiterMode { get; set; }
 
     public decimal? DefaultVatPercent { get; set; }
+
+    /// <summary>Days left of the licence (same count as the POS header badge).</summary>
+    public int? LicenseDaysLeft { get; set; }
 }
