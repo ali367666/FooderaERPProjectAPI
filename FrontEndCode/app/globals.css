@@ -171,3 +171,21 @@
   min-height: 3rem;
   font-size: 1.125rem;
 }
+
+/* The place the sidebar search jumped to (see components/page-find-highlighter.tsx). */
+.find-flash {
+  border-radius: 4px;
+  animation: find-flash 3.5s ease-out;
+}
+
+@keyframes find-flash {
+  0%,
+  60% {
+    background-color: rgb(250 204 21 / 0.55);
+    box-shadow: 0 0 0 4px rgb(250 204 21 / 0.55);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}

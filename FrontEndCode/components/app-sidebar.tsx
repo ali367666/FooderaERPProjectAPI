@@ -6,7 +6,10 @@ import { usePathname } from "next/navigation";
 import { navGroups } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
-import { ChefHat, Menu, X } from "lucide-react";
+import { ChefHat, Menu, Search, X } from "lucide-react";
+import { PAGE_SEARCH_INDEX } from "@/lib/search-index.generated";
+import { matchesAllWords, searchWords } from "@/lib/search-text";
+import { searchData, type GlobalSearchResult } from "@/lib/services/global-search-service";
 import { useEffect, useMemo, useState } from "react";
 import { usePermissionSet } from "@/hooks/use-auth-permissions";
 import { getStoredAuthUser, getStoredToken } from "@/lib/auth-client";
@@ -70,6 +73,48 @@ export function AppSidebar() {
 
   const isStoreMode = Boolean(branding?.moduleDataSecimi);
 
+  // The search looks at the page names AND at the words written inside every page (labels, headings,
+  // placeholders...), so "slogan" finds Tənzimləmələr. Only pages the user may open are searched.
+  const [query, setQuery] = useState("");
+  const words = useMemo(() => searchWords(query), [query]);
+  // The records themselves (products, employees, counterparties...), asked from the server while typing.
+  const [dataResults, setDataResults] = useState<GlobalSearchResult[]>([]);
+  useEffect(() => {
+    const term = query.trim();
+    if (words.length === 0 || term.length < 2) {
+      setDataResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      searchData(term, selectedCompanyId)
+        .then((rows) => !cancelled && setDataResults(rows))
+        .catch(() => !cancelled && setDataResults([]));
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query, words, selectedCompanyId]);
+
+  const searchResults = useMemo(() => {
+    if (words.length === 0) return [];
+    const results: { href: string; title: string; group: string; titleMatch: boolean; phrases: string[] }[] = [];
+    for (const group of visibleNavGroups) {
+      const groupTitle = isStoreMode && group.storeModeTitle ? group.storeModeTitle : group.title;
+      for (const item of group.items) {
+        const title = isStoreMode && item.storeModeTitle ? item.storeModeTitle : item.title;
+        const titleMatch = matchesAllWords(`${title} ${groupTitle}`, words);
+        const phrases = (PAGE_SEARCH_INDEX[item.href] ?? []).filter((p) => matchesAllWords(p, words));
+        if (titleMatch || phrases.length > 0) {
+          results.push({ href: item.href, title, group: groupTitle, titleMatch, phrases: phrases.slice(0, 3) });
+        }
+      }
+    }
+    // Pages whose name matches come first.
+    return results.sort((a, b) => Number(b.titleMatch) - Number(a.titleMatch));
+  }, [words, visibleNavGroups, isStoreMode]);
+
   return (
     <>
       {/* Mobile Toggle */}
@@ -102,9 +147,90 @@ export function AppSidebar() {
           </Link>
         </div>
 
+        {/* Search */}
+        <div className="flex-shrink-0 px-4 pt-4">
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-foreground/60" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setQuery("");
+                if (e.key === "Enter" && searchResults[0]) {
+                  window.location.assign(`${searchResults[0].href}?find=${encodeURIComponent(query.trim())}`);
+                }
+              }}
+              placeholder="Menyuda və səhifələrdə axtar…"
+              className="h-9 w-full rounded-md border border-sidebar-border bg-sidebar-accent/10 pl-9 pr-8 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:outline-none focus:ring-1 focus:ring-sidebar-primary [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                aria-label="Axtarışı təmizlə"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4">
-          {visibleNavGroups.map((group) => (
+          {words.length > 0 ? (
+            <div className="space-y-1">
+              {searchResults.length === 0 && dataResults.length === 0 && (
+                <p className="px-4 py-3 text-sm text-sidebar-foreground/60">Heç nə tapılmadı.</p>
+              )}
+              {searchResults.map((r) => (
+                <Link
+                  key={r.href}
+                  href={`${r.href}?find=${encodeURIComponent(query.trim())}`}
+                  onClick={() => {
+                    setIsOpen(false);
+                    setQuery("");
+                  }}
+                  className="block rounded-md px-4 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/20"
+                >
+                  <span className="block font-medium">{r.title}</span>
+                  <span className="block text-[11px] uppercase tracking-wide text-sidebar-foreground/50">{r.group}</span>
+                  {r.phrases.map((p) => (
+                    <span key={p} className="mt-0.5 block truncate text-xs text-sidebar-foreground/70" title={p}>
+                      {p}
+                    </span>
+                  ))}
+                </Link>
+              ))}
+
+              {dataResults.length > 0 && (
+                <>
+                  <h3 className="px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60">
+                    Məlumatlar
+                  </h3>
+                  {dataResults.map((r) => (
+                    <Link
+                      key={`${r.kind}-${r.title}-${r.subtitle ?? ""}`}
+                      href={`${r.href}?find=${encodeURIComponent(r.title)}`}
+                      onClick={() => {
+                        setIsOpen(false);
+                        setQuery("");
+                      }}
+                      className="block rounded-md px-4 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/20"
+                    >
+                      <span className="block truncate font-medium" title={r.title}>{r.title}</span>
+                      <span className="block truncate text-[11px] uppercase tracking-wide text-sidebar-foreground/50">
+                        {r.kind}
+                        {r.subtitle ? ` · ${r.subtitle}` : ""}
+                      </span>
+                    </Link>
+                  ))}
+                </>
+              )}
+            </div>
+          ) : (
+          visibleNavGroups.map((group) => (
             <div key={group.title} className="mb-8">
               <h3 className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                 {isStoreMode && group.storeModeTitle ? group.storeModeTitle : group.title}
@@ -139,7 +265,8 @@ export function AppSidebar() {
                 })}
               </ul>
             </div>
-          ))}
+          ))
+          )}
         </nav>
 
         {/* Footer Section */}

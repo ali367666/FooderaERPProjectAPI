@@ -26,6 +26,7 @@ import {
   Calculator,
   Tag,
   Settings,
+  QrCode,
   Printer as PrinterIcon,
   LayoutTemplate,
   Landmark,
@@ -252,6 +253,12 @@ export const navGroups: NavGroup[] = [
         icon: Building2,
         permission: "Restaurant.View",
         module: "moduleFilial",
+      },
+      {
+        title: "QR Menyu",
+        href: "/dashboard/qr-menu",
+        icon: QrCode,
+        permission: "Restaurant.View",
       },
       {
         title: "Branch Tables",

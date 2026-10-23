@@ -7,6 +7,7 @@ import { DashboardCompanyToolbar } from "@/components/dashboard-company-toolbar"
 import { DashboardBranchToolbar } from "@/components/dashboard-branch-toolbar";
 import { DashboardPermissionGuard } from "@/components/dashboard-permission-guard";
 import { Toaster } from "@/components/ui/sonner";
+import { PageFindHighlighter } from "@/components/page-find-highlighter";
 import { SelectedCompanyProvider } from "@/contexts/selected-company-context";
 import { SelectedRestaurantProvider } from "@/contexts/selected-restaurant-context";
 
@@ -28,6 +29,7 @@ export default function DashboardLayout({
               <DashboardCompanyToolbar />
               <DashboardBranchToolbar />
               <Toaster richColors closeButton position="top-center" />
+              <PageFindHighlighter />
               <DashboardPermissionGuard>{children}</DashboardPermissionGuard>
             </main>
           </div>
