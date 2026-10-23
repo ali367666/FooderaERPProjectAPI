@@ -422,6 +422,53 @@ export async function getOrders(): Promise<OrderDto[]> {
   }
 }
 
+export type QuickSalePayload = {
+  restaurantId: number;
+  waiterId: number;
+  items: { menuItemId: number; quantity: number }[];
+  paymentMethod: "Cash" | "Card";
+  /** Cash: the money handed over. Card: ignored, the server settles exactly what is due. */
+  paidAmount: number;
+  isFiscal?: boolean;
+  bankId?: number | null;
+};
+
+export type QuickSaleResultDto = {
+  orderId: number;
+  orderNumber: string;
+  totalAmount: number;
+  changeAmount: number;
+  receipt: OrderReceiptDto;
+};
+
+/** "Tez satış": the whole sale — products and payment — in one request, apart from table orders. */
+export async function createQuickSale(payload: QuickSalePayload): Promise<QuickSaleResultDto> {
+  try {
+    const response = await api.post<unknown>("/quick-sales", {
+      restaurantId: payload.restaurantId,
+      waiterId: payload.waiterId,
+      items: payload.items,
+      paymentMethod: payload.paymentMethod,
+      paidAmount: payload.paidAmount,
+      isFiscal: payload.isFiscal ?? false,
+      bankId: payload.bankId ?? null,
+    });
+    assertApiSuccess(response.data);
+    const raw = (unwrapData<unknown>(response.data) ?? response.data) as Record<string, unknown>;
+    const receipt = normalizeReceipt(pick<unknown>(raw, "receipt", "Receipt"));
+    if (!receipt) throw new Error("Invalid quick sale response");
+    return {
+      orderId: Number(pick(raw, "orderId", "OrderId") ?? 0),
+      orderNumber: String(pick(raw, "orderNumber", "OrderNumber") ?? ""),
+      totalAmount: Number(pick(raw, "totalAmount", "TotalAmount") ?? 0),
+      changeAmount: Number(pick(raw, "changeAmount", "ChangeAmount") ?? 0),
+      receipt,
+    };
+  } catch (error) {
+    throw toApiFormError(error, "Tez satış tamamlanmadı");
+  }
+}
+
 export async function createOrder(payload: CreateOrderPayload): Promise<OrderDto> {
   try {
     const response = await api.post<unknown>("/Orders", {

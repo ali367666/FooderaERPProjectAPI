@@ -46,6 +46,16 @@ public class RestaurantTableRepository : IRestaurantTableRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<RestaurantTable?> GetVirtualAsync(
+        int companyId, int restaurantId, Domain.Enums.RestaurantTableType type, string name, CancellationToken cancellationToken)
+    {
+        return await _context.RestaurantTables
+            .Include(x => x.Restaurant)
+            .Where(x => x.CompanyId == companyId && x.RestaurantId == restaurantId && x.Type == type && x.Name == name)
+            .OrderBy(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<List<RestaurantTable>> GetForSearchAsync(int companyId, int? restaurantId, CancellationToken cancellationToken)
     {
         return await _context.RestaurantTables
