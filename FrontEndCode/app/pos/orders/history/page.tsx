@@ -18,6 +18,7 @@ import {
 import { getOrders, getOrderReceipt, deleteOrder, type OrderDto, type OrderReceiptDto } from "@/lib/services/order-service";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
+import { PosEmpty, PosPage, PosPageLoading, PosTileGrid, posTileClass } from "@/components/pos/pos-page";
 
 export default function PosOrderHistoryPage() {
   const [terminal, setTerminal] = useState<PosTerminalContext | null | undefined>(undefined);
@@ -103,15 +104,13 @@ export default function PosOrderHistoryPage() {
     }
   };
 
-  if (loading || terminal === undefined) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Yüklənir...</div>;
-  }
+  if (loading || terminal === undefined) return <PosPageLoading />;
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Köhnə qəbzlər</h1>
-        <div className="flex flex-wrap items-center gap-2">
+    <PosPage
+      title="Köhnə qəbzlər"
+      actions={
+        <>
           <Input
             type="date"
             className="w-40"
@@ -136,19 +135,22 @@ export default function PosOrderHistoryPage() {
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input className="pl-8" placeholder="Sifariş/qəbz nömrəsi, masa…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-        </div>
-      </div>
+        </>
+      }
+    >
+      {filtered.length === 0 && <PosEmpty>Sifariş tapılmadı</PosEmpty>}
 
-      <div className="space-y-2">
+      <PosTileGrid wide>
         {filtered.map((o) => (
-          <div key={o.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
-            <div>
-              <p className="text-sm font-semibold">{o.orderNumber} — {o.tableName}</p>
-              <p className="text-xs text-muted-foreground">
-                {o.paidAt && new Date(o.paidAt).toLocaleString("az-AZ")} · {o.totalAmount.toFixed(2)} ₼
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
+          <div key={o.id} className={posTileClass()}>
+            <span className="max-w-full truncate text-lg font-bold leading-none">{o.orderNumber}</span>
+            {o.receiptNumber && <span className="text-xs text-muted-foreground">Qəbz: {o.receiptNumber}</span>}
+            {o.tableName && <span className="max-w-full truncate text-xs text-muted-foreground">{o.tableName}</span>}
+            {o.paidAt && (
+              <span className="text-[11px] tabular-nums text-muted-foreground">{new Date(o.paidAt).toLocaleString("az-AZ")}</span>
+            )}
+            <span className="text-sm font-semibold tabular-nums">{o.totalAmount.toFixed(2)} ₼</span>
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
               <Button size="sm" variant="outline" onClick={() => void handleView(o)}>
                 <Printer className="mr-1 h-3.5 w-3.5" />
                 Bax / Çap et
@@ -161,10 +163,7 @@ export default function PosOrderHistoryPage() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">Sifariş tapılmadı</p>
-        )}
-      </div>
+      </PosTileGrid>
 
       <Dialog open={receipt !== null} onOpenChange={(o) => !o && setReceipt(null)}>
         <DialogContent className="sm:max-w-sm">
@@ -212,6 +211,6 @@ export default function PosOrderHistoryPage() {
           #history-receipt-print-area { position: fixed; top: 0; left: 0; width: 100%; padding: 16px; }
         }
       `}</style>
-    </div>
+    </PosPage>
   );
 }

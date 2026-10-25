@@ -35,7 +35,6 @@ import {
   getOrderPayments,
   getPaymentReceipt,
   type OrderPaymentsDto,
-  type SetSelectionInput,
   setOrderDeliveryDriver,
   setOrderCounterparty,
   printKitchenTicket,
@@ -80,7 +79,7 @@ import { NewReservationDialog } from "@/components/pos/new-reservation-dialog";
 import { VirtualKeyboard } from "@/components/pos/virtual-keyboard";
 import { getRestaurantSections } from "@/lib/services/restaurant-section-service";
 import { SplitBillDialog } from "@/components/pos/split-bill-dialog";
-import { SetSelectionDialog } from "@/components/pos/set-selection-dialog";
+import { SetSelectionDialog, isSetPickAllowed, type SetPick } from "@/components/pos/set-selection-dialog";
 import { localIsoDate } from "@/lib/reservation-rules";
 import {
   changeReservationStatus,
@@ -234,6 +233,7 @@ export default function PosOrderPage() {
   const canCreateReservation = useHasPermission("Reservation.Create");
 
   const isStoreMode = branding?.moduleDataSecimi === true;
+  const canAddProduct = useHasPermission("Orders.Add");
   const canEditProduct = useHasPermission("Pos.EditProductInSale");
   const canDeleteProduct = useHasPermission("Pos.DeleteProductInSale");
   const canDeleteOrder = useHasPermission("Pos.DeleteOrder");
@@ -269,19 +269,6 @@ export default function PosOrderPage() {
     loadTableReservation();
   }, [loadTableReservation]);
 
-  const handleCompleteReservation = async () => {
-    if (!tableReservation) return;
-    setReservationBusy(true);
-    try {
-      await changeReservationStatus(tableReservation.id, "complete");
-      toast.success("Rezervasiya tamamlandı");
-      setTableReservation(null);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Rezervasiya tamamlanmadı");
-    } finally {
-      setReservationBusy(false);
-    }
-  };
   const canChangePrice = useHasPermission("Pos.ChangePrice");
   const canApplyDiscount = useHasPermission("Discount.Apply");
   const canPrint = useHasPermission("Printer.Print");
@@ -757,30 +744,88 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     !item.barcode?.trim() &&
     !(isWeightBasedItem(item) && item.weightCode?.trim());
 
-  const handleConfirmSetSelections = async (selections: SetSelectionInput[]) => {
+  /** A SET product, or any product of a set category ("Set kateqoriyası"), is added through the set dialog. */
+  const isSetProduct = (item: MenuItem) => {
+    if (item.isSet) return true;
+    const category = categories.find((c) => c.id === item.menuCategoryId);
+    if (category?.isSetCategory) return true;
+    const parent = category?.parentCategoryId != null ? categories.find((c) => c.id === category.parentCategoryId) : null;
+    return parent?.isSetCategory === true;
+  };
+
+  /**
+   * Adds the SET with the waiter's picks. The server adds the set with its full contents; the components picked
+   * differently are then changed ("Pos.EditProductInSale") or taken off ("Pos.DeleteProductInSale"). If that
+   * fails, the set is taken back off so the order never keeps a set the waiter did not pick.
+   */
+  const handleConfirmSet = async (picks: SetPick[]) => {
     if (!order || !setDialogItem || busy) return;
+    if (!canAddProduct) {
+      toast.error("Sifarişə məhsul əlavə etmək üçün icazəniz yoxdur.");
+      return;
+    }
+    if (order.status === "paid" || order.isBillLocked) {
+      toast.error("Hesab bağlıdır — məhsul əlavə etmək olmaz.");
+      return;
+    }
+    if (picks.some((p) => !isSetPickAllowed(p, canEditProduct, canDeleteProduct))) {
+      toast.error("Setin tərkibini dəyişmək üçün icazəniz yoxdur.");
+      return;
+    }
+    const knownLineIds = new Set(order.lines.map((l) => l.id));
     setBusy(true);
+    let current: OrderDto | null = null;
+    let setLineId: number | null = null;
     try {
-      const updated = await addOrderLine({
-        orderId: order.id,
-        menuItemId: setDialogItem.id,
-        quantity: 1,
-        setSelections: selections,
-      });
-      setOrder(updated);
+      current = await addOrderLine({ orderId: order.id, menuItemId: setDialogItem.id, quantity: 1 });
+      const setLine = current.lines.find(
+        (l) => l.menuItemId === setDialogItem.id && l.parentLineId == null && !knownLineIds.has(l.id),
+      );
+      setLineId = setLine?.id ?? null;
+      const changed = picks.filter((p) => p.quantity !== p.defaultQuantity);
+      if (changed.length > 0) {
+        if (!setLine) throw new Error("Əlavə olunan set tapılmadı.");
+        const children = current.lines.filter((l) => l.parentLineId === setLine.id);
+        for (const pick of changed) {
+          const child = children.find((l) => l.menuItemId === pick.componentMenuItemId);
+          if (!child) continue;
+          current =
+            pick.quantity === 0
+              ? await deleteOrderLine(child.id)
+              : await updateOrderLine({ id: child.id, quantity: pick.quantity });
+        }
+      }
+      setOrder(current);
       setSetDialogItem(null);
-      void loadAvailability(order.restaurantId);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Set əlavə olunmadı");
+      const message = err instanceof Error ? err.message : "Set əlavə olunmadı";
+      if (current && setLineId != null) {
+        try {
+          current = await deleteOrderLine(setLineId);
+          toast.error(`${message} — set sifarişə əlavə olunmadı.`);
+        } catch {
+          toast.error(`${message} — set tam tərkibdə əlavə olundu, sətirdən düzəldin.`);
+          setSetDialogItem(null);
+        }
+        setOrder(current);
+      } else {
+        toast.error(message);
+      }
     } finally {
       setBusy(false);
+      void loadAvailability(order.restaurantId);
     }
   };
 
   const handleItemClick = (item: MenuItem) => {
-    // A SET with choice groups: the waiter picks its products first.
-    if (item.isSet && item.setGroups.length > 0) {
-      if (!outOfStockIds.has(item.id)) setSetDialogItem(item);
+    // A SET: the waiter picks its products first; nothing goes on the order until the dialog is confirmed.
+    if (isSetProduct(item)) {
+      if (outOfStockIds.has(item.id)) return;
+      if (!canAddProduct) {
+        toast.error("Sifarişə məhsul əlavə etmək üçün icazəniz yoxdur.");
+        return;
+      }
+      setSetDialogItem(item);
       return;
     }
     // Weigh window switched off: add 1 kg (1000 g) straight away — it can be re-weighed on the line.
@@ -2161,7 +2206,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
                 <ToolButton
                   icon={Lightbulb}
                   className="w-11 flex-none"
-                  title={fiscalOn ? "Vergi kassası işləyir — söndürmək üçün basın" : "Vergi kassasını yandır"}
+                  ariaLabel={fiscalOn ? "Vergi kassası işləyir — söndürmək üçün basın" : "Vergi kassasını yandır"}
                   active={fiscalOn}
                   activeClassName="border-amber-500 bg-amber-500 text-white"
                   onClick={() => void toggleFiscal()}
@@ -2400,19 +2445,6 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
             className="max-w-20 flex-[0.7]"
             disabled={order.lines.length === 0 || busy}
             onClick={() => void handlePrintBill()}
-          />
-        )}
-        {!isStoreMode && canCreateReservation && branding?.moduleRezervasyon !== false && (
-          <BarButton icon={CalendarPlus} label="Rezerv et" tone="reserve" onClick={() => setReservationOpen(true)} />
-        )}
-        {!isPaid && tableReservation && canConfirmReservation && (
-          <BarButton
-            icon={CalendarCheck}
-            label="Rezervasiyanı tamamla"
-            title={`Rezervasiyanı tamamla (${tableReservation.guestName})`}
-            tone="reserve"
-            disabled={busy || reservationBusy}
-            onClick={() => void handleCompleteReservation()}
           />
         )}
         <BarButton icon={LogOut} label="Çıxış" tone="danger" onClick={() => void handleBack()} />
@@ -3062,9 +3094,13 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
 
       <SetSelectionDialog
         item={setDialogItem}
+        items={items}
+        categories={categories}
         busy={busy}
+        canChangeCount={canEditProduct}
+        canLeaveOut={canDeleteProduct}
         onClose={() => setSetDialogItem(null)}
-        onConfirm={(selections) => void handleConfirmSetSelections(selections)}
+        onConfirm={(picks) => void handleConfirmSet(picks)}
       />
 
       <Dialog open={weightDialogItem != null} onOpenChange={(o) => !o && setWeightDialogItem(null)}>
@@ -3235,6 +3271,7 @@ function ToolButton({
   icon: Icon,
   label,
   title,
+  ariaLabel,
   active = false,
   activeClassName = "border-primary bg-primary text-primary-foreground",
   tone = "default",
@@ -3245,6 +3282,8 @@ function ToolButton({
   icon?: IconType;
   label?: string;
   title?: string;
+  /** Accessible name without a hover tooltip. */
+  ariaLabel?: string;
   active?: boolean;
   activeClassName?: string;
   tone?: "default" | "danger";
@@ -3256,7 +3295,7 @@ function ToolButton({
     <button
       type="button"
       title={title ?? label}
-      aria-label={title ?? label}
+      aria-label={ariaLabel ?? title ?? label}
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}

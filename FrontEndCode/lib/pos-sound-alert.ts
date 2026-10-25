@@ -12,7 +12,8 @@ export function playPosAlert(branding: CompanySettingsBranding | null): void {
     window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioCtx) return;
   const ctx = new AudioCtx();
-  if (ctx.state === "suspended") void ctx.resume();
+  // resume() stays pending while autoplay is blocked and rejects once close() runs below.
+  if (ctx.state === "suspended") ctx.resume().catch(() => {});
 
   const ringGapMs = Math.max(ringIntervalSeconds * 1000, toneMs + 50);
 
@@ -32,5 +33,7 @@ export function playPosAlert(branding: CompanySettingsBranding | null): void {
   }
 
   const totalMs = Math.max(ringCount, 1) * ringGapMs + 200;
-  setTimeout(() => void ctx.close(), totalMs);
+  setTimeout(() => {
+    if (ctx.state !== "closed") ctx.close().catch(() => {});
+  }, totalMs);
 }
