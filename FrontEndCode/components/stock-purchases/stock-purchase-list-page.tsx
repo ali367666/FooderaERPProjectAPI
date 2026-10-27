@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, Pencil, Plus, Trash2, Send, Check, X } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2, Send, Check, X, Ban, Wallet } from "lucide-react";
 import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
 import { DocumentActionToolbar } from "@/components/documents/document-action-toolbar";
 import { ListSelectionSync } from "@/components/documents/list-selection-sync";
@@ -22,6 +22,8 @@ import {
   submitStockPurchase,
   approveStockPurchase,
   rejectStockPurchase,
+  cancelStockPurchase,
+  payStockPurchase,
   type StockPurchaseDto,
 } from "@/lib/services/stock-purchase-service";
 import { toApiFormError } from "@/lib/api-error";
@@ -82,7 +84,7 @@ export function StockPurchaseListPage() {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ListRow | null>(null);
   const [workflowConfirm, setWorkflowConfirm] = useState<
-    null | { kind: "approve" | "reject"; numericId: number }
+    null | { kind: "approve" | "reject" | "cancel"; numericId: number }
   >(null);
 
   const load = useCallback(async () => {
@@ -204,6 +206,9 @@ export function StockPurchaseListPage() {
             const canSubmit = hasSelection && st === StockPurchaseStatus.Draft;
             const canApprove = hasSelection && st === StockPurchaseStatus.Pending;
             const canReject  = hasSelection && st === StockPurchaseStatus.Pending;
+            const canCancel  = hasSelection && st === StockPurchaseStatus.Completed;
+            const remaining  = selectedRow?.raw.remainingAzn ?? 0;
+            const canPay     = hasSelection && st === StockPurchaseStatus.Completed && remaining > 0;
 
             return (
               <div className="space-y-4">
@@ -260,6 +265,33 @@ export function StockPurchaseListPage() {
                       id: "reject", label: "Reject", icon: X, variant: "outline", enabled: canReject,
                       disabledReason: !canReject ? "Only pending purchases can be rejected." : undefined,
                       onClick: () => selectedRow && canReject && setWorkflowConfirm({ kind: "reject", numericId: selectedRow.numericId }),
+                    },
+                    {
+                      id: "pay", label: "Ödəniş", icon: Wallet, enabled: canPay,
+                      disabledReason: !canPay ? "Yalnız borcu olan təsdiqlənmiş alışa ödəniş yazılır." : undefined,
+                      onClick: async () => {
+                        if (!selectedRow || !canPay) return;
+                        const input = window.prompt(
+                          `Təchizatçıya ödəniş (AZN). Qalan borc: ${formatAzn(remaining)}`,
+                          remaining.toFixed(2),
+                        );
+                        if (input == null) return;
+                        const amount = Number(input.replace(",", "."));
+                        if (!Number.isFinite(amount) || amount <= 0) {
+                          toast.error("Məbləğ düzgün deyil.");
+                          return;
+                        }
+                        try {
+                          const message = await payStockPurchase(selectedRow.numericId, amount);
+                          toast.success(message ?? "Ödəniş yazıldı");
+                          void load();
+                        } catch (err) { toast.error(toApiFormError(err, "Ödəniş yazılmadı").message); }
+                      },
+                    },
+                    {
+                      id: "cancel", label: "Ləğv et", icon: Ban, variant: "outline", enabled: canCancel,
+                      disabledReason: !canCancel ? "Yalnız təsdiqlənmiş alış ləğv edilə bilər." : undefined,
+                      onClick: () => selectedRow && canCancel && setWorkflowConfirm({ kind: "cancel", numericId: selectedRow.numericId }),
                     },
                   ]}
                 />
@@ -381,23 +413,34 @@ export function StockPurchaseListPage() {
       <ConfirmDialog
         open={workflowConfirm != null}
         onOpenChange={(o) => !o && setWorkflowConfirm(null)}
-        title={workflowConfirm?.kind === "approve" ? "Approve purchase?" : "Reject purchase?"}
+        title={
+          workflowConfirm?.kind === "approve" ? "Approve purchase?"
+          : workflowConfirm?.kind === "cancel" ? "Alış ləğv edilsin?"
+          : "Reject purchase?"
+        }
         description={
           workflowConfirm?.kind === "approve"
             ? "Alış təsdiqlənəcək və anbar stoku artırılacaq."
-            : "Alış rədd ediləcək."
+            : workflowConfirm?.kind === "cancel"
+              ? "Alış ləğv ediləcək və miqdarlar anbardan çıxarılacaq. Mal artıq satılıbsa və ya istifadə olunubsa, ləğv mümkün olmaz."
+              : "Alış rədd ediləcək."
         }
-        confirmLabel={workflowConfirm?.kind === "approve" ? "Approve" : "Reject"}
-        destructive={workflowConfirm?.kind === "reject"}
+        confirmLabel={
+          workflowConfirm?.kind === "approve" ? "Approve"
+          : workflowConfirm?.kind === "cancel" ? "Ləğv et"
+          : "Reject"
+        }
+        destructive={workflowConfirm?.kind === "reject" || workflowConfirm?.kind === "cancel"}
         onConfirm={async () => {
           if (!workflowConfirm) return;
           const { kind, numericId } = workflowConfirm;
           try {
             if (kind === "approve") { await approveStockPurchase(numericId); toast.success("Approved"); }
+            else if (kind === "cancel") { toast.success((await cancelStockPurchase(numericId)) ?? "Ləğv edildi"); }
             else { await rejectStockPurchase(numericId); toast.success("Rejected"); }
             setWorkflowConfirm(null);
             void load();
-          } catch (e) { toast.error(toApiFormError(e, kind === "approve" ? "Approve failed" : "Reject failed").message); }
+          } catch (e) { toast.error(toApiFormError(e, kind === "approve" ? "Approve failed" : kind === "cancel" ? "Ləğv alınmadı" : "Reject failed").message); }
         }}
       />
     </div>

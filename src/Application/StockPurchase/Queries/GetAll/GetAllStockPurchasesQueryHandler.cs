@@ -1,3 +1,4 @@
+using Domain.Enums;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
@@ -74,6 +75,13 @@ public class GetAllStockPurchasesQueryHandler
             CreatedAtUtc = p.CreatedAtUtc,
             TotalForeign = lines.Sum(l => l.TotalForeign),
             TotalAzn = lines.Sum(l => l.TotalAzn),
+            SupplierInvoiceNo = p.SupplierInvoiceNo,
+            ApprovedAtUtc = p.ApprovedAtUtc,
+            CancelledAtUtc = p.CancelledAtUtc,
+            PaidAmountAzn = p.PaidAmountAzn,
+            RemainingAzn = p.Status == StockPurchaseStatus.Completed
+                ? Math.Max(0, lines.Sum(l => l.TotalAzn) - p.PaidAmountAzn)
+                : 0,
             Lines = lines,
         };
     }

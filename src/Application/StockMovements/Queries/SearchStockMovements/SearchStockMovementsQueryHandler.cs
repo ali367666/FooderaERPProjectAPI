@@ -58,6 +58,8 @@ public class SearchStockMovementsQueryHandler
         StockMovementType.TransferOut => "Transfer out",
         StockMovementType.TransferIn => "Transfer in",
         StockMovementType.StockEntryIn => "Stock entry (in)",
+        StockMovementType.PurchaseIn => "Purchase (in)",
+        StockMovementType.PurchaseReversalOut => "Purchase cancelled (out)",
         _ => t.ToString()
     };
 
@@ -65,6 +67,7 @@ public class SearchStockMovementsQueryHandler
     {
         StockMovementSourceType.WarehouseTransfer => "Warehouse transfer",
         StockMovementSourceType.StockEntryDocument => "Stock entry document",
+        StockMovementSourceType.StockPurchase => "Stock purchase",
         _ => t.ToString()
     };
 }

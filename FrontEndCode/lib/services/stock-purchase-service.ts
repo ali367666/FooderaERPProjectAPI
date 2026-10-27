@@ -58,6 +58,13 @@ export type StockPurchaseDto = {
   warehouseId: number;
   warehouseName: string;
   note: string | null;
+  supplierInvoiceNo?: string | null;
+  approvedAtUtc?: string | null;
+  cancelledAtUtc?: string | null;
+  /** Paid to the supplier so far (AZN). */
+  paidAmountAzn?: number;
+  /** Still owed to the supplier (AZN); 0 until the purchase is approved. */
+  remainingAzn?: number;
   createdAtUtc: string;
   totalForeign: number;
   totalAzn: number;
@@ -130,6 +137,18 @@ export async function approveStockPurchase(id: number): Promise<void> {
 export async function rejectStockPurchase(id: number): Promise<void> {
   const res = await api.post(`/stockpurchases/${id}/reject`);
   assertApiSuccess(res.data);
+}
+
+export async function cancelStockPurchase(id: number): Promise<string | null> {
+  const res = await api.post(`/stockpurchases/${id}/cancel`);
+  assertApiSuccess(res.data);
+  return (res.data as { message?: string } | undefined)?.message ?? null;
+}
+
+export async function payStockPurchase(id: number, amount: number, note?: string | null): Promise<string | null> {
+  const res = await api.post(`/stockpurchases/${id}/pay`, { amount, note: note ?? null });
+  assertApiSuccess(res.data);
+  return (res.data as { message?: string } | undefined)?.message ?? null;
 }
 
 export async function getCbarExchangeRate(currency: string, date: string): Promise<number> {

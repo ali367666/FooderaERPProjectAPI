@@ -109,6 +109,8 @@ public static class AppPermissions
     public const string StockPurchaseSubmit = "StockPurchase.Submit";
     public const string StockPurchaseApprove = "StockPurchase.Approve";
     public const string StockPurchaseReject = "StockPurchase.Reject";
+    public const string StockPurchaseCancel = "StockPurchase.Cancel";
+    public const string StockPurchasePay = "StockPurchase.Pay";
 
     public const string ReservationView = "Reservation.View";
     public const string ReservationCreate = "Reservation.Create";
@@ -185,6 +187,7 @@ public static class AppPermissions
     public const string CashRegisterManage = "CashRegister.Manage";
 
     public const string ReportsView = "Reports.View";
-}
+
     public const string FinanceView = "Finance.View";
     public const string FinanceManage = "Finance.Manage";
+}

@@ -17,6 +17,12 @@ public class StockItem : BaseEntity<int>
     /// </summary>
     public decimal? SalePrice { get; set; }
 
+    /// <summary>Unit price (AZN) of the latest approved purchase.</summary>
+    public decimal? LastPurchasePriceAzn { get; set; }
+
+    /// <summary>Weighted-average unit cost (AZN) over the approved purchases; updated on every approval.</summary>
+    public decimal? AverageCostAzn { get; set; }
+
     public int CategoryId { get; set; }
     public StockCategory Category { get; set; } = default!;
 

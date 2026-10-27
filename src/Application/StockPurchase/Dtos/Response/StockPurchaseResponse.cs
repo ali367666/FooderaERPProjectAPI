@@ -21,5 +21,12 @@ public class StockPurchaseResponse
     public DateTime CreatedAtUtc { get; set; }
     public decimal TotalForeign { get; set; }
     public decimal TotalAzn { get; set; }
+    public string? SupplierInvoiceNo { get; set; }
+    public DateTime? ApprovedAtUtc { get; set; }
+    public DateTime? CancelledAtUtc { get; set; }
+    /// <summary>Paid to the supplier so far (AZN).</summary>
+    public decimal PaidAmountAzn { get; set; }
+    /// <summary>Still owed to the supplier (AZN); only an approved purchase owes anything.</summary>
+    public decimal RemainingAzn { get; set; }
     public List<StockPurchaseLineResponse> Lines { get; set; } = new();
 }

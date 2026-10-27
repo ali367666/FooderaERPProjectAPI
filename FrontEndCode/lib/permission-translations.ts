@@ -106,6 +106,8 @@ const PERMISSION_LABELS: Record<string, string> = {
   "StockPurchase.Submit": "Alışı göndər",
   "StockPurchase.Approve": "Alışı təsdiqlə",
   "StockPurchase.Reject": "Alışı rədd et",
+  "StockPurchase.Cancel": "Təsdiqlənmiş alışı ləğv et",
+  "StockPurchase.Pay": "Alış üzrə təchizatçıya ödəniş yaz",
 
   "Reservation.View": "Rezervasiyalara bax",
   "Reservation.Create": "Rezervasiya yarat",
@@ -143,11 +145,11 @@ const PERMISSION_LABELS: Record<string, string> = {
   "CashRegister.View": "Kassaya bax",
   "CashRegister.Manage": "Kassa mədaxil/məxaric et",
 
-  "DeliveryIntegration.View": "Çatdırılma inteqrasiyalarına bax",
-  "DeliveryIntegration.Create": "Çatdırılma inteqrasiyası yarat",
   "Finance.View": "Maliyyə hesabatına bax",
   "Finance.Manage": "Gəlir/xərc qeydlərini idarə et",
 
+  "DeliveryIntegration.View": "Çatdırılma inteqrasiyalarına bax",
+  "DeliveryIntegration.Create": "Çatdırılma inteqrasiyası yarat",
   "DeliveryIntegration.Update": "Çatdırılma inteqrasiyasını redaktə et",
   "DeliveryIntegration.Delete": "Çatdırılma inteqrasiyasını sil",
 
@@ -217,9 +219,9 @@ const MODULE_LABELS: Record<string, string> = {
   ScaleDevice: "Tərəzilər",
   Workstation: "POS terminalları",
   CashRegister: "Kassa",
+  Finance: "Maliyyə",
   DeliveryIntegration: "Çatdırılma inteqrasiyaları",
 };
-  Finance: "Maliyyə",
 
 /** Mağaza (store) wording — a store sells products, not a menu (same data, same sidebar naming). */
 const STORE_PERMISSION_LABELS: Record<string, string> = {

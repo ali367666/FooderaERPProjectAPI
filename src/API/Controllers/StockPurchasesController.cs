@@ -1,5 +1,7 @@
 using Application.Common.Responce;
 using Application.StockPurchase.Commands.Approve;
+using Application.StockPurchase.Commands.Cancel;
+using Application.StockPurchase.Commands.Pay;
 using Application.StockPurchase.Commands.Create;
 using Application.StockPurchase.Commands.Delete;
 using Application.StockPurchase.Commands.Reject;
@@ -95,6 +97,26 @@ public class StockPurchasesController : ControllerBase
     public async Task<ActionResult<BaseResponse>> Reject(int id)
     {
         var result = await _mediator.Send(new RejectStockPurchaseCommand(id));
+        if (!result.Success) return BadRequest(result);
+        return Ok(result);
+    }
+
+    /// <summary>Cancels an approved purchase: the quantities leave the warehouse again.</summary>
+    [Authorize(Policy = AppPermissions.StockPurchaseCancel)]
+    [HttpPost("{id:int}/cancel")]
+    public async Task<ActionResult<BaseResponse>> Cancel(int id)
+    {
+        var result = await _mediator.Send(new CancelStockPurchaseCommand(id));
+        if (!result.Success) return BadRequest(result);
+        return Ok(result);
+    }
+
+    /// <summary>Records a payment to the supplier for an approved purchase.</summary>
+    [Authorize(Policy = AppPermissions.StockPurchasePay)]
+    [HttpPost("{id:int}/pay")]
+    public async Task<ActionResult<BaseResponse>> Pay(int id, [FromBody] PayStockPurchaseRequest request)
+    {
+        var result = await _mediator.Send(new PayStockPurchaseCommand(id, request));
         if (!result.Success) return BadRequest(result);
         return Ok(result);
     }

@@ -1,3 +1,4 @@
+using Domain.Enums;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
@@ -60,6 +61,13 @@ public class GetStockPurchaseByIdQueryHandler
             CreatedAtUtc = purchase.CreatedAtUtc,
             TotalForeign = lines.Sum(l => l.TotalForeign),
             TotalAzn = lines.Sum(l => l.TotalAzn),
+            SupplierInvoiceNo = purchase.SupplierInvoiceNo,
+            ApprovedAtUtc = purchase.ApprovedAtUtc,
+            CancelledAtUtc = purchase.CancelledAtUtc,
+            PaidAmountAzn = purchase.PaidAmountAzn,
+            RemainingAzn = purchase.Status == StockPurchaseStatus.Completed
+                ? Math.Max(0, lines.Sum(l => l.TotalAzn) - purchase.PaidAmountAzn)
+                : 0,
             Lines = lines,
         };
 
