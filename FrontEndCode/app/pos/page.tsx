@@ -49,7 +49,6 @@ import {
   moveOrderTable,
   payOrder,
   reassignOrderWaiter,
-  verifyRedirectCode,
   type OrderDto,
   type OrderWorkflowStatus,
 } from "@/lib/services/order-service";
@@ -150,19 +149,13 @@ export default function PosTablesPage() {
   const [mode, setMode] = useState<"pay" | "bill" | "move-pick" | "move-target" | "waiter-pick" | "reserve" | null>(null);
   const [modeBusy, setModeBusy] = useState(false);
   const [moveSource, setMoveSource] = useState<TableWithOrder | null>(null);
-  // "Ofisiant dəyiş" needs Pos.ChangeWaiter to show; whoever lacks Pos.RedirectUser must get a supervisor's
-  // code approved first. The verified code rides along with the final request.
-  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
-  const [codeInput, setCodeInput] = useState("");
-  const [codeError, setCodeError] = useState<string | null>(null);
-  const [supervisorCode, setSupervisorCode] = useState<string | null>(null);
+  // "Ofisiant dəyiş" is shown and works by the Pos.ChangeWaiter permission alone — no code.
   const [waiterTable, setWaiterTable] = useState<TableWithOrder | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   const resetMode = () => {
     setMode(null);
     setMoveSource(null);
-    setSupervisorCode(null);
     setWaiterTable(null);
   };
   const [now, setNow] = useState(() => new Date());
@@ -616,31 +609,7 @@ export default function PosTablesPage() {
       return;
     }
     resetMode();
-    if (canRedirectUser) {
-      setMode("waiter-pick");
-      return;
-    }
-    setCodeInput("");
-    setCodeError(null);
-    setCodeDialogOpen(true);
-  };
-
-  const submitSupervisorCode = async () => {
-    const code = codeInput.trim();
-    if (!code) return;
-    setModeBusy(true);
-    setCodeError(null);
-    try {
-      await verifyRedirectCode(code);
-      setSupervisorCode(code);
-      setCodeDialogOpen(false);
-      setCodeInput("");
-      setMode("waiter-pick");
-    } catch (err) {
-      setCodeError(err instanceof Error ? err.message : "Kod yanlışdır");
-    } finally {
-      setModeBusy(false);
-    }
+    setMode("waiter-pick");
   };
 
   const handleWaiterTap = async (table: TableWithOrder) => {
@@ -661,7 +630,7 @@ export default function PosTablesPage() {
     if (!order || modeBusy) return;
     setModeBusy(true);
     try {
-      await reassignOrderWaiter(order.id, employee.id, supervisorCode);
+      await reassignOrderWaiter(order.id, employee.id);
       toast.success("Ofisiant dəyişdirildi");
       resetMode();
       await load();
@@ -1067,53 +1036,6 @@ export default function PosTablesPage() {
         )}
         <ActionButton icon={LogOut} label="Çıxış" tone="danger" onClick={handleLogout} />
       </footer>
-
-      {/* "Ofisiant dəyiş" — supervisor code */}
-      <Dialog
-        open={codeDialogOpen}
-        onOpenChange={(o) => {
-          if (!o) {
-            setCodeDialogOpen(false);
-            setCodeInput("");
-            setCodeError(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Ofisiant dəyiş</DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submitSupervisorCode();
-            }}
-          >
-            <p className="text-sm text-muted-foreground">
-              Bu əməliyyat üçün icazəsi olan şəxsin kodunu daxil edin.
-            </p>
-            {codeError && <p className="text-sm text-destructive">{codeError}</p>}
-            <Input
-              type="password"
-              inputMode="numeric"
-              autoComplete="off"
-              autoFocus
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, ""))}
-              placeholder="Kod"
-            />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCodeDialogOpen(false)} disabled={modeBusy}>
-                Ləğv et
-              </Button>
-              <Button type="submit" disabled={modeBusy || !codeInput.trim()}>
-                {modeBusy ? "Yoxlanılır…" : "Təsdiqlə"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* "Ofisiant dəyiş" — pick the new waiter */}
       <Dialog open={waiterTable !== null} onOpenChange={(o) => !o && setWaiterTable(null)}>

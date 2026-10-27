@@ -29,7 +29,6 @@ using Application.Orders.Commands.PayPart;
 using Application.Orders.Commands.SetServiceCharge;
 using Application.Orders.Commands.ReassignWaiter;
 using Application.Orders.Queries.GetPayments;
-using Application.Orders.Queries.VerifyRedirectCode;
 using Application.Orders.Commands.TableRental;
 using Application.Orders.Dtos;
 using Application.Orders.Queries.GetAll;
@@ -343,21 +342,12 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
-    // Needs Pos.ChangeWaiter; the approval is checked inside — Pos.RedirectUser, or a supervisor's code.
+    // Pos.ChangeWaiter alone decides who may reassign the waiter — no supervisor code.
     [Authorize(Policy = AppPermissions.PosChangeWaiter)]
     [HttpPut("{id:int}/reassign-waiter")]
     public async Task<ActionResult<OrderResponse>> ReassignWaiter(int id, [FromBody] ReassignWaiterRequest request)
     {
-        var result = await _mediator.Send(new ReassignOrderWaiterCommand(id, request.NewEmployeeId, request.SupervisorCode));
+        var result = await _mediator.Send(new ReassignOrderWaiterCommand(id, request.NewEmployeeId));
         return Ok(result);
-    }
-
-    /// <summary>Early check of a supervisor's code so the POS can fail before the waiter picks an order.</summary>
-    [Authorize(Policy = AppPermissions.PosChangeWaiter)]
-    [HttpPost("verify-redirect-code")]
-    public async Task<ActionResult<string>> VerifyRedirectCode([FromBody] VerifyRedirectCodeRequest request)
-    {
-        var approver = await _mediator.Send(new VerifyRedirectCodeQuery(request.Code));
-        return Ok(approver);
     }
 }

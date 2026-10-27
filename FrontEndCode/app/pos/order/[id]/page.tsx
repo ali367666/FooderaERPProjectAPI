@@ -30,7 +30,6 @@ import {
   discardEmptyOrder,
   moveOrderTable,
   reassignOrderWaiter,
-  verifyRedirectCode,
   setManualDiscount,
   getOrderPayments,
   getPaymentReceipt,
@@ -168,11 +167,6 @@ export default function PosOrderPage() {
   const [moveTableOpen, setMoveTableOpen] = useState(false);
   const [availableTables, setAvailableTables] = useState<RestaurantTable[]>([]);
   const [reassignOpen, setReassignOpen] = useState(false);
-  // "Ofisiantı dəyiş" is visible to everyone; without Pos.RedirectUser a supervisor's code approves it.
-  const [supervisorCodeOpen, setSupervisorCodeOpen] = useState(false);
-  const [supervisorCodeInput, setSupervisorCodeInput] = useState("");
-  const [supervisorCodeError, setSupervisorCodeError] = useState<string | null>(null);
-  const [supervisorCode, setSupervisorCode] = useState<string | null>(null);
   // Double-tap on a line opens its note.
   const [lineNoteLine, setLineNoteLine] = useState<OrderLineDto | null>(null);
   const [lineNoteInput, setLineNoteInput] = useState("");
@@ -1282,42 +1276,17 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     }
   };
 
+  // "Ofisiantı dəyiş" is shown and works by the Pos.ChangeWaiter permission alone — no code.
   const startReassign = () => {
-    if (canRedirectUser) {
-      setSupervisorCode(null);
-      void openReassignDialog();
-      return;
-    }
-    setSupervisorCodeInput("");
-    setSupervisorCodeError(null);
-    setSupervisorCodeOpen(true);
-  };
-
-  const submitSupervisorCode = async () => {
-    const code = supervisorCodeInput.trim();
-    if (!code) return;
-    setBusy(true);
-    setSupervisorCodeError(null);
-    try {
-      await verifyRedirectCode(code);
-      setSupervisorCode(code);
-      setSupervisorCodeOpen(false);
-      setSupervisorCodeInput("");
-      await openReassignDialog();
-    } catch (err) {
-      setSupervisorCodeError(err instanceof Error ? err.message : "Kod yanlışdır");
-    } finally {
-      setBusy(false);
-    }
+    void openReassignDialog();
   };
 
   const handleReassignWaiter = async (newEmployeeId: number) => {
     if (!order || busy) return;
     setBusy(true);
     try {
-      const updated = await reassignOrderWaiter(order.id, newEmployeeId, supervisorCode);
+      const updated = await reassignOrderWaiter(order.id, newEmployeeId);
       setOrder(updated);
-      setSupervisorCode(null);
       toast.success("Ofisiant dəyişdirildi");
       setReassignOpen(false);
     } catch (err) {
@@ -2847,54 +2816,6 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
               <p className="col-span-3 py-4 text-center text-sm text-muted-foreground">Boş masa yoxdur</p>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* "Ofisiantı dəyiş" — supervisor code */}
-      <Dialog
-        open={supervisorCodeOpen}
-        onOpenChange={(o) => {
-          if (!o) {
-            setSupervisorCodeOpen(false);
-            setSupervisorCodeInput("");
-            setSupervisorCodeError(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Ofisiantı dəyiş</DialogTitle>
-            <DialogDescription>Bu əməliyyat üçün icazəsi olan şəxsin kodunu daxil edin.</DialogDescription>
-          </DialogHeader>
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submitSupervisorCode();
-            }}
-          >
-            {supervisorCodeError && <p className="text-sm text-destructive">{supervisorCodeError}</p>}
-            <Input
-              type="password"
-              inputMode="numeric"
-              autoComplete="off"
-              autoFocus
-              value={supervisorCodeInput}
-              onChange={(e) => setSupervisorCodeInput(e.target.value.replace(/\D/g, ""))}
-              placeholder="Kod"
-            />
-            {branding?.touchScreenMode === true && (
-              <TouchNumpad value={supervisorCodeInput} onChange={setSupervisorCodeInput} />
-            )}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setSupervisorCodeOpen(false)} disabled={busy}>
-                Ləğv et
-              </Button>
-              <Button type="submit" disabled={busy || !supervisorCodeInput.trim()}>
-                Təsdiqlə
-              </Button>
-            </DialogFooter>
-          </form>
         </DialogContent>
       </Dialog>
 
