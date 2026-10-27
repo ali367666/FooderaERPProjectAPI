@@ -186,3 +186,5 @@ public static class AppPermissions
 
     public const string ReportsView = "Reports.View";
 }
+    public const string FinanceView = "Finance.View";
+    public const string FinanceManage = "Finance.Manage";

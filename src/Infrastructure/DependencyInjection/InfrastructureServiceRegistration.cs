@@ -108,6 +108,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IWorkstationRepository, WorkstationRepository>();
         services.AddScoped<IDeliveryIntegrationRepository, DeliveryIntegrationRepository>();
         services.AddScoped<ICashMovementRepository, CashMovementRepository>();
+        services.AddScoped<IFinanceRepository, FinanceRepository>();
         services.AddScoped<ISaleReturnRepository, SaleReturnRepository>();
         services.AddScoped<IOrderCancellationRepository, OrderCancellationRepository>();
         services.AddScoped<ILicenseRepository, LicenseRepository>();
