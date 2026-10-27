@@ -35,6 +35,7 @@ import {
   Gamepad2,
   Truck,
   Wallet,
+  TrendingUp,
 } from "lucide-react";
 
 export interface NavItem {
@@ -90,6 +91,12 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/kassa",
         icon: Wallet,
         permission: "CashRegister.View",
+      },
+      {
+        title: "Maliyyə",
+        href: "/dashboard/finance",
+        icon: TrendingUp,
+        permission: "Finance.View",
       },
       {
         title: "Food Cost",

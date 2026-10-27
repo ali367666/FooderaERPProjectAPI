@@ -145,6 +145,9 @@ const PERMISSION_LABELS: Record<string, string> = {
 
   "DeliveryIntegration.View": "Çatdırılma inteqrasiyalarına bax",
   "DeliveryIntegration.Create": "Çatdırılma inteqrasiyası yarat",
+  "Finance.View": "Maliyyə hesabatına bax",
+  "Finance.Manage": "Gəlir/xərc qeydlərini idarə et",
+
   "DeliveryIntegration.Update": "Çatdırılma inteqrasiyasını redaktə et",
   "DeliveryIntegration.Delete": "Çatdırılma inteqrasiyasını sil",
 
@@ -216,6 +219,7 @@ const MODULE_LABELS: Record<string, string> = {
   CashRegister: "Kassa",
   DeliveryIntegration: "Çatdırılma inteqrasiyaları",
 };
+  Finance: "Maliyyə",
 
 /** Mağaza (store) wording — a store sells products, not a menu (same data, same sidebar naming). */
 const STORE_PERMISSION_LABELS: Record<string, string> = {
