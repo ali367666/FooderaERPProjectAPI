@@ -12,6 +12,7 @@ import {
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { resolveCompanyId } from "@/lib/resolve-company-id";
+import { uniqueById } from "@/lib/utils";
 
 const STORAGE_KEY = "dashboardSelectedRestaurantId";
 
@@ -52,7 +53,7 @@ export function SelectedRestaurantProvider({ children }: { children: ReactNode }
     try {
       setRestaurantsLoading(true);
       const data = await getRestaurants(effectiveCompanyId ?? undefined);
-      setRestaurants(effectiveCompanyId != null ? data.filter((r) => r.companyId === effectiveCompanyId) : data);
+      setRestaurants(uniqueById(effectiveCompanyId != null ? data.filter((r) => r.companyId === effectiveCompanyId) : data));
     } catch {
       setRestaurants([]);
     } finally {

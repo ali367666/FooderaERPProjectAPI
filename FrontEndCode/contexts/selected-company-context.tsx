@@ -14,6 +14,7 @@ import type { SelectedCompanyScope } from "@/lib/company-scope-utils";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
 import { getStoredToken } from "@/lib/auth-client";
 import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
+import { uniqueById } from "@/lib/utils";
 
 const STORAGE_KEY = "dashboardSelectedCompanyId";
 
@@ -46,7 +47,7 @@ export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
     try {
       setCompaniesError(null);
       const data = await getCompanies();
-      setCompanies(data);
+      setCompanies(uniqueById(data));
     } catch (e) {
       setCompaniesError(e instanceof Error ? e.message : "Failed to load companies.");
     }
@@ -68,7 +69,7 @@ export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
       try {
         setCompaniesError(null);
         const data = await getCompanies();
-        if (!cancelled) setCompanies(data);
+        if (!cancelled) setCompanies(uniqueById(data));
       } catch (e) {
         if (!cancelled) {
           setCompaniesError(e instanceof Error ? e.message : "Failed to load companies.");
