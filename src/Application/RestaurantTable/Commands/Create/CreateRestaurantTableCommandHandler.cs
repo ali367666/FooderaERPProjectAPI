@@ -13,17 +13,20 @@ public class CreateRestaurantTableCommandHandler
     : IRequestHandler<CreateRestaurantTableCommand, RestaurantTableResponse>
 {
     private readonly IRestaurantTableRepository _restaurantTableRepository;
+    private readonly IRestaurantSectionRepository _sectionRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<CreateRestaurantTableCommandHandler> _logger;
 
     public CreateRestaurantTableCommandHandler(
         IRestaurantTableRepository restaurantTableRepository,
+        IRestaurantSectionRepository sectionRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<CreateRestaurantTableCommandHandler> logger)
     {
         _restaurantTableRepository = restaurantTableRepository;
+        _sectionRepository = sectionRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -75,6 +78,13 @@ public class CreateRestaurantTableCommandHandler
             throw new Exception("Bu restoranda bu adda masa artıq mövcuddur.");
         }
 
+        if (dto.SectionId is > 0)
+        {
+            var section = await _sectionRepository.GetByIdAsync(dto.SectionId.Value, companyId, cancellationToken);
+            if (section is null || section.RestaurantId != dto.RestaurantId)
+                throw new Exception("Zal tapılmadı və ya bu filiala aid deyil.");
+        }
+
         var table = new Domain.Entities.RestaurantTable
         {
             CompanyId = companyId,
@@ -85,7 +95,8 @@ public class CreateRestaurantTableCommandHandler
             IsOccupied = false,
             HourlyRate = dto.HourlyRate,
             Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim(),
-            Type = dto.Type
+            Type = dto.Type,
+            SectionId = dto.SectionId is > 0 ? dto.SectionId : null
         };
 
         await _restaurantTableRepository.AddAsync(table, cancellationToken);
@@ -139,7 +150,8 @@ public class CreateRestaurantTableCommandHandler
             Rotation = table.Rotation,
             HourlyRate = table.HourlyRate,
             Note = table.Note,
-            Type = table.Type
+            Type = table.Type,
+            SectionId = table.SectionId
         };
     }
 }

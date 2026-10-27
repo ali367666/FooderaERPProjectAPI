@@ -8,6 +8,7 @@ export type RestaurantSection = {
   restaurantId: number;
   name: string;
   isActive: boolean;
+  isBanquet: boolean;
   type: RestaurantTableTypeValue;
 };
 
@@ -43,6 +44,7 @@ function normalize(item: unknown): RestaurantSection | null {
     restaurantId: Number(pick(raw, "restaurantId", "RestaurantId") ?? 0),
     name: String(pick(raw, "name", "Name") ?? ""),
     isActive: Boolean(pick(raw, "isActive", "IsActive") ?? true),
+    isBanquet: Boolean(pick(raw, "isBanquet", "IsBanquet") ?? false),
     type: (() => {
       const n = Number(pick(raw, "type", "Type"));
       if (n === RestaurantTableType.Kabinet) return n;
@@ -61,7 +63,7 @@ export async function getRestaurantSections(restaurantId: number): Promise<Resta
   }
 }
 
-export async function createRestaurantSection(payload: { restaurantId: number; name: string; isActive: boolean; type: RestaurantTableTypeValue }): Promise<RestaurantSection> {
+export async function createRestaurantSection(payload: { restaurantId: number; name: string; isActive: boolean; isBanquet?: boolean; type: RestaurantTableTypeValue }): Promise<RestaurantSection> {
   try {
     const response = await api.post<unknown>("/RestaurantSections", payload);
     const data = unwrapData<unknown>(response.data);
@@ -73,7 +75,7 @@ export async function createRestaurantSection(payload: { restaurantId: number; n
   }
 }
 
-export async function updateRestaurantSection(payload: { id: number; name: string; isActive: boolean; type: RestaurantTableTypeValue }): Promise<RestaurantSection> {
+export async function updateRestaurantSection(payload: { id: number; name: string; isActive: boolean; isBanquet?: boolean; type: RestaurantTableTypeValue }): Promise<RestaurantSection> {
   try {
     const response = await api.put<unknown>("/RestaurantSections", payload);
     const data = unwrapData<unknown>(response.data);

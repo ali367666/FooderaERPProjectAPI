@@ -132,7 +132,8 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             OpenedAt = DateTime.UtcNow,
             TotalAmount = 0,
             IsDelivery = request.Request.IsDelivery,
-            IsBanquet = request.Request.IsBanquet,
+            // A banquet hall's tables always sell the banquet menu.
+            IsBanquet = request.Request.IsBanquet || table.Section?.IsBanquet == true,
             DeliveryAddress = request.Request.IsDelivery && !string.IsNullOrWhiteSpace(request.Request.DeliveryAddress)
                 ? request.Request.DeliveryAddress.Trim()
                 : null,

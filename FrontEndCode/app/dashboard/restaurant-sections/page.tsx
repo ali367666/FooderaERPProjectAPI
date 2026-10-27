@@ -45,6 +45,7 @@ type SectionRow = {
   sectionId: number;
   name: string;
   isActive: boolean;
+  isBanquet: boolean;
   typeLabel: string;
 };
 
@@ -60,6 +61,7 @@ export default function RestaurantSectionsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [isBanquet, setIsBanquet] = useState(false);
   const [type, setType] = useState<RestaurantTableTypeValue>(RestaurantTableType.Masa);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [selectedTableIds, setSelectedTableIds] = useState<number[]>([]);
@@ -110,6 +112,7 @@ export default function RestaurantSectionsPage() {
     setEditingId(null);
     setName("");
     setIsActive(true);
+    setIsBanquet(false);
     setType(RestaurantTableType.Masa);
     setSelectedTableIds([]);
     setInitialTableIds([]);
@@ -126,6 +129,7 @@ export default function RestaurantSectionsPage() {
     setEditingId(target.id);
     setName(target.name);
     setIsActive(target.isActive);
+    setIsBanquet(target.isBanquet);
     setType(target.type);
     try {
       const rid = Number(restaurantId);
@@ -165,10 +169,10 @@ export default function RestaurantSectionsPage() {
     setSaving(true);
     try {
       if (editingId == null) {
-        await createRestaurantSection({ restaurantId: rid, name: name.trim(), isActive, type });
+        await createRestaurantSection({ restaurantId: rid, name: name.trim(), isActive, isBanquet, type });
         toast.success("Bölmə əlavə edildi.");
       } else {
-        await updateRestaurantSection({ id: editingId, name: name.trim(), isActive, type });
+        await updateRestaurantSection({ id: editingId, name: name.trim(), isActive, isBanquet, type });
         const added = selectedTableIds.filter((id) => !initialTableIds.includes(id));
         const removed = initialTableIds.filter((id) => !selectedTableIds.includes(id));
         await Promise.all([
@@ -194,6 +198,7 @@ export default function RestaurantSectionsPage() {
         sectionId: s.id,
         name: s.name,
         isActive: s.isActive,
+        isBanquet: s.isBanquet,
         typeLabel: tableTypeLabel(s.type),
       })),
     [sections],
@@ -203,6 +208,11 @@ export default function RestaurantSectionsPage() {
     { key: "sectionId" as const, label: "ID" },
     { key: "name" as const, label: "Ad" },
     { key: "typeLabel" as const, label: "Tip" },
+    {
+      key: "isBanquet" as const,
+      label: "Banket zalı",
+      render: (v: boolean) => (v ? <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Banket</Badge> : "—"),
+    },
     {
       key: "isActive" as const,
       label: "Status",
@@ -292,6 +302,17 @@ export default function RestaurantSectionsPage() {
                 <Label htmlFor="sec-active" className="text-sm font-normal">
                   Aktiv
                 </Label>
+              </div>
+              <div className="flex items-start gap-2">
+                <Checkbox id="sec-banquet" checked={isBanquet} onCheckedChange={(v) => setIsBanquet(v === true)} />
+                <div>
+                  <Label htmlFor="sec-banquet" className="text-sm font-normal">
+                    Banket zalı
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Bu zalın masalarında açılan sifarişlər avtomatik banket menyusu və banket qiymətləri ilə olur.
+                  </p>
+                </div>
               </div>
               {editingId != null && (
                 <div>

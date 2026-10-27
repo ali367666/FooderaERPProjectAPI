@@ -5,6 +5,8 @@ public class CreateRestaurantTableRequest
     public int RestaurantId { get; set; }
     public string Name { get; set; } = default!;
     public int Capacity { get; set; }
+    /// <summary>Hall (RestaurantSection) the table belongs to; empty = no hall.</summary>
+    public int? SectionId { get; set; }
     public decimal? HourlyRate { get; set; }
     public string? Note { get; set; }
     public Domain.Enums.RestaurantTableType Type { get; set; } = Domain.Enums.RestaurantTableType.Masa;

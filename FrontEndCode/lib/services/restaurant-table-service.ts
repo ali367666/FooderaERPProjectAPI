@@ -48,6 +48,8 @@ export type RestaurantTableMutationInput = {
   hourlyRate?: number | null;
   note?: string | null;
   type?: RestaurantTableTypeValue;
+  /** Hall the table belongs to. Left out = unchanged on update; 0 = no hall. */
+  sectionId?: number | null;
 };
 
 function normalizeRestaurantTable(item: unknown): RestaurantTable | null {

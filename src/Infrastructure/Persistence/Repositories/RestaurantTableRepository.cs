@@ -24,6 +24,7 @@ public class RestaurantTableRepository : IRestaurantTableRepository
     {
         return await _context.RestaurantTables
             .Include(x => x.Restaurant)
+            .Include(x => x.Section)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 

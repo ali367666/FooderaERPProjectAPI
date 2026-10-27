@@ -31,6 +31,7 @@ public class UpdateRestaurantSectionCommandHandler : IRequestHandler<UpdateResta
 
         section.Name = name;
         section.IsActive = dto.IsActive;
+        section.IsBanquet = dto.IsBanquet;
         section.Type = dto.Type;
 
         _repository.Update(section);
@@ -42,6 +43,7 @@ public class UpdateRestaurantSectionCommandHandler : IRequestHandler<UpdateResta
             RestaurantId = section.RestaurantId,
             Name = section.Name,
             IsActive = section.IsActive,
+            IsBanquet = section.IsBanquet,
             Type = section.Type
         };
     }

@@ -11,15 +11,18 @@ namespace Application.Orders.Commands.SetBanquet;
 public class SetOrderBanquetCommandHandler : IRequestHandler<SetOrderBanquetCommand, OrderResponse>
 {
     private readonly IOrderRepository _orderRepository;
+    private readonly IRestaurantTableRepository _tableRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IMediator _mediator;
 
     public SetOrderBanquetCommandHandler(
         IOrderRepository orderRepository,
+        IRestaurantTableRepository tableRepository,
         ICurrentUserService currentUserService,
         IMediator mediator)
     {
         _orderRepository = orderRepository;
+        _tableRepository = tableRepository;
         _currentUserService = currentUserService;
         _mediator = mediator;
     }
@@ -36,6 +39,13 @@ public class SetOrderBanquetCommandHandler : IRequestHandler<SetOrderBanquetComm
 
         if (order.IsBanquet != request.Banquet)
         {
+            if (!request.Banquet)
+            {
+                var table = await _tableRepository.GetByIdAsync(order.TableId, _currentUserService.CompanyId, cancellationToken);
+                if (table?.Section?.IsBanquet == true)
+                    throw new BadRequestException("Banket zalının sifarişi adi menyuya keçirilə bilməz.");
+            }
+
             if (order.Lines.Any(l => l.Status != OrderLineStatus.Cancelled))
                 throw new BadRequestException(
                     "Banket menyusuna keçmək (və ya qayıtmaq) üçün əvvəlcə sifarişdəki məhsulları silin.");

@@ -76,6 +76,9 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         if (newTable.Type is RestaurantTableType.Delivery or RestaurantTableType.TakeAway)
             throw new Exception("Table not found for this branch.");
 
+        if (newTable.Section?.IsBanquet == true)
+            throw new BadRequestException("Adi sifariş banket zalının masasına köçürülə bilməz.");
+
         if (newTable.IsOccupied)
             throw new Exception("The selected table is already occupied.");
 

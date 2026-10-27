@@ -31,6 +31,7 @@ public class CreateRestaurantSectionCommandHandler : IRequestHandler<CreateResta
             RestaurantId = dto.RestaurantId,
             Name = name,
             IsActive = dto.IsActive,
+            IsBanquet = dto.IsBanquet,
             Type = dto.Type
         };
 
@@ -43,6 +44,7 @@ public class CreateRestaurantSectionCommandHandler : IRequestHandler<CreateResta
             RestaurantId = section.RestaurantId,
             Name = section.Name,
             IsActive = section.IsActive,
+            IsBanquet = section.IsBanquet,
             Type = section.Type
         };
     }
