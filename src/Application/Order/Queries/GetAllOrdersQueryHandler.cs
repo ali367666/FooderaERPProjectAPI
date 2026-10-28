@@ -24,7 +24,7 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
     {
         var companyId = _currentUserService.CompanyId;
 
-        var orders = await _orderRepository.GetAllAsync(companyId, cancellationToken);
+        var orders = await _orderRepository.GetAllAsync(companyId, request.Filter, cancellationToken);
         var hasLegacyLineTotals = false;
 
         foreach (var order in orders)

@@ -25,9 +25,9 @@ public class ReservationsController : ControllerBase
     [HttpGet]
     [Authorize(Policy = AppPermissions.ReservationView)]
     public async Task<ActionResult<List<ReservationResponse>>> GetAll(
-        [FromQuery] DateTime? date, CancellationToken ct)
+        [FromQuery] DateTime? date, [FromQuery] DateTime? dateFrom, [FromQuery] DateTime? dateTo, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetAllReservationsQuery { Date = date }, ct);
+        var result = await _mediator.Send(new GetAllReservationsQuery { Date = date, DateFrom = dateFrom, DateTo = dateTo }, ct);
         return Ok(result);
     }
 

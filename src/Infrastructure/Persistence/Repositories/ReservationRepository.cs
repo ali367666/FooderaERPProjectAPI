@@ -12,16 +12,23 @@ public class ReservationRepository : IReservationRepository
 
     public ReservationRepository(AppDbContext context) => _context = context;
 
-    public async Task<List<Reservation>> GetAllAsync(int companyId, DateTime? date, CancellationToken ct)
+    public async Task<List<Reservation>> GetAllAsync(int companyId, DateTime? date, DateTime? dateFrom, DateTime? dateTo, CancellationToken ct)
     {
         var q = _context.Reservations
             .Include(r => r.Restaurant)
             .Include(r => r.Table)
-            .Include(r => r.BanquetTables).ThenInclude(b => b.Table)
+            .Include(r => r.BanquetTables).ThenInclude(b => b.Table).ThenInclude(t => t!.Section)
             .Where(r => r.CompanyId == companyId);
 
         if (date.HasValue)
             q = q.Where(r => r.ReservationDate.Date == date.Value.Date);
+
+        // Inclusive range over whole days; either end may be omitted.
+        if (dateFrom.HasValue)
+            q = q.Where(r => r.ReservationDate.Date >= dateFrom.Value.Date);
+
+        if (dateTo.HasValue)
+            q = q.Where(r => r.ReservationDate.Date <= dateTo.Value.Date);
 
         return await q.OrderBy(r => r.ReservationDate)
                       .ThenBy(r => r.ReservationTime)
@@ -32,7 +39,7 @@ public class ReservationRepository : IReservationRepository
         => _context.Reservations
             .Include(r => r.Restaurant)
             .Include(r => r.Table)
-            .Include(r => r.BanquetTables).ThenInclude(b => b.Table)
+            .Include(r => r.BanquetTables).ThenInclude(b => b.Table).ThenInclude(t => t!.Section)
             .FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId, ct);
 
     public async Task<Reservation?> FindOverlappingAsync(

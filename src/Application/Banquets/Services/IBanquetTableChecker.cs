@@ -9,6 +9,13 @@ public interface IBanquetTableChecker
     Task<List<Domain.Entities.RestaurantTable>> LoadTablesAsync(
         int companyId, int restaurantId, IReadOnlyCollection<int> tableIds, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Every active dine-in table of a banquet hall. Throws unless the hall exists in the branch, is active,
+    /// is marked as a banquet hall and has at least one table.
+    /// </summary>
+    Task<List<Domain.Entities.RestaurantTable>> LoadHallTablesAsync(
+        int companyId, int restaurantId, int sectionId, CancellationToken cancellationToken);
+
     /// <summary>The reason the table can't take a banquet right now (an open order on it), or null.</summary>
     Task<string?> GetBusyReasonNowAsync(int companyId, Domain.Entities.RestaurantTable table, CancellationToken cancellationToken);
 

@@ -41,7 +41,9 @@ public class CreateBanquetReservationCommandHandler
         var duration = dto.DurationMinutes > 0 ? dto.DurationMinutes : 240;
         var start = dto.ReservationDate.Date + time;
 
-        var tables = await _checker.LoadTablesAsync(companyId, dto.RestaurantId, dto.TableIds, cancellationToken);
+        var tables = dto.SectionId is int sectionId
+            ? await _checker.LoadHallTablesAsync(companyId, dto.RestaurantId, sectionId, cancellationToken)
+            : await _checker.LoadTablesAsync(companyId, dto.RestaurantId, dto.TableIds, cancellationToken);
         foreach (var table in tables)
         {
             var booked = await _checker.GetBookedReasonAsync(companyId, table, start, duration, cancellationToken);

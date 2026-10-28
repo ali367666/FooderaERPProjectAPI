@@ -45,6 +45,24 @@ public class BanquetsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// The banquet halls of a branch, free or busy as a whole. Without <c>date</c>/<c>time</c> busy means busy
+    /// now; with them it means already booked then (<c>durationMinutes</c> defaults to 240).
+    /// </summary>
+    [Authorize(Policy = AppPermissions.RestaurantTableView)]
+    [HttpGet("halls")]
+    public async Task<ActionResult<List<BanquetHallResponse>>> GetHalls(
+        [FromQuery] int restaurantId,
+        [FromQuery] DateTime? date,
+        [FromQuery] string? time,
+        [FromQuery] int? durationMinutes,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new GetBanquetHallsQuery(restaurantId, date, time, durationMinutes), cancellationToken);
+        return Ok(result);
+    }
+
     /// <summary>Opens a banquet order now on the chosen tables: one bill, banquet menu and prices.</summary>
     [Authorize(Policy = AppPermissions.OrdersCreate)]
     [HttpPost]
@@ -55,7 +73,7 @@ public class BanquetsController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Books the chosen tables of a hall for a banquet on a date and time.</summary>
+    /// <summary>Books a banquet hall (all its tables) for a date and time; send <c>sectionId</c>, no table choice is needed.</summary>
     [Authorize(Policy = AppPermissions.ReservationCreate)]
     [HttpPost("reservations")]
     public async Task<ActionResult<ReservationResponse>> CreateReservation(

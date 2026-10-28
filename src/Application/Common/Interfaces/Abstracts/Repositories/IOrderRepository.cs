@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 
 namespace Application.Common.Interfaces.Abstracts.Repositories;
 
@@ -6,7 +6,8 @@ public interface IOrderRepository
 {
     Task AddAsync(Domain.Entities.Order order, CancellationToken cancellationToken);
     Task<Domain.Entities.Order?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken);
-    Task<List<Domain.Entities.Order>> GetAllAsync(int companyId, CancellationToken cancellationToken);
+    /// <summary>All company orders, newest first; when <paramref name="filter"/> is given, only matching orders.</summary>
+    Task<List<Domain.Entities.Order>> GetAllAsync(int companyId, Application.Orders.Queries.GetAll.OrderListFilter? filter, CancellationToken cancellationToken);
     /// <summary>Every unpaid, uncancelled order on the given tables, newest first, with the waiter and the customer.</summary>
     Task<List<Domain.Entities.Order>> GetActiveForTablesAsync(int companyId, IReadOnlyCollection<int> tableIds, CancellationToken cancellationToken);
 

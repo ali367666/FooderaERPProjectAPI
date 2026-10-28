@@ -218,9 +218,34 @@ public class OrdersController : ControllerBase
     }
     [Authorize(Policy = AppPermissions.OrdersView)]
     [HttpGet]
-    public async Task<ActionResult<List<OrderResponse>>> GetAll()
+    public async Task<ActionResult<List<OrderResponse>>> GetAll([FromQuery] Domain.Enums.OrderStatus[]? status)
     {
-        var result = await _mediator.Send(new GetAllOrdersQuery());
+        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(Statuses: status)));
+        return Ok(result);
+    }
+
+    // Orders that occupy a table (draft/open) - lets the POS table map skip loading the whole order history.
+    [Authorize(Policy = AppPermissions.OrdersView)]
+    [HttpGet("active")]
+    public async Task<ActionResult<List<OrderResponse>>> GetActive()
+    {
+        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(Statuses: new[]
+        {
+            Domain.Enums.OrderStatus.Draft,
+            Domain.Enums.OrderStatus.Open
+        })));
+        return Ok(result);
+    }
+
+    // Unpaid "Tez satış" (take-away) orders, optionally for one restaurant - the POS take-away screen needs nothing else.
+    [Authorize(Policy = AppPermissions.OrdersView)]
+    [HttpGet("take-away/active")]
+    public async Task<ActionResult<List<OrderResponse>>> GetActiveTakeAway([FromQuery] int? restaurantId)
+    {
+        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(
+            TableType: Domain.Enums.RestaurantTableType.TakeAway,
+            RestaurantId: restaurantId,
+            ExcludeFinished: true)));
         return Ok(result);
     }
 

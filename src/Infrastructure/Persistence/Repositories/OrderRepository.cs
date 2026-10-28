@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.Common.Interfaces.Abstracts.Repositories;
 using Domain.Entities;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
@@ -35,9 +35,9 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
-    public async Task<List<Order>> GetAllAsync(int companyId, CancellationToken cancellationToken)
+    public async Task<List<Order>> GetAllAsync(int companyId, Application.Orders.Queries.GetAll.OrderListFilter? filter, CancellationToken cancellationToken)
     {
-        return await _context.Orders
+        var query = _context.Orders
             .Include(x => x.Restaurant)
             .Include(x => x.Table)
             .Include(x => x.BanquetTables).ThenInclude(b => b.Table)
@@ -47,7 +47,24 @@ public class OrderRepository : IOrderRepository
             .Include(x => x.DeliveryDriverEmployee)
             .Include(x => x.Lines)
                 .ThenInclude(x => x.MenuItem)
-            .Where(x => x.CompanyId == companyId)
+            .Where(x => x.CompanyId == companyId);
+
+        if (filter?.Statuses is { Count: > 0 })
+        {
+            var statusList = filter.Statuses.ToList();
+            query = query.Where(x => statusList.Contains(x.Status));
+        }
+
+        if (filter?.ExcludeFinished == true)
+            query = query.Where(x => x.Status != Domain.Enums.OrderStatus.Paid && x.Status != Domain.Enums.OrderStatus.Cancelled);
+
+        if (filter?.TableType is { } tableType)
+            query = query.Where(x => x.Table != null && x.Table.Type == tableType);
+
+        if (filter?.RestaurantId is { } restaurantId)
+            query = query.Where(x => x.RestaurantId == restaurantId);
+
+        return await query
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
     }

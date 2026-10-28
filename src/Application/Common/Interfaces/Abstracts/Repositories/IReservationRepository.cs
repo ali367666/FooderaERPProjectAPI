@@ -4,7 +4,7 @@ namespace Application.Common.Interfaces.Abstracts.Repositories;
 
 public interface IReservationRepository
 {
-    Task<List<Reservation>> GetAllAsync(int companyId, DateTime? date, CancellationToken ct);
+    Task<List<Reservation>> GetAllAsync(int companyId, DateTime? date, DateTime? dateFrom, DateTime? dateTo, CancellationToken ct);
     Task<Reservation?> GetByIdAsync(int id, int companyId, CancellationToken ct);
 
     /// <summary>

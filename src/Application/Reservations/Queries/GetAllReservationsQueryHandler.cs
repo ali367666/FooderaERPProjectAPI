@@ -19,7 +19,7 @@ public class GetAllReservationsQueryHandler
 
     public async Task<List<ReservationResponse>> Handle(GetAllReservationsQuery request, CancellationToken cancellationToken)
     {
-        var list = await _repo.GetAllAsync(_currentUser.CompanyId, request.Date, cancellationToken);
+        var list = await _repo.GetAllAsync(_currentUser.CompanyId, request.Date, request.DateFrom, request.DateTo, cancellationToken);
         return list.Select(ReservationMapper.ToResponse).ToList();
     }
 }

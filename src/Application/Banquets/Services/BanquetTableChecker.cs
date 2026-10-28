@@ -41,6 +41,27 @@ public sealed class BanquetTableChecker : IBanquetTableChecker
         return tables;
     }
 
+    public async Task<List<Domain.Entities.RestaurantTable>> LoadHallTablesAsync(
+        int companyId, int restaurantId, int sectionId, CancellationToken cancellationToken)
+    {
+        var inHall = (await _tableRepository.GetForSearchAsync(companyId, restaurantId, cancellationToken))
+            .Where(t => t.SectionId == sectionId)
+            .ToList();
+
+        var section = inHall.Select(t => t.Section).FirstOrDefault(s => s is not null);
+        if (section is null || !section.IsActive || !section.IsBanquet)
+            throw new BadRequestException("Seçilmiş banket zalı bu filial üçün tapılmadı.");
+
+        var tables = inHall
+            .Where(t => t.IsActive && t.Type is not (RestaurantTableType.Delivery or RestaurantTableType.TakeAway))
+            .OrderBy(t => t.Id)
+            .ToList();
+        if (tables.Count == 0)
+            throw new BadRequestException("Bu banket zalında aktiv masa yoxdur.");
+
+        return tables;
+    }
+
     public async Task<string?> GetBusyReasonNowAsync(
         int companyId, Domain.Entities.RestaurantTable table, CancellationToken cancellationToken)
     {

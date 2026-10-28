@@ -1,9 +1,13 @@
 namespace Application.Banquets.Dtos;
 
-/// <summary>Books several tables of a hall for a banquet on a date and time.</summary>
+/// <summary>
+/// Books a banquet hall for a date and time. Pick the hall with <see cref="SectionId"/> and every table of it
+/// is held; <see cref="TableIds"/> is only the older way of booking an explicit set of tables.
+/// </summary>
 public class CreateBanquetReservationRequest
 {
     public int RestaurantId { get; set; }
+    public int? SectionId { get; set; }
     public List<int> TableIds { get; set; } = new();
 
     public string GuestName { get; set; } = default!;
