@@ -25,6 +25,9 @@ export type PublicMenu = {
   productColor: string | null;
   contactPhoneNumber: string | null;
   socialLinks: string | null;
+  /** The table whose own QR code was scanned; null for the branch-wide QR. */
+  tableName: string | null;
+  tableToken: string | null;
   categories: PublicMenuCategory[];
 };
 
@@ -56,8 +59,10 @@ function normalizeCategory(raw: Record<string, unknown>): PublicMenuCategory {
   };
 }
 
-export async function getPublicMenu(restaurantId: number): Promise<PublicMenu> {
-  const response = await api.get<unknown>(`/public-menu/${restaurantId}`);
+export async function getPublicMenu(restaurantId: number, tableToken?: string | null): Promise<PublicMenu> {
+  const response = await api.get<unknown>(`/public-menu/${restaurantId}`, {
+    params: tableToken ? { t: tableToken } : undefined,
+  });
   const raw = response.data as Record<string, unknown>;
   const categories = pick<unknown[]>(raw, "categories", "Categories") ?? [];
   return {
@@ -68,6 +73,8 @@ export async function getPublicMenu(restaurantId: number): Promise<PublicMenu> {
     productColor: (pick(raw, "productColor", "ProductColor") as string | null | undefined) ?? null,
     contactPhoneNumber: (pick(raw, "contactPhoneNumber", "ContactPhoneNumber") as string | null | undefined) ?? null,
     socialLinks: (pick(raw, "socialLinks", "SocialLinks") as string | null | undefined) ?? null,
+    tableName: (pick(raw, "tableName", "TableName") as string | null | undefined) ?? null,
+    tableToken: (pick(raw, "tableToken", "TableToken") as string | null | undefined) ?? null,
     categories: categories.map((x) => normalizeCategory(x as Record<string, unknown>)),
   };
 }

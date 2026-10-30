@@ -1,6 +1,7 @@
+using System.Text.Json;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.PublicMenu.Dtos;
-using Domain.Enums;
+using Application.PublicMenu.Services;
 using MediatR;
 
 namespace Application.PublicMenu.Queries;
@@ -9,25 +10,19 @@ public class GetPublicMenuQueryHandler : IRequestHandler<GetPublicMenuQuery, Pub
 {
     private readonly IRestaurantRepository _restaurantRepository;
     private readonly ICompanySettingsRepository _companySettingsRepository;
-    private readonly IMenuItemRepository _menuItemRepository;
-    private readonly IMenuItemRecipeRepository _menuItemRecipeRepository;
-    private readonly IWarehouseRepository _warehouseRepository;
-    private readonly IWarehouseStockRepository _warehouseStockRepository;
+    private readonly IQrMenuRepository _qrMenuRepository;
+    private readonly IPublicMenuBuilder _menuBuilder;
 
     public GetPublicMenuQueryHandler(
         IRestaurantRepository restaurantRepository,
         ICompanySettingsRepository companySettingsRepository,
-        IMenuItemRepository menuItemRepository,
-        IMenuItemRecipeRepository menuItemRecipeRepository,
-        IWarehouseRepository warehouseRepository,
-        IWarehouseStockRepository warehouseStockRepository)
+        IQrMenuRepository qrMenuRepository,
+        IPublicMenuBuilder menuBuilder)
     {
         _restaurantRepository = restaurantRepository;
         _companySettingsRepository = companySettingsRepository;
-        _menuItemRepository = menuItemRepository;
-        _menuItemRecipeRepository = menuItemRecipeRepository;
-        _warehouseRepository = warehouseRepository;
-        _warehouseStockRepository = warehouseStockRepository;
+        _qrMenuRepository = qrMenuRepository;
+        _menuBuilder = menuBuilder;
     }
 
     public async Task<PublicMenuResponse?> Handle(GetPublicMenuQuery request, CancellationToken cancellationToken)
@@ -39,35 +34,22 @@ public class GetPublicMenuQueryHandler : IRequestHandler<GetPublicMenuQuery, Pub
         var companyId = restaurant.CompanyId;
         var settings = await _companySettingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
 
-        var outOfStockIds = await GetOutOfStockMenuItemIdsAsync(companyId, request.RestaurantId, cancellationToken);
+        // The published menu when there is one (products added or re-priced since stay hidden until the
+        // next publish); a branch that never published still shows its live menu.
+        var snapshot = await _qrMenuRepository.GetSnapshotAsync(request.RestaurantId, cancellationToken);
+        var categories = snapshot is null
+            ? await _menuBuilder.BuildCategoriesAsync(companyId, cancellationToken)
+            : JsonSerializer.Deserialize<List<PublicMenuCategoryResponse>>(snapshot.MenuJson) ?? new();
 
-        var menuItems = await _menuItemRepository.GetAllAsync(companyId, cancellationToken);
+        // Stock changes by the minute, so availability is always read live.
+        var outOfStockIds = await _menuBuilder.GetOutOfStockMenuItemIdsAsync(companyId, request.RestaurantId, cancellationToken);
+        foreach (var item in categories.SelectMany(c => c.Items))
+            item.IsAvailable = !outOfStockIds.Contains(item.Id);
 
-        var categories = menuItems
-            .Where(x => x.IsActive && !x.HideFromPosSearch && x.MenuCategory.IsActive)
-            .GroupBy(x => x.MenuCategory)
-            .OrderBy(g => g.Key.Name)
-            .Select(g => new PublicMenuCategoryResponse
-            {
-                Id = g.Key.Id,
-                Name = g.Key.Name,
-                ImageUrl = g.Key.ImageUrl,
-                Items = g
-                    .OrderBy(x => x.Name)
-                    .Select(x => new PublicMenuItemResponse
-                    {
-                        Id = x.Id,
-                        Name = x.Name,
-                        Description = x.Description,
-                        ImageUrl = x.ImageUrl,
-                        Price = x.Price,
-                        Portion = x.Portion,
-                        IsAvailable = !outOfStockIds.Contains(x.Id)
-                    })
-                    .ToList()
-            })
-            .Where(c => c.Items.Count > 0)
-            .ToList();
+        // A table's own QR carries its token; an unknown token just shows the plain menu.
+        var table = string.IsNullOrWhiteSpace(request.TableToken)
+            ? null
+            : await _qrMenuRepository.FindTableByTokenAsync(request.RestaurantId, request.TableToken.Trim(), cancellationToken);
 
         return new PublicMenuResponse
         {
@@ -78,64 +60,9 @@ public class GetPublicMenuQueryHandler : IRequestHandler<GetPublicMenuQuery, Pub
             ProductColor = settings?.ProductColor,
             ContactPhoneNumber = settings?.ContactPhoneNumber,
             SocialLinks = settings?.SocialLinks,
+            TableName = table?.Name,
+            TableToken = table?.QrToken,
             Categories = categories
         };
-    }
-
-    private async Task<HashSet<int>> GetOutOfStockMenuItemIdsAsync(
-        int companyId,
-        int restaurantId,
-        CancellationToken cancellationToken)
-    {
-        var result = new HashSet<int>();
-
-        var warehouses = await _warehouseRepository.GetByRestaurantIdAsync(restaurantId, cancellationToken);
-        var restaurantWarehouse = warehouses.FirstOrDefault(x => x.CompanyId == companyId && x.Type == WarehouseType.Restaurant)
-            ?? warehouses.FirstOrDefault(x => x.CompanyId == companyId);
-
-        if (restaurantWarehouse is null)
-            return result;
-
-        var balances = await _warehouseStockRepository.SearchAsync(
-            companyId, restaurantWarehouse.Id, null, null, cancellationToken);
-        var balanceByStockItem = balances.ToDictionary(x => x.StockItemId, x => x.Quantity);
-
-        var menuItems = await _menuItemRepository.GetAllAsync(companyId, cancellationToken);
-        var recipeLinesByMenuItem = (await _menuItemRecipeRepository.GetAllAsync(companyId, cancellationToken))
-            .GroupBy(x => x.MenuItemId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        foreach (var menuItem in menuItems.Where(x => x.IsActive))
-        {
-            List<(int StockItemId, decimal QuantityPerPortion)> effectiveLines;
-
-            if (recipeLinesByMenuItem.TryGetValue(menuItem.Id, out var recipeLines) && recipeLines.Count > 0)
-            {
-                effectiveLines = recipeLines
-                    .Select(x => (x.StockItemId, x.QuantityPerPortion))
-                    .ToList();
-            }
-            else if (menuItem.StockItemId.HasValue)
-            {
-                effectiveLines = new List<(int, decimal)> { (menuItem.StockItemId.Value, 1m) };
-            }
-            else
-            {
-                continue;
-            }
-
-            var makeablePortions = effectiveLines
-                .Where(l => l.QuantityPerPortion > 0)
-                .Select(l => balanceByStockItem.TryGetValue(l.StockItemId, out var qty)
-                    ? Math.Floor(qty / l.QuantityPerPortion)
-                    : 0)
-                .DefaultIfEmpty(0)
-                .Min();
-
-            if (makeablePortions < 1)
-                result.Add(menuItem.Id);
-        }
-
-        return result;
     }
 }

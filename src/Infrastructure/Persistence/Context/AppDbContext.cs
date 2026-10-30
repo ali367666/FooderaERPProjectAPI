@@ -92,6 +92,7 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<OrderPayment> OrderPayments { get; set; } = null!;
     public DbSet<OrderPaymentLine> OrderPaymentLines { get; set; } = null!;
     public DbSet<RestaurantTable> RestaurantTables { get; set; } = null!;
+    public DbSet<PublicMenuSnapshot> PublicMenuSnapshots { get; set; } = null!;
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
     public DbSet<Notification> Notifications { get; set; } = null!;
     public DbSet<Permission> Permissions { get; set; } = null!;
@@ -115,6 +116,11 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
+        modelBuilder.Entity<RestaurantTable>(b =>
+        {
+            b.Property(t => t.QrToken).HasMaxLength(32);
+            b.HasIndex(t => t.QrToken).IsUnique().HasFilter("[QrToken] IS NOT NULL");
+        });
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             foreach (var property in entityType.GetProperties())
