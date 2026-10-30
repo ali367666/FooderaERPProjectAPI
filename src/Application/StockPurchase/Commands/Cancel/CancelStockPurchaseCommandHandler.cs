@@ -49,6 +49,13 @@ public class CancelStockPurchaseCommandHandler : IRequestHandler<CancelStockPurc
         if (purchase.Status != StockPurchaseStatus.Completed)
             return new BaseResponse { Success = false, Message = "Yalnız təsdiqlənmiş alışlar ləğv edilə bilər." };
 
+        if (purchase.Returns.Count > 0)
+            return new BaseResponse
+            {
+                Success = false,
+                Message = "Bu alışdan təchizatçıya mal qaytarılıb, ona görə ləğv etmək olmur."
+            };
+
         var companyId = purchase.CompanyId;
         var userId = _currentUserService.UserId;
         var now = DateTime.UtcNow;

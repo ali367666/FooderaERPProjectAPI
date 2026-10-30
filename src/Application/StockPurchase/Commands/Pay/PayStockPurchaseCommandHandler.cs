@@ -3,6 +3,7 @@ using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
 using Application.Common.Responce;
+using Domain.Entities.WarehouseAndStock;
 using Domain.Enums;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -42,7 +43,8 @@ public class PayStockPurchaseCommandHandler : IRequestHandler<PayStockPurchaseCo
         if (amount <= 0)
             return new BaseResponse { Success = false, Message = "Ödəniş məbləği 0-dan böyük olmalıdır." };
 
-        var total = Math.Round(purchase.Lines.Sum(l => l.Quantity * l.UnitPriceAzn), 2, MidpointRounding.AwayFromZero);
+        // What is owed is the invoice minus whatever was handed back to the supplier.
+        var total = StockPurchaseMapper.Total(purchase) - StockPurchaseMapper.ReturnedTotal(purchase);
         var remaining = Math.Max(0, total - purchase.PaidAmountAzn);
         if (amount > remaining)
             return new BaseResponse
@@ -51,9 +53,22 @@ public class PayStockPurchaseCommandHandler : IRequestHandler<PayStockPurchaseCo
                 Message = $"Ödəniş qalan borcdan ({remaining:0.00} AZN) çox ola bilməz."
             };
 
+        var now = DateTime.UtcNow;
+        var userId = _currentUserService.UserId;
         purchase.PaidAmountAzn += amount;
-        purchase.LastModifiedByUserId = _currentUserService.UserId;
-        purchase.LastModifiedAtUtc = DateTime.UtcNow;
+        purchase.LastModifiedByUserId = userId;
+        purchase.LastModifiedAtUtc = now;
+
+        // Every payment is kept, so the history shows when, by whom and how much was paid.
+        purchase.Payments.Add(new StockPurchasePayment
+        {
+            CompanyId = purchase.CompanyId,
+            Amount = amount,
+            Note = string.IsNullOrWhiteSpace(command.Request.Note) ? null : command.Request.Note.Trim(),
+            RemainingAfterAzn = Math.Max(0, total - purchase.PaidAmountAzn),
+            CreatedByUserId = userId,
+            CreatedAtUtc = now,
+        });
         _purchaseRepository.Update(purchase);
 
         // The paid amount is a concurrency token: two payments at once cannot overwrite each other.

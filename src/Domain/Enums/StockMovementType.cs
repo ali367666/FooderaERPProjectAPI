@@ -16,4 +16,8 @@ public enum StockMovementType
     PurchaseIn = 7,
     /// <summary>Stock decrease from cancelling an already approved supplier purchase.</summary>
     PurchaseReversalOut = 8,
+    /// <summary>Stock decrease from goods written off as waste, spoiled or broken.</summary>
+    WriteOffOut = 9,
+    /// <summary>Stock decrease from goods handed back to the supplier.</summary>
+    PurchaseReturnOut = 10,
 }

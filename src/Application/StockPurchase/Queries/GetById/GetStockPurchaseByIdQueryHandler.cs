@@ -1,9 +1,7 @@
-using Domain.Enums;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockPurchase.Dtos.Response;
-using Application.StockPurchase.Queries.GetAll;
 using MediatR;
 
 namespace Application.StockPurchase.Queries.GetById;
@@ -30,47 +28,17 @@ public class GetStockPurchaseByIdQueryHandler
         if (purchase is null || (!_currentUserService.IsSuperAdmin && purchase.CompanyId != _currentUserService.CompanyId))
             return new BaseResponse<StockPurchaseResponse> { Success = false, Message = "Stok alışı tapılmadı." };
 
-        var lines = purchase.Lines.Select(l => new StockPurchaseLineResponse
-        {
-            Id = l.Id,
-            StockItemId = l.StockItemId,
-            StockItemName = l.StockItem?.Name ?? string.Empty,
-            Quantity = l.Quantity,
-            UnitPriceForeign = l.UnitPriceForeign,
-            UnitPriceAzn = l.UnitPriceAzn,
-            TotalForeign = l.Quantity * l.UnitPriceForeign,
-            TotalAzn = l.Quantity * l.UnitPriceAzn,
-        }).ToList();
+        var userNames = await _purchaseRepository.GetUserNamesAsync(
+            purchase.Payments.Select(x => x.CreatedByUserId)
+                .Concat(purchase.Returns.Select(r => r.CreatedByUserId))
+                .Append(purchase.CreatedByUserId)
+                .OfType<int>(),
+            cancellationToken);
 
-        var response = new StockPurchaseResponse
+        return new BaseResponse<StockPurchaseResponse>
         {
-            Id = purchase.Id,
-            DocumentNo = purchase.DocumentNo,
-            CompanyId = purchase.CompanyId,
-            CounterpartyId = purchase.CounterpartyId,
-            CounterpartyName = purchase.Counterparty?.Name ?? "",
-            IsImport = purchase.IsImport,
-            Currency = purchase.Currency,
-            CurrencyCode = purchase.Currency.ToString(),
-            ExchangeRate = purchase.ExchangeRate,
-            PurchaseDate = purchase.PurchaseDate,
-            Status = purchase.Status,
-            WarehouseId = purchase.WarehouseId,
-            WarehouseName = purchase.Warehouse?.Name ?? string.Empty,
-            Note = purchase.Note,
-            CreatedAtUtc = purchase.CreatedAtUtc,
-            TotalForeign = lines.Sum(l => l.TotalForeign),
-            TotalAzn = lines.Sum(l => l.TotalAzn),
-            SupplierInvoiceNo = purchase.SupplierInvoiceNo,
-            ApprovedAtUtc = purchase.ApprovedAtUtc,
-            CancelledAtUtc = purchase.CancelledAtUtc,
-            PaidAmountAzn = purchase.PaidAmountAzn,
-            RemainingAzn = purchase.Status == StockPurchaseStatus.Completed
-                ? Math.Max(0, lines.Sum(l => l.TotalAzn) - purchase.PaidAmountAzn)
-                : 0,
-            Lines = lines,
+            Success = true,
+            Data = StockPurchaseMapper.ToResponse(purchase, userNames)
         };
-
-        return new BaseResponse<StockPurchaseResponse> { Success = true, Data = response };
     }
 }

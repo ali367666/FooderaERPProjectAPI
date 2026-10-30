@@ -24,6 +24,9 @@ public interface IStockPurchaseRepository
     Task<List<Domain.Entities.WarehouseAndStock.StockItem>> GetStockItemsAsync(
         int companyId, IReadOnlyCollection<int> stockItemIds, CancellationToken cancellationToken = default);
 
+    /// <summary>Display names of the given users, by id (for "who bought / paid / returned").</summary>
+    Task<Dictionary<int, string>> GetUserNamesAsync(IEnumerable<int> userIds, CancellationToken cancellationToken = default);
+
     /// <summary>Quantity of the item across every warehouse of the company, as currently saved.</summary>
     Task<decimal> GetTotalStockQuantityAsync(int companyId, int stockItemId, CancellationToken cancellationToken = default);
 }

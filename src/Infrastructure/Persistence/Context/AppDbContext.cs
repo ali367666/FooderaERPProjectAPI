@@ -67,6 +67,10 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<MenuItemRecipeLine> MenuItemRecipeLines { get; set; } = null!;
     public DbSet<StockPurchase> StockPurchases { get; set; } = null!;
     public DbSet<StockPurchaseLine> StockPurchaseLines { get; set; } = null!;
+    public DbSet<StockPurchasePayment> StockPurchasePayments { get; set; } = null!;
+    public DbSet<StockPurchaseReturn> StockPurchaseReturns { get; set; } = null!;
+    public DbSet<StockPurchaseReturnLine> StockPurchaseReturnLines { get; set; } = null!;
+    public DbSet<StockWriteOff> StockWriteOffs { get; set; } = null!;
 
     // Warehouse
     public DbSet<Warehouse> Warehouses { get; set; } = null!;

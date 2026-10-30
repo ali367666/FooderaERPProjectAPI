@@ -111,6 +111,9 @@ public static class AppPermissions
     public const string StockPurchaseReject = "StockPurchase.Reject";
     public const string StockPurchaseCancel = "StockPurchase.Cancel";
     public const string StockPurchasePay = "StockPurchase.Pay";
+    public const string StockPurchaseReturn = "StockPurchase.Return";
+    public const string StockWriteOffView = "StockWriteOff.View";
+    public const string StockWriteOffCreate = "StockWriteOff.Create";
 
     public const string ReservationView = "Reservation.View";
     public const string ReservationCreate = "Reservation.Create";

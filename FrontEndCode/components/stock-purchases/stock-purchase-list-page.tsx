@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, Pencil, Plus, Trash2, Send, Check, X, Ban, Wallet } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2, Send, Check, X, Ban, Wallet, Undo2 } from "lucide-react";
 import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
 import { DocumentActionToolbar } from "@/components/documents/document-action-toolbar";
 import { ListSelectionSync } from "@/components/documents/list-selection-sync";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/documents/confirm-dialog";
@@ -24,6 +26,7 @@ import {
   rejectStockPurchase,
   cancelStockPurchase,
   payStockPurchase,
+  returnStockPurchase,
   type StockPurchaseDto,
 } from "@/lib/services/stock-purchase-service";
 import { toApiFormError } from "@/lib/api-error";
@@ -83,6 +86,14 @@ export function StockPurchaseListPage() {
   const [sortDesc, setSortDesc] = useState(true);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ListRow | null>(null);
+  const [payTarget, setPayTarget] = useState<{ numericId: number; documentNo: string; remaining: number } | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payNote, setPayNote] = useState("");
+  const [paying, setPaying] = useState(false);
+  const [returnTarget, setReturnTarget] = useState<StockPurchaseDto | null>(null);
+  const [returnQty, setReturnQty] = useState<Record<number, string>>({});
+  const [returnNote, setReturnNote] = useState("");
+  const [returning, setReturning] = useState(false);
   const [workflowConfirm, setWorkflowConfirm] = useState<
     null | { kind: "approve" | "reject" | "cancel"; numericId: number }
   >(null);
@@ -208,6 +219,8 @@ export function StockPurchaseListPage() {
             const canReject  = hasSelection && st === StockPurchaseStatus.Pending;
             const canCancel  = hasSelection && st === StockPurchaseStatus.Completed;
             const remaining  = selectedRow?.raw.remainingAzn ?? 0;
+            const canReturn  = hasSelection && st === StockPurchaseStatus.Completed
+              && (selectedRow?.raw.lines ?? []).some((l) => (l.returnableQuantity ?? l.quantity) > 0);
             const canPay     = hasSelection && st === StockPurchaseStatus.Completed && remaining > 0;
 
             return (
@@ -269,23 +282,21 @@ export function StockPurchaseListPage() {
                     {
                       id: "pay", label: "Ödəniş", icon: Wallet, enabled: canPay,
                       disabledReason: !canPay ? "Yalnız borcu olan təsdiqlənmiş alışa ödəniş yazılır." : undefined,
-                      onClick: async () => {
+                      onClick: () => {
                         if (!selectedRow || !canPay) return;
-                        const input = window.prompt(
-                          `Təchizatçıya ödəniş (AZN). Qalan borc: ${formatAzn(remaining)}`,
-                          remaining.toFixed(2),
-                        );
-                        if (input == null) return;
-                        const amount = Number(input.replace(",", "."));
-                        if (!Number.isFinite(amount) || amount <= 0) {
-                          toast.error("Məbləğ düzgün deyil.");
-                          return;
-                        }
-                        try {
-                          const message = await payStockPurchase(selectedRow.numericId, amount);
-                          toast.success(message ?? "Ödəniş yazıldı");
-                          void load();
-                        } catch (err) { toast.error(toApiFormError(err, "Ödəniş yazılmadı").message); }
+                        setPayTarget({ numericId: selectedRow.numericId, documentNo: selectedRow.documentNo, remaining });
+                        setPayAmount(remaining.toFixed(2));
+                        setPayNote("");
+                      },
+                    },
+                    {
+                      id: "return", label: "Qaytar", icon: Undo2, variant: "outline", enabled: canReturn,
+                      disabledReason: !canReturn ? "Yalnız təsdiqlənmiş alışdan, qaytarıla bilən mal qalıbsa qaytarmaq olar." : undefined,
+                      onClick: () => {
+                        if (!selectedRow || !canReturn) return;
+                        setReturnTarget(selectedRow.raw);
+                        setReturnQty({});
+                        setReturnNote("");
                       },
                     },
                     {
@@ -309,6 +320,8 @@ export function StockPurchaseListPage() {
                         <th className="text-right py-2 px-3 font-medium">Exchange Rate</th>
                         <th className="text-right py-2 px-3 font-medium">Total (foreign)</th>
                         <th className="text-right py-2 px-3 font-medium">Total (AZN)</th>
+                        <th className="text-right py-2 px-3 font-medium">Ödənilən</th>
+                        <th className="text-right py-2 px-3 font-medium">Qalan borc</th>
                         <th className="text-left py-2 px-3 font-medium">Warehouse</th>
                         <th className="text-left py-2 px-3 font-medium">Status</th>
                       </tr>
@@ -316,7 +329,7 @@ export function StockPurchaseListPage() {
                     <tbody>
                       {slice.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="py-10 text-center text-muted-foreground">
+                          <td colSpan={13} className="py-10 text-center text-muted-foreground">
                             No purchases match your filters.
                           </td>
                         </tr>
@@ -360,6 +373,22 @@ export function StockPurchaseListPage() {
                               </td>
                               <td className="py-2 px-3 text-right tabular-nums font-medium">
                                 {formatAzn(row.totalAzn)}
+                                {(row.raw.returnedAzn ?? 0) > 0 && (
+                                  <span className="block text-xs font-normal text-muted-foreground">
+                                    qaytarılan: {formatAzn(row.raw.returnedAzn ?? 0)}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3 text-right tabular-nums">
+                                {row.status === StockPurchaseStatus.Completed ? formatAzn(row.raw.paidAmountAzn ?? 0) : "—"}
+                              </td>
+                              <td
+                                className={cn(
+                                  "py-2 px-3 text-right tabular-nums font-medium",
+                                  (row.raw.remainingAzn ?? 0) > 0 && "text-red-600",
+                                )}
+                              >
+                                {row.status === StockPurchaseStatus.Completed ? formatAzn(row.raw.remainingAzn ?? 0) : "—"}
                               </td>
                               <td className="py-2 px-3">{row.warehouseName}</td>
                               <td className="py-2 px-3"><StatusBadge status={row.status} /></td>
@@ -390,6 +419,161 @@ export function StockPurchaseListPage() {
           }}
         </AdvancedTableFilters>
       )}
+
+      <Dialog open={returnTarget != null} onOpenChange={(o) => !o && !returning && setReturnTarget(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Təchizatçıya qaytarma</DialogTitle>
+            <DialogDescription>
+              {returnTarget?.documentNo} — qaytarılan mal anbardan çıxır, alışın dəyəri və borc azalır.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!returnTarget) return;
+              const lines = returnTarget.lines
+                .map((l) => ({ stockPurchaseLineId: l.id, quantity: Number((returnQty[l.id] ?? "").replace(",", ".")) }))
+                .filter((l) => Number.isFinite(l.quantity) && l.quantity > 0);
+              if (lines.length === 0) {
+                toast.error("Qaytarılacaq miqdarı yazın.");
+                return;
+              }
+              const tooMuch = returnTarget.lines.find((l) => {
+                const q = Number((returnQty[l.id] ?? "").replace(",", "."));
+                return q > (l.returnableQuantity ?? l.quantity) + 0.0001;
+              });
+              if (tooMuch) {
+                toast.error(`"${tooMuch.stockItemName}" üçün ən çox ${tooMuch.returnableQuantity ?? tooMuch.quantity} qaytarmaq olar.`);
+                return;
+              }
+              setReturning(true);
+              try {
+                const message = await returnStockPurchase(returnTarget.id, lines, returnNote.trim() || null);
+                toast.success(message ?? "Mal qaytarıldı");
+                setReturnTarget(null);
+                void load();
+              } catch (err) {
+                toast.error(toApiFormError(err, "Qaytarma yazılmadı").message);
+              } finally {
+                setReturning(false);
+              }
+            }}
+          >
+            <div className="max-h-72 overflow-y-auto rounded border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
+                    <th className="px-3 py-2 font-medium">Məhsul</th>
+                    <th className="px-3 py-2 text-right font-medium">Qaytarıla bilər</th>
+                    <th className="px-3 py-2 text-right font-medium">Qaytarılır</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(returnTarget?.lines ?? []).map((l) => {
+                    const max = l.returnableQuantity ?? l.quantity;
+                    return (
+                      <tr key={l.id} className="border-t">
+                        <td className="px-3 py-2">
+                          {l.stockItemName}
+                          <span className="block text-xs text-muted-foreground">
+                            alınıb: {l.quantity} × {formatAzn(l.unitPriceAzn)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">{max}</td>
+                        <td className="px-3 py-2 text-right">
+                          <Input
+                            className="ml-auto h-8 w-24 text-right"
+                            inputMode="decimal"
+                            disabled={max <= 0}
+                            value={returnQty[l.id] ?? ""}
+                            onChange={(e) => setReturnQty((prev) => ({ ...prev, [l.id]: e.target.value }))}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="return-note">Qeyd (istəyə bağlı)</Label>
+              <Input id="return-note" value={returnNote} onChange={(e) => setReturnNote(e.target.value)} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={returning} onClick={() => setReturnTarget(null)}>
+                Ləğv et
+              </Button>
+              <Button type="submit" disabled={returning}>
+                {returning ? "Yazılır…" : "Qaytar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={payTarget != null} onOpenChange={(o) => !o && !paying && setPayTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Təchizatçıya ödəniş</DialogTitle>
+            <DialogDescription>
+              {payTarget?.documentNo} — qalan borc: {payTarget ? formatAzn(payTarget.remaining) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!payTarget) return;
+              const amount = Number(payAmount.replace(",", "."));
+              if (!Number.isFinite(amount) || amount <= 0) {
+                toast.error("Məbləğ düzgün deyil.");
+                return;
+              }
+              if (amount > payTarget.remaining + 0.001) {
+                toast.error(`Ödəniş qalan borcdan (${formatAzn(payTarget.remaining)}) çox ola bilməz.`);
+                return;
+              }
+              setPaying(true);
+              try {
+                const message = await payStockPurchase(payTarget.numericId, amount, payNote.trim() || null);
+                toast.success(message ?? "Ödəniş yazıldı");
+                setPayTarget(null);
+                void load();
+              } catch (err) {
+                toast.error(toApiFormError(err, "Ödəniş yazılmadı").message);
+              } finally {
+                setPaying(false);
+              }
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="pay-amount">Məbləğ (AZN)</Label>
+              <Input
+                id="pay-amount"
+                inputMode="decimal"
+                autoFocus
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+                onFocus={(e) => e.currentTarget.select()}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pay-note">Qeyd (istəyə bağlı)</Label>
+              <Input id="pay-note" value={payNote} onChange={(e) => setPayNote(e.target.value)} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={paying} onClick={() => setPayTarget(null)}>
+                Ləğv et
+              </Button>
+              <Button type="submit" disabled={paying}>
+                {paying ? "Yazılır…" : "Ödəniş yaz"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={deleteTarget != null}

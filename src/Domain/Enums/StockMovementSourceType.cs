@@ -7,4 +7,6 @@ public enum StockMovementSourceType
     StockEntryDocument = 2,
     Order = 3,
     StockPurchase = 4,
+    StockPurchaseReturn = 5,
+    StockWriteOff = 6,
 }

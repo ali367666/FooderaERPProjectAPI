@@ -5,6 +5,8 @@ using Application.StockPurchase.Commands.Pay;
 using Application.StockPurchase.Commands.Create;
 using Application.StockPurchase.Commands.Delete;
 using Application.StockPurchase.Commands.Reject;
+using Application.StockPurchase.Commands.Return;
+using Application.StockPurchase.Queries.DebtReport;
 using Application.StockPurchase.Commands.Submit;
 using Application.StockPurchase.Commands.Update;
 using Application.StockPurchase.Dtos.Request;
@@ -119,6 +121,28 @@ public class StockPurchasesController : ControllerBase
         var result = await _mediator.Send(new PayStockPurchaseCommand(id, request));
         if (!result.Success) return BadRequest(result);
         return Ok(result);
+    }
+
+    /// <summary>Hands goods of an approved purchase back to the supplier: stock drops, the cost and the debt shrink.</summary>
+    [Authorize(Policy = AppPermissions.StockPurchaseReturn)]
+    [HttpPost("{id:int}/return")]
+    public async Task<ActionResult<BaseResponse>> Return(int id, [FromBody] ReturnStockPurchaseRequest request)
+    {
+        var result = await _mediator.Send(new ReturnStockPurchaseCommand(id, request));
+        if (!result.Success) return BadRequest(result);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Goods-received costs as a report: per approved purchase the cost, returns, who paid what and when,
+    /// and what is still owed; with totals overall and per supplier.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.StockPurchaseView)]
+    [HttpGet("debt-report")]
+    public async Task<ActionResult<StockPurchaseDebtReportResponse>> GetDebtReport(
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int? counterpartyId, [FromQuery] bool onlyOpen = false)
+    {
+        return Ok(await _mediator.Send(new GetStockPurchaseDebtReportQuery(from, to, counterpartyId, onlyOpen)));
     }
 
     /// <summary>CBAR məzənnəsi — valyuta kodu və tarix göndər, AZN məzənnəsi gəlir.</summary>

@@ -38,5 +38,8 @@ public class StockPurchase : CompanyEntity<int>
     /// <summary>What has been paid to the supplier so far, in AZN. The rest of the total is still owed.</summary>
     public decimal PaidAmountAzn { get; set; }
 
+    public ICollection<StockPurchasePayment> Payments { get; set; } = new List<StockPurchasePayment>();
+    public ICollection<StockPurchaseReturn> Returns { get; set; } = new List<StockPurchaseReturn>();
+
     public ICollection<StockPurchaseLine> Lines { get; set; } = new List<StockPurchaseLine>();
 }

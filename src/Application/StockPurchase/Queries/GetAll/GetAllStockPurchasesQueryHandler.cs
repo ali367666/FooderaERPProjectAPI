@@ -1,4 +1,3 @@
-using Domain.Enums;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
@@ -37,52 +36,15 @@ public class GetAllStockPurchasesQueryHandler
             purchases = purchases.Where(p => p.CompanyId == request.CompanyId.Value).ToList();
         }
 
-        var result = purchases.Select(p => MapToResponse(p)).ToList();
+        var userNames = await _purchaseRepository.GetUserNamesAsync(
+            purchases.SelectMany(p => p.Payments.Select(x => x.CreatedByUserId)
+                    .Concat(p.Returns.Select(r => r.CreatedByUserId))
+                    .Append(p.CreatedByUserId))
+                .OfType<int>(),
+            cancellationToken);
+
+        var result = purchases.Select(p => StockPurchaseMapper.ToResponse(p, userNames)).ToList();
 
         return new BaseResponse<List<StockPurchaseResponse>> { Success = true, Data = result };
-    }
-
-    private static StockPurchaseResponse MapToResponse(Domain.Entities.WarehouseAndStock.StockPurchase p)
-    {
-        var lines = p.Lines.Select(l => new StockPurchaseLineResponse
-        {
-            Id = l.Id,
-            StockItemId = l.StockItemId,
-            StockItemName = l.StockItem?.Name ?? string.Empty,
-            Quantity = l.Quantity,
-            UnitPriceForeign = l.UnitPriceForeign,
-            UnitPriceAzn = l.UnitPriceAzn,
-            TotalForeign = l.Quantity * l.UnitPriceForeign,
-            TotalAzn = l.Quantity * l.UnitPriceAzn,
-        }).ToList();
-
-        return new StockPurchaseResponse
-        {
-            Id = p.Id,
-            DocumentNo = p.DocumentNo,
-            CompanyId = p.CompanyId,
-            CounterpartyId = p.CounterpartyId,
-            CounterpartyName = p.Counterparty?.Name ?? "",
-            IsImport = p.IsImport,
-            Currency = p.Currency,
-            CurrencyCode = p.Currency.ToString(),
-            ExchangeRate = p.ExchangeRate,
-            PurchaseDate = p.PurchaseDate,
-            Status = p.Status,
-            WarehouseId = p.WarehouseId,
-            WarehouseName = p.Warehouse?.Name ?? string.Empty,
-            Note = p.Note,
-            CreatedAtUtc = p.CreatedAtUtc,
-            TotalForeign = lines.Sum(l => l.TotalForeign),
-            TotalAzn = lines.Sum(l => l.TotalAzn),
-            SupplierInvoiceNo = p.SupplierInvoiceNo,
-            ApprovedAtUtc = p.ApprovedAtUtc,
-            CancelledAtUtc = p.CancelledAtUtc,
-            PaidAmountAzn = p.PaidAmountAzn,
-            RemainingAzn = p.Status == StockPurchaseStatus.Completed
-                ? Math.Max(0, lines.Sum(l => l.TotalAzn) - p.PaidAmountAzn)
-                : 0,
-            Lines = lines,
-        };
     }
 }

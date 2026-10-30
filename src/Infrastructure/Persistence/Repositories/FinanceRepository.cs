@@ -67,6 +67,17 @@ public class FinanceRepository : IFinanceRepository
         lines.AddRange(purchases.Select(p =>
             new FinanceSourceLine(p.PurchaseDate, FinanceEntryType.Expense, "Mal alışı", p.Amount, "StockPurchase")));
 
+        // Goods handed back to the supplier take their value off the cost, on the day they went back.
+        var purchaseReturns = await _context.StockPurchaseReturns.AsNoTracking()
+            .Where(r => r.CompanyId == companyId
+                && r.CreatedAtUtc >= fromUtc && r.CreatedAtUtc < toUtc
+                && r.StockPurchase.Status == StockPurchaseStatus.Completed
+                && (restaurantId == null || r.StockPurchase.Warehouse.RestaurantId == restaurantId))
+            .Select(r => new { r.CreatedAtUtc, Amount = r.Lines.Sum(l => l.Quantity * l.UnitPriceAzn) })
+            .ToListAsync(cancellationToken);
+        lines.AddRange(purchaseReturns.Select(r =>
+            new FinanceSourceLine(r.CreatedAtUtc, FinanceEntryType.Expense, "Mal alışı qaytarması", -r.Amount, "StockPurchaseReturn")));
+
         // Money taken out of the till, named by the reason typed at the time.
         var withdrawals = await _context.CashMovements.AsNoTracking()
             .Where(c => c.CompanyId == companyId && c.Type == CashMovementType.Withdrawal

@@ -193,6 +193,20 @@ export const navGroups: NavGroup[] = [
         module: "moduleAnbar",
       },
       {
+        title: "Mal alışı xərcləri",
+        href: "/dashboard/stock-purchase-costs",
+        icon: Calculator,
+        permission: "StockPurchase.View",
+        module: "moduleAnbar",
+      },
+      {
+        title: "Stok tənzimləmə",
+        href: "/dashboard/stock-writeoffs",
+        icon: Package,
+        permission: "StockWriteOff.View",
+        module: "moduleAnbar",
+      },
+      {
         title: "Konturagentlər",
         href: "/dashboard/counterparties",
         icon: Building2,

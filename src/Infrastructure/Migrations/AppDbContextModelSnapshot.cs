@@ -3616,6 +3616,136 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("StockPurchaseLines");
                 });
 
+            modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockPurchasePayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("RemainingAfterAzn")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("StockPurchaseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StockPurchaseId");
+
+                    b.ToTable("StockPurchasePayments", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockPurchaseReturn", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("StockPurchaseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StockPurchaseId");
+
+                    b.ToTable("StockPurchaseReturns", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockPurchaseReturnLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("StockItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StockPurchaseLineId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StockPurchaseReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitPriceAzn")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StockItemId");
+
+                    b.HasIndex("StockPurchaseLineId");
+
+                    b.HasIndex("StockPurchaseReturnId");
+
+                    b.ToTable("StockPurchaseReturnLines", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -3716,6 +3846,64 @@ namespace Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("StockRequestLines");
+                });
+
+            modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockWriteOff", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StockItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StockPurchaseId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitCostAzn")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StockItemId");
+
+                    b.HasIndex("StockPurchaseId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "CreatedAtUtc");
+
+                    b.ToTable("StockWriteOffs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.WarehouseAndStock.WarehouseStock", b =>
@@ -5140,6 +5328,71 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("StockPurchase");
                 });
 
+            modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockPurchasePayment", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.WarehouseAndStock.StockPurchase", "StockPurchase")
+                        .WithMany("Payments")
+                        .HasForeignKey("StockPurchaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StockPurchase");
+                });
+
+            modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockPurchaseReturn", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.WarehouseAndStock.StockPurchase", "StockPurchase")
+                        .WithMany("Returns")
+                        .HasForeignKey("StockPurchaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StockPurchase");
+                });
+
+            modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockPurchaseReturnLine", b =>
+                {
+                    b.HasOne("Domain.Entities.WarehouseAndStock.StockItem", "StockItem")
+                        .WithMany()
+                        .HasForeignKey("StockItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.WarehouseAndStock.StockPurchaseLine", "StockPurchaseLine")
+                        .WithMany()
+                        .HasForeignKey("StockPurchaseLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.WarehouseAndStock.StockPurchaseReturn", "StockPurchaseReturn")
+                        .WithMany("Lines")
+                        .HasForeignKey("StockPurchaseReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StockItem");
+
+                    b.Navigation("StockPurchaseLine");
+
+                    b.Navigation("StockPurchaseReturn");
+                });
+
             modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockRequest", b =>
                 {
                     b.HasOne("Domain.Entities.Company", "Company")
@@ -5199,6 +5452,40 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("StockItem");
 
                     b.Navigation("StockRequest");
+                });
+
+            modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockWriteOff", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.WarehouseAndStock.StockItem", "StockItem")
+                        .WithMany()
+                        .HasForeignKey("StockItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.WarehouseAndStock.StockPurchase", "StockPurchase")
+                        .WithMany()
+                        .HasForeignKey("StockPurchaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StockItem");
+
+                    b.Navigation("StockPurchase");
+
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("Domain.Entities.WarehouseAndStock.WarehouseStock", b =>
@@ -5438,6 +5725,15 @@ namespace Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockPurchase", b =>
+                {
+                    b.Navigation("Lines");
+
+                    b.Navigation("Payments");
+
+                    b.Navigation("Returns");
+                });
+
+            modelBuilder.Entity("Domain.Entities.WarehouseAndStock.StockPurchaseReturn", b =>
                 {
                     b.Navigation("Lines");
                 });

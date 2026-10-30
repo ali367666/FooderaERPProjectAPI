@@ -108,6 +108,9 @@ const PERMISSION_LABELS: Record<string, string> = {
   "StockPurchase.Reject": "Alışı rədd et",
   "StockPurchase.Cancel": "Təsdiqlənmiş alışı ləğv et",
   "StockPurchase.Pay": "Alış üzrə təchizatçıya ödəniş yaz",
+  "StockPurchase.Return": "Alışdan təchizatçıya mal qaytar",
+  "StockWriteOff.View": "Stok tənzimləməyə bax",
+  "StockWriteOff.Create": "Anbardan mal sil (stok tənzimləmə)",
 
   "Reservation.View": "Rezervasiyalara bax",
   "Reservation.Create": "Rezervasiya yarat",
@@ -209,6 +212,7 @@ const MODULE_LABELS: Record<string, string> = {
   Kitchen: "Mətbəx",
   AuditLog: "Audit qeydləri",
   StockPurchase: "Alışlar",
+  StockWriteOff: "Stok tənzimləmə",
   Reservation: "Rezervasiyalar",
   Discount: "Endirimlər",
   Pos: "POS",

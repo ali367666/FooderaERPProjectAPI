@@ -37,10 +37,35 @@ export type StockPurchaseLineDto = {
   stockItemId: number;
   stockItemName: string;
   quantity: number;
+  /** How much of the line has been handed back to the supplier. */
+  returnedQuantity?: number;
+  /** What can still be returned. */
+  returnableQuantity?: number;
   unitPriceForeign: number;
   unitPriceAzn: number;
   totalForeign: number;
   totalAzn: number;
+};
+
+export type StockPurchasePaymentDto = {
+  id: number;
+  amount: number;
+  note: string | null;
+  paidAtUtc: string;
+  paidByUserId: number | null;
+  paidByUserName: string | null;
+  /** What was still owed right after this payment (AZN). */
+  remainingAfterAzn: number;
+};
+
+export type StockPurchaseReturnDto = {
+  id: number;
+  returnedAtUtc: string;
+  returnedByUserId: number | null;
+  returnedByUserName: string | null;
+  note: string | null;
+  totalAzn: number;
+  lines: { stockItemId: number; stockItemName: string; quantity: number; unitPriceAzn: number; totalAzn: number }[];
 };
 
 export type StockPurchaseDto = {
@@ -66,9 +91,19 @@ export type StockPurchaseDto = {
   /** Still owed to the supplier (AZN); 0 until the purchase is approved. */
   remainingAzn?: number;
   createdAtUtc: string;
+  createdByUserId?: number | null;
+  createdByUserName?: string | null;
   totalForeign: number;
   totalAzn: number;
+  /** Value of the goods handed back to the supplier (AZN). */
+  returnedAzn?: number;
+  /** Cost that counts: total minus returns (AZN). */
+  netTotalAzn?: number;
+  /** Paid beyond the net cost; the supplier owes this back (AZN). */
+  overpaidAzn?: number;
   lines: StockPurchaseLineDto[];
+  payments?: StockPurchasePaymentDto[];
+  returns?: StockPurchaseReturnDto[];
 };
 
 export type CreateStockPurchasePayload = {
@@ -156,4 +191,73 @@ export async function getCbarExchangeRate(currency: string, date: string): Promi
     params: { currency, date },
   });
   return requireData(readBaseResponseData<number>(res.data), "Məzənnə alınmadı");
+}
+
+/** Hands goods of an approved purchase back to the supplier: stock drops, the cost and the debt shrink. */
+export async function returnStockPurchase(
+  id: number,
+  lines: { stockPurchaseLineId: number; quantity: number }[],
+  note?: string | null,
+): Promise<string | null> {
+  const res = await api.post(`/stockpurchases/${id}/return`, { lines, note: note ?? null });
+  assertApiSuccess(res.data);
+  return (res.data as { message?: string } | undefined)?.message ?? null;
+}
+
+export type StockPurchaseDebtRow = {
+  purchaseId: number;
+  documentNo: string;
+  supplierInvoiceNo: string | null;
+  purchaseDate: string;
+  counterpartyId: number;
+  counterpartyName: string;
+  warehouseName: string;
+  createdByUserName: string | null;
+  totalAzn: number;
+  returnedAzn: number;
+  netTotalAzn: number;
+  paidAzn: number;
+  remainingAzn: number;
+  overpaidAzn: number;
+  payments: StockPurchasePaymentDto[];
+  returns: StockPurchaseReturnDto[];
+};
+
+export type StockPurchaseDebtSupplierRow = {
+  counterpartyId: number;
+  counterpartyName: string;
+  purchaseCount: number;
+  netTotalAzn: number;
+  paidAzn: number;
+  remainingAzn: number;
+  overpaidAzn: number;
+};
+
+export type StockPurchaseDebtReport = {
+  totalAzn: number;
+  returnedAzn: number;
+  netTotalAzn: number;
+  paidAzn: number;
+  remainingAzn: number;
+  overpaidAzn: number;
+  suppliers: StockPurchaseDebtSupplierRow[];
+  purchases: StockPurchaseDebtRow[];
+};
+
+/** Goods-received costs: per approved purchase the cost, returns, payments (when, by whom) and what is still owed. */
+export async function getStockPurchaseDebtReport(params: {
+  from?: string;
+  to?: string;
+  counterpartyId?: number | null;
+  onlyOpen?: boolean;
+}): Promise<StockPurchaseDebtReport> {
+  const res = await api.get<StockPurchaseDebtReport>("/stockpurchases/debt-report", {
+    params: {
+      from: params.from || undefined,
+      to: params.to || undefined,
+      counterpartyId: params.counterpartyId || undefined,
+      onlyOpen: params.onlyOpen ? true : undefined,
+    },
+  });
+  return res.data;
 }

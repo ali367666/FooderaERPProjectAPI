@@ -19,14 +19,66 @@ public class StockPurchaseResponse
     public string WarehouseName { get; set; } = default!;
     public string? Note { get; set; }
     public DateTime CreatedAtUtc { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public string? CreatedByUserName { get; set; }
     public decimal TotalForeign { get; set; }
+
+    /// <summary>What the purchase cost as invoiced (AZN), before any return.</summary>
     public decimal TotalAzn { get; set; }
+
+    /// <summary>Value of the goods handed back to the supplier (AZN).</summary>
+    public decimal ReturnedAzn { get; set; }
+
+    /// <summary>The cost that counts: <see cref="TotalAzn"/> minus <see cref="ReturnedAzn"/>.</summary>
+    public decimal NetTotalAzn { get; set; }
+
     public string? SupplierInvoiceNo { get; set; }
     public DateTime? ApprovedAtUtc { get; set; }
     public DateTime? CancelledAtUtc { get; set; }
+
     /// <summary>Paid to the supplier so far (AZN).</summary>
     public decimal PaidAmountAzn { get; set; }
+
     /// <summary>Still owed to the supplier (AZN); only an approved purchase owes anything.</summary>
     public decimal RemainingAzn { get; set; }
+
+    /// <summary>Paid beyond the net cost (after a return): the supplier owes this back.</summary>
+    public decimal OverpaidAzn { get; set; }
+
     public List<StockPurchaseLineResponse> Lines { get; set; } = new();
+    public List<StockPurchasePaymentResponse> Payments { get; set; } = new();
+    public List<StockPurchaseReturnResponse> Returns { get; set; } = new();
+}
+
+public class StockPurchasePaymentResponse
+{
+    public int Id { get; set; }
+    public decimal Amount { get; set; }
+    public string? Note { get; set; }
+    public DateTime PaidAtUtc { get; set; }
+    public int? PaidByUserId { get; set; }
+    public string? PaidByUserName { get; set; }
+
+    /// <summary>What was still owed right after this payment (AZN).</summary>
+    public decimal RemainingAfterAzn { get; set; }
+}
+
+public class StockPurchaseReturnResponse
+{
+    public int Id { get; set; }
+    public DateTime ReturnedAtUtc { get; set; }
+    public int? ReturnedByUserId { get; set; }
+    public string? ReturnedByUserName { get; set; }
+    public string? Note { get; set; }
+    public decimal TotalAzn { get; set; }
+    public List<StockPurchaseReturnLineResponse> Lines { get; set; } = new();
+}
+
+public class StockPurchaseReturnLineResponse
+{
+    public int StockItemId { get; set; }
+    public string StockItemName { get; set; } = default!;
+    public decimal Quantity { get; set; }
+    public decimal UnitPriceAzn { get; set; }
+    public decimal TotalAzn { get; set; }
 }
