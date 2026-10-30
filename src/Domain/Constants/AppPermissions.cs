@@ -6,6 +6,8 @@ public static class AppPermissions
     public const string CompanyCreate = "Company.Create";
     public const string CompanyUpdate = "Company.Update";
     public const string CompanyDelete = "Company.Delete";
+    public const string CompanyDepositView = "CompanyDeposit.View";
+    public const string CompanyDepositCreate = "CompanyDeposit.Create";
 
     public const string CompanySettingsView = "CompanySettings.View";
     public const string CompanySettingsUpdate = "CompanySettings.Update";

@@ -103,6 +103,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IRestaurantSectionRepository, RestaurantSectionRepository>();
         services.AddScoped<IQrMenuRepository, QrMenuRepository>();
         services.AddScoped<IStockWriteOffRepository, StockWriteOffRepository>();
+        services.AddScoped<ICompanyDepositRepository, CompanyDepositRepository>();
         services.AddScoped<Application.PublicMenu.Services.IPublicMenuBuilder, Application.PublicMenu.Services.PublicMenuBuilder>();
         services.AddScoped<IPrinterRepository, PrinterRepository>();
         services.AddScoped<IPrinterStationTypeRepository, PrinterStationTypeRepository>();

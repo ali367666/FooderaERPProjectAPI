@@ -71,6 +71,7 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<StockPurchaseReturn> StockPurchaseReturns { get; set; } = null!;
     public DbSet<StockPurchaseReturnLine> StockPurchaseReturnLines { get; set; } = null!;
     public DbSet<StockWriteOff> StockWriteOffs { get; set; } = null!;
+    public DbSet<CompanyDeposit> CompanyDeposits { get; set; } = null!;
 
     // Warehouse
     public DbSet<Warehouse> Warehouses { get; set; } = null!;

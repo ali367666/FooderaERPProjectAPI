@@ -127,6 +127,8 @@ export type CompanyOwnerInput = {
   ownerUserName: string;
   ownerEmail: string;
   ownerPassword: string;
+  /** Optional: the amount (AZN) the company starts working with; recorded as its opening deposit. */
+  openingDepositAmount?: number | null;
 };
 
 export async function createCompany(data: CompanyMutationInput & CompanyOwnerInput): Promise<number> {

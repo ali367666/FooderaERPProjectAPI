@@ -111,6 +111,8 @@ const PERMISSION_LABELS: Record<string, string> = {
   "StockPurchase.Return": "Alışdan təchizatçıya mal qaytar",
   "StockWriteOff.View": "Stok tənzimləməyə bax",
   "StockWriteOff.Create": "Anbardan mal sil (stok tənzimləmə)",
+  "CompanyDeposit.View": "Şirkət depozitinə bax",
+  "CompanyDeposit.Create": "Şirkət depoziti yaz",
 
   "Reservation.View": "Rezervasiyalara bax",
   "Reservation.Create": "Rezervasiya yarat",
@@ -213,6 +215,7 @@ const MODULE_LABELS: Record<string, string> = {
   AuditLog: "Audit qeydləri",
   StockPurchase: "Alışlar",
   StockWriteOff: "Stok tənzimləmə",
+  CompanyDeposit: "Şirkət depoziti",
   Reservation: "Rezervasiyalar",
   Discount: "Endirimlər",
   Pos: "POS",

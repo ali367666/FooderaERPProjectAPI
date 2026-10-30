@@ -99,6 +99,12 @@ export const navGroups: NavGroup[] = [
         permission: "Finance.View",
       },
       {
+        title: "Şirkət depoziti",
+        href: "/dashboard/company-deposit",
+        icon: Landmark,
+        permission: "CompanyDeposit.View",
+      },
+      {
         title: "Food Cost",
         href: "/dashboard/food-cost",
         icon: Calculator,

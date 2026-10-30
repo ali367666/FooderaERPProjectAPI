@@ -86,6 +86,7 @@ type CompanyFormState = {
   ownerUserName: string;
   ownerEmail: string;
   ownerPassword: string;
+  openingDeposit: string;
 };
 
 const COUNTRY_OPTIONS = [
@@ -125,6 +126,7 @@ function emptyCompanyForm(): CompanyFormState {
     ownerUserName: "",
     ownerEmail: "",
     ownerPassword: "",
+    openingDeposit: "",
   };
 }
 
@@ -434,6 +436,7 @@ export default function CompaniesPage() {
       setError(null);
       setFieldErrors({});
 
+      const openingDepositAmount = Number(form.openingDeposit.replace(",", "."));
       let companyId = form.id;
       if (isEditMode && form.id) {
         await updateCompany(form.id, payload);
@@ -444,6 +447,7 @@ export default function CompaniesPage() {
           ownerUserName: form.ownerUserName.trim(),
           ownerEmail: form.ownerEmail.trim(),
           ownerPassword: form.ownerPassword,
+          openingDepositAmount: openingDepositAmount > 0 ? openingDepositAmount : null,
         });
       }
 
@@ -719,6 +723,15 @@ export default function CompaniesPage() {
                     )}
                   </div>
                 ))}
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-foreground">Başlanğıc depozit (AZN)</label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="Şirkət bu məbləğlə işə başlayır (istəyə bağlı)"
+                  value={form.openingDeposit}
+                  onChange={(e) => setForm((prev) => ({ ...prev, openingDeposit: e.target.value }))}
+                />
               </div>
             </div>
           )}

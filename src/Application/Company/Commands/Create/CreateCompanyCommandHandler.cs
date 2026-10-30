@@ -16,6 +16,8 @@ public sealed class CreateCompanyCommandHandler
 {
     private readonly ICompanyRepository _repository;
     private readonly IRestaurantRepository _restaurantRepository;
+    private readonly ICompanyDepositRepository _depositRepository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly IIdentityAdminService _identityAdminService;
     private readonly ICompanyDefaultsSeeder _companyDefaultsSeeder;
@@ -25,6 +27,8 @@ public sealed class CreateCompanyCommandHandler
     public CreateCompanyCommandHandler(
         ICompanyRepository repository,
         IRestaurantRepository restaurantRepository,
+        ICompanyDepositRepository depositRepository,
+        ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         IIdentityAdminService identityAdminService,
         ICompanyDefaultsSeeder companyDefaultsSeeder,
@@ -33,6 +37,8 @@ public sealed class CreateCompanyCommandHandler
     {
         _repository = repository;
         _restaurantRepository = restaurantRepository;
+        _depositRepository = depositRepository;
+        _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _identityAdminService = identityAdminService;
         _companyDefaultsSeeder = companyDefaultsSeeder;
@@ -115,6 +121,20 @@ public sealed class CreateCompanyCommandHandler
                 new Domain.Entities.Restaurant { Name = company.Name, CompanyId = company.Id },
                 cancellationToken);
             await _restaurantRepository.SaveChangesAsync(cancellationToken);
+
+            // The amount the company starts working with is kept as its opening deposit.
+            if (dto.OpeningDepositAmount is > 0)
+            {
+                await _depositRepository.AddAsync(new Domain.Entities.CompanyDeposit
+                {
+                    CompanyId = company.Id,
+                    Amount = Math.Round(dto.OpeningDepositAmount.Value, 2, MidpointRounding.AwayFromZero),
+                    IsOpening = true,
+                    Note = string.IsNullOrWhiteSpace(dto.OpeningDepositNote) ? null : dto.OpeningDepositNote.Trim(),
+                    CreatedByUserId = _currentUserService.UserId,
+                }, cancellationToken);
+                await _depositRepository.SaveChangesAsync(cancellationToken);
+            }
 
             await _auditLogService.LogAsync(
                 new AuditLogEntry
