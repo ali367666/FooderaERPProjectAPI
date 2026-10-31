@@ -16,10 +16,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { BankTiles } from "@/components/pos/bank-picker";
 import {
   createQuickSale,
+  getPaymentBanks,
   printKitchenTicket,
   type OrderReceiptDto,
+  type PaymentBank,
 } from "@/lib/services/order-service";
 import { getMenuCategories, type MenuCategory } from "@/lib/services/menu-category-service";
 import {
@@ -104,6 +107,10 @@ export default function QuickSalePage() {
   const [weightItem, setWeightItem] = useState<MenuItem | null>(null);
   const [weightKgInput, setWeightKgInput] = useState("");
 
+  // A card payment is recorded against a bank (the server requires it).
+  const [banks, setBanks] = useState<PaymentBank[]>([]);
+  const [bankPickOpen, setBankPickOpen] = useState(false);
+
   const [cashOpen, setCashOpen] = useState(false);
   const [cashInput, setCashInput] = useState("");
   const [paying, setPaying] = useState(false);
@@ -123,12 +130,13 @@ export default function QuickSalePage() {
     setLoading(true);
     const terminal = getPosTerminalContext();
     try {
-      const [cats, mi, brand, avail, printerList] = await Promise.all([
+      const [cats, mi, brand, avail, printerList, bankList] = await Promise.all([
         getMenuCategories(),
         getMenuItems(),
         terminal ? getCompanySettingsBranding(terminal.companyId).catch(() => null) : Promise.resolve(null),
         terminal?.restaurantId ? getMenuItemAvailability(terminal.restaurantId).catch(() => new Set<number>()) : Promise.resolve(new Set<number>()),
         terminal?.restaurantId ? getPrinters(terminal.restaurantId).catch(() => [] as PrinterProfile[]) : Promise.resolve([] as PrinterProfile[]),
+        getPaymentBanks().catch(() => [] as PaymentBank[]),
       ]);
       const activeCats = cats.filter((c) => c.isActive);
       setCategories(activeCats);
@@ -136,6 +144,7 @@ export default function QuickSalePage() {
       setBranding(brand);
       setOutOfStockIds(avail);
       setPrinters(printerList.filter((p) => p.isActive));
+      setBanks(bankList);
       setActiveCategoryId((prev) => prev ?? activeCats.find((c) => c.parentCategoryId == null)?.id ?? null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Menyu yüklənmədi");
@@ -262,7 +271,7 @@ export default function QuickSalePage() {
     }
   };
 
-  const sell = async (method: "Cash" | "Card", paidAmount: number) => {
+  const sell = async (method: "Cash" | "Card", paidAmount: number, bankId: number | null = null) => {
     if (paying || cartLines.length === 0) return;
     const terminal = getPosTerminalContext();
     if (!terminal?.restaurantId) {
@@ -284,8 +293,10 @@ export default function QuickSalePage() {
         paymentMethod: method,
         paidAmount,
         isFiscal: fiscal,
+        bankId,
       });
       setCashOpen(false);
+      setBankPickOpen(false);
       setCart([]);
       setReceipt(result.receipt);
       setSoldOrderId(result.orderId);
@@ -321,6 +332,20 @@ export default function QuickSalePage() {
     if (cartLines.length === 0) return;
     setCashInput(total.toFixed(2));
     setCashOpen(true);
+  };
+
+  // One bank needs no question; several are picked from a list.
+  const payByCard = () => {
+    if (cartLines.length === 0) return;
+    if (banks.length === 0) {
+      toast.error("Kart ödənişi üçün bank tapılmadı.");
+      return;
+    }
+    if (banks.length === 1) {
+      void sell("Card", total, banks[0].id);
+      return;
+    }
+    setBankPickOpen(true);
   };
 
   const cashAmount = r2(Number(cashInput.replace(",", ".")) || 0);
@@ -540,7 +565,7 @@ export default function QuickSalePage() {
                 className="h-14 text-base"
                 variant="outline"
                 disabled={cartLines.length === 0 || paying}
-                onClick={() => void sell("Card", total)}
+                onClick={payByCard}
               >
                 <CreditCard className="mr-2 h-5 w-5" />
                 {paying ? "Gözləyin…" : "Kart"}
@@ -616,6 +641,22 @@ export default function QuickSalePage() {
             </Button>
             <Button disabled={paying || cashAmount < total} onClick={() => void sell("Cash", cashAmount)}>
               {paying ? "Gözləyin…" : "Ödə"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Card: bank */}
+      <Dialog open={bankPickOpen} onOpenChange={(o) => !paying && setBankPickOpen(o)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Kartla ödəniş</DialogTitle>
+            <DialogDescription>Ödəniləcək: {total.toFixed(2)} ₼ — bankı seçin</DialogDescription>
+          </DialogHeader>
+          <BankTiles banks={banks} onPick={(bankId) => void sell("Card", total, bankId)} disabled={paying} />
+          <DialogFooter>
+            <Button variant="outline" disabled={paying} onClick={() => setBankPickOpen(false)}>
+              Geri
             </Button>
           </DialogFooter>
         </DialogContent>

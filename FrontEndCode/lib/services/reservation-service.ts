@@ -69,9 +69,15 @@ export type CreateReservationInput = {
   note?: string | null;
 };
 
-export async function getReservations(date?: string): Promise<ReservationDto[]> {
+/** `yyyy-MM-dd` days: one `date`, or an inclusive `dateFrom`–`dateTo` range where either end may be left out. */
+export type ReservationListQuery = { date?: string; dateFrom?: string; dateTo?: string };
+
+export async function getReservations(query: string | ReservationListQuery = {}): Promise<ReservationDto[]> {
   try {
-    const params = date ? { date } : {};
+    const { date, dateFrom, dateTo } = typeof query === "string" ? { date: query } : query;
+    const params = Object.fromEntries(
+      Object.entries({ date, dateFrom, dateTo }).filter(([, v]) => v),
+    );
     const res = await api.get<ReservationDto[]>("/Reservations", { params });
     return Array.isArray(res.data) ? res.data : [];
   } catch (e) {

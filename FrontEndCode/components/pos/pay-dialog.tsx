@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TouchNumpad } from "@/components/pos/touch-numpad";
+import { BankPicker, usePaymentBanks } from "@/components/pos/bank-picker";
 import {
   payOrderPart,
   type OrderDto,
@@ -71,6 +72,9 @@ export function PayDialog({
   const [busy, setBusy] = useState(false);
   // A toast disappears in seconds — the server's refusal ("only ready orders can be paid"...) stays here.
   const [error, setError] = useState<string | null>(null);
+  const { banks, error: banksError } = usePaymentBanks(open && cardEnabled);
+  const [bankId, setBankId] = useState<number | null>(null);
+  const needsBank = view === "Card" && bankId == null;
 
   const remaining = payments?.remainingAmount ?? 0;
   const amount = r2(Number(amountInput) || 0);
@@ -92,6 +96,8 @@ export function PayDialog({
         setView("choose");
       }
       setError(null);
+      // Each card payment names its own bank (one bank is picked again by the picker itself).
+      setBankId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, payments?.paidAmount, initialMethod]);
@@ -115,6 +121,10 @@ export function PayDialog({
       toast.error("Borca yazmaq üçün əvvəlcə müştəri seçin.");
       return;
     }
+    if (needsBank) {
+      toast.error("Kart ödənişi üçün bankı seçin.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -124,6 +134,7 @@ export function PayDialog({
         paidAmount: amount,
         amount,
         isFiscal: fiscal,
+        bankId,
         lines: [],
       });
       // Part of the bill is paid: leave the amount form straight away — the chooser shows what is
@@ -220,6 +231,9 @@ export function PayDialog({
               </div>
             ) : (
               <div className="space-y-3">
+                {view === "Card" && (
+                  <BankPicker banks={banks} error={banksError} value={bankId} onChange={setBankId} disabled={busy} />
+                )}
                 <div className="space-y-1">
                   <Label htmlFor="pay-amount">
                     {view === "Cash" ? "Alınan məbləğ" : view === "Card" ? "Kartla ödənilən məbləğ" : "Borca yazılan məbləğ"}
@@ -260,7 +274,7 @@ export function PayDialog({
                   <Button variant="outline" className="flex-1" onClick={() => setView("choose")} disabled={busy}>
                     Geri
                   </Button>
-                  <Button className="flex-1" onClick={() => void handlePay()} disabled={busy || amount <= 0}>
+                  <Button className="flex-1" onClick={() => void handlePay()} disabled={busy || amount <= 0 || needsBank}>
                     {busy ? "Gözləyin…" : "Ödə"}
                   </Button>
                 </div>

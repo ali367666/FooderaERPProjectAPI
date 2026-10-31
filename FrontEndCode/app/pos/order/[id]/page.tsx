@@ -656,24 +656,34 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     [categories],
   );
 
+  // A banquet order (opened in a banquet hall) sells only banquet-menu products, at the banquet price —
+  // the server refuses anything else. `items` stays whole: set components still need every product.
+  const isBanquet = order?.isBanquet === true;
+  const sellableItems = useMemo(
+    () => (isBanquet ? items.filter((i) => i.banquetPrice != null) : items),
+    [items, isBanquet],
+  );
+  const displayPrice = (item: MenuItem) =>
+    isBanquet && item.banquetPrice != null ? item.banquetPrice : (item.stationPrice ?? item.price);
+
   const subCategoriesWithItems = useMemo(() => {
     if (activeCategoryId == null) return [];
     return categories
       .filter((c) => c.parentCategoryId === activeCategoryId)
-      .filter((c) => items.some((i) => i.menuCategoryId === c.id));
-  }, [categories, items, activeCategoryId]);
+      .filter((c) => sellableItems.some((i) => i.menuCategoryId === c.id));
+  }, [categories, sellableItems, activeCategoryId]);
 
   const ownItems = useMemo(
-    () => (activeCategoryId == null ? [] : items.filter((i) => i.menuCategoryId === activeCategoryId)),
-    [items, activeCategoryId],
+    () => (activeCategoryId == null ? [] : sellableItems.filter((i) => i.menuCategoryId === activeCategoryId)),
+    [sellableItems, activeCategoryId],
   );
 
   const itemsInCategory = useMemo(() => {
     if (activeSubCategoryId != null) {
-      return items.filter((i) => i.menuCategoryId === activeSubCategoryId);
+      return sellableItems.filter((i) => i.menuCategoryId === activeSubCategoryId);
     }
     return ownItems;
-  }, [items, ownItems, activeSubCategoryId]);
+  }, [sellableItems, ownItems, activeSubCategoryId]);
 
   // Whatever the product pane shows changed: back to its first page, then re-check the ↑ / ↓ buttons.
   useEffect(() => {
@@ -693,7 +703,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
   const searchResults = useMemo(() => {
     if (!productSearchTrimmed) return [];
     const term = normalizeSearch(productSearchTrimmed);
-    return items.filter((i) => {
+    return sellableItems.filter((i) => {
       if (i.hideFromPosSearch) return false;
       const nameMatch = normalizeSearch(i.name).includes(term);
       const codeMatch =
@@ -702,11 +712,11 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
           (i.weightCode != null && i.weightCode === productSearchTrimmed));
       return nameMatch || codeMatch;
     });
-  }, [items, productSearchTrimmed]);
+  }, [sellableItems, productSearchTrimmed]);
 
   const handleBarcodeEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
-    const exact = items.find(
+    const exact = sellableItems.find(
       (i) => !i.hideBarcode && (i.barcode === productSearchTrimmed || i.weightCode === productSearchTrimmed),
     );
     if (exact) {
@@ -1579,7 +1589,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
           <span className={cn("font-semibold leading-tight", item.imageUrl ? "line-clamp-1 text-sm" : "line-clamp-2 text-base")}>
             {item.name}
           </span>
-          <span className="text-sm font-bold tabular-nums text-primary">{(item.stationPrice ?? item.price).toFixed(2)} ₼</span>
+          <span className="text-sm font-bold tabular-nums text-primary">{displayPrice(item).toFixed(2)} ₼</span>
         </div>
         {isWeightBasedItem(item) && (
           <Scale className="absolute right-2 bottom-2.5 h-4 w-4 text-violet-700" aria-label="Çəki ilə satılır" />
@@ -1798,8 +1808,18 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
           <div className="flex items-stretch border-b">
             {!isStoreMode && (
               <>
-                <InfoCell label="Zal" value={hallName ?? (order.isDelivery ? "Çatdırılma" : "—")} />
+                <InfoCell
+                  label={order.isBanquet ? "Banket zalı" : "Zal"}
+                  value={hallName ?? (order.isBanquet ? "Banket" : order.isDelivery ? "Çatdırılma" : "—")}
+                />
                 <InfoCell label="Masa" value={order.tableName ?? "—"} strong />
+                {!order.isDelivery && (
+                  <InfoCell
+                    label="Adam"
+                    value={order.guestCount != null ? String(order.guestCount) : "—"}
+                    strong
+                  />
+                )}
               </>
             )}
             <InfoCell label="Çek №" value={order.orderNumber} />
@@ -1952,7 +1972,8 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
                   icon={Tag}
                   label="Qiymət"
                   active={priceMode}
-                  disabled={busy || order.isBillLocked || order.lines.length === 0}
+                  // Banquet prices are fixed: the server refuses a price change on a banquet order.
+                  disabled={busy || order.isBillLocked || order.isBanquet || order.lines.length === 0}
                   onClick={() => {
                     setGiftMode(false);
                     if (selectedLine && !priceMode && !selectedLine.isGift && !selectedLine.isTimeBased) {
@@ -3015,6 +3036,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
 
       <SetSelectionDialog
         item={setDialogItem}
+        price={setDialogItem ? displayPrice(setDialogItem) : undefined}
         items={items}
         categories={categories}
         busy={busy}
@@ -3031,7 +3053,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
             <DialogDescription>
               Tərəzidə göstərilən çəkini kq olaraq daxil edin
               {weightDialogItem && (
-                <> — {(weightDialogItem.stationPrice ?? weightDialogItem.price).toFixed(2)} ₼/kq</>
+                <> — {displayPrice(weightDialogItem).toFixed(2)} ₼/kq</>
               )}
               .
             </DialogDescription>
@@ -3053,7 +3075,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
           )}
           {weightDialogItem && Number(weightKgInput) > 0 && (
             <p className="text-sm text-muted-foreground">
-              Cəm: {((weightDialogItem.stationPrice ?? weightDialogItem.price) * Number(weightKgInput)).toFixed(2)} ₼
+              Cəm: {(displayPrice(weightDialogItem) * Number(weightKgInput)).toFixed(2)} ₼
             </p>
           )}
           <DialogFooter>

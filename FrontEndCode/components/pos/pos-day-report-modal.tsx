@@ -1,21 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import {
-  BarChart3,
-  CalendarCheck,
-  Eye,
-  EyeOff,
-  FileBarChart,
-  FileText,
-  Percent,
-  Printer,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { Eye, EyeOff, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,99 +17,99 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { usePermissionSet } from "@/hooks/use-auth-permissions";
-import { POS_REPORT_PERMISSION } from "@/lib/pos-reports";
-import { PERIODS, computeRange, toDateInputValue, type PeriodKey } from "@/lib/report-period";
+import { PERIODS, toDateInputValue, type PeriodKey } from "@/lib/report-period";
 import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
-import { isActiveOrderStatus } from "@/lib/pos-order-status";
-import { getZReport, type ZReport } from "@/lib/services/analytics-service";
-import { getOrders, type OrderDto } from "@/lib/services/order-service";
-import { getRestaurantTables, RestaurantTableType, type RestaurantTable } from "@/lib/services/restaurant-table-service";
-import { CashMovementType, getCashMovements, type CashMovement } from "@/lib/services/cash-movement-service";
-import { getCounterparties, type Counterparty } from "@/lib/services/counterparty-service";
+import {
+  getBusinessReport,
+  ReportPeriod,
+  type BusinessReport,
+  type BusinessReportRequest,
+  type BusinessReportSections,
+} from "@/lib/services/report-service";
 
+/** The /Reports/business endpoint requires this permission. */
+const REPORTS_VIEW_PERMISSION = "Reports.View";
 
-/** Name of the till's counter-sale table (EnsureStoreSaleTableCommandHandler.StoreSaleTableName). */
-const STORE_SALE_TABLE_NAME = "Mağaza Satışı";
-
-type OptionKey =
-  | "products"
-  | "categories"
-  | "counterparties"
-  | "expenses"
-  | "openAccounts"
-  | "gifts"
-  | "cancellations"
-  | "tables"
-  | "warehouseOps"
-  | "warehouseBalance";
+type OptionKey = keyof BusinessReportSections;
 
 const OPTIONS: { key: OptionKey; label: string; defaultOn: boolean }[] = [
-  { key: "products", label: "Məhsul satışları", defaultOn: true },
-  { key: "categories", label: "Məhsul satışları (kateqoriyalı)", defaultOn: true },
-  { key: "counterparties", label: "Kontragent detalları", defaultOn: true },
+  { key: "productSales", label: "Məhsul satışları", defaultOn: true },
+  { key: "productSalesByCategory", label: "Məhsul satışları (kateqoriyalı)", defaultOn: true },
+  { key: "counterpartyDetails", label: "Kontragent detalları", defaultOn: true },
   { key: "expenses", label: "Xərclər", defaultOn: true },
-  { key: "openAccounts", label: "Açıq hesablar", defaultOn: true },
+  { key: "openChecks", label: "Açıq hesablar", defaultOn: true },
   { key: "gifts", label: "Hədiyyə", defaultOn: false },
   { key: "cancellations", label: "Ləğv olunanlar", defaultOn: false },
-  { key: "tables", label: "Masalar üzrə satış", defaultOn: false },
-  { key: "warehouseOps", label: "Anbar əməliyyatları", defaultOn: true },
-  { key: "warehouseBalance", label: "Anbar qalığı", defaultOn: true },
+  { key: "tableSales", label: "Masalar üzrə satış", defaultOn: false },
+  { key: "stockOperations", label: "Anbar əməliyyatları", defaultOn: true },
+  { key: "stockBalance", label: "Anbar qalığı", defaultOn: true },
 ];
 
-/** No report endpoint returns these yet — the switches are shown but cannot be turned on. */
-const UNSUPPORTED_OPTIONS = new Set<OptionKey>(["warehouseOps", "warehouseBalance"]);
+const OPTIONS_STORAGE_KEY = "pos-day-report-sections";
 
-const OPTIONS_STORAGE_KEY = "pos-day-report-options";
+function defaultOptions(): BusinessReportSections {
+  return Object.fromEntries(OPTIONS.map((o) => [o.key, o.defaultOn])) as BusinessReportSections;
+}
 
-function loadOptions(): Record<OptionKey, boolean> {
-  const defaults = Object.fromEntries(OPTIONS.map((o) => [o.key, o.defaultOn])) as Record<OptionKey, boolean>;
+function loadOptions(): BusinessReportSections {
+  const defaults = defaultOptions();
   try {
     const raw = localStorage.getItem(OPTIONS_STORAGE_KEY);
-    if (raw) return { ...defaults, ...(JSON.parse(raw) as Partial<Record<OptionKey, boolean>>) };
+    if (raw) return { ...defaults, ...(JSON.parse(raw) as Partial<BusinessReportSections>) };
   } catch {
     // Storage blocked or corrupt — fall back to the defaults.
   }
   return defaults;
 }
 
-const NO_BACKEND = "Bu göstərici üçün hələ backend məlumatı yoxdur.";
-
-type Extras = {
-  openOrders: OrderDto[] | null;
-  tables: RestaurantTable[] | null;
-  movements: CashMovement[] | null;
-  debtors: Counterparty[] | null;
-};
-
-const EMPTY_EXTRAS: Extras = { openOrders: null, tables: null, movements: null, debtors: null };
+/** Maps the period picker onto the backend periods; "yesterday" goes as a one-day custom period. */
+function toPeriodRequest(
+  period: PeriodKey,
+  customFrom: string,
+  customTo: string,
+): Pick<BusinessReportRequest, "period" | "from" | "to"> | null {
+  switch (period) {
+    case "today":
+      return { period: ReportPeriod.Today };
+    case "yesterday": {
+      // Business day starts at 06:00, so "yesterday" is relative to the current business date.
+      const d = new Date(Date.now() - 6 * 60 * 60 * 1000);
+      d.setDate(d.getDate() - 1);
+      const day = toDateInputValue(d);
+      return { period: ReportPeriod.Custom, from: day, to: day };
+    }
+    case "week":
+      return { period: ReportPeriod.ThisWeek };
+    case "month":
+      return { period: ReportPeriod.ThisMonth };
+    case "custom":
+      if (!customFrom || !customTo) return null;
+      return { period: ReportPeriod.Custom, from: customFrom, to: customTo };
+    default:
+      return null;
+  }
+}
 
 /**
  * "Hesabat" — the end-of-day summary of the till (sales, income, cash, open bills), opened over the
- * tables screen. The figures come from the Z-report endpoint plus the open orders, cash movements
- * and counterparty debts the user may read; the switches pick the detail lists that go on the
- * preview / printout.
+ * tables screen. Everything comes from the business report endpoint; the switches pick the detail
+ * sections it builds, which go on the preview / printout.
  */
 export function PosDayReportModal({ onClose }: { onClose: () => void }) {
   const permissions = usePermissionSet();
-  const canZReport = permissions.has(POS_REPORT_PERMISSION.zReport);
-  const canOrders = permissions.has("Orders.View");
-  const canCash = permissions.has("CashRegister.View");
-  const canCounterparties = permissions.has("Counterparty.View");
+  const canReport = permissions.has(REPORTS_VIEW_PERMISSION);
 
   const [period, setPeriod] = useState<PeriodKey>("today");
   const [customFrom, setCustomFrom] = useState(toDateInputValue(new Date()));
   const [customTo, setCustomTo] = useState(toDateInputValue(new Date()));
-  const range = useMemo(() => computeRange(period, customFrom, customTo), [period, customFrom, customTo]);
+  const periodRequest = useMemo(() => toPeriodRequest(period, customFrom, customTo), [period, customFrom, customTo]);
 
-  const [report, setReport] = useState<ZReport | null>(null);
-  const [extras, setExtras] = useState<Extras>(EMPTY_EXTRAS);
+  const [report, setReport] = useState<BusinessReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState(false);
-  const [options, setOptions] = useState<Record<OptionKey, boolean>>(() =>
-    Object.fromEntries(OPTIONS.map((o) => [o.key, o.defaultOn])) as Record<OptionKey, boolean>,
-  );
+  const [options, setOptions] = useState<BusinessReportSections>(defaultOptions);
   useEffect(() => setOptions(loadOptions()), []);
 
   const toggleOption = (key: OptionKey, on: boolean) => {
@@ -136,47 +124,34 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
     });
   };
 
+  // Only the latest request may set the report (period / switches can change while one is in flight).
+  const requestSeq = useRef(0);
   const load = useCallback(async () => {
-    if (!range || !canZReport) {
+    if (!periodRequest || !canReport) {
       setLoading(false);
       return;
     }
+    const seq = ++requestSeq.current;
     setLoading(true);
-    const restaurantId = getPosTerminalContext()?.restaurantId ?? null;
     try {
-      const [reportData, ordersRes, tablesRes, movementsRes, counterpartiesRes] = await Promise.all([
-        getZReport(range.from, range.to),
-        canOrders ? getOrders().catch(() => null) : Promise.resolve(null),
-        getRestaurantTables().catch(() => null),
-        canCash && restaurantId ? getCashMovements(restaurantId, range.from, range.to).catch(() => null) : Promise.resolve(null),
-        canCounterparties ? getCounterparties().catch(() => null) : Promise.resolve(null),
-      ]);
-      setReport(reportData);
-      setExtras({
-        // Same rule as the tables screen: the bills still open on this terminal's branch.
-        openOrders:
-          ordersRes?.filter((o) => isActiveOrderStatus(o.status) && (!restaurantId || o.restaurantId === restaurantId)) ?? null,
-        tables: tablesRes,
-        movements: movementsRes,
-        debtors:
-          counterpartiesRes
-            ?.filter((c) => c.currentDebtAmount > 0)
-            .sort((a, b) => b.currentDebtAmount - a.currentDebtAmount) ?? null,
+      const data = await getBusinessReport({
+        ...periodRequest,
+        ...options,
+        restaurantId: getPosTerminalContext()?.restaurantId ?? null,
       });
+      if (seq === requestSeq.current) setReport(data);
     } catch (e) {
+      if (seq !== requestSeq.current) return;
       toast.error(e instanceof Error ? e.message : "Hesabat yüklənmədi.");
       setReport(null);
-      setExtras(EMPTY_EXTRAS);
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
-  }, [range, canZReport, canOrders, canCash, canCounterparties]);
+  }, [periodRequest, options, canReport]);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  const figures = useMemo(() => (report ? computeFigures(report, extras) : null), [report, extras]);
 
   const documentRef = useRef<HTMLDivElement>(null);
   const handlePrint = () => {
@@ -184,9 +159,11 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
     printHtml(documentRef.current.innerHTML);
   };
 
-  const rangeLabel = range
-    ? `${format(range.from, "dd.MM.yyyy HH:mm")} – ${format(range.to, "dd.MM.yyyy HH:mm")}`
-    : "Tarix aralığı seçin";
+  const rangeLabel = report
+    ? `${formatDateTime(report.fromLocal)} – ${formatDateTime(report.toLocal)}`
+    : periodRequest
+      ? "—"
+      : "Tarix aralığı seçin";
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -196,7 +173,7 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
             <DialogTitle className="text-xl">Hesabat</DialogTitle>
             <DialogDescription className="mt-1 font-medium tabular-nums text-foreground/80">{rangeLabel}</DialogDescription>
           </div>
-          {canZReport && (
+          {canReport && (
             <div className="flex flex-wrap items-end gap-2">
               {PERIODS.map((p) => (
                 <Button
@@ -225,73 +202,59 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 px-4 py-4 sm:px-6">
-          {!canZReport ? (
+          {!canReport ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              Gün yekunu üçün “Pos.ZReport” icazəsi lazımdır. Aşağıdakı hesabatlardan istifadə edin.
+              Hesabat üçün “{REPORTS_VIEW_PERMISSION}” icazəsi lazımdır.
             </p>
-          ) : loading ? (
+          ) : loading && !report ? (
             <p className="py-12 text-center text-sm text-muted-foreground">Yüklənir…</p>
-          ) : !report || !figures ? (
+          ) : !report ? (
             <p className="py-12 text-center text-sm text-muted-foreground">Hesabat yüklənmədi.</p>
           ) : preview ? (
-            <div className="mx-auto max-w-3xl rounded-lg border bg-background p-6 shadow-sm">
-              <ReportDocument
-                rangeLabel={rangeLabel}
-                report={report}
-                extras={extras}
-                figures={figures}
-                options={options}
-              />
+            <div className={cn("mx-auto max-w-3xl rounded-lg border bg-background p-6 shadow-sm", loading && "opacity-60")}>
+              <ReportDocument rangeLabel={rangeLabel} report={report} options={options} />
             </div>
           ) : (
-            <div className="space-y-4">
-              <SummarySection figures={figures} />
+            <div className={cn("space-y-4", loading && "opacity-60")}>
+              <SummarySection report={report} />
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_minmax(0,18rem)]">
                 <Panel title="Satış">
-                  <Row label="Dəzgah" value={figures.counterSales} />
-                  <Row label="Masa" value={figures.tableSales} />
-                  <Row label="Paket" value={figures.packageSales} />
-                  <Row label="Endirim" value={-figures.discount} tone="negative" />
-                  <Row label="Hədiyyə" value={-figures.giftValue} tone="negative" />
-                  <Row label="Toplam" value={figures.salesTotal} strong />
+                  <Row label="Dəzgah" value={report.sales.counter} />
+                  <Row label="Masa" value={report.sales.table} />
+                  <Row label="Paket" value={report.sales.package} />
+                  <Row label="Endirim" value={-report.sales.discount} tone="negative" />
+                  <Row label="Hədiyyə" value={-report.sales.gift} tone="negative" />
+                  <Row label="Toplam" value={report.sales.total} strong />
                 </Panel>
                 <Panel title="Gəlir">
-                  <Row label="Nağd" value={figures.cash} />
-                  <Row label="Bank gəliri" value={figures.card} />
-                  {figures.banks.map((b) => (
-                    <Row key={b.bankName} label={`${b.bankName} (${b.paymentCount})`} value={b.totalAmount} sub />
+                  <Row label="Nağd" value={report.income.cash} />
+                  <Row label="Bank gəliri" value={report.income.bank} />
+                  {report.income.bankBreakdown.map((b) => (
+                    <Row key={b.bankName} label={b.bankName} value={b.amount} sub />
                   ))}
-                  <Row label="Toplam" value={figures.cash + figures.card} strong />
-                  <Row label="Nağd gəlir" value={figures.cashIn} tone="positive" hint={canCash ? undefined : CASH_HINT} />
-                  <Row label="Nağd xərc" value={figures.cashOut == null ? null : -figures.cashOut} tone="negative" hint={canCash ? undefined : CASH_HINT} />
-                  {figures.cashReturns > 0 && <Row label="Nağd qaytarma" value={-figures.cashReturns} tone="negative" />}
-                  <Row label="Nağd qalıq" value={figures.cashRemaining} strong hint={canCash ? undefined : CASH_HINT} />
+                  <Row label="Toplam" value={report.income.total} strong />
+                  <Row label="Nağd gəlir" value={report.income.cashIn} tone="positive" />
+                  <Row label="Nağd xərc" value={-report.income.cashOut} tone="negative" />
+                  {report.income.cashReturns > 0 && (
+                    <Row label="Nağd qaytarma" value={-report.income.cashReturns} tone="negative" />
+                  )}
+                  <Row label="Nağd qalıq" value={report.income.cashRemaining} strong />
                 </Panel>
                 <Panel title="Hesabata daxil et" className="md:col-span-2 xl:col-span-1">
                   <div className="grid gap-x-6 sm:grid-cols-2 xl:grid-cols-1">
-                    {OPTIONS.map((o) => {
-                      const unsupported = UNSUPPORTED_OPTIONS.has(o.key);
-                      return (
-                        <label
-                          key={o.key}
-                          className={cn(
-                            "flex min-h-10 items-center justify-between gap-3 border-b py-1.5 text-sm last:border-0",
-                            unsupported ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer",
-                          )}
-                          title={unsupported ? NO_BACKEND : undefined}
-                        >
-                          <span>
-                            {o.label}
-                            {unsupported && <span className="ml-1.5 text-xs">(tezliklə)</span>}
-                          </span>
-                          <Switch
-                            checked={!unsupported && options[o.key]}
-                            disabled={unsupported}
-                            onCheckedChange={(on) => toggleOption(o.key, on)}
-                          />
-                        </label>
-                      );
-                    })}
+                    {OPTIONS.map((o) => (
+                      <label
+                        key={o.key}
+                        className="flex min-h-10 cursor-pointer items-center justify-between gap-3 border-b py-1.5 text-sm last:border-0"
+                      >
+                        <span>{o.label}</span>
+                        <Switch
+                          checked={options[o.key]}
+                          onCheckedChange={(on) => toggleOption(o.key, on)}
+                          className="data-[state=unchecked]:border-muted-foreground/40 data-[state=unchecked]:bg-muted-foreground/25 [&>span]:shadow-sm"
+                        />
+                      </label>
+                    ))}
                   </div>
                 </Panel>
               </div>
@@ -299,9 +262,9 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
           )}
 
           {/* Printed through an iframe (see printHtml); kept in the DOM so printing works without the preview open. */}
-          {report && figures && (
+          {report && (
             <div ref={documentRef} className="hidden">
-              <ReportDocument rangeLabel={rangeLabel} report={report} extras={extras} figures={figures} options={options} />
+              <ReportDocument rangeLabel={rangeLabel} report={report} options={options} />
             </div>
           )}
         </div>
@@ -310,13 +273,13 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
           <Button variant="outline" size="lg" onClick={onClose}>
             Bağla
           </Button>
-          {canZReport && (
+          {canReport && (
             <div className="flex flex-1 flex-wrap justify-end gap-2">
               <Button variant="outline" size="lg" disabled={!report} onClick={() => setPreview((p) => !p)}>
                 {preview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 {preview ? "Xülasəyə qayıt" : "Çap etmədən izlə"}
               </Button>
-              <Button size="lg" disabled={!report} onClick={handlePrint}>
+              <Button size="lg" disabled={!report || loading} onClick={handlePrint}>
                 <Printer className="h-4 w-4" />
                 Çap et
               </Button>
@@ -328,87 +291,33 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-const CASH_HINT = "Kassa hərəkətləri üçün “CashRegister.View” icazəsi lazımdır.";
-
-type Figures = ReturnType<typeof computeFigures>;
-
-function computeFigures(report: ZReport, extras: Extras) {
-  const tableById = new Map((extras.tables ?? []).map((t) => [t.id, t]));
-  let counterSales = 0;
-  let packageSales = 0;
-  let tableSales = 0;
-  let creditCount = 0;
-  let creditTotal = 0;
-  for (const r of report.receipts ?? []) {
-    const table = tableById.get(r.tableId);
-    if (table?.name === STORE_SALE_TABLE_NAME) counterSales += r.amount;
-    else if (table && (table.type === RestaurantTableType.TakeAway || table.type === RestaurantTableType.Delivery))
-      packageSales += r.amount;
-    else tableSales += r.amount;
-    if (r.paymentMethod === "Credit") {
-      creditCount += 1;
-      creditTotal += r.amount;
-    }
-  }
-
-  const cancellations = report.cancellations ?? [];
-  const gifts = report.gifts ?? [];
-  const movements = extras.movements;
-  const cashIn = movements?.filter((m) => m.type === CashMovementType.Deposit).reduce((s, m) => s + m.amount, 0) ?? null;
-  const cashOut = movements?.filter((m) => m.type === CashMovementType.Withdrawal).reduce((s, m) => s + m.amount, 0) ?? null;
-  const cashReturns = report.cashReturns ?? 0;
-
-  return {
-    orderCount: report.orderCount,
-    cancelCount: cancellations.length,
-    cancelTotal: cancellations.reduce((s, c) => s + c.amount, 0),
-    openCount: extras.openOrders?.length ?? null,
-    openTotal: extras.openOrders?.reduce((s, o) => s + o.totalAmount, 0) ?? null,
-    creditCount,
-    creditTotal,
-    counterpartyDebt: extras.debtors?.reduce((s, c) => s + c.currentDebtAmount, 0) ?? null,
-    giftCount: gifts.length,
-    giftValue: gifts.reduce((s, g) => s + g.value, 0),
-    expenses: cashOut,
-    counterSales,
-    tableSales,
-    packageSales,
-    discount: report.totalDiscount,
-    salesTotal: report.totalRevenue,
-    cash: report.cashTotal,
-    card: report.cardTotal,
-    banks: report.bankBreakdown ?? [],
-    cashIn,
-    cashOut,
-    cashReturns,
-    cashRemaining: cashIn == null || cashOut == null ? null : report.cashTotal - cashReturns + cashIn - cashOut,
-  };
+/** Total current debt of the counterparties — only known when the counterparty section was requested. */
+function counterpartyDebt(report: BusinessReport): number | null {
+  return report.counterpartyDetails?.reduce((s, c) => s + c.currentDebt, 0) ?? null;
 }
 
-function SummarySection({ figures }: { figures: Figures }) {
+function SummarySection({ report }: { report: BusinessReport }) {
+  const s = report.summary;
+  const debt = counterpartyDebt(report);
   return (
     <div className="grid gap-4 rounded-xl border bg-card p-4 md:grid-cols-2">
       <div className="space-y-0.5">
-        <Row label="Hesab sayı" value={figures.orderCount} count />
-        <Row label={`Ləğv (${figures.cancelCount})`} value={figures.cancelTotal} tone="negative" />
-        <Row
-          label={`Açıq hesab (${figures.openCount ?? "—"})`}
-          value={figures.openTotal}
-          hint={figures.openTotal == null ? "Açıq sifarişlər üçün “Orders.View” icazəsi lazımdır." : undefined}
-        />
-        <Row label={`Borca yazılan (${figures.creditCount})`} value={figures.creditTotal} />
+        <Row label="Hesab sayı" value={s.checkCount} count />
+        <Row label={`Ləğv (${s.cancelledCount})`} value={s.cancelledAmount} tone="negative" />
+        <Row label={`Açıq hesab (${s.openCheckCount})`} value={s.openCheckAmount} />
+        <Row label="Borca yazılan" value={s.counterpartyCharges} />
         <Row
           label="Kontragent borcu"
-          value={figures.counterpartyDebt}
+          value={debt}
           tone="negative"
-          hint={figures.counterpartyDebt == null ? "Kontragentlər üçün “Counterparty.View” icazəsi lazımdır." : undefined}
+          hint={debt == null ? "“Kontragent detalları” seçildikdə göstərilir." : undefined}
         />
       </div>
       <div className="space-y-0.5 md:border-l md:pl-4">
-        <Row label={`Hədiyyə (${figures.giftCount})`} value={figures.giftValue} />
-        <Row label="Xərclər" value={figures.expenses} hint={figures.expenses == null ? CASH_HINT : undefined} />
-        <Row label="Cari gəlir — nağd" value={null} hint={NO_BACKEND} />
-        <Row label="Cari gəlir — bank" value={null} hint={NO_BACKEND} />
+        <Row label={`Hədiyyə (${s.giftCount})`} value={s.giftAmount} />
+        <Row label="Xərclər" value={s.expenses} />
+        <Row label="Cari gəlir — nağd" value={s.currentIncomeCash} />
+        <Row label="Cari gəlir — bank" value={s.currentIncomeBank} />
       </div>
     </div>
   );
@@ -423,7 +332,7 @@ function Panel({ title, className, children }: { title: string; className?: stri
   );
 }
 
-/** One label / amount line. `value` null means the figure is not available (missing permission or backend). */
+/** One label / amount line. `value` null means the figure is not available. */
 function Row({
   label,
   value,
@@ -467,22 +376,20 @@ function Row({
   );
 }
 
-/** The preview / printout: the summary figures plus the detail lists switched on. Plain markup so it prints styled by printHtml. */
+/** The preview / printout: the summary figures plus the detail sections switched on. Plain markup so it prints styled by printHtml. */
 function ReportDocument({
   rangeLabel,
   report,
-  extras,
-  figures,
   options,
 }: {
   rangeLabel: string;
-  report: ZReport;
-  extras: Extras;
-  figures: Figures;
-  options: Record<OptionKey, boolean>;
+  report: BusinessReport;
+  options: BusinessReportSections;
 }) {
   const terminal = getPosTerminalContext();
   const money = (n: number | null) => (n == null ? "—" : formatCurrency(n));
+  const qty = (n: number) => String(Number(n.toFixed(3)));
+  const s = report.summary;
   return (
     <div className="report-doc space-y-5 text-sm">
       <div>
@@ -494,96 +401,94 @@ function ReportDocument({
         title="Xülasə"
         head={["", "Məbləğ"]}
         rows={[
-          ["Hesab sayı", String(figures.orderCount)],
-          [`Ləğv (${figures.cancelCount})`, money(figures.cancelTotal)],
-          [`Açıq hesab (${figures.openCount ?? "—"})`, money(figures.openTotal)],
-          [`Borca yazılan (${figures.creditCount})`, money(figures.creditTotal)],
-          ["Kontragent borcu", money(figures.counterpartyDebt)],
-          [`Hədiyyə (${figures.giftCount})`, money(figures.giftValue)],
-          ["Xərclər", money(figures.expenses)],
+          ["Hesab sayı", String(s.checkCount)],
+          [`Ləğv (${s.cancelledCount})`, money(s.cancelledAmount)],
+          [`Açıq hesab (${s.openCheckCount})`, money(s.openCheckAmount)],
+          ["Borca yazılan", money(s.counterpartyCharges)],
+          ["Kontragent borcu", money(counterpartyDebt(report))],
+          [`Hədiyyə (${s.giftCount})`, money(s.giftAmount)],
+          ["Xərclər", money(s.expenses)],
+          ["Cari gəlir — nağd", money(s.currentIncomeCash)],
+          ["Cari gəlir — bank", money(s.currentIncomeBank)],
         ]}
       />
       <DocTable
         title="Satış"
         head={["", "Məbləğ"]}
         rows={[
-          ["Dəzgah", money(figures.counterSales)],
-          ["Masa", money(figures.tableSales)],
-          ["Paket", money(figures.packageSales)],
-          ["Endirim", money(-figures.discount)],
-          ["Hədiyyə", money(-figures.giftValue)],
-          ["Toplam", money(figures.salesTotal)],
+          ["Dəzgah", money(report.sales.counter)],
+          ["Masa", money(report.sales.table)],
+          ["Paket", money(report.sales.package)],
+          ["Endirim", money(-report.sales.discount)],
+          ["Hədiyyə", money(-report.sales.gift)],
+          ["Toplam", money(report.sales.total)],
         ]}
       />
       <DocTable
         title="Gəlir"
         head={["", "Məbləğ"]}
         rows={[
-          ["Nağd", money(figures.cash)],
-          ["Bank gəliri", money(figures.card)],
-          ...figures.banks.map((b) => [`  ${b.bankName} (${b.paymentCount})`, money(b.totalAmount)]),
-          ["Toplam", money(figures.cash + figures.card)],
-          ["Nağd gəlir", money(figures.cashIn)],
-          ["Nağd xərc", money(figures.cashOut == null ? null : -figures.cashOut)],
-          ...(figures.cashReturns > 0 ? [["Nağd qaytarma", money(-figures.cashReturns)]] : []),
-          ["Nağd qalıq", money(figures.cashRemaining)],
+          ["Nağd", money(report.income.cash)],
+          ["Bank gəliri", money(report.income.bank)],
+          ...report.income.bankBreakdown.map((b) => [`  ${b.bankName}`, money(b.amount)]),
+          ["Toplam", money(report.income.total)],
+          ["Nağd gəlir", money(report.income.cashIn)],
+          ["Nağd xərc", money(-report.income.cashOut)],
+          ...(report.income.cashReturns > 0 ? [["Nağd qaytarma", money(-report.income.cashReturns)]] : []),
+          ["Nağd qalıq", money(report.income.cashRemaining)],
         ]}
       />
 
-      {options.products && (
+      {options.productSales && report.productSales && (
         <DocTable
           title="Məhsul satışları"
           head={["Məhsul", "Miqdar", "Məbləğ"]}
-          rows={report.products.map((p) => [p.name, String(p.quantity), money(p.revenue)])}
+          rows={report.productSales.map((p) => [p.name, String(p.quantity), money(p.revenue)])}
         />
       )}
-      {options.categories && (
+      {options.productSalesByCategory && report.productSalesByCategory && (
         <DocTable
           title="Kateqoriya üzrə satış"
-          head={["Kateqoriya", "Miqdar", "Məbləğ"]}
-          rows={report.categories.map((c) => [c.categoryName, String(c.quantity), money(c.revenue)])}
-        />
-      )}
-      {options.counterparties && extras.debtors && (
-        <DocTable
-          title="Kontragent borcları"
-          head={["Kontragent", "Borc"]}
-          rows={extras.debtors.map((c) => [c.name, money(c.currentDebtAmount)])}
-        />
-      )}
-      {options.expenses && extras.movements && (
-        <DocTable
-          title="Xərclər"
-          head={["Vaxt", "Səbəb", "Kim", "Məbləğ"]}
-          rows={extras.movements
-            .filter((m) => m.type === CashMovementType.Withdrawal)
-            .map((m) => [formatTime(m.createdAtUtc), m.reason ?? "—", m.createdByUserName ?? "—", money(m.amount)])}
-        />
-      )}
-      {options.openAccounts && extras.openOrders && (
-        <DocTable
-          title="Açıq hesablar"
-          head={["Masa", "Ofisiant", "Açılıb", "Məbləğ"]}
-          rows={extras.openOrders.map((o) => [
-            o.tableName ?? `#${o.tableId}`,
-            o.waiterName ?? "—",
-            formatTime(o.openedAt),
-            money(o.totalAmount),
+          head={["Kateqoriya / məhsul", "Miqdar", "Məbləğ"]}
+          rows={report.productSalesByCategory.flatMap((c) => [
+            [c.categoryName, String(c.quantity), money(c.revenue)],
+            ...c.products.map((p) => [`  ${p.name}`, String(p.quantity), money(p.revenue)]),
           ])}
         />
       )}
-      {options.gifts && (
+      {options.counterpartyDetails && report.counterpartyDetails && (
+        <DocTable
+          title="Kontragent detalları"
+          head={["Kontragent", "Borca satış", "Ödənilib", "Cari borc"]}
+          rows={report.counterpartyDetails.map((c) => [c.name, money(c.creditSales), money(c.paid), money(c.currentDebt)])}
+        />
+      )}
+      {options.expenses && report.expenses && (
+        <DocTable
+          title="Xərclər"
+          head={["Vaxt", "Səbəb", "Kim", "Məbləğ"]}
+          rows={report.expenses.map((m) => [formatTime(m.createdAt), m.reason ?? "—", m.createdBy ?? "—", money(m.amount)])}
+        />
+      )}
+      {options.openChecks && report.openChecks && (
+        <DocTable
+          title="Açıq hesablar"
+          head={["Masa", "Ofisiant", "Açılıb", "Məbləğ"]}
+          rows={report.openChecks.map((o) => [o.tableName, o.waiterName || "—", formatTime(o.openedAt), money(o.amount)])}
+        />
+      )}
+      {options.gifts && report.gifts && (
         <DocTable
           title="Hədiyyələr"
           head={["Masa", "Məhsul", "Miqdar", "Kim", "Dəyər"]}
-          rows={(report.gifts ?? []).map((g) => [g.tableName, g.menuItemName, String(g.quantity), g.giftedBy, money(g.value)])}
+          rows={report.gifts.map((g) => [g.tableName, g.menuItemName, String(g.quantity), g.giftedBy, money(g.value)])}
         />
       )}
-      {options.cancellations && (
+      {options.cancellations && report.cancellations && (
         <DocTable
           title="Ləğv olunanlar"
           head={["Vaxt", "Masa", "Məhsul", "Səbəb", "Kim", "Məbləğ"]}
-          rows={(report.cancellations ?? []).map((c) => [
+          rows={report.cancellations.map((c) => [
             formatTime(c.cancelledAt),
             c.tableName,
             c.isWholeOrder ? "Bütün sifariş" : `${c.quantity} × ${c.menuItemName ?? ""}`,
@@ -593,11 +498,32 @@ function ReportDocument({
           ])}
         />
       )}
-      {options.tables && (
+      {options.tableSales && report.tableSales && (
         <DocTable
           title="Masalar üzrə satış"
           head={["Masa", "Çek sayı", "Məbləğ"]}
-          rows={(report.tables ?? []).map((t) => [t.tableName, String(t.orderCount), money(t.revenue)])}
+          rows={report.tableSales.map((t) => [t.tableName, String(t.orderCount), money(t.revenue)])}
+        />
+      )}
+      {options.stockOperations && report.stockOperations && (
+        <DocTable
+          title="Anbar əməliyyatları"
+          head={["Məhsul", "Daxil olan", "Transfer +", "Transfer −", "Sərf", "Qaytarma"]}
+          rows={report.stockOperations.map((o) => [
+            `${o.stockItemName} (${o.unit})`,
+            qty(o.received),
+            qty(o.transferIn),
+            qty(o.transferOut),
+            qty(o.consumed),
+            qty(o.returned),
+          ])}
+        />
+      )}
+      {options.stockBalance && report.stockBalance && (
+        <DocTable
+          title="Anbar qalığı"
+          head={["Anbar", "Məhsul", "Qalıq"]}
+          rows={report.stockBalance.map((b) => [b.warehouseName, b.stockItemName, `${qty(b.quantity)} ${b.unit}`])}
         />
       )}
     </div>
@@ -636,6 +562,11 @@ function DocTable({ title, head, rows }: { title: string; head: string[]; rows: 
       )}
     </section>
   );
+}
+
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  return Number.isFinite(d.getTime()) ? format(d, "dd.MM.yyyy HH:mm") : "—";
 }
 
 function formatTime(iso: string): string {
