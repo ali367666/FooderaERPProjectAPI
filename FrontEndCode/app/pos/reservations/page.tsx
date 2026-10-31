@@ -2,11 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { addDays, format, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, Users } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { Plus, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PosEmpty, PosPage, PosPageError, PosPageLoading, PosTileGrid, posTileClass } from "@/components/pos/pos-page";
+import {
+  PosDateRangeFilter,
+  formatRange,
+  todayIso,
+  todayRange,
+  type PosDateRange,
+} from "@/components/pos/pos-date-range-filter";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
 import { NewReservationDialog } from "@/components/pos/new-reservation-dialog";
@@ -65,23 +72,6 @@ function statusTextClass(status: ReservationStatus): string {
   }
 }
 
-/** The terminal's own calendar day (toISOString would give yesterday's date after midnight in UTC+4). */
-function todayIso(): string {
-  return format(new Date(), "yyyy-MM-dd");
-}
-
-function shiftDay(iso: string, days: number): string {
-  return format(addDays(parseISO(iso), days), "yyyy-MM-dd");
-}
-
-/** One day (the API's "date" filter), the last N days up to today, or every date. */
-type DateFilter = { kind: "day"; date: string } | { kind: "range"; days: number } | { kind: "all" };
-
-const RANGES = [
-  { days: 7, label: "1 həftə" },
-  { days: 30, label: "1 ay" },
-];
-
 export default function PosReservationsPage() {
   const [terminal, setTerminal] = useState<PosTerminalContext | null | undefined>(undefined);
   const [reservations, setReservations] = useState<ReservationDto[]>([]);
@@ -91,9 +81,7 @@ export default function PosReservationsPage() {
   const canCancel = useHasPermission("Reservation.Cancel");
   const canCreate = useHasPermission("Reservation.Create");
   const [newOpen, setNewOpen] = useState(false);
-  const [filter, setFilter] = useState<DateFilter>(() => ({ kind: "day", date: todayIso() }));
-  const date = filter.kind === "day" ? filter.date : null;
-  const setDate = (d: string) => setFilter({ kind: "day", date: d });
+  const [range, setRange] = useState<PosDateRange>(todayRange);
   const loadSeq = useRef(0);
 
   useEffect(() => {
@@ -105,18 +93,10 @@ export default function PosReservationsPage() {
     setLoading(true);
     setError(null);
     try {
-      // The API filters by a single day only; a range loads every date and keeps the days in it.
-      const all = await getReservations(filter.kind === "day" ? filter.date : undefined);
+      const all = await getReservations({ dateFrom: range.from, dateTo: range.to });
       // Days paged through quickly: an older answer must not replace the newer day's list.
       if (requestId !== loadSeq.current) return;
-      const today = todayIso();
-      const from = filter.kind === "range" ? shiftDay(today, -(filter.days - 1)) : null;
-      const filtered = all.filter((r) => {
-        if (terminal?.restaurantId && r.restaurantId !== terminal.restaurantId) return false;
-        if (from == null) return true;
-        const day = r.reservationDate.slice(0, 10);
-        return day >= from && day <= today;
-      });
+      const filtered = all.filter((r) => !terminal?.restaurantId || r.restaurantId === terminal.restaurantId);
       filtered.sort(
         (a, b) =>
           a.reservationDate.slice(0, 10).localeCompare(b.reservationDate.slice(0, 10)) ||
@@ -128,7 +108,7 @@ export default function PosReservationsPage() {
     } finally {
       if (requestId === loadSeq.current) setLoading(false);
     }
-  }, [terminal, filter]);
+  }, [terminal, range]);
 
   useEffect(() => {
     if (terminal === undefined) return;
@@ -149,20 +129,13 @@ export default function PosReservationsPage() {
 
   if (terminal === undefined) return <PosPageLoading />;
 
-  const isToday = date === todayIso();
-  const isYesterday = date === shiftDay(todayIso(), -1);
-  const title =
-    filter.kind === "all"
-      ? "Bütün rezervasiyalar"
-      : isToday
-        ? "Bugünkü rezervasiyalar"
-        : isYesterday
-          ? "Dünənki rezervasiyalar"
-          : "Rezervasiyalar";
+  const isToday = range.from === todayIso() && range.to === todayIso();
+  /** Tiles show their date only when the list spans more than one day. */
+  const singleDay = range.from === range.to;
 
   return (
     <PosPage
-      title={title}
+      title={isToday ? "Bugünkü rezervasiyalar" : `Rezervasiyalar: ${formatRange(range)}`}
       actions={
         <>
           {canCreate && terminal?.restaurantId && (
@@ -186,52 +159,7 @@ export default function PosReservationsPage() {
         />
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={date == null}
-          onClick={() => date && setDate(shiftDay(date, -1))}
-          aria-label="Əvvəlki gün"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <input
-          type="date"
-          value={date ?? ""}
-          onChange={(e) => (e.target.value ? setDate(e.target.value) : setFilter({ kind: "all" }))}
-          className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-          aria-label="Tarix"
-        />
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={date == null}
-          onClick={() => date && setDate(shiftDay(date, 1))}
-          aria-label="Növbəti gün"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <Button variant={isToday ? "default" : "outline"} size="sm" onClick={() => setDate(todayIso())}>
-          Bu gün
-        </Button>
-        <Button variant={isYesterday ? "default" : "outline"} size="sm" onClick={() => setDate(shiftDay(todayIso(), -1))}>
-          Dünən
-        </Button>
-        {RANGES.map((r) => (
-          <Button
-            key={r.days}
-            variant={filter.kind === "range" && filter.days === r.days ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter({ kind: "range", days: r.days })}
-          >
-            {r.label}
-          </Button>
-        ))}
-        <Button variant={filter.kind === "all" ? "default" : "outline"} size="sm" onClick={() => setFilter({ kind: "all" })}>
-          Bütün tarixlər
-        </Button>
-      </div>
+      <PosDateRangeFilter value={range} onChange={setRange} />
 
       {error && <PosPageError message={error} />}
 
@@ -239,11 +167,7 @@ export default function PosReservationsPage() {
 
       {!loading && reservations.length === 0 && !error && (
         <PosEmpty>
-          {date == null
-            ? "Rezervasiya yoxdur."
-            : isToday
-              ? "Bu gün üçün rezervasiya yoxdur."
-              : `${format(parseISO(date), "dd.MM.yyyy")} üçün rezervasiya yoxdur.`}
+          {isToday ? "Bu gün üçün rezervasiya yoxdur." : `${formatRange(range)} üçün rezervasiya yoxdur.`}
         </PosEmpty>
       )}
 
@@ -253,7 +177,7 @@ export default function PosReservationsPage() {
           const seated = r.status === "Seated";
           return (
             <div key={r.id} className={cn(posTileClass(seated ? "bg-[#34d399]" : null), tileTone(r.status))}>
-              {date == null && (
+              {!singleDay && (
                 <span className={cn("text-xs font-medium tabular-nums", seated ? "text-white/80" : "text-muted-foreground")}>
                   {format(parseISO(r.reservationDate), "dd.MM.yyyy")}
                 </span>

@@ -116,6 +116,8 @@ export type OrderDto = {
   billPrintedAt: string | null;
   isBillLocked: boolean;
   isDelivery: boolean;
+  /** Banquet order (opened in a banquet hall): banquet-menu products only, at banquet prices, prices locked. */
+  isBanquet: boolean;
   deliveryAddress: string | null;
   deliveryPhone: string | null;
   deliveryDriverEmployeeId: number | null;
@@ -336,6 +338,7 @@ function normalizeOrder(raw: unknown): OrderDto | null {
     billPrintedAt: (pick(o, "billPrintedAt", "BillPrintedAt") as string | null | undefined) ?? null,
     isBillLocked: Boolean(pick(o, "isBillLocked", "IsBillLocked") ?? false),
     isDelivery: Boolean(pick(o, "isDelivery", "IsDelivery") ?? false),
+    isBanquet: Boolean(pick(o, "isBanquet", "IsBanquet") ?? false),
     deliveryAddress: (pick(o, "deliveryAddress", "DeliveryAddress") as string | null | undefined) ?? null,
     deliveryPhone: (pick(o, "deliveryPhone", "DeliveryPhone") as string | null | undefined) ?? null,
     deliveryDriverEmployeeId: (() => {
@@ -412,13 +415,31 @@ function unwrapData<T>(body: unknown): T | null {
   return null;
 }
 
-export async function getOrders(): Promise<OrderDto[]> {
+/** Server-side filters for `GET /Orders`. */
+export type OrderListQuery = {
+  status?: "Draft" | "Open" | "InPreparation" | "Ready" | "Served" | "Paid" | "Cancelled";
+};
+
+export async function getOrders(query: OrderListQuery = {}): Promise<OrderDto[]> {
   try {
-    const response = await api.get<unknown>("/Orders");
+    const response = await api.get<unknown>("/Orders", { params: query });
     assertApiSuccess(response.data);
     return unwrapList<unknown>(response.data).map(normalizeOrder).filter((x): x is OrderDto => x !== null);
   } catch (error) {
     throw toApiFormError(error, "Failed to fetch orders");
+  }
+}
+
+/** Unpaid, uncancelled "Tez satış" (take-away) orders — filtered on the server, optionally for one restaurant. */
+export async function getActiveTakeAwayOrders(restaurantId?: number | null): Promise<OrderDto[]> {
+  try {
+    const response = await api.get<unknown>("/Orders/take-away/active", {
+      params: restaurantId ? { restaurantId } : {},
+    });
+    assertApiSuccess(response.data);
+    return unwrapList<unknown>(response.data).map(normalizeOrder).filter((x): x is OrderDto => x !== null);
+  } catch (error) {
+    throw toApiFormError(error, "Tez satışlar yüklənə bilmədi");
   }
 }
 
@@ -960,6 +981,8 @@ export type PayOrderPartPayload = {
   amount?: number | null;
   /** Rung through the fiscal (tax) register. */
   isFiscal?: boolean;
+  /** Card payments: the bank it went through (required by the server). */
+  bankId?: number | null;
   lines: { orderLineId: number; quantity: number }[];
 };
 
@@ -1015,6 +1038,7 @@ export async function payOrderPart(id: number, payload: PayOrderPartPayload): Pr
       paidAmount: payload.paidAmount,
       amount: payload.amount ?? null,
       isFiscal: payload.isFiscal ?? false,
+      bankId: payload.paymentMethod === "Card" ? (payload.bankId ?? null) : null,
       lines: payload.lines,
     });
     assertApiSuccess(response.data);

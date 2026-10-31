@@ -2,15 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PosEmpty, PosPage, PosPageError, PosPageLoading, PosTileGrid } from "@/components/pos/pos-page";
 import { OrderTile, useMinuteClock } from "@/components/pos/order-tile";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
-import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
-import { createOrder, getOrders, type OrderDto } from "@/lib/services/order-service";
+import { addDays, startOfDay } from "date-fns";
+import { getActiveTakeAwayOrders, getOrders, type OrderDto } from "@/lib/services/order-service";
 import { getRestaurantTables, RestaurantTableType } from "@/lib/services/restaurant-table-service";
 import { isActiveOrderStatus } from "@/lib/pos-order-status";
 
@@ -21,7 +20,6 @@ export default function PosTakeAwayPage() {
   const [orders, setOrders] = useState<OrderDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
   const now = useMinuteClock();
   const canCreate = useHasPermission("Orders.Create");
 
@@ -33,14 +31,30 @@ export default function PosTakeAwayPage() {
     setLoading(true);
     setError(null);
     try {
-      const [tables, all] = await Promise.all([getRestaurantTables(), getOrders()]);
+      // A quick sale is paid the moment it is made, so today's paid ones are listed too (after the open ones).
+      // "Today" is the terminal's local day; paid orders are narrowed to it here, on the client.
+      const restaurantId = terminal?.restaurantId ?? undefined;
+      const todayStartMs = startOfDay(new Date()).getTime();
+      const tomorrowStartMs = addDays(todayStartMs, 1).getTime();
+      const [open, paid, tables] = await Promise.all([
+        getActiveTakeAwayOrders(restaurantId),
+        getOrders({ status: "Paid" }),
+        getRestaurantTables(),
+      ]);
       const takeAwayTableIds = new Set(tables.filter((t) => t.type === RestaurantTableType.TakeAway).map((t) => t.id));
-      setOrders(
-        all
-          .filter((o) => takeAwayTableIds.has(o.tableId) && isActiveOrderStatus(o.status))
-          .filter((o) => !terminal?.restaurantId || o.restaurantId === terminal.restaurantId)
-          .sort((a, b) => a.openedAt.localeCompare(b.openedAt)),
-      );
+      const active = open
+        .filter((o) => isActiveOrderStatus(o.status))
+        .sort((a, b) => a.openedAt.localeCompare(b.openedAt));
+      const paidToday = paid
+        .filter((o) => takeAwayTableIds.has(o.tableId))
+        .filter((o) => !restaurantId || o.restaurantId === restaurantId)
+        .filter((o) => {
+          if (!o.paidAt) return false;
+          const paidMs = new Date(o.paidAt).getTime();
+          return paidMs >= todayStartMs && paidMs < tomorrowStartMs;
+        })
+        .sort((a, b) => (b.paidAt ?? b.openedAt).localeCompare(a.paidAt ?? a.openedAt));
+      setOrders([...active, ...paidToday]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Tez satışlar yüklənə bilmədi");
     } finally {
@@ -53,39 +67,21 @@ export default function PosTakeAwayPage() {
     void load();
   }, [terminal, load]);
 
-  const handleCreate = async () => {
-    if (!terminal?.restaurantId) {
-      toast.error("Terminal filiala bağlı deyil.");
-      return;
-    }
-    setCreating(true);
-    try {
-      const waiterId = await getCurrentEmployeeId();
-      if (!waiterId) {
-        toast.error("Bu istifadəçi heç bir işçiyə bağlı deyil. Users səhifəsindən bağlayın.");
-        return;
-      }
-      const order = await createOrder({ restaurantId: terminal.restaurantId, waiterId, isTakeAway: true });
-      router.push(`/pos/order/${order.id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Tez satış yaradıla bilmədi");
-    } finally {
-      setCreating(false);
-    }
-  };
+  // A new quick sale goes through its own one-request screen, not an open take-away order.
+  const handleCreate = () => router.push("/pos/quick-sale");
 
   if (loading || terminal === undefined) return <PosPageLoading />;
 
   return (
     <PosPage
       title="Tez satışlar"
-      description="Açıq qalan tez satış sifarişləri"
+      description="Açıq qalan və bu gün ödənilmiş tez satışlar"
       actions={
         <>
           {canCreate && (
-            <Button size="sm" disabled={creating} onClick={() => void handleCreate()}>
+            <Button size="sm" onClick={handleCreate}>
               <Plus className="mr-1 h-4 w-4" />
-              {creating ? "Açılır..." : "Yeni tez satış"}
+              Yeni tez satış
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => void load()}>
@@ -96,7 +92,7 @@ export default function PosTakeAwayPage() {
     >
       {error && <PosPageError message={error} />}
 
-      {orders.length === 0 && !error && <PosEmpty>Aktiv tez satış yoxdur.</PosEmpty>}
+      {orders.length === 0 && !error && <PosEmpty>Bu gün tez satış yoxdur.</PosEmpty>}
 
       <PosTileGrid>
         {orders.map((order) => (

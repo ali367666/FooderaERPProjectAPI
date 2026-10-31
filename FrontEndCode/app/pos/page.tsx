@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -415,35 +416,6 @@ export default function PosTablesPage() {
     }
   };
 
-  // "Tez satış" — a take-away sale: a new order on its own virtual table, straight to the
-  // order screen. Several can be open at once; they are listed above the tables.
-  const [takeAwayCreating, setTakeAwayCreating] = useState(false);
-
-  const handleCreateTakeAwayOrder = async () => {
-    if (!terminal?.restaurantId) {
-      toast.error("Terminal filiala bağlı deyil.");
-      return;
-    }
-    setTakeAwayCreating(true);
-    try {
-      const waiterId = await getCurrentEmployeeId();
-      if (!waiterId) {
-        toast.error("Bu istifadəçi heç bir işçiyə bağlı deyil. Users səhifəsindən bağlayın.");
-        return;
-      }
-      const order = await createOrder({
-        restaurantId: terminal.restaurantId,
-        waiterId,
-        isTakeAway: true,
-      });
-      router.push(`/pos/order/${order.id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Tez satış yaradıla bilmədi");
-    } finally {
-      setTakeAwayCreating(false);
-    }
-  };
-
   const handleCreateDeliveryOrder = async () => {
     if (!terminal?.restaurantId) return;
     setDeliveryCreating(true);
@@ -471,13 +443,10 @@ export default function PosTablesPage() {
     }
   };
 
+  // Every table is opened with its guest count; it is changed later from inside the order ("Adam sayı").
   const proceedToOpenTable = (table: TableWithOrder) => {
-    if (branding?.askGuestCountOnOpen) {
-      setGuestCountInput("");
-      setGuestCountTable(table);
-      return;
-    }
-    void createOrderForTable(table);
+    setGuestCountInput("");
+    setGuestCountTable(table);
   };
 
   const printBillForTable = async (table: TableWithOrder) => {
@@ -681,10 +650,12 @@ export default function PosTablesPage() {
     setReserveTable(table);
   };
 
+  const parsedGuestCount = Math.floor(Number(guestCountInput));
+  const guestCountValid = Number.isFinite(parsedGuestCount) && parsedGuestCount >= 1 && parsedGuestCount <= 999;
+
   const handleConfirmGuestCount = () => {
-    if (!guestCountTable) return;
-    const parsed = Number(guestCountInput);
-    const guestCount = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+    if (!guestCountTable || !guestCountValid) return;
+    const guestCount = parsedGuestCount;
     const table = guestCountTable;
     setGuestCountTable(null);
     void createOrderForTable(table, guestCount);
@@ -1026,9 +997,10 @@ export default function PosTablesPage() {
         {canQuickSale && (
           <ActionButton
             icon={ShoppingBag}
-            label={takeAwayCreating ? "Açılır..." : "Tez satış"}
-            disabled={takeAwayCreating || modeBusy}
-            onClick={() => void handleCreateTakeAwayOrder()}
+            label="Tez satış"
+            disabled={modeBusy}
+            // "Tez satış" has its own screen: the cart is built there and sent with the payment in one request.
+            onClick={() => router.push("/pos/quick-sale")}
           />
         )}
         {branding?.modulePaket === true && (
@@ -1066,13 +1038,15 @@ export default function PosTablesPage() {
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
             <DialogTitle>Neçə nəfərsiniz?</DialogTitle>
+            <DialogDescription>{guestCountTable?.name} — masanı açmaq üçün adam sayını daxil edin.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="guest-count-input">Qonaq sayı</Label>
+            <Label htmlFor="guest-count-input">Adam sayı</Label>
             <Input
               id="guest-count-input"
               type="number"
               min={1}
+              max={999}
               autoFocus
               value={guestCountInput}
               onChange={(e) => setGuestCountInput(e.target.value)}
@@ -1088,7 +1062,9 @@ export default function PosTablesPage() {
             <Button variant="outline" onClick={() => setGuestCountTable(null)}>
               Ləğv et
             </Button>
-            <Button onClick={handleConfirmGuestCount}>Təsdiqlə</Button>
+            <Button onClick={handleConfirmGuestCount} disabled={!guestCountValid}>
+              Masanı aç
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

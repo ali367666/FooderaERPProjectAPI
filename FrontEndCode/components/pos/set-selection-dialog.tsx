@@ -32,6 +32,8 @@ export type SetPick = {
 type Props = {
   /** The SET being added; null keeps the dialog closed. */
   item: MenuItem | null;
+  /** The set's price as the order sells it (e.g. the banquet price); defaults to the station/sale price. */
+  price?: number;
   /** Menu products and categories — used for each component's picture and its category heading. */
   items: MenuItem[];
   categories: MenuCategory[];
@@ -63,6 +65,7 @@ export function isSetPickAllowed(
  */
 export function SetSelectionDialog({
   item,
+  price: priceOverride,
   items,
   categories,
   busy,
@@ -170,7 +173,7 @@ export function SetSelectionDialog({
   };
 
   const locked = !canChangeCount && !canLeaveOut;
-  const price = item ? item.stationPrice ?? item.price : 0;
+  const price = priceOverride ?? (item ? item.stationPrice ?? item.price : 0);
 
   return (
     <Dialog open={item != null} onOpenChange={(o) => !o && !busy && onClose()}>

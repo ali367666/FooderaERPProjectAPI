@@ -54,7 +54,7 @@ import { getCurrentShift, openShift, closeShift, type Shift, type ZReport } from
 
 const TABS = [
   { href: "/pos", label: "Masalar", storeLabel: "Satış", icon: LayoutGrid, permission: null as string | null, module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
-  { href: "/pos/orders", label: "Sifarişlər", storeLabel: "Satışlar", icon: ClipboardList, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
+  { href: "/pos/orders", label: "Dolu masalar", storeLabel: "Satışlar", icon: ClipboardList, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/reservations", label: "Rezervasiyalar", storeLabel: "Rezervasiyalar", icon: CalendarCheck, permission: "Reservation.View", module: "moduleRezervasyon" as keyof CompanySettingsBranding | null, hideInStoreMode: true },
   { href: "/pos/take-away", label: "Tez satışlar", storeLabel: "Tez satışlar", icon: ShoppingBag, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/kitchen", label: "Mətbəx", storeLabel: "Mətbəx", icon: KitchenIcon, permission: "Kitchen.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: true },
@@ -97,6 +97,8 @@ export default function PosLayout({ children, modal }: { children: React.ReactNo
   const isTablesPage = pathname === "/pos" || pathname === "/pos/reports";
   // The order screen is laid out the same way: fixed to the viewport, with its own scrolling panes.
   const isOrderPage = pathname.startsWith("/pos/order/");
+  // The quick sale screen too: the products and the cart scroll on their own.
+  const isQuickSalePage = pathname === "/pos/quick-sale";
 
   const [searchQuery, setSearchQuery] = useState("");
   useEffect(() => {
@@ -210,7 +212,7 @@ export default function PosLayout({ children, modal }: { children: React.ReactNo
         <div
           className={cn(
             "flex flex-col",
-            isTablesPage || isOrderPage ? "h-dvh" : "min-h-screen",
+            isTablesPage || isOrderPage || isQuickSalePage ? "h-dvh" : "min-h-screen",
             !branding?.wallpaperUrl && "bg-muted/30",
             branding?.touchScreenMode === true && "touch-mode",
           )}

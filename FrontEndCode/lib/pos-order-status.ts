@@ -14,6 +14,8 @@ export function orderStatusLabel(status: OrderWorkflowStatus): string {
       return "Hazır";
     case "served":
       return "Verildi";
+    case "paid":
+      return "Ödənilib";
     default:
       return status;
   }
@@ -28,6 +30,8 @@ export function orderStatusBg(status: OrderWorkflowStatus): string {
       return "bg-[#34d399]";
     case "served":
       return "bg-[#f472b6]";
+    case "paid":
+      return "bg-[#64748b]";
     default:
       return "bg-[#6366f1]";
   }

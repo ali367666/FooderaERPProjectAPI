@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TouchNumpad } from "@/components/pos/touch-numpad";
+import { BankPicker, usePaymentBanks } from "@/components/pos/bank-picker";
 import { cn } from "@/lib/utils";
 import {
   payOrderPart,
@@ -69,6 +70,9 @@ export function SplitBillDialog({
   const fiscal = useFiscalMode();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { banks, error: banksError } = usePaymentBanks(open && cardEnabled);
+  const [bankId, setBankId] = useState<number | null>(null);
+  const needsBank = method === "Card" && bankId == null;
 
   const paidByLine = useMemo(() => {
     const map = new Map<number, number>();
@@ -108,6 +112,7 @@ export function SplitBillDialog({
     if (!open) return;
     setSelection({});
     setError(null);
+    setBankId(null);
     setMethod(cashEnabled ? "Cash" : cardEnabled ? "Card" : "Credit");
   }, [open, payments?.paidAmount, cashEnabled, cardEnabled]);
 
@@ -139,6 +144,10 @@ export function SplitBillDialog({
       toast.error("Borca yazmaq üçün əvvəlcə müştəri seçin.");
       return;
     }
+    if (needsBank) {
+      toast.error("Kart ödənişi üçün bankı seçin.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -146,6 +155,7 @@ export function SplitBillDialog({
         paymentMethod: method,
         paidAmount: method === "Cash" ? received : due,
         isFiscal: fiscal,
+        bankId,
         lines: selectedLines.map((l) => ({ orderLineId: l.id, quantity: selection[l.id] ?? 0 })),
       });
       setSelection({});
@@ -336,6 +346,10 @@ export function SplitBillDialog({
                 </div>
               )}
 
+              {method === "Card" && (
+                <BankPicker banks={banks} error={banksError} value={bankId} onChange={setBankId} disabled={busy} />
+              )}
+
               {error && (
                 <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                   {error}
@@ -344,7 +358,7 @@ export function SplitBillDialog({
 
               <Button
                 className="h-12 w-full text-base font-semibold"
-                disabled={busy || (selectedLines.length === 0 && !isFinal) || due < 0}
+                disabled={busy || (selectedLines.length === 0 && !isFinal) || due < 0 || needsBank}
                 onClick={() => void handlePay()}
               >
                 {busy ? "Gözləyin…" : `Ödə — ${due.toFixed(2)} ₼`}
