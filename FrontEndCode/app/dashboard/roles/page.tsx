@@ -33,6 +33,10 @@ import {
 } from "@/lib/services/role-permission-service";
 import { toast } from "sonner";
 import { roleDisplayName } from "@/lib/role-labels";
+import { isPermissionForMode } from "@/lib/permission-translations";
+import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
+import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
+import { getStoredToken } from "@/lib/auth-client";
 
 type RoleRow = {
   id: string;
@@ -71,15 +75,29 @@ export default function RolesPage() {
       .catch(() => setPermissions([]));
   }, []);
 
+  // Restaurant companies are offered no Store permissions and store companies no restaurant-only ones.
+  const [storeMode, setStoreMode] = useState(false);
+  useEffect(() => {
+    const companyId = Number(formCompanyId) || selectedCompanyId || getCompanyIdFromToken(getStoredToken());
+    if (!companyId) {
+      setStoreMode(false);
+      return;
+    }
+    getCompanySettingsBranding(companyId)
+      .then((b) => setStoreMode(b.moduleDataSecimi === true))
+      .catch(() => setStoreMode(false));
+  }, [formCompanyId, selectedCompanyId]);
+
   const groupedPermissions = useMemo(() => {
     const map = new Map<string, PermissionDto[]>();
     for (const p of permissions) {
+      if (!isPermissionForMode(p.module, storeMode, p.name)) continue;
       const key = p.module || "Ümumi";
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(p);
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [permissions]);
+  }, [permissions, storeMode]);
 
   const togglePermission = (id: number) => {
     setSelectedPermissionIds((prev) => {

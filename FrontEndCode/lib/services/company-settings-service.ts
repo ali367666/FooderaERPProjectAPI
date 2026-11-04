@@ -320,6 +320,7 @@ export type CompanySettingsBranding = {
   modulePaket: boolean;
   moduleOtel: boolean;
   moduleFitnes: boolean;
+  salesEditLocked: boolean;
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
   moduleKompleks: boolean;
@@ -436,6 +437,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     modulePaket: bool("modulePaket", "ModulePaket"),
     moduleOtel: bool("moduleOtel", "ModuleOtel"),
     moduleFitnes: bool("moduleFitnes", "ModuleFitnes"),
+    salesEditLocked: bool("salesEditLocked", "SalesEditLocked"),
     moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
     moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
     moduleKompleks: bool("moduleKompleks", "ModuleKompleks"),

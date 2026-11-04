@@ -26,6 +26,8 @@ export function AppSidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const permissionSet = usePermissionSet();
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
+  // Until the company's mode is known the menu must not guess (a store company would flash the restaurant sections first).
+  const [brandingReady, setBrandingReady] = useState(false);
 
   useEffect(() => {
     applyTheme(branding);
@@ -48,10 +50,39 @@ export function AppSidebar() {
     // their own. A tenant Admin only ever has their own company anyway.
     const ownCompanyId = getCompanyIdFromToken(getStoredToken());
     const effectiveCompanyId = selectedCompanyId ?? ownCompanyId;
-    if (!effectiveCompanyId) return;
+    if (!effectiveCompanyId) {
+      setBrandingReady(true);
+      return;
+    }
+    const cacheKey = `branding:${effectiveCompanyId}:${selectedRestaurantId ?? 0}`;
+    let cancelled = false;
+    // The last answer for this company is shown at once (no flash on later visits) and refreshed from the server.
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        setBranding(JSON.parse(cached) as CompanySettingsBranding);
+        setBrandingReady(true);
+      } else {
+        setBrandingReady(false);
+      }
+    } catch {
+      setBrandingReady(false);
+    }
     getCompanySettingsBranding(effectiveCompanyId, selectedRestaurantId ?? undefined)
-      .then(setBranding)
-      .catch(() => setBranding(null));
+      .then((b) => {
+        if (cancelled) return;
+        setBranding(b);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(b));
+        } catch {
+          // storage blocked: just no cache
+        }
+      })
+      .catch(() => !cancelled && setBranding(null))
+      .finally(() => !cancelled && setBrandingReady(true));
+    return () => {
+      cancelled = true;
+    };
   }, [selectedCompanyId, selectedRestaurantId]);
 
   const visibleNavGroups = useMemo(
@@ -60,15 +91,19 @@ export function AppSidebar() {
         .map((group) => ({
           ...group,
           items: group.items.filter((item) => {
+            // While the mode is still loading the restaurant pages stay listed (nothing vanishes); only store-only pages wait.
+            if (!brandingReady && item.storeOnly) return false;
             if (item.module && branding && branding[item.module] === false) return false;
             if (item.hiddenForStoreMode && branding?.moduleDataSecimi) return false;
+            if (item.storeOnly && !branding?.moduleDataSecimi) return false;
+            if (item.superAdminOnly && !isSuperAdmin) return false;
             if (!item.permission) return true;
             if (isSuperAdmin) return true;
             return permissionSet.has(item.permission);
           }),
         }))
         .filter((group) => group.items.length > 0),
-    [isSuperAdmin, permissionSet, branding],
+    [isSuperAdmin, permissionSet, branding, brandingReady],
   );
 
   const isStoreMode = Boolean(branding?.moduleDataSecimi);

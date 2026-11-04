@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { SummaryCard } from '@/components/summary-card';
+import StoreDashboardOverview from '@/components/store/dashboard-overview';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -241,6 +242,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <StoreDashboardOverview />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Operations Dashboard</h1>

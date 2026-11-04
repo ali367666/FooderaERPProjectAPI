@@ -122,6 +122,10 @@ export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
     [companies, companiesLoading, companiesError, selectedCompanyId, setSelectedCompanyId, reloadCompanies],
   );
 
+  // The saved company is read in the first effect; until then the pages below would load the signed-in user's own company
+  // and switch a moment later (wrong data flashing, a second request). They are mounted only once the choice is known.
+  if (!storageHydrated) return null;
+
   return <SelectedCompanyContext.Provider value={value}>{children}</SelectedCompanyContext.Provider>;
 }
 

@@ -35,6 +35,7 @@ import { getRoles, type AppRole } from "@/lib/services/role-service";
 import { getWarehouses, type Warehouse } from "@/lib/services/warehouse-service";
 import { isProtectedAccount, roleDisplayName } from "@/lib/role-labels";
 import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
+import { useCompanyStoreMode } from "@/hooks/use-company-store-mode";
 import { toast } from "sonner";
 
 const selectClass =
@@ -82,6 +83,8 @@ function friendlyError(err: unknown, fallback: string): string {
 }
 
 export default function UsersPage() {
+  // A store company's staff code may hold letters (typed on a keyboard); a restaurant's is digits only.
+  const storeMode = useCompanyStoreMode() === true;
   const { companies, companiesLoading, selectedCompanyId } = useSelectedCompany();
   const isSuperAdmin = useIsSuperAdmin();
   const [list, setList] = useState<AppUser[]>([]);
@@ -699,14 +702,14 @@ export default function UsersPage() {
               </Label>
             </div>
             <div>
-              <Label htmlFor="u-code">Kod (rəqəm)</Label>
+              <Label htmlFor="u-code">{storeMode ? "Kod (hərf və rəqəm)" : "Kod (rəqəm)"}</Label>
               <Input
                 id="u-code"
                 className="mt-1"
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 20))}
+                onChange={(e) => setCode(e.target.value.replace(storeMode ? /[^A-Za-z0-9]/g : /\D/g, "").slice(0, 20))}
                 placeholder="e.g. 0002"
-                inputMode="numeric"
+                inputMode={storeMode ? "text" : "numeric"}
                 maxLength={20}
                 autoComplete="off"
               />

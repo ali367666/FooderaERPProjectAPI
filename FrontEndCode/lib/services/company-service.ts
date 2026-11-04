@@ -192,6 +192,18 @@ export async function setCompanyModules(companyId: number, modules: CompanyModul
   }
 }
 
+/** SuperAdmin only: opens or closes changing a company's store sales (cancelling them). */
+export async function setCompanySalesLock(companyId: number, locked: boolean): Promise<void> {
+  try {
+    const response = await api.put<ApiResponse<unknown>>("/company-settings/sales-lock", null, { params: { companyId, locked } });
+    if (response.data?.success === false) {
+      throw new ApiFormError(response.data.message || "Failed to update the sales lock");
+    }
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update the sales lock");
+  }
+}
+
 export async function deleteCompany(id: number): Promise<void> {
   try {
     const response = await api.delete<ApiResponse<unknown>>(`/companies/${id}`);

@@ -104,6 +104,9 @@ export function SelectedRestaurantProvider({ children }: { children: ReactNode }
     [restaurants, restaurantsLoading, selectedRestaurantId, setSelectedRestaurantId, reloadRestaurants],
   );
 
+  // Mounted only once the saved branch is known, so pages do not load "all branches" first and switch a moment later.
+  if (!storageHydrated) return null;
+
   return (
     <SelectedRestaurantContext.Provider value={value}>{children}</SelectedRestaurantContext.Provider>
   );

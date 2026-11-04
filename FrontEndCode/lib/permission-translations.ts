@@ -109,8 +109,53 @@ const PERMISSION_LABELS: Record<string, string> = {
   "StockPurchase.Cancel": "Təsdiqlənmiş alışı ləğv et",
   "StockPurchase.Pay": "Alış üzrə təchizatçıya ödəniş yaz",
   "StockPurchase.Return": "Alışdan təchizatçıya mal qaytar",
+
   "StockWriteOff.View": "Stok tənzimləməyə bax",
   "StockWriteOff.Create": "Anbardan mal sil (stok tənzimləmə)",
+
+  "StoreProduct.View": "Mağaza: məhsullara bax",
+  "StoreProduct.Manage": "Mağaza: məhsul yarat/dəyiş",
+  "StoreStock.View": "Mağaza: stoka bax",
+  "StoreStock.Adjust": "Mağaza: stok düzəlişi",
+  "StoreSale.View": "Mağaza: satışlara bax",
+  "StoreSale.Create": "Mağaza: satış et",
+  "StoreSale.Cancel": "Mağaza: satışı ləğv et",
+  "StoreSale.Discount": "Mağaza: endirim ver",
+  "StoreSale.ChangePrice": "Mağaza: satışda qiymət dəyiş",
+  "StoreSale.Return": "Mağaza: geri qaytarma / dəyişdirmə",
+  "StoreSale.Approve": "Mağaza: endirim limitini aşmağa və fiskal çeki yenidən göndərməyə icazə",
+  "StoreCash.Open": "Mağaza: növbə aç",
+  "StoreCash.Close": "Mağaza: növbə bağla (Z)",
+  "StoreCash.Reopen": "Mağaza: bağlı növbəni yenidən aç",
+  "StoreSale.NoReceipt": "Mağaza: çeksiz satış",
+  "StoreSale.RemoveLine": "Mağaza: səbətdən məhsul sil (olmasa menecer təsdiqi lazımdır)",
+  "StoreCash.Movement": "Mağaza: kassa mədaxil/məxaric (ikisi)",
+  "StoreCash.MovementIn": "Mağaza: kassaya mədaxil (olmasa menecer təsdiqi lazımdır)",
+  "StoreCash.MovementOut": "Mağaza: kassadan məxaric (olmasa menecer təsdiqi lazımdır)",
+  "StoreRegister.Manage": "Mağaza: kassaları idarə et",
+  "StoreReport.View": "Mağaza: növbə və hesabatlara bax",
+  "StoreReport.Finance": "Mağaza: maya dəyəri, mənfəət və borc hesabatları",
+  "StoreSettings.Manage": "Mağaza: stok qaydalarını dəyiş",
+  "StoreSupplier.View": "Mağaza: təchizatçılara bax",
+  "StoreSupplier.Manage": "Mağaza: təchizatçı yarat/dəyiş",
+  "StoreSupplier.Pay": "Mağaza: təchizatçıya ödəniş yaz",
+  "StoreInventory.View": "Mağaza: inventarizasiyaya bax",
+  "StoreInventory.Manage": "Mağaza: inventarizasiya aç / say",
+  "StoreInventory.Confirm": "Mağaza: inventarizasiyanı təsdiqlə (stok düzəlişi)",
+  "StoreTransfer.View": "Mağaza: transferlərə bax",
+  "StoreTransfer.Manage": "Mağaza: transfer yarat / dəyiş",
+  "StoreTransfer.Ship": "Mağaza: transferi göndər",
+  "StoreTransfer.Receive": "Mağaza: transferi qəbul et",
+  "StoreCustomer.View": "Mağaza: müştərilərə bax",
+  "StoreCustomer.Manage": "Mağaza: müştəri yarat / dəyiş",
+  "StoreCustomer.Pay": "Mağaza: müştəri borc ödənişi qəbul et",
+  "StoreBonus.Adjust": "Mağaza: bonus düzəlişi",
+  "StoreSale.Debt": "Mağaza: borca satış",
+  "StorePurchase.View": "Mağaza: alışlara bax",
+  "StorePurchase.Manage": "Mağaza: alış sənədi yarat/dəyiş",
+  "StorePurchase.Confirm": "Mağaza: alışı təsdiqlə / ləğv et",
+  "StorePurchase.Return": "Mağaza: alışı təchizatçıya qaytar",
+
   "CompanyDeposit.View": "Şirkət depozitinə bax",
   "CompanyDeposit.Create": "Şirkət depoziti yaz",
 
@@ -216,6 +261,19 @@ const MODULE_LABELS: Record<string, string> = {
   StockPurchase: "Alışlar",
   StockWriteOff: "Stok tənzimləmə",
   CompanyDeposit: "Şirkət depoziti",
+  StoreProduct: "Mağaza: məhsullar",
+  StoreStock: "Mağaza: stok",
+  StoreSale: "Mağaza: satış",
+  StoreCash: "Mağaza: kassa",
+  StoreRegister: "Mağaza: kassalar",
+  StoreReport: "Mağaza: hesabatlar",
+  StoreSettings: "Mağaza: parametrlər",
+  StoreSupplier: "Mağaza: təchizatçılar",
+  StorePurchase: "Mağaza: alışlar",
+  StoreInventory: "Mağaza: inventarizasiya",
+  StoreTransfer: "Mağaza: transfer",
+  StoreCustomer: "Mağaza: müştərilər",
+  StoreBonus: "Mağaza: bonus",
   Reservation: "Rezervasiyalar",
   Discount: "Endirimlər",
   Pos: "POS",
@@ -249,6 +307,42 @@ const STORE_MODULE_LABELS: Record<string, string> = {
 
 export function translatePermissionLabel(name: string, fallback: string, storeMode = false): string {
   return (storeMode ? STORE_PERMISSION_LABELS[name] : undefined) ?? PERMISSION_LABELS[name] ?? fallback;
+}
+
+/** Permission modules that only make sense for a restaurant (tables, kitchen...); hidden when the company works as a store. */
+const RESTAURANT_ONLY_MODULES = new Set([
+  "RestaurantTable",
+  "Reservation",
+  "Kitchen",
+  "RestaurantSection",
+  "DeliveryIntegration",
+  // the restaurant's orders, menu and stock: a store works with its own Store* sales, products and stock
+  "Orders",
+  "Payment",
+  "MenuItem",
+  "MenuCategory",
+  "Discount",
+  "StockCategory",
+  "StockItem",
+  "WarehouseStock",
+  "StockRequest",
+  "StockPurchase",
+  "StockWriteOff",
+  // the restaurant's till; a store has its own StoreCash* permissions
+  "CashRegister",
+]);
+
+/**
+ * Whether a permission is offered for a company's mode: a restaurant never sees the Store* permissions, a store never sees the
+ * restaurant-only ones. (Roles keep what they already have; this only decides what the screen lists.)
+ */
+export function isPermissionForMode(module: string, storeMode: boolean, name = ""): boolean {
+  if (module.startsWith("Store")) return storeMode;
+  if (storeMode && RESTAURANT_ONLY_MODULES.has(module)) return false;
+  // The restaurant POS (tables, waiters, orders) has no place in a store, which sells through its own Store* permissions;
+  // only the Z-report stays because the dashboard reports page uses it.
+  if (storeMode && module === "Pos" && name !== "Pos.ZReport") return false;
+  return true;
 }
 
 export function translateModuleLabel(module: string, storeMode = false): string {

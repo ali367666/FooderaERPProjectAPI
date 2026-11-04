@@ -3,23 +3,23 @@
 import { useEffect, useState } from "react";
 import { Globe, MonitorSmartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getMyLicenseStatus, type LicenseStatus } from "@/lib/services/license-service";
+import { getCompanyLicense, getMyLicenseStatus, type LicenseStatus } from "@/lib/services/license-service";
 import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 
 /**
  * Online / Offline indicator. Online = the company's remote-access licence is active (shows days
  * left, amber in the last 3 days). Offline = only registered devices can use the system.
  */
-export function LicenseStatusBadge({ className }: { className?: string }) {
+export function LicenseStatusBadge({ className, companyId }: { className?: string; companyId?: number | null }) {
   const [status, setStatus] = useState<LicenseStatus | null>(null);
   const isSuperAdmin = useIsSuperAdmin();
 
   useEffect(() => {
-    // The platform admin isn't bound by any licence.
-    if (isSuperAdmin) return;
+    // The platform admin isn't bound by any licence, unless they picked a company: then that company's licence is shown.
+    if (isSuperAdmin && !companyId) return;
     let cancelled = false;
     const load = () =>
-      getMyLicenseStatus()
+      (companyId ? getCompanyLicense(companyId) : getMyLicenseStatus())
         .then((s) => !cancelled && setStatus(s))
         .catch(() => !cancelled && setStatus(null));
     void load();
@@ -28,9 +28,11 @@ export function LicenseStatusBadge({ className }: { className?: string }) {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, companyId]);
 
-  if (isSuperAdmin || !status) return null;
+  if ((isSuperAdmin && !companyId) || !status) return null;
+  // A company whose licence nobody has set up yet shows nothing (not another company's data, not a misleading "Offline").
+  if (!status.isLocalInstallation && !status.remoteAccessEnabled) return null;
 
   if (status.isLocalInstallation) {
     const soon = status.licenseKeyValid && status.daysLeft != null && status.daysLeft <= 3;

@@ -24,7 +24,8 @@ import {
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { uploadFile } from "@/lib/services/file-service";
-import { getCompanySettings } from "@/lib/services/company-settings-service";
+import { useRouter } from "next/navigation";
+import { useCompanyStoreMode } from "@/hooks/use-company-store-mode";
 
 type MenuCategoryRow = {
   id: string;
@@ -56,13 +57,14 @@ export default function MenuCategoriesPage() {
   const [parentCategoryId, setParentCategoryId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [isStoreMode, setIsStoreMode] = useState(false);
-
+  const isStoreMode = useCompanyStoreMode() === true;
+  // A store keeps its products and categories in its own catalog (Mağaza → Məhsullar); this restaurant menu is not used there.
+  const storeRouter = useRouter();
   useEffect(() => {
-    getCompanySettings()
-      .then((s) => setIsStoreMode(s.moduleDataSecimi))
-      .catch(() => setIsStoreMode(false));
-  }, []);
+    if (isStoreMode) storeRouter.replace("/store/products");
+  }, [isStoreMode, storeRouter]);
+  // A store sees the same page in Azerbaijani, with product wording.
+  const t = (en: string, az: string) => (isStoreMode ? az : en);
 
   const loadCategories = async (silent = false) => {
     try {
@@ -109,7 +111,7 @@ export default function MenuCategoriesPage() {
       },
       {
         id: "name",
-        label: "Category Name",
+        label: t("Category Name", "Kateqoriya adı"),
         ui: "text",
         match: (row, get) => {
           const q = get("name").trim().toLowerCase();
@@ -119,7 +121,7 @@ export default function MenuCategoriesPage() {
       },
       {
         id: "description",
-        label: "Description",
+        label: t("Description", "Təsvir"),
         ui: "text",
         match: (row, get) => {
           const q = get("description").trim().toLowerCase();
@@ -129,7 +131,7 @@ export default function MenuCategoriesPage() {
       },
       {
         id: "status",
-        label: "Status",
+        label: t("Status", "Status"),
         ui: "status",
         match: (row, get) => {
           const v = get("status");
@@ -140,14 +142,15 @@ export default function MenuCategoriesPage() {
         },
       },
     ],
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isStoreMode],
   );
 
   const columns = [
     { key: "categoryId" as const, label: "ID" },
-    { key: "name" as const, label: "Category Name" },
-    { key: "parentCategoryName" as const, label: "Parent Category" },
-    { key: "description" as const, label: "Description" },
+    { key: "name" as const, label: t("Category Name", "Kateqoriya adı") },
+    { key: "parentCategoryName" as const, label: t("Parent Category", "Ana kateqoriya") },
+    { key: "description" as const, label: t("Description", "Təsvir") },
     {
       key: "statusLabel" as const,
       label: "Status",
@@ -210,7 +213,7 @@ export default function MenuCategoriesPage() {
       await deleteMenuCategory(row.categoryId, selectedCompanyId ?? undefined);
       await loadCategories(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete category.";
+      const message = err instanceof Error ? err.message : t("Failed to delete category.", "Kateqoriya silinmədi.");
       setError(message);
       window.alert(message);
     }
@@ -219,7 +222,7 @@ export default function MenuCategoriesPage() {
   const handleSave = async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      const msg = "Category name is required.";
+      const msg = t("Category name is required.", "Kateqoriyanın adı yazılmalıdır.");
       setError(msg);
       window.alert(msg);
       return;
@@ -259,7 +262,7 @@ export default function MenuCategoriesPage() {
     } catch (err) {
       if (err instanceof ApiFormError) setFieldErrors(err.fieldErrors);
       const message =
-        err instanceof Error ? err.message : "Save failed due to an unexpected error.";
+        err instanceof Error ? err.message : t("Save failed due to an unexpected error.", "Yazılmadı: gözlənilməyən xəta.");
       setError(message);
       window.alert(message);
     } finally {
@@ -268,7 +271,7 @@ export default function MenuCategoriesPage() {
   };
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading menu categories...</div>;
+    return <div className="p-6 text-sm text-muted-foreground">{t("Loading menu categories...", "Kateqoriyalar yüklənir...")}</div>;
   }
 
   return (
@@ -278,7 +281,7 @@ export default function MenuCategoriesPage() {
           {isStoreMode ? "Məhsul Kateqoriyaları" : "Menu Categories"}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Organize your menu into categories for each company.
+          {t("Organize your menu into categories for each company.", "Məhsullarınızı kateqoriyalara bölün.")}
         </p>
       </div>
 
@@ -298,12 +301,12 @@ export default function MenuCategoriesPage() {
         <AdvancedTableFilters defs={filterDefs} data={rows}>
           {(filtered) => (
             <DataTable
-              title="Menu Category List"
+              title={t("Menu Category List", "Məhsul kateqoriyaları")}
               columns={columns}
               data={filtered}
               idSortKey="categoryId"
               searchableFields={["name", "description", "statusLabel", "id"]}
-              searchPlaceholder="Search categories..."
+              searchPlaceholder={t("Search categories...", "Kateqoriya axtar...")}
               onAdd={handleAdd}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -313,13 +316,13 @@ export default function MenuCategoriesPage() {
 
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{isEditMode ? "Edit Menu Category" : "Add Menu Category"}</DialogTitle>
-            <DialogDescription>Name and describe the category, then save.</DialogDescription>
+            <DialogTitle>{isEditMode ? t("Edit Menu Category", "Kateqoriyanı dəyiş") : t("Add Menu Category", "Yeni kateqoriya")}</DialogTitle>
+            <DialogDescription>{t("Name and describe the category, then save.", "Kateqoriyanın adını və təsvirini yazıb yadda saxlayın.")}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">Name</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">{t("Name", "Ad")}</label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -331,11 +334,11 @@ export default function MenuCategoriesPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">Description</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">{t("Description", "Təsvir")}</label>
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optional description"
+                placeholder={t("Optional description", "İstəyə bağlı təsvir")}
               />
               {getFieldErrorMessage(fieldErrors, "description") && (
                 <p className="mt-1 text-xs text-red-600">
@@ -381,20 +384,20 @@ export default function MenuCategoriesPage() {
                   onChange={(e) => setIsActive(e.target.value === "true")}
                   className={selectClass}
                 >
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
+                  <option value="true">{t("Active", "Aktiv")}</option>
+                  <option value="false">{t("Inactive", "Passiv")}</option>
                 </select>
               </div>
             )}
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">Parent Category</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">{t("Parent Category", "Ana kateqoriya")}</label>
               <select
                 value={parentCategoryId != null ? String(parentCategoryId) : ""}
                 onChange={(e) => setParentCategoryId(e.target.value ? Number(e.target.value) : null)}
                 className={selectClass}
               >
-                <option value="">None (top-level category)</option>
+                <option value="">{t("None (top-level category)", "Yoxdur (əsas kateqoriya)")}</option>
                 {categories
                   .filter((c) => c.id !== editingId)
                   .map((c) => (
@@ -405,6 +408,7 @@ export default function MenuCategoriesPage() {
               </select>
             </div>
 
+            {!isStoreMode && (
             <label className="flex cursor-pointer items-start gap-3 rounded-md border border-input p-3">
               <input
                 type="checkbox"
@@ -419,6 +423,7 @@ export default function MenuCategoriesPage() {
                 </span>
               </span>
             </label>
+            )}
 
             <div className="flex justify-end gap-3">
               <Button
@@ -429,10 +434,10 @@ export default function MenuCategoriesPage() {
                 }}
                 disabled={isSubmitting}
               >
-                Cancel
+                {t("Cancel", "Ləğv et")}
               </Button>
               <Button onClick={handleSave} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save"}
+                {isSubmitting ? t("Saving...", "Yazılır...") : t("Save", "Yaz")}
               </Button>
             </div>
           </div>

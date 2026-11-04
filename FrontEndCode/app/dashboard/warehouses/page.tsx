@@ -379,6 +379,11 @@ export default function WarehousesPage() {
     const driverRaw = driverUserId.trim();
     const driverNum = driverRaw ? Number(driverRaw) : NaN;
 
+    if (t === WarehouseType.Restaurant && !restaurantId) {
+      window.alert("Filial anbarı üçün filialı seçin. Mağaza satışı yalnız filialın anbarından edilir.");
+      return;
+    }
+
     if (isVehicleT) {
       if (!Number.isFinite(driverNum) || driverNum <= 0) {
         window.alert("Please select a driver for vehicle warehouse.");
@@ -390,7 +395,8 @@ export default function WarehousesPage() {
       name: trimmed,
       type: t,
       companyId: comp,
-      restaurantId: restaurantId ? Number(restaurantId) : null,
+      // Only a branch warehouse is tied to a branch; a head-office or vehicle warehouse must have none (the server checks this).
+      restaurantId: t === WarehouseType.Restaurant && restaurantId ? Number(restaurantId) : null,
       responsibleEmployeeId: Number.isFinite(resEmpNum) && resEmpNum > 0 ? resEmpNum : null,
       driverUserId: isVehicleT ? driverNum : null,
     };
@@ -471,7 +477,14 @@ export default function WarehousesPage() {
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Type</label>
-              <select value={type} onChange={(e) => setType(e.target.value)} className={selectClass}>
+              <select
+                value={type}
+                onChange={(e) => {
+                  setType(e.target.value);
+                  if (Number(e.target.value) !== WarehouseType.Restaurant) setRestaurantId("");
+                }}
+                className={selectClass}
+              >
                 {TYPE_OPTIONS.map((opt) => (
                   <option key={opt} value={String(opt)}>
                     {warehouseTypeLabel(opt)}
@@ -493,10 +506,11 @@ export default function WarehousesPage() {
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "companyid")}</p>
               )}
             </div>
+            {Number(type) === WarehouseType.Restaurant && (
             <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-foreground">Branch (optional)</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">Filial (məcburi)</label>
               <select value={restaurantId} onChange={(e) => setRestaurantId(e.target.value)} className={selectClass}>
-                <option value="">None</option>
+                <option value="">Filialı seçin</option>
                 {restaurantsForForm.map((r) => (
                   <option key={r.id} value={String(r.id)}>
                     {r.name}
@@ -504,6 +518,7 @@ export default function WarehousesPage() {
                 ))}
               </select>
             </div>
+            )}
             <div className="sm:col-span-2">
               <label
                 className="mb-2 block text-sm font-medium text-foreground"

@@ -57,7 +57,8 @@ import { BarcodeSvg } from "@/components/barcode-svg";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { usePermissionSet, useHasPermission } from "@/hooks/use-auth-permissions";
 import { AppPermissions } from "@/lib/app-permissions";
-import { getCompanySettings } from "@/lib/services/company-settings-service";
+import { useRouter } from "next/navigation";
+import { useCompanyStoreMode } from "@/hooks/use-company-store-mode";
 
 type MenuItemRow = {
   id: string;
@@ -106,13 +107,12 @@ export default function MenuItemsPage() {
   const [printerOptions, setPrinterOptions] = useState<(Printer & { restaurantName: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isStoreMode, setIsStoreMode] = useState(false);
-
+  const isStoreMode = useCompanyStoreMode() === true;
+  // A store keeps its products and categories in its own catalog (Mağaza → Məhsullar); this restaurant menu is not used there.
+  const storeRouter = useRouter();
   useEffect(() => {
-    getCompanySettings()
-      .then((s) => setIsStoreMode(s.moduleDataSecimi))
-      .catch(() => setIsStoreMode(false));
-  }, []);
+    if (isStoreMode) storeRouter.replace("/store/products");
+  }, [isStoreMode, storeRouter]);
 
   const [stockItemId, setStockItemId] = useState("");
   const [stockInfo, setStockInfo] = useState<MenuItemStockInfo | null>(null);
