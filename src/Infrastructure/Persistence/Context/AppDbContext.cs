@@ -1,5 +1,6 @@
 using Domain.Entities;
 using Domain.Entities.WarehouseAndStock;
+using Domain.Entities.StoreMode;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -73,6 +74,46 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<StockWriteOff> StockWriteOffs { get; set; } = null!;
     public DbSet<CompanyDeposit> CompanyDeposits { get; set; } = null!;
 
+    // Store mode (mağaza rejimi): a separate catalog, stock ledger and sales, independent of the restaurant tables.
+    public DbSet<StoreCategory> StoreCategories { get; set; } = null!;
+    public DbSet<StoreProduct> StoreProducts { get; set; } = null!;
+    public DbSet<StoreProductBarcode> StoreProductBarcodes { get; set; } = null!;
+    public DbSet<StoreStockBalance> StoreStockBalances { get; set; } = null!;
+    public DbSet<StoreStockMovement> StoreStockMovements { get; set; } = null!;
+    public DbSet<StoreSettings> StoreSettings { get; set; } = null!;
+    public DbSet<StoreCashRegister> StoreCashRegisters { get; set; } = null!;
+    public DbSet<StoreCashShift> StoreCashShifts { get; set; } = null!;
+    public DbSet<StoreCashMovement> StoreCashMovements { get; set; } = null!;
+    public DbSet<StoreSale> StoreSales { get; set; } = null!;
+    public DbSet<StoreSaleLine> StoreSaleLines { get; set; } = null!;
+    public DbSet<StoreSalePayment> StoreSalePayments { get; set; } = null!;
+    public DbSet<StoreQuickSlot> StoreQuickSlots { get; set; } = null!;
+    public DbSet<StoreHeldSale> StoreHeldSales { get; set; } = null!;
+    public DbSet<StoreSerialUnit> StoreSerialUnits { get; set; } = null!;
+    public DbSet<StoreSerialEvent> StoreSerialEvents { get; set; } = null!;
+    public DbSet<StoreApprovalLog> StoreApprovalLogs { get; set; } = null!;
+    public DbSet<StoreSaleReturn> StoreSaleReturns { get; set; } = null!;
+    public DbSet<StoreSaleReturnLine> StoreSaleReturnLines { get; set; } = null!;
+    public DbSet<StoreSupplier> StoreSuppliers { get; set; } = null!;
+    public DbSet<StorePurchase> StorePurchases { get; set; } = null!;
+    public DbSet<StorePurchaseLine> StorePurchaseLines { get; set; } = null!;
+    public DbSet<StorePurchaseReturn> StorePurchaseReturns { get; set; } = null!;
+    public DbSet<StorePurchaseReturnLine> StorePurchaseReturnLines { get; set; } = null!;
+    public DbSet<StoreSupplierPayment> StoreSupplierPayments { get; set; } = null!;
+    public DbSet<StorePaymentAllocation> StorePaymentAllocations { get; set; } = null!;
+    public DbSet<StoreLedgerEntry> StoreLedgerEntries { get; set; } = null!;
+    public DbSet<StorePriceHistory> StorePriceHistories { get; set; } = null!;
+    public DbSet<StoreInventory> StoreInventories { get; set; } = null!;
+    public DbSet<StoreInventoryLine> StoreInventoryLines { get; set; } = null!;
+    public DbSet<StoreTransfer> StoreTransfers { get; set; } = null!;
+    public DbSet<StoreTransferLine> StoreTransferLines { get; set; } = null!;
+    public DbSet<StoreCustomer> StoreCustomers { get; set; } = null!;
+    public DbSet<StoreBonusEntry> StoreBonusEntries { get; set; } = null!;
+    public DbSet<StoreSyncOperation> StoreSyncOperations { get; set; } = null!;
+    public DbSet<StoreUserBranch> StoreUserBranches { get; set; } = null!;
+    public DbSet<StoreBranchPrice> StoreBranchPrices { get; set; } = null!;
+    public DbSet<StoreCustomerPayment> StoreCustomerPayments { get; set; } = null!;
+
     // Warehouse
     public DbSet<Warehouse> Warehouses { get; set; } = null!;
     public DbSet<WarehouseStockDocument> WarehouseStockDocuments { get; set; } = null!;
@@ -126,6 +167,7 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
             b.Property(t => t.QrToken).HasMaxLength(32);
             b.HasIndex(t => t.QrToken).IsUnique().HasFilter("[QrToken] IS NOT NULL");
         });
+
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             foreach (var property in entityType.GetProperties())

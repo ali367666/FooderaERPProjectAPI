@@ -24,6 +24,12 @@ public class CompanySettings : CompanyEntity<int>
     /// </summary>
     public bool ModuleKompleks { get; set; }
 
+    /// <summary>
+    /// Set by the platform SuperAdmin only. When true the company's store sales can no longer be changed after the fact
+    /// (a sale cannot be cancelled); returns still work.
+    /// </summary>
+    public bool SalesEditLocked { get; set; }
+
     public bool IntegrationWolt { get; set; }
     public bool IntegrationBolt { get; set; }
     public bool Integration189Delivery { get; set; }

@@ -616,6 +616,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<bool>("RequireProductCode")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("SalesEditLocked")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("SingleWaiterMode")
                         .HasColumnType("bit");
 
@@ -3058,6 +3061,2313 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("Shifts", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreApprovalLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("ApprovedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("DocumentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.ToTable("StoreApprovalLogs", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreBonusEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("DocumentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("StoreCustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreCustomerId", "CreatedAtUtc");
+
+                    b.ToTable("StoreBonusEntries", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreBranchPrice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SalePrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreProductId");
+
+                    b.HasIndex("CompanyId", "RestaurantId", "StoreProductId")
+                        .IsUnique();
+
+                    b.ToTable("StoreBranchPrices", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCashMovement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ApprovedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("StoreCashShiftId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreCashShiftId");
+
+                    b.ToTable("StoreCashMovements", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCashRegister", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("RestaurantId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("StoreCashRegisters", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCashShift", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("ActualCash")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("CashDifference")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CashierUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CloseNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ClosedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("ExpectedCash")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("OpenedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("OpeningCash")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashRegisterId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreCashRegisterId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_StoreCashShifts_OpenPerRegister")
+                        .HasFilter("[Status] = 1");
+
+                    b.ToTable("StoreCashShifts", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EarnsBonus")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("ParentCategoryId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("ParentCategoryId");
+
+                    b.ToTable("StoreCategories", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCustomer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("BonusPercentOverride")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CreditLimit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "Phone");
+
+                    b.ToTable("StoreCustomers", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCustomerPayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ReverseReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReversedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReversedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashShiftId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCustomerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreCashShiftId");
+
+                    b.HasIndex("StoreCustomerId");
+
+                    b.HasIndex("CompanyId", "DocumentNo")
+                        .IsUnique();
+
+                    b.ToTable("StoreCustomerPayments", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreHeldSale", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CartJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CashierUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ItemCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashRegisterId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreCashRegisterId");
+
+                    b.ToTable("StoreHeldSales", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreInventory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ConfirmedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ConfirmedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "DocumentNo")
+                        .IsUnique();
+
+                    b.ToTable("StoreInventories", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreInventoryLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("CountedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Difference")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ExpectedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("StoreInventoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreInventoryId");
+
+                    b.HasIndex("StoreProductId");
+
+                    b.ToTable("StoreInventoryLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreLedgerEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("DocumentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("EntryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("PartyId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PartyType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "PartyType", "PartyId", "EntryDate");
+
+                    b.ToTable("StoreLedgerEntries", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePaymentAllocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StorePurchaseId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreSupplierPaymentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StorePurchaseId");
+
+                    b.HasIndex("StoreSupplierPaymentId");
+
+                    b.ToTable("StorePaymentAllocations", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePriceHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EffectiveFromUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("NewPrice")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("OldPrice")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("PriceType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreProductId", "EffectiveFromUtc");
+
+                    b.ToTable("StorePriceHistories", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreProduct", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AverageCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Brand")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("CampaignFromUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("CampaignPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("CampaignToUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EarnsBonus")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("MinimumStock")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("PurchasePrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SalePrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("TracksSerial")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Unit")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("VatPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("WholesalePrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("CompanyId", "Name");
+
+                    b.HasIndex("CompanyId", "Sku")
+                        .IsUnique()
+                        .HasFilter("[Sku] IS NOT NULL");
+
+                    b.ToTable("StoreProducts", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreProductBarcode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Barcode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreProductId");
+
+                    b.HasIndex("CompanyId", "Barcode")
+                        .IsUnique();
+
+                    b.ToTable("StoreProductBarcodes", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CancelledByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ConfirmedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ConfirmedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("PurchaseDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreSupplierId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SupplierInvoiceNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VatTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "DocumentNo")
+                        .IsUnique();
+
+                    b.HasIndex("StoreSupplierId", "Status");
+
+                    b.ToTable("StorePurchases", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchaseLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DiscountPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("NetUnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("SerialNumbers")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StorePurchaseId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("VatPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreProductId");
+
+                    b.HasIndex("StorePurchaseId");
+
+                    b.ToTable("StorePurchaseLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchaseReturn", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("StorePurchaseId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreSupplierId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StorePurchaseId");
+
+                    b.HasIndex("CompanyId", "DocumentNo")
+                        .IsUnique();
+
+                    b.ToTable("StorePurchaseReturns", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchaseReturnLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StorePurchaseLineId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StorePurchaseReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StorePurchaseLineId");
+
+                    b.HasIndex("StorePurchaseReturnId");
+
+                    b.ToTable("StorePurchaseReturnLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreQuickSlot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SlotNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashRegisterId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreProductId");
+
+                    b.HasIndex("StoreCashRegisterId", "SlotNumber")
+                        .IsUnique();
+
+                    b.ToTable("StoreQuickSlots", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSale", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BonusEarned")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BonusSpent")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CancelledByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ChangeAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DebtAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("DocumentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("FiscalError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("FiscalReceiptNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("FiscalStatus")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsReceiptless")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("PaidTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashRegisterId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashShiftId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StoreCustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VatTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreCashRegisterId");
+
+                    b.HasIndex("StoreCashShiftId");
+
+                    b.HasIndex("StoreCustomerId");
+
+                    b.HasIndex("CompanyId", "CreatedAtUtc");
+
+                    b.HasIndex("CompanyId", "DocumentNo")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "OperationId")
+                        .IsUnique();
+
+                    b.ToTable("StoreSales", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSaleLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ListPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PriceChangeReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreSaleId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VatAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VatPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreProductId");
+
+                    b.HasIndex("StoreSaleId");
+
+                    b.ToTable("StoreSaleLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSalePayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("StoreSaleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreSaleId");
+
+                    b.ToTable("StoreSalePayments", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSaleReturn", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BonusClawbackAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BonusRefundAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DebtCreditAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("DocumentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("ExchangeSaleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("RefundAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("RefundMethod")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashRegisterId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashShiftId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreSaleId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreCashRegisterId");
+
+                    b.HasIndex("StoreCashShiftId");
+
+                    b.HasIndex("StoreSaleId");
+
+                    b.HasIndex("CompanyId", "DocumentNo")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "OperationId")
+                        .IsUnique();
+
+                    b.ToTable("StoreSaleReturns", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSaleReturnLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Condition")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreSaleLineId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreSaleReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreSaleLineId");
+
+                    b.HasIndex("StoreSaleReturnId");
+
+                    b.ToTable("StoreSaleReturnLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSerialEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("DocumentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("StoreSerialUnitId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreSerialUnitId");
+
+                    b.ToTable("StoreSerialEvents", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSerialUnit", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SerialNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("SoldAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StoreSaleLineId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreSaleLineId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "SerialNumber")
+                        .IsUnique();
+
+                    b.HasIndex("StoreProductId", "WarehouseId", "Status");
+
+                    b.ToTable("StoreSerialUnits", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AllowNegativeStock")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("AllowReceiptlessSale")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("BonusEarnPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(5,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int>("BonusExpiryDays")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("BonusMaxPaymentPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(5,2)")
+                        .HasDefaultValue(50m);
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("FiscalEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("MaxDiscountPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(5,2)")
+                        .HasDefaultValue(10m);
+
+                    b.Property<int>("QuickSlotCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(50);
+
+                    b.Property<string>("ReceiptFooter")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ReceiptHeader")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ReceiptWidthMm")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(80);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId")
+                        .IsUnique();
+
+                    b.ToTable("StoreSettings", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreStockBalance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreProductId");
+
+                    b.HasIndex("WarehouseId", "StoreProductId")
+                        .IsUnique();
+
+                    b.ToTable("StoreStockBalances", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreStockMovement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("BalanceBefore")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("DocumentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("StoreProductId", "WarehouseId", "CreatedAtUtc");
+
+                    b.ToTable("StoreStockMovements", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSupplier", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LegalName")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("PaymentTermDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TaxNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Name");
+
+                    b.ToTable("StoreSuppliers", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSupplierPayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ReverseReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ReversedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReversedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreSupplierId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreSupplierId");
+
+                    b.HasIndex("CompanyId", "DocumentNo")
+                        .IsUnique();
+
+                    b.ToTable("StoreSupplierPayments", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSyncOperation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ClientCreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ProcessedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ResultDocumentNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("ResultEntityId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "Status");
+
+                    b.ToTable("StoreSyncOperations", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreTransfer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("FromWarehouseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReceivedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReceivedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ShippedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ShippedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ToWarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromWarehouseId");
+
+                    b.HasIndex("ToWarehouseId");
+
+                    b.HasIndex("CompanyId", "DocumentNo")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "Status");
+
+                    b.ToTable("StoreTransfers", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreTransferLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ReceivedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ReceivedSerialNumbers")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SerialNumbers")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("ShippedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ShortageQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreTransferId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreProductId");
+
+                    b.HasIndex("StoreTransferId");
+
+                    b.ToTable("StoreTransferLines", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreUserBranch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RestaurantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "UserId", "RestaurantId")
+                        .IsUnique();
+
+                    b.ToTable("StoreUserBranches", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.TrustedDevice", b =>
                 {
                     b.Property<int>("Id")
@@ -5164,6 +7474,761 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Restaurant");
                 });
 
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreApprovalLog", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreBonusEntry", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCustomer", "StoreCustomer")
+                        .WithMany()
+                        .HasForeignKey("StoreCustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreCustomer");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreBranchPrice", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreProduct");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCashMovement", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashShift", "StoreCashShift")
+                        .WithMany()
+                        .HasForeignKey("StoreCashShiftId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreCashShift");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCashRegister", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Restaurant", "Restaurant")
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Restaurant");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCashShift", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashRegister", "StoreCashRegister")
+                        .WithMany()
+                        .HasForeignKey("StoreCashRegisterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreCashRegister");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCategory", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCategory", "ParentCategory")
+                        .WithMany()
+                        .HasForeignKey("ParentCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("ParentCategory");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCustomer", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCustomerPayment", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashShift", "StoreCashShift")
+                        .WithMany()
+                        .HasForeignKey("StoreCashShiftId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCustomer", "StoreCustomer")
+                        .WithMany()
+                        .HasForeignKey("StoreCustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreCashShift");
+
+                    b.Navigation("StoreCustomer");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreHeldSale", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashRegister", "StoreCashRegister")
+                        .WithMany()
+                        .HasForeignKey("StoreCashRegisterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreCashRegister");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreInventory", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreInventoryLine", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreInventory", "StoreInventory")
+                        .WithMany("Lines")
+                        .HasForeignKey("StoreInventoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("StoreInventory");
+
+                    b.Navigation("StoreProduct");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreLedgerEntry", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePaymentAllocation", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StorePurchase", "StorePurchase")
+                        .WithMany()
+                        .HasForeignKey("StorePurchaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreSupplierPayment", "StoreSupplierPayment")
+                        .WithMany("Allocations")
+                        .HasForeignKey("StoreSupplierPaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StorePurchase");
+
+                    b.Navigation("StoreSupplierPayment");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePriceHistory", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreProduct");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreProduct", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreProductBarcode", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany("Barcodes")
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreProduct");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchase", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreSupplier", "StoreSupplier")
+                        .WithMany()
+                        .HasForeignKey("StoreSupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreSupplier");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchaseLine", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StorePurchase", "StorePurchase")
+                        .WithMany("Lines")
+                        .HasForeignKey("StorePurchaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StoreProduct");
+
+                    b.Navigation("StorePurchase");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchaseReturn", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StorePurchase", "StorePurchase")
+                        .WithMany()
+                        .HasForeignKey("StorePurchaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StorePurchase");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchaseReturnLine", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StorePurchaseLine", "StorePurchaseLine")
+                        .WithMany()
+                        .HasForeignKey("StorePurchaseLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StorePurchaseReturn", "StorePurchaseReturn")
+                        .WithMany("Lines")
+                        .HasForeignKey("StorePurchaseReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StorePurchaseLine");
+
+                    b.Navigation("StorePurchaseReturn");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreQuickSlot", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashRegister", "StoreCashRegister")
+                        .WithMany()
+                        .HasForeignKey("StoreCashRegisterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreCashRegister");
+
+                    b.Navigation("StoreProduct");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSale", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashRegister", "StoreCashRegister")
+                        .WithMany()
+                        .HasForeignKey("StoreCashRegisterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashShift", "StoreCashShift")
+                        .WithMany()
+                        .HasForeignKey("StoreCashShiftId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCustomer", "StoreCustomer")
+                        .WithMany()
+                        .HasForeignKey("StoreCustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreCashRegister");
+
+                    b.Navigation("StoreCashShift");
+
+                    b.Navigation("StoreCustomer");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSaleLine", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreSale", "StoreSale")
+                        .WithMany("Lines")
+                        .HasForeignKey("StoreSaleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StoreProduct");
+
+                    b.Navigation("StoreSale");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSalePayment", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreSale", "StoreSale")
+                        .WithMany("Payments")
+                        .HasForeignKey("StoreSaleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StoreSale");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSaleReturn", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashRegister", "StoreCashRegister")
+                        .WithMany()
+                        .HasForeignKey("StoreCashRegisterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashShift", "StoreCashShift")
+                        .WithMany()
+                        .HasForeignKey("StoreCashShiftId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreSale", "StoreSale")
+                        .WithMany()
+                        .HasForeignKey("StoreSaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreCashRegister");
+
+                    b.Navigation("StoreCashShift");
+
+                    b.Navigation("StoreSale");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSaleReturnLine", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreSaleLine", "StoreSaleLine")
+                        .WithMany()
+                        .HasForeignKey("StoreSaleLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreSaleReturn", "StoreSaleReturn")
+                        .WithMany("Lines")
+                        .HasForeignKey("StoreSaleReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StoreSaleLine");
+
+                    b.Navigation("StoreSaleReturn");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSerialEvent", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreSerialUnit", "StoreSerialUnit")
+                        .WithMany("Events")
+                        .HasForeignKey("StoreSerialUnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StoreSerialUnit");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSerialUnit", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreSaleLine", "StoreSaleLine")
+                        .WithMany()
+                        .HasForeignKey("StoreSaleLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreProduct");
+
+                    b.Navigation("StoreSaleLine");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSettings", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreStockBalance", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreProduct");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreStockMovement", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreProduct");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSupplier", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSupplierPayment", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreSupplier", "StoreSupplier")
+                        .WithMany()
+                        .HasForeignKey("StoreSupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreSupplier");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSyncOperation", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreTransfer", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Warehouse", "FromWarehouse")
+                        .WithMany()
+                        .HasForeignKey("FromWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Warehouse", "ToWarehouse")
+                        .WithMany()
+                        .HasForeignKey("ToWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("FromWarehouse");
+
+                    b.Navigation("ToWarehouse");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreTransferLine", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreTransfer", "StoreTransfer")
+                        .WithMany("Lines")
+                        .HasForeignKey("StoreTransferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StoreProduct");
+
+                    b.Navigation("StoreTransfer");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreUserBranch", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
             modelBuilder.Entity("Domain.Entities.TrustedDevice", b =>
                 {
                     b.HasOne("Domain.Entities.Company", "Company")
@@ -5750,6 +8815,53 @@ namespace Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Domain.Entities.SaleReturn", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreInventory", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreProduct", b =>
+                {
+                    b.Navigation("Barcodes");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchase", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StorePurchaseReturn", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSale", b =>
+                {
+                    b.Navigation("Lines");
+
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSaleReturn", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSerialUnit", b =>
+                {
+                    b.Navigation("Events");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreSupplierPayment", b =>
+                {
+                    b.Navigation("Allocations");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreTransfer", b =>
                 {
                     b.Navigation("Lines");
                 });
