@@ -14,17 +14,19 @@ public record GetFinanceReportQuery(FinanceReportRequest Request) : IRequest<Fin
 /// <summary>
 /// Income / expense / profit for a week, month or year. Income and expenses are the manual
 /// entries plus what the system already knows (sales, completed stock purchases, till
-/// withdrawals, sale returns). Days follow the same 06:00 business-day cut-off as the other reports.
+/// withdrawals, sale returns). Days follow the same business-day cut-off as the other reports: 06:00, or midnight for a company that works by the day.
 /// </summary>
 public class GetFinanceReportQueryHandler : IRequestHandler<GetFinanceReportQuery, FinanceReportResponse>
 {
     private const string ManualSource = "Manual";
 
     private readonly IFinanceRepository _repository;
+    private readonly ICompanySettingsRepository _settingsRepository;
     private readonly ICurrentUserService _currentUserService;
 
-    public GetFinanceReportQueryHandler(IFinanceRepository repository, ICurrentUserService currentUserService)
+    public GetFinanceReportQueryHandler(IFinanceRepository repository, ICompanySettingsRepository settingsRepository, ICurrentUserService currentUserService)
     {
+        _settingsRepository = settingsRepository;
         _repository = repository;
         _currentUserService = currentUserService;
     }
@@ -35,11 +37,12 @@ public class GetFinanceReportQueryHandler : IRequestHandler<GetFinanceReportQuer
         var companyId = _currentUserService.CompanyId;
         int? restaurantId = request.RestaurantId is > 0 ? request.RestaurantId : null;
 
-        var anchor = (request.Date?.Date) ?? (BusinessTime.Now - ReportPeriodResolver.DayStart).Date;
+        var dayStart = ReportPeriodResolver.DayStartFor(await _settingsRepository.GetByCompanyIdAsync(companyId, cancellationToken));
+        var anchor = (request.Date?.Date) ?? (BusinessTime.Now - dayStart).Date;
         var (fromDate, toDateExclusive) = Bounds(request.Granularity, anchor);
 
-        var fromUtc = BusinessTime.ToUtc(fromDate + ReportPeriodResolver.DayStart);
-        var toUtc = BusinessTime.ToUtc(toDateExclusive + ReportPeriodResolver.DayStart);
+        var fromUtc = BusinessTime.ToUtc(fromDate + dayStart);
+        var toUtc = BusinessTime.ToUtc(toDateExclusive + dayStart);
 
         var manual = await _repository.GetEntriesAsync(companyId, restaurantId, fromDate, toDateExclusive, null, cancellationToken);
         var automatic = await _repository.GetAutomaticLinesAsync(companyId, restaurantId, fromUtc, toUtc, cancellationToken);
@@ -48,7 +51,7 @@ public class GetFinanceReportQueryHandler : IRequestHandler<GetFinanceReportQuer
         var rows = manual
             .Select(e => new Row(e.EntryDate.Date, e.Type, e.Name, e.Amount, ManualSource, e.Id, e.Note))
             .Concat(automatic.Select(a => new Row(
-                (BusinessTime.FromUtc(a.AtUtc) - ReportPeriodResolver.DayStart).Date,
+                (BusinessTime.FromUtc(a.AtUtc) - dayStart).Date,
                 a.Type, a.Name, a.Amount, a.Source, null, null)))
             .Where(r => r.Date >= fromDate && r.Date < toDateExclusive)
             .ToList();

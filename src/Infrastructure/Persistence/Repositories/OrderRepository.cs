@@ -35,6 +35,48 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
+    public async Task<List<Application.Orders.Queries.Receipts.ReceiptListItem>> GetReceiptsAsync(
+        int companyId, int? restaurantId, DateTime fromUtc, DateTime toUtcExclusive, CancellationToken cancellationToken)
+    {
+        var rows = await _context.Orders.AsNoTracking()
+            .Where(x => x.CompanyId == companyId
+                && x.IsPaid
+                && x.PaidAt != null && x.PaidAt >= fromUtc && x.PaidAt < toUtcExclusive
+                && (restaurantId == null || x.RestaurantId == restaurantId))
+            .OrderByDescending(x => x.PaidAt)
+            .Select(x => new
+            {
+                x.Id,
+                x.OrderNumber,
+                x.ReceiptNumber,
+                x.RestaurantId,
+                RestaurantName = x.Restaurant != null ? x.Restaurant.Name : null,
+                TableName = x.Table != null ? x.Table.Name : null,
+                WaiterFirst = x.Waiter != null ? x.Waiter.FirstName : null,
+                WaiterLast = x.Waiter != null ? x.Waiter.LastName : null,
+                PaidAt = x.PaidAt!.Value,
+                x.PaymentMethod,
+                x.DiscountAmount,
+                x.TotalAmount,
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(r => new Application.Orders.Queries.Receipts.ReceiptListItem
+        {
+            Id = r.Id,
+            OrderNumber = r.OrderNumber,
+            ReceiptNumber = r.ReceiptNumber,
+            RestaurantId = r.RestaurantId,
+            RestaurantName = r.RestaurantName,
+            TableName = r.TableName,
+            WaiterName = r.WaiterFirst is null ? null : $"{r.WaiterFirst} {r.WaiterLast}".Trim(),
+            PaidAt = r.PaidAt,
+            PaymentMethod = r.PaymentMethod?.ToString(),
+            DiscountAmount = r.DiscountAmount,
+            TotalAmount = r.TotalAmount,
+        }).ToList();
+    }
+
     public async Task<List<Order>> GetAllAsync(int companyId, Application.Orders.Queries.GetAll.OrderListFilter? filter, CancellationToken cancellationToken)
     {
         var query = _context.Orders
@@ -63,6 +105,10 @@ public class OrderRepository : IOrderRepository
 
         if (filter?.RestaurantId is { } restaurantId)
             query = query.Where(x => x.RestaurantId == restaurantId);
+
+        // A period keeps the receipts paid inside it.
+        if (filter?.PaidFromUtc is { } paidFrom && filter.PaidToUtc is { } paidTo)
+            query = query.Where(x => x.PaidAt != null && x.PaidAt >= paidFrom && x.PaidAt < paidTo);
 
         return await query
             .OrderByDescending(x => x.CreatedAtUtc)

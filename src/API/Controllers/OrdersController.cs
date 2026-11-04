@@ -218,13 +218,34 @@ public class OrdersController : ControllerBase
     }
     [Authorize(Policy = AppPermissions.OrdersView)]
     [HttpGet]
-    public async Task<ActionResult<List<OrderResponse>>> GetAll([FromQuery] Domain.Enums.OrderStatus[]? status)
+    public async Task<ActionResult<List<OrderResponse>>> GetAll(
+        [FromQuery] Domain.Enums.OrderStatus[]? status,
+        [FromQuery] Domain.Enums.ReportPeriod? period,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to)
     {
-        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(Statuses: status)));
+        // period = Today / ThisWeek / ThisMonth / Custom; from / to are calendar days (one date alone = that day).
+        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(Statuses: status, Period: period, From: from, To: to)));
         return Ok(result);
     }
 
     // Orders that occupy a table (draft/open) - lets the POS table map skip loading the whole order history.
+    /// <summary>
+    /// The POS old receipts: paid orders of a period - today (a business day), this week, this month, a date range or one date.
+    /// period = Today / ThisWeek / ThisMonth / Custom; from / to are calendar days (one date alone = that day); none = today.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.OrdersView)]
+    [HttpGet("receipts")]
+    public async Task<ActionResult<Application.Orders.Queries.Receipts.ReceiptListResponse>> GetReceipts(
+        [FromQuery] Domain.Enums.ReportPeriod? period,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] int? restaurantId)
+    {
+        var result = await _mediator.Send(new Application.Orders.Queries.Receipts.GetReceiptsQuery(period, from, to, restaurantId));
+        return Ok(result);
+    }
+
     [Authorize(Policy = AppPermissions.OrdersView)]
     [HttpGet("active")]
     public async Task<ActionResult<List<OrderResponse>>> GetActive()

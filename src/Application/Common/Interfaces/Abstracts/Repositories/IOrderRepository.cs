@@ -7,6 +7,9 @@ public interface IOrderRepository
     Task AddAsync(Domain.Entities.Order order, CancellationToken cancellationToken);
     Task<Domain.Entities.Order?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken);
     /// <summary>All company orders, newest first; when <paramref name="filter"/> is given, only matching orders.</summary>
+    /// <summary>Paid orders of the company (one branch or all) paid inside [fromUtc, toUtcExclusive), newest first, without their lines.</summary>
+    Task<List<Application.Orders.Queries.Receipts.ReceiptListItem>> GetReceiptsAsync(int companyId, int? restaurantId, DateTime fromUtc, DateTime toUtcExclusive, CancellationToken cancellationToken);
+
     Task<List<Domain.Entities.Order>> GetAllAsync(int companyId, Application.Orders.Queries.GetAll.OrderListFilter? filter, CancellationToken cancellationToken);
     /// <summary>Every unpaid, uncancelled order on the given tables, newest first, with the waiter and the customer.</summary>
     Task<List<Domain.Entities.Order>> GetActiveForTablesAsync(int companyId, IReadOnlyCollection<int> tableIds, CancellationToken cancellationToken);

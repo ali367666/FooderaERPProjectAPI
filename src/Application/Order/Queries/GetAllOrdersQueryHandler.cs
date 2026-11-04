@@ -10,12 +10,15 @@ namespace Application.Orders.Queries.GetAll;
 public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<OrderResponse>>
 {
     private readonly IOrderRepository _orderRepository;
+    private readonly ICompanySettingsRepository _settingsRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public GetAllOrdersQueryHandler(
         IOrderRepository orderRepository,
+        ICompanySettingsRepository settingsRepository,
         ICurrentUserService currentUserService)
     {
+        _settingsRepository = settingsRepository;
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
     }
@@ -24,7 +27,23 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
     {
         var companyId = _currentUserService.CompanyId;
 
-        var orders = await _orderRepository.GetAllAsync(companyId, request.Filter, cancellationToken);
+        var filter = request.Filter;
+        if (filter is not null && (filter.Period is not null || filter.From is not null || filter.To is not null))
+        {
+            var settings = await _settingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
+            var window = Application.Reports.ReportPeriodResolver.Resolve(
+                new Application.Reports.Dtos.BusinessReportRequest
+                {
+                    Period = filter.Period ?? ReportPeriod.Custom,
+                    From = filter.From ?? filter.To,
+                    To = filter.To ?? filter.From,
+                },
+                BusinessTime.Now,
+                Application.Reports.ReportPeriodResolver.DayStartFor(settings));
+            filter = filter with { PaidFromUtc = window.FromUtc, PaidToUtc = window.ToUtc };
+        }
+
+        var orders = await _orderRepository.GetAllAsync(companyId, filter, cancellationToken);
         var hasLegacyLineTotals = false;
 
         foreach (var order in orders)

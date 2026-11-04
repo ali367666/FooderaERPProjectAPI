@@ -1,3 +1,4 @@
+using Application.Common.Exceptions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Shift.Dtos;
@@ -11,6 +12,7 @@ public class CloseShiftCommandHandler : IRequestHandler<CloseShiftCommand, ZRepo
     private readonly IOrderRepository _orderRepository;
     private readonly ISaleReturnRepository _saleReturnRepository;
     private readonly IOrderPaymentRepository _paymentRepository;
+    private readonly ICompanySettingsRepository _settingsRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public CloseShiftCommandHandler(
@@ -18,8 +20,10 @@ public class CloseShiftCommandHandler : IRequestHandler<CloseShiftCommand, ZRepo
         IOrderRepository orderRepository,
         ISaleReturnRepository saleReturnRepository,
         IOrderPaymentRepository paymentRepository,
+        ICompanySettingsRepository settingsRepository,
         ICurrentUserService currentUserService)
     {
+        _settingsRepository = settingsRepository;
         _shiftRepository = shiftRepository;
         _orderRepository = orderRepository;
         _saleReturnRepository = saleReturnRepository;
@@ -30,6 +34,11 @@ public class CloseShiftCommandHandler : IRequestHandler<CloseShiftCommand, ZRepo
     public async Task<ZReportResponse> Handle(CloseShiftCommand request, CancellationToken cancellationToken)
     {
         var companyId = _currentUserService.CompanyId;
+
+        // An opening time means the company works by the day, not in shifts: there is nothing to close.
+        var settings = await _settingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
+        if (settings?.OpeningTime is not null)
+            throw new BadRequestException("Sistem növbə ilə işləmir (açılış vaxtı təyin olunub) — hesabatı bağlamaq olmaz.");
 
         var shift = await _shiftRepository.GetByIdAsync(request.ShiftId, companyId, cancellationToken);
         if (shift is null)

@@ -30,22 +30,11 @@ public class GetCurrentShiftQueryHandler : IRequestHandler<GetCurrentShiftQuery,
         if (settings?.OpeningTime is not null)
             return null;
 
-        // No opening time: the shift is always open — started on first use when none is running.
+        // A company that works in shifts has a shift only while one is open. It is never started here:
+        // the cashier opens the next one (with the counted opening cash) after closing the previous.
         var shift = await _repository.GetOpenShiftAsync(companyId, request.RestaurantId, cancellationToken);
         if (shift is null)
-        {
-            shift = new Domain.Entities.Shift
-            {
-                CompanyId = companyId,
-                RestaurantId = request.RestaurantId,
-                OpenedByUserId = _currentUserService.UserId,
-                OpenedAt = DateTime.UtcNow,
-                OpeningCashAmount = 0,
-                IsOpen = true
-            };
-            await _repository.AddAsync(shift, cancellationToken);
-            await _repository.SaveChangesAsync(cancellationToken);
-        }
+            return null;
 
         return new ShiftResponse
         {

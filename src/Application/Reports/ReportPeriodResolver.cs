@@ -8,18 +8,25 @@ namespace Application.Reports;
 /// <summary>
 /// Turns "today / this week / this month / custom" into concrete bounds. A business day runs from
 /// 06:00 to 06:00 the next morning (as on the printed Z report), so a sale rung up at 02:00 still
-/// belongs to the previous day.
+/// belongs to the previous day. A company that works by the day (an opening time is set) has no such
+/// late-night shift: its day is the calendar day, 00:00 to 24:00, so "today" includes the small hours.
 /// </summary>
 public static class ReportPeriodResolver
 {
     public static readonly TimeSpan DayStart = TimeSpan.FromHours(6);
     private const int MaxCustomDays = 366;
 
+    /// <summary>Where the business day starts for the company: 06:00 when it works in shifts, midnight when it works by the day.</summary>
+    public static TimeSpan DayStartFor(Domain.Entities.CompanySettings? settings)
+        => settings?.OpeningTime is null ? DayStart : TimeSpan.Zero;
+
     public static ReportWindow Resolve(BusinessReportRequest request) => Resolve(request, BusinessTime.Now);
 
-    public static ReportWindow Resolve(BusinessReportRequest request, DateTime nowLocal)
+    public static ReportWindow Resolve(BusinessReportRequest request, DateTime nowLocal) => Resolve(request, nowLocal, DayStart);
+
+    public static ReportWindow Resolve(BusinessReportRequest request, DateTime nowLocal, TimeSpan dayStart)
     {
-        var businessDate = (nowLocal - DayStart).Date;
+        var businessDate = (nowLocal - dayStart).Date;
 
         DateTime fromDate;
         DateTime toDateExclusive;
@@ -57,8 +64,8 @@ public static class ReportPeriodResolver
                 throw new BadRequestException("Hesabat dövrü yanlışdır.");
         }
 
-        var fromLocal = fromDate + DayStart;
-        var toLocal = toDateExclusive + DayStart;
+        var fromLocal = fromDate + dayStart;
+        var toLocal = toDateExclusive + dayStart;
         return new ReportWindow(fromLocal, toLocal, BusinessTime.ToUtc(fromLocal), BusinessTime.ToUtc(toLocal));
     }
 }

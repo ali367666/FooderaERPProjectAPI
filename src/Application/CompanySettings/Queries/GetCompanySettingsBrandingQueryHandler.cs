@@ -42,6 +42,7 @@ public class GetCompanySettingsBrandingQueryHandler
             : new CompanySettingsBrandingResponse
             {
                 OpeningTime = settings.OpeningTime,
+                WorksWithShifts = settings.OpeningTime is null,
                 LoginLogoUrl = settings.LoginLogoUrl,
                 ReportLogoUrl = settings.ReportLogoUrl,
                 WallpaperUrl = settings.WallpaperUrl,
@@ -73,6 +74,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 ModuleQiymetSor = settings.ModuleQiymetSor,
                 ModuleKompleks = settings.ModuleKompleks,
                 SalesEditLocked = settings.SalesEditLocked,
+                KitchenApprovalRequired = settings.KitchenApprovalRequired,
                 PrintAutoOnPayment = settings.PrintAutoOnPayment,
                 PrintKitchenOnPayment = settings.PrintKitchenOnPayment,
                 PrintShowPreview = settings.PrintShowPreview,

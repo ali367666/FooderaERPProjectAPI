@@ -3,6 +3,12 @@ namespace Application.CompanySettings.Dtos;
 public class CompanySettingsBrandingResponse
 {
     public TimeSpan? OpeningTime { get; set; }
+
+    /// <summary>
+    /// True when the company works in shifts (no opening time set): the POS report screen then offers closing the shift.
+    /// False when it works by the day (an opening time is set) - there is no shift to close.
+    /// </summary>
+    public bool WorksWithShifts { get; set; }
     public string? LoginLogoUrl { get; set; }
     public string? ReportLogoUrl { get; set; }
     public string? WallpaperUrl { get; set; }
@@ -37,6 +43,7 @@ public class CompanySettingsBrandingResponse
     public bool ModuleQiymetSor { get; set; }
     public bool ModuleKompleks { get; set; }
     public bool SalesEditLocked { get; set; }
+    public bool KitchenApprovalRequired { get; set; } = true;
 
     public bool PrintAutoOnPayment { get; set; }
     public bool PrintKitchenOnPayment { get; set; }
