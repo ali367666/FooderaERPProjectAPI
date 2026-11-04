@@ -1,4 +1,4 @@
-﻿namespace Application.MenuCategories.Dtos;
+namespace Application.MenuCategories.Dtos;
 
 public class MenuCategoryResponse
 {
@@ -8,6 +8,7 @@ public class MenuCategoryResponse
     public string? ImageUrl { get; set; }
     public bool IsActive { get; set; }
     public bool IsSetCategory { get; set; }
+    public bool ExcludeFromDiscount { get; set; }
     public int? ParentCategoryId { get; set; }
     public string? ParentCategoryName { get; set; }
 }

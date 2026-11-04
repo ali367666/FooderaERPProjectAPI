@@ -43,14 +43,26 @@ public class SetManualDiscountCommandHandler : IRequestHandler<SetManualDiscount
         if (subtotal <= 0)
             throw new BadRequestException("Endirim üçün sifarişdə məhsul olmalıdır.");
 
+        // Products (or whole categories) marked "not in discounts" are left out of what the discount is worked on.
+        var excluded = await _discountRepository.GetDiscountExcludedMenuItemIdsAsync(
+            companyId, order.Lines.Select(x => x.MenuItemId).Distinct().ToList(), cancellationToken);
+        var discountable = order.Lines
+            .DistinctBy(x => x.Id)
+            .Where(x => x.Status != OrderLineStatus.Cancelled && !excluded.Contains(x.MenuItemId))
+            .Sum(x => x.LineTotal);
+        if (discountable <= 0)
+            throw new BadRequestException("Sifarişdəki məhsulların heç biri endirimdə iştirak etmir.");
+
         var amount = request.Type == DiscountType.Percentage
-            ? subtotal * request.Value / 100m
+            ? discountable * request.Value / 100m
             : request.Value;
 
-        if (request.Type == DiscountType.FixedAmount && amount > subtotal)
-            throw new BadRequestException($"Endirim sifarişin cəmindən ({subtotal:0.00} ₼) çox ola bilməz.");
+        if (request.Type == DiscountType.FixedAmount && amount > discountable)
+            throw new BadRequestException(discountable < subtotal
+                ? $"Endirim endirimdə iştirak edən məhsulların cəmindən ({discountable:0.00} ₼) çox ola bilməz."
+                : $"Endirim sifarişin cəmindən ({subtotal:0.00} ₼) çox ola bilməz.");
 
-        amount = Math.Round(Math.Min(amount, subtotal), 2, MidpointRounding.AwayFromZero);
+        amount = Math.Round(Math.Min(amount, discountable), 2, MidpointRounding.AwayFromZero);
 
         // A discount code may be on the order already — release its usage slot, the manual one replaces it.
         if (order.DiscountId.HasValue)

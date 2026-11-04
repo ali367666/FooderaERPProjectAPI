@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.MenuCategories.Dtos;
 using MediatR;
@@ -32,6 +32,7 @@ public class GetAllMenuCategoriesQueryHandler
             ImageUrl = x.ImageUrl,
             IsActive = x.IsActive,
             IsSetCategory = x.IsSetCategory,
+            ExcludeFromDiscount = x.ExcludeFromDiscount,
             ParentCategoryId = x.ParentCategoryId,
             ParentCategoryName = x.ParentCategory?.Name
         }).ToList();

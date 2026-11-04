@@ -1,4 +1,4 @@
-﻿namespace Application.MenuCategories.Dtos;
+namespace Application.MenuCategories.Dtos;
 
 public class CreateMenuCategoryRequest
 {
@@ -6,5 +6,6 @@ public class CreateMenuCategoryRequest
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
     public bool IsSetCategory { get; set; }
+    public bool ExcludeFromDiscount { get; set; }
     public int? ParentCategoryId { get; set; }
 }

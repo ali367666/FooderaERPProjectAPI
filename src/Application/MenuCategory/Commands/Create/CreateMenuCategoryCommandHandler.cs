@@ -1,4 +1,4 @@
-﻿using Application.Common.Exceptions;
+using Application.Common.Exceptions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -75,6 +75,7 @@ public class CreateMenuCategoryCommandHandler
                 : request.Request.ImageUrl.Trim(),
             IsActive = true,
             IsSetCategory = request.Request.IsSetCategory,
+            ExcludeFromDiscount = request.Request.ExcludeFromDiscount,
             ParentCategoryId = request.Request.ParentCategoryId
         };
 

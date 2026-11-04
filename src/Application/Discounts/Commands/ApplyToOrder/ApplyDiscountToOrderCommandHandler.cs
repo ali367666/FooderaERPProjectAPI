@@ -69,14 +69,23 @@ public class ApplyDiscountToOrderCommandHandler : IRequestHandler<ApplyDiscountT
         if (discount.MinOrderAmount.HasValue && subtotal < discount.MinOrderAmount.Value)
             throw new Exception($"Bu endirim minimum {discount.MinOrderAmount.Value:0.00} AZN sifariş üçün keçərlidir.");
 
+        // Products (or whole categories) marked "not in discounts" are left out of what the discount is worked on.
+        var excluded = await _discountRepository.GetDiscountExcludedMenuItemIdsAsync(
+            companyId, order.Lines.Select(x => x.MenuItemId).Distinct().ToList(), cancellationToken);
+        var discountable = order.Lines
+            .Where(x => x.Status != OrderLineStatus.Cancelled && !excluded.Contains(x.MenuItemId))
+            .Sum(x => x.LineTotal);
+        if (discountable <= 0)
+            throw new Exception("Sifarişdəki məhsulların heç biri endirimdə iştirak etmir.");
+
         var discountAmount = discount.Type == DiscountType.Percentage
-            ? subtotal * discount.Value / 100m
+            ? discountable * discount.Value / 100m
             : discount.Value;
 
         if (discount.MaxDiscountAmount.HasValue)
             discountAmount = Math.Min(discountAmount, discount.MaxDiscountAmount.Value);
 
-        discountAmount = Math.Min(discountAmount, subtotal); // never exceed order total
+        discountAmount = Math.Min(discountAmount, discountable); // never exceed what takes part in discounts
 
         // If switching from a previously applied discount, release its usage slot
         if (order.DiscountId.HasValue && order.DiscountId != discount.Id)

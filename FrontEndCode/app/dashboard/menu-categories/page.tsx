@@ -54,6 +54,8 @@ export default function MenuCategoriesPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [isSetCategory, setIsSetCategory] = useState(false);
+  // Ticked = the category's products take part in discounts (stored as the opposite flag, excludeFromDiscount).
+  const [takesPartInDiscount, setTakesPartInDiscount] = useState(true);
   const [parentCategoryId, setParentCategoryId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -174,6 +176,7 @@ export default function MenuCategoriesPage() {
     setImageUrl(null);
     setIsActive(true);
     setIsSetCategory(false);
+    setTakesPartInDiscount(true);
     setParentCategoryId(null);
     setEditingId(null);
     setFieldErrors({});
@@ -195,6 +198,7 @@ export default function MenuCategoriesPage() {
       setImageUrl(c.imageUrl || null);
       setIsActive(c.isActive);
       setIsSetCategory(c.isSetCategory);
+      setTakesPartInDiscount(!c.excludeFromDiscount);
       setParentCategoryId(c.parentCategoryId);
       setFieldErrors({});
       setIsEditMode(true);
@@ -242,6 +246,7 @@ export default function MenuCategoriesPage() {
             imageUrl: imageUrl?.trim() || null,
             isActive,
             isSetCategory,
+            excludeFromDiscount: !takesPartInDiscount,
             parentCategoryId,
           },
           selectedCompanyId ?? undefined,
@@ -252,6 +257,7 @@ export default function MenuCategoriesPage() {
           description: description.trim() || null,
           imageUrl: imageUrl?.trim() || null,
           isSetCategory,
+          excludeFromDiscount: !takesPartInDiscount,
           parentCategoryId,
         });
       }
@@ -407,6 +413,23 @@ export default function MenuCategoriesPage() {
                   ))}
               </select>
             </div>
+
+            {!isStoreMode && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-input p-3">
+              <input
+                type="checkbox"
+                checked={takesPartInDiscount}
+                onChange={(e) => setTakesPartInDiscount(e.target.checked)}
+                className="mt-1 h-4 w-4"
+              />
+              <span>
+                <span className="block text-sm font-medium text-foreground">Endirimdə iştirak etsin</span>
+                <span className="block text-xs text-muted-foreground">
+                  Tiki götürsəniz bu kateqoriyanın (və alt kateqoriyalarının) məhsullarına endirim tətbiq olunmur.
+                </span>
+              </span>
+            </label>
+            )}
 
             {!isStoreMode && (
             <label className="flex cursor-pointer items-start gap-3 rounded-md border border-input p-3">
