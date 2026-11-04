@@ -32,6 +32,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IIdentityAdminService, IdentityAdminService>();
         services.AddScoped<ICompanyDefaultsSeeder, Infrastructure.Persistence.Seeds.CompanyDefaultsSeeder>();
+        services.AddScoped<IPaymentBankProvisioner, Infrastructure.Services.PaymentBankProvisioner>();
         services.AddScoped<IRestaurantRepository, RestaurantRepository>();
 
         // 🔹 Identity

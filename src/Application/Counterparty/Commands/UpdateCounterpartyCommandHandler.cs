@@ -30,6 +30,12 @@ public class UpdateCounterpartyCommandHandler : IRequestHandler<UpdateCounterpar
         if (counterparty is null)
             throw new Exception("Konturagent tapılmadı.");
 
+        // Banks are given and switched by the SuperAdmin only.
+        if (counterparty.IsBank)
+            throw new Exception("Bankı yalnız SuperAdmin idarə edir.");
+        if (Domain.Constants.PaymentBankCatalog.IsBankName(dto.Name))
+            throw new Exception("Konturagentə bank adı verilə bilməz — banklar şirkətə SuperAdmin tərəfindən verilir.");
+
         var name = dto.Name.Trim();
         if (await _repository.ExistsByNameAsync(companyId, name, counterparty.Id, cancellationToken))
             throw new Exception("Bu adda konturagent artıq mövcuddur.");
@@ -37,10 +43,6 @@ public class UpdateCounterpartyCommandHandler : IRequestHandler<UpdateCounterpar
         var category = await _categoryRepository.GetByIdAsync(dto.CategoryId, companyId, cancellationToken);
         if (category is null)
             throw new Exception("Kateqoriya tapılmadı.");
-
-        // The fixed payment banks keep their name and category; only their active flag may change.
-        if (counterparty.IsBank && (name != counterparty.Name || dto.CategoryId != counterparty.CategoryId))
-            throw new Exception("Sabit bankın adı və kateqoriyası dəyişdirilə bilməz.");
 
         counterparty.Name = name;
         counterparty.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber) ? null : dto.PhoneNumber.Trim();

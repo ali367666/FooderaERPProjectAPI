@@ -27,6 +27,8 @@ public class CreateCounterpartyCommandHandler : IRequestHandler<CreateCounterpar
         var dto = request.Request;
 
         var name = dto.Name.Trim();
+        if (Domain.Constants.PaymentBankCatalog.IsBankName(name))
+            throw new Exception("Bank adı ilə konturagent yaradıla bilməz — banklar şirkətə SuperAdmin tərəfindən verilir.");
         if (await _repository.ExistsByNameAsync(companyId, name, null, cancellationToken))
             throw new Exception("Bu adda konturagent artıq mövcuddur.");
 

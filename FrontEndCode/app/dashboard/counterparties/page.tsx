@@ -148,6 +148,10 @@ export default function CounterpartiesPage() {
   // Applies the Aktiv / Passiv choice to the counterparty picked in the list.
   const handleSetActive = async (next: boolean) => {
     if (!selected || selected.isActive === next) return;
+    if (selected.isBank) {
+      toast.error("Bankı yalnız SuperAdmin idarə edir.");
+      return;
+    }
     const question = next
       ? `"${selected.name}" yenidən aktiv edilsin?`
       : `"${selected.name}" passiv edilsin? Siyahılarda görünməyəcək, sonra yenidən aktiv etmək olar.`;
@@ -197,6 +201,10 @@ export default function CounterpartiesPage() {
   };
 
   const handleSave = async () => {
+    if (editingIsBank) {
+      toast.error("Bankı yalnız SuperAdmin idarə edir.");
+      return;
+    }
     const catId = Number(categoryId);
     setSaving(true);
     try {
@@ -497,7 +505,7 @@ export default function CounterpartiesPage() {
                 />
                 {editingIsBank && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Sabit bank POS-da kart ödənişində göstərilir. Adı və kateqoriyası dəyişdirilə bilməz, silinə bilməz.
+                    Bank POS-da kart ödənişində göstərilir. Bankları şirkətə yalnız SuperAdmin verir və idarə edir: adı, statusu dəyişdirilə və silinə bilməz.
                   </p>
                 )}
               </div>
@@ -511,6 +519,7 @@ export default function CounterpartiesPage() {
                   <RadioGroup
                     value={isActive ? "active" : "passive"}
                     onValueChange={(v) => setIsActive(v === "active")}
+                    disabled={editingIsBank}
                   >
                     <div className="flex items-center gap-2">
                       <RadioGroupItem id="cp-status-active" value="active" />

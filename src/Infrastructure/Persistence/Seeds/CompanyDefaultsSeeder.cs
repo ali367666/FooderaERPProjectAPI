@@ -8,8 +8,6 @@ namespace Infrastructure.Persistence.Seeds;
 
 public class CompanyDefaultsSeeder : ICompanyDefaultsSeeder
 {
-    private static readonly string[] PaymentBanks = ["Kapital", "Paşa", "ABB", "QR kod"];
-
     private static readonly string[] PrinterStationTypes =
     [
         "Kassa",
@@ -96,8 +94,8 @@ public class CompanyDefaultsSeeder : ICompanyDefaultsSeeder
     }
 
     /// <summary>
-    /// Every company gets the fixed banks as counterparties in the "Bank" category. A counterparty the
-    /// company already made with the same name is promoted to a bank instead of duplicated (names are unique).
+    /// Only the "Bank" category is guaranteed. The banks themselves are given to a company by the SuperAdmin
+    /// (<see cref="IPaymentBankProvisioner"/>); a new company starts without any, and the ones it already has stay as they are.
     /// </summary>
     private async Task EnsurePaymentBanksAsync(int companyId, DateTime now, CancellationToken cancellationToken)
     {
@@ -107,32 +105,6 @@ public class CompanyDefaultsSeeder : ICompanyDefaultsSeeder
         {
             category = new CounterpartyCategory { CompanyId = companyId, Name = "Bank", IsActive = true, CreatedAtUtc = now };
             _context.CounterpartyCategories.Add(category);
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-
-        var existing = await _context.Counterparties
-            .Where(x => x.CompanyId == companyId && PaymentBanks.Contains(x.Name))
-            .ToListAsync(cancellationToken);
-
-        foreach (var name in PaymentBanks)
-        {
-            var counterparty = existing.FirstOrDefault(x => x.Name == name);
-            if (counterparty is null)
-            {
-                _context.Counterparties.Add(new Counterparty
-                {
-                    CompanyId = companyId,
-                    Name = name,
-                    CategoryId = category.Id,
-                    IsActive = true,
-                    IsBank = true,
-                    CreatedAtUtc = now
-                });
-            }
-            else if (!counterparty.IsBank)
-            {
-                counterparty.IsBank = true;
-            }
         }
 
         await _context.SaveChangesAsync(cancellationToken);
