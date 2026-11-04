@@ -17,6 +17,7 @@ public sealed class OrderPaymentService : IOrderPaymentService
     private readonly IRecipeStockDeductionService _recipeStockDeductionService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICounterpartyRepository _counterpartyRepository;
+    private readonly ICompanySettingsRepository _settingsRepository;
     private readonly ILogger<OrderPaymentService> _logger;
 
     public OrderPaymentService(
@@ -25,8 +26,10 @@ public sealed class OrderPaymentService : IOrderPaymentService
         IRecipeStockDeductionService recipeStockDeductionService,
         ICurrentUserService currentUserService,
         ICounterpartyRepository counterpartyRepository,
+        ICompanySettingsRepository settingsRepository,
         ILogger<OrderPaymentService> logger)
     {
+        _settingsRepository = settingsRepository;
         _orderRepository = orderRepository;
         _paymentRepository = paymentRepository;
         _recipeStockDeductionService = recipeStockDeductionService;
@@ -43,12 +46,15 @@ public sealed class OrderPaymentService : IOrderPaymentService
         decimal receivedAmount,
         bool isFiscal,
         int? bankId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PaymentMethod? remainderMethod = null,
+        int? remainderBankId = null)
     {
         if (order.IsPaid || order.Status == OrderStatus.Paid)
             throw new BadRequestException("This order is already paid.");
-        if (order.Status != OrderStatus.Ready && order.Status != OrderStatus.Served)
-            throw new BadRequestException("Only ready or served orders can be paid.");
+        var kitchenApproval = (await _settingsRepository.GetByCompanyIdAsync(order.CompanyId, cancellationToken))?.KitchenApprovalRequired ?? true;
+        if (!OrderPayability.CanPay(order.Status, kitchenApproval))
+            throw new BadRequestException(OrderPayability.RefusalMessage(order.Status, kitchenApproval));
         if (order.TableRentalStartedAt is not null && order.TableRentalStoppedAt is null)
             throw new BadRequestException("Masa icarəsi taymeri hələ işləyir — əvvəlcə dayandırın.");
 
@@ -132,8 +138,21 @@ public sealed class OrderPaymentService : IOrderPaymentService
             : null;
         var due = amount + (serviceCharge ?? 0);
 
+        // Two methods for one share: the first takes what was typed, the rest goes to the other one.
+        decimal? primaryPart = null;
+        if (remainderMethod is not null && method != PaymentMethod.Credit)
+        {
+            if (remainderMethod == PaymentMethod.Credit || remainderMethod == method)
+                throw new BadRequestException("Qalan məbləğ üçün fərqli ödəniş üsulu (nağd və ya kart) seçin.");
+            if (receivedAmount > 0 && receivedAmount < due)
+                primaryPart = Math.Round(receivedAmount, 2, MidpointRounding.AwayFromZero);
+        }
+
         var bank = method == PaymentMethod.Card
             ? await PaymentBankResolver.RequireAsync(_counterpartyRepository, order.CompanyId, bankId, cancellationToken)
+            : null;
+        var remainderBank = primaryPart is not null && remainderMethod == PaymentMethod.Card
+            ? await PaymentBankResolver.RequireAsync(_counterpartyRepository, order.CompanyId, remainderBankId, cancellationToken)
             : null;
 
         decimal received;
@@ -152,10 +171,40 @@ public sealed class OrderPaymentService : IOrderPaymentService
         }
         else
         {
-            if (receivedAmount < due)
+            if (receivedAmount < due && primaryPart is null)
                 throw new BadRequestException("Paid amount cannot be less than total amount.");
             received = receivedAmount;
-            change = receivedAmount - due;
+            change = Math.Max(0, receivedAmount - due);
+        }
+
+        var paidAt = DateTime.UtcNow;
+        var paidBy = _currentUserService.UserId > 0 ? _currentUserService.UserId : (int?)null;
+
+        // The rest of the share, taken with the other method as a payment of its own.
+        OrderPayment? remainderPayment = null;
+        var primaryAmount = amount;
+        if (primaryPart is { } part)
+        {
+            var remainderMoney = Math.Round(due - part, 2, MidpointRounding.AwayFromZero);
+            if (remainderMoney > amount)
+                throw new BadRequestException("İlk ödəniş məbləği servis haqqından az ola bilməz.");
+            // Cash handed over / the sum put on the card is exactly the typed amount: no change.
+            received = part;
+            change = 0;
+            primaryAmount = amount - remainderMoney;
+            remainderPayment = new OrderPayment
+            {
+                CompanyId = order.CompanyId,
+                OrderId = order.Id,
+                Method = remainderMethod!.Value,
+                BankCounterpartyId = remainderBank?.Id,
+                Amount = remainderMoney,
+                ReceivedAmount = remainderMoney,
+                ChangeAmount = 0,
+                IsFiscal = isFiscal,
+                PaidAtUtc = paidAt,
+                PaidByUserId = paidBy
+            };
         }
 
         var payment = new OrderPayment
@@ -164,13 +213,13 @@ public sealed class OrderPaymentService : IOrderPaymentService
             OrderId = order.Id,
             Method = method,
             BankCounterpartyId = bank?.Id,
-            Amount = amount,
+            Amount = primaryAmount,
             ServiceChargeAmount = serviceCharge,
             ReceivedAmount = received,
             ChangeAmount = change,
             IsFiscal = isFiscal,
-            PaidAtUtc = DateTime.UtcNow,
-            PaidByUserId = _currentUserService.UserId > 0 ? _currentUserService.UserId : null
+            PaidAtUtc = paidAt,
+            PaidByUserId = paidBy
         };
         for (var i = 0; i < selection.Count && i < portions.Count; i++)
         {
@@ -198,6 +247,8 @@ public sealed class OrderPaymentService : IOrderPaymentService
         }
 
         await _paymentRepository.AddAsync(payment, cancellationToken);
+        if (remainderPayment is not null)
+            await _paymentRepository.AddAsync(remainderPayment, cancellationToken);
 
         if (isFinal)
         {
@@ -207,7 +258,7 @@ public sealed class OrderPaymentService : IOrderPaymentService
             foreach (var line in nonKitchenLines.Where(x => !x.IsStockDeducted))
                 await _recipeStockDeductionService.DeductForOrderLineAsync(line, cancellationToken);
 
-            var all = previous.Append(payment).ToList();
+            var all = previous.Append(payment).Concat(remainderPayment is null ? Array.Empty<OrderPayment>() : new[] { remainderPayment }).ToList();
             var totalService = all.Sum(p => p.ServiceChargeAmount ?? 0);
             order.TotalAmount = billTotal + totalService;
             order.ServiceChargeAmount = totalService > 0 ? totalService : null;
@@ -232,6 +283,8 @@ public sealed class OrderPaymentService : IOrderPaymentService
             "Part payment {Amount} ({Method}) recorded for order {OrderId}; closed: {Closed}",
             amount, method, order.Id, isFinal);
 
-        return new PartPaymentResult(payment, isFinal, isFinal ? 0 : amountRemaining - amount);
+        return new PartPaymentResult(
+            payment, isFinal, isFinal ? 0 : amountRemaining - amount,
+            remainderPayment is null ? null : new[] { remainderPayment });
     }
 }

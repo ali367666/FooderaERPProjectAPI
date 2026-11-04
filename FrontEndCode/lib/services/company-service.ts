@@ -192,6 +192,46 @@ export async function setCompanyModules(companyId: number, modules: CompanyModul
   }
 }
 
+export type PaymentBankStatus = { name: string; enabled: boolean };
+
+/** SuperAdmin only: the catalog of payment banks and which of them a company has. */
+export async function getCompanyPaymentBanks(companyId: number): Promise<PaymentBankStatus[]> {
+  try {
+    const response = await api.get<unknown>("/company-settings/payment-banks", { params: { companyId } });
+    const list = Array.isArray(response.data) ? response.data : [];
+    return list.map((row) => {
+      const r = row as Record<string, unknown>;
+      return { name: String(r.name ?? r.Name ?? ""), enabled: Boolean(r.enabled ?? r.Enabled) };
+    });
+  } catch (error) {
+    throw toApiFormError(error, "Failed to load the payment banks");
+  }
+}
+
+/** SuperAdmin only: gives a company exactly these banks; the others are switched off. */
+export async function setCompanyPaymentBanks(companyId: number, names: string[]): Promise<void> {
+  try {
+    const response = await api.put<ApiResponse<unknown>>("/company-settings/payment-banks", names, { params: { companyId } });
+    if (response.data?.success === false) {
+      throw new ApiFormError(response.data.message || "Failed to update the payment banks");
+    }
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update the payment banks");
+  }
+}
+
+/** SuperAdmin only: whether a restaurant's orders wait for the kitchen to accept them / mark them ready before payment. */
+export async function setCompanyKitchenApproval(companyId: number, required: boolean): Promise<void> {
+  try {
+    const response = await api.put<ApiResponse<unknown>>("/company-settings/kitchen-approval", null, { params: { companyId, required } });
+    if (response.data?.success === false) {
+      throw new ApiFormError(response.data.message || "Failed to update the kitchen approval");
+    }
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update the kitchen approval");
+  }
+}
+
 /** SuperAdmin only: opens or closes changing a company's store sales (cancelling them). */
 export async function setCompanySalesLock(companyId: number, locked: boolean): Promise<void> {
   try {

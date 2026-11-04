@@ -33,6 +33,14 @@ public class PayOrderPartCommandHandler : IRequestHandler<PayOrderPartCommand, P
         if (!Enum.TryParse<PaymentMethod>(request.Request.PaymentMethod, true, out var method))
             throw new BadRequestException("Please select a valid payment method.");
 
+        PaymentMethod? remainderMethod = null;
+        if (!string.IsNullOrWhiteSpace(request.Request.RemainderPaymentMethod))
+        {
+            if (!Enum.TryParse<PaymentMethod>(request.Request.RemainderPaymentMethod, true, out var parsedRemainder))
+                throw new BadRequestException("Qalan məbləğ üçün ödəniş üsulu düzgün deyil.");
+            remainderMethod = parsedRemainder;
+        }
+
         var result = await _paymentService.PayAsync(
             order,
             request.Request.Lines.Select(l => new PartPaymentLine(l.OrderLineId, l.Quantity)).ToList(),
@@ -41,15 +49,21 @@ public class PayOrderPartCommandHandler : IRequestHandler<PayOrderPartCommand, P
             request.Request.PaidAmount,
             request.Request.IsFiscal,
             request.Request.BankId,
-            cancellationToken);
+            cancellationToken,
+            remainderMethod,
+            request.Request.RemainderBankId);
 
+        var payments = new[] { result.Payment }.Concat(result.RemainderPayments ?? Array.Empty<Domain.Entities.OrderPayment>()).ToList();
         return new PartPaymentResponse
         {
             PaymentId = result.Payment.Id,
-            Amount = result.Payment.Amount,
+            Amount = payments.Sum(p => p.Amount),
             ChangeAmount = result.Payment.ChangeAmount,
             OrderClosed = result.OrderClosed,
-            RemainingAmount = result.RemainingAmount
+            RemainingAmount = result.RemainingAmount,
+            Parts = payments
+                .Select(p => new PartPaymentPart { Method = p.Method.ToString(), Amount = p.Amount + (p.ServiceChargeAmount ?? 0) })
+                .ToList()
         };
     }
 }

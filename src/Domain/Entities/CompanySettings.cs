@@ -30,6 +30,13 @@ public class CompanySettings : CompanyEntity<int>
     /// </summary>
     public bool SalesEditLocked { get; set; }
 
+    /// <summary>
+    /// Set by the platform SuperAdmin only. When true (default) an order sent to the kitchen waits for the kitchen to accept it
+    /// and mark it ready before it can be paid. When false the order only goes to the kitchen: no acceptance or "ready" status
+    /// is needed and the waiter may take the payment whenever they want.
+    /// </summary>
+    public bool KitchenApprovalRequired { get; set; } = true;
+
     public bool IntegrationWolt { get; set; }
     public bool IntegrationBolt { get; set; }
     public bool Integration189Delivery { get; set; }

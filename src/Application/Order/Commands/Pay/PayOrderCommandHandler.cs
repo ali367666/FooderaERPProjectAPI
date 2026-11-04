@@ -18,6 +18,7 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
     private readonly IOrderPaymentRepository _paymentRepository;
     private readonly IOrderPaymentService _paymentService;
     private readonly ICounterpartyRepository _counterpartyRepository;
+    private readonly ICompanySettingsRepository _settingsRepository;
 
     public PayOrderCommandHandler(
         IOrderRepository orderRepository,
@@ -25,8 +26,10 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         ICurrentUserService currentUserService,
         IOrderPaymentRepository paymentRepository,
         IOrderPaymentService paymentService,
-        ICounterpartyRepository counterpartyRepository)
+        ICounterpartyRepository counterpartyRepository,
+        ICompanySettingsRepository settingsRepository)
     {
+        _settingsRepository = settingsRepository;
         _orderRepository = orderRepository;
         _recipeStockDeductionService = recipeStockDeductionService;
         _currentUserService = currentUserService;
@@ -44,8 +47,9 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         if (order.IsPaid || order.Status == OrderStatus.Paid)
             throw new BadRequestException("This order is already paid.");
 
-        if (order.Status != OrderStatus.Ready && order.Status != OrderStatus.Served)
-            throw new BadRequestException("Only ready or served orders can be paid.");
+        var kitchenApproval = (await _settingsRepository.GetByCompanyIdAsync(order.CompanyId, cancellationToken))?.KitchenApprovalRequired ?? true;
+        if (!Application.Orders.Services.OrderPayability.CanPay(order.Status, kitchenApproval))
+            throw new BadRequestException(Application.Orders.Services.OrderPayability.RefusalMessage(order.Status, kitchenApproval));
 
         if (order.TableRentalStartedAt is not null && order.TableRentalStoppedAt is null)
             throw new BadRequestException("Masa icarəsi taymeri hələ işləyir — əvvəlcə dayandırın.");
@@ -53,11 +57,21 @@ public class PayOrderCommandHandler : IRequestHandler<PayOrderCommand, OrderResp
         if (!Enum.TryParse<PaymentMethod>(request.Request.PaymentMethod, true, out var paymentMethod))
             throw new BadRequestException("Please select a valid payment method.");
 
-        // Some guests already paid their share: this payment settles whatever is left.
-        if (await _paymentRepository.AnyForOrderAsync(order.Id, cancellationToken))
+        PaymentMethod? remainderMethod = null;
+        if (!string.IsNullOrWhiteSpace(request.Request.RemainderPaymentMethod))
+        {
+            if (!Enum.TryParse<PaymentMethod>(request.Request.RemainderPaymentMethod, true, out var parsedRemainder))
+                throw new BadRequestException("Qalan məbləğ üçün ödəniş üsulu düzgün deyil.");
+            remainderMethod = parsedRemainder;
+        }
+
+        // Some guests already paid their share (this payment settles whatever is left), or the bill is split over two methods
+        // ("10 in cash, the rest by card"): both go through the part-payment service, which records each method on its own.
+        if (remainderMethod is not null || await _paymentRepository.AnyForOrderAsync(order.Id, cancellationToken))
         {
             await _paymentService.PayAsync(
-                order, null, null, paymentMethod, request.Request.PaidAmount, request.Request.IsFiscal, request.Request.BankId, cancellationToken);
+                order, null, null, paymentMethod, request.Request.PaidAmount, request.Request.IsFiscal, request.Request.BankId, cancellationToken,
+                remainderMethod, request.Request.RemainderBankId);
             return BuildResponse(order);
         }
 

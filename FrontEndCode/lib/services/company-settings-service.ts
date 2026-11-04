@@ -321,6 +321,8 @@ export type CompanySettingsBranding = {
   moduleOtel: boolean;
   moduleFitnes: boolean;
   salesEditLocked: boolean;
+  /** Restaurant: the kitchen must accept an order and mark it ready before it can be paid. */
+  kitchenApprovalRequired: boolean;
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
   moduleKompleks: boolean;
@@ -438,6 +440,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     moduleOtel: bool("moduleOtel", "ModuleOtel"),
     moduleFitnes: bool("moduleFitnes", "ModuleFitnes"),
     salesEditLocked: bool("salesEditLocked", "SalesEditLocked"),
+    kitchenApprovalRequired: bool("kitchenApprovalRequired", "KitchenApprovalRequired"),
     moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
     moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
     moduleKompleks: bool("moduleKompleks", "ModuleKompleks"),

@@ -412,6 +412,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<bool>("IntegrationWolt")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("KitchenApprovalRequired")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("LastModifiedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -1333,6 +1336,9 @@ namespace Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<bool>("ExcludeFromDiscount")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ImageUrl")
                         .HasColumnType("nvarchar(max)");
 
@@ -1523,6 +1529,9 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CategoryMaxPick")
+                        .HasColumnType("int");
 
                     b.Property<int>("ComponentMenuItemId")
                         .HasColumnType("int");

@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Kitchen.Dtos;
 using MediatR;
@@ -9,12 +9,15 @@ public class GetKitchenLinesQueryHandler
     : IRequestHandler<GetKitchenLinesQuery, List<KitchenOrderLineResponse>>
 {
     private readonly IOrderLineRepository _orderLineRepository;
+    private readonly ICompanySettingsRepository _settingsRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public GetKitchenLinesQueryHandler(
         IOrderLineRepository orderLineRepository,
+        ICompanySettingsRepository settingsRepository,
         ICurrentUserService currentUserService)
     {
+        _settingsRepository = settingsRepository;
         _orderLineRepository = orderLineRepository;
         _currentUserService = currentUserService;
     }
@@ -23,6 +26,11 @@ public class GetKitchenLinesQueryHandler
         GetKitchenLinesQuery request,
         CancellationToken cancellationToken)
     {
+        // Without kitchen approval an order only goes to the kitchen as a printed ticket - it never appears on the kitchen screen.
+        var settings = await _settingsRepository.GetByCompanyIdAsync(_currentUserService.CompanyId, cancellationToken);
+        if (settings is { KitchenApprovalRequired: false })
+            return new List<KitchenOrderLineResponse>();
+
         var lines = await _orderLineRepository.GetKitchenLinesAsync(
             _currentUserService.CompanyId,
             request.RestaurantId,

@@ -5,11 +5,11 @@ import { Store, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getCompanies, setCompanyModules, setCompanySalesLock, type Company, type CompanyModules } from "@/lib/services/company-service";
+import { getCompanies, getCompanyPaymentBanks, setCompanyKitchenApproval, setCompanyPaymentBanks, type PaymentBankStatus, setCompanyModules, setCompanySalesLock, type Company, type CompanyModules } from "@/lib/services/company-service";
 import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
 import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 
-type Row = { company: Company; modules: CompanyModules | null; salesLocked: boolean };
+type Row = { company: Company; modules: CompanyModules | null; salesLocked: boolean; kitchenRequired: boolean; banks: PaymentBankStatus[] };
 
 const MODULE_LABELS: { key: keyof CompanyModules; label: string }[] = [
   { key: "moduleFilial", label: "Filial" },
@@ -50,9 +50,10 @@ export default function ModesPage() {
               moduleQiymetSor: b.moduleQiymetSor,
               moduleKompleks: b.moduleKompleks,
             };
-            return { company, modules, salesLocked: b.salesEditLocked } as Row;
+            const banks = await getCompanyPaymentBanks(company.id).catch(() => [] as PaymentBankStatus[]);
+            return { company, modules, salesLocked: b.salesEditLocked, kitchenRequired: b.kitchenApprovalRequired, banks } as Row;
           } catch {
-            return { company, modules: null, salesLocked: false } as Row;
+            return { company, modules: null, salesLocked: false, kitchenRequired: true, banks: [] } as Row;
           }
         }),
       );
@@ -74,6 +75,33 @@ export default function ModesPage() {
       await setCompanySalesLock(row.company.id, !row.salesLocked);
       setRows((prev) => prev.map((r) => (r.company.id === row.company.id ? { ...r, salesLocked: !row.salesLocked } : r)));
       toast.success(`${row.company.name}: satışların dəyişdirilməsi ${row.salesLocked ? "açıldı" : "bağlandı"}.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Yazılmadı.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const toggleBank = async (row: Row, name: string, enabled: boolean) => {
+    const banks = row.banks.map((b) => (b.name === name ? { ...b, enabled } : b));
+    setSaving(row.company.id);
+    try {
+      await setCompanyPaymentBanks(row.company.id, banks.filter((b) => b.enabled).map((b) => b.name));
+      setRows((prev) => prev.map((r) => (r.company.id === row.company.id ? { ...r, banks } : r)));
+      toast.success(`${row.company.name}: banklar yadda saxlanıldı.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Yazılmadı.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const toggleKitchenApproval = async (row: Row) => {
+    setSaving(row.company.id);
+    try {
+      await setCompanyKitchenApproval(row.company.id, !row.kitchenRequired);
+      setRows((prev) => prev.map((r) => (r.company.id === row.company.id ? { ...r, kitchenRequired: !row.kitchenRequired } : r)));
+      toast.success(`${row.company.name}: mətbəx təsdiqi ${row.kitchenRequired ? "söndürüldü" : "aktiv edildi"}.`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Yazılmadı.");
     } finally {
@@ -144,6 +172,34 @@ export default function ModesPage() {
                     </span>
                     <Button size="sm" variant="outline" disabled={saving === row.company.id} onClick={() => void toggleSalesLock(row)}>
                       {row.salesLocked ? "Aç" : "Bağla"}
+                    </Button>
+                  </div>
+                )}
+                {m && row.banks.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t pt-3 text-sm">
+                    <span className="font-medium">Banklar (kart ödənişi):</span>
+                    {row.banks.map((b) => (
+                      <label key={b.name} className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={b.enabled}
+                          disabled={saving === row.company.id}
+                          onChange={(e) => void toggleBank(row, b.name, e.target.checked)}
+                        />
+                        {b.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {m && !isStore && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
+                    <span>
+                      Mətbəx təsdiqi (qəbul edir / hazırdır statusu):{" "}
+                      <b className={row.kitchenRequired ? "text-emerald-600" : "text-amber-600"}>{row.kitchenRequired ? "aktivdir" : "söndürülüb"}</b>
+                      {!row.kitchenRequired && <span className="text-muted-foreground"> — sifariş yalnız mətbəxə göndərilir, ofisiant istədiyi vaxt ödəniş edə bilər</span>}
+                    </span>
+                    <Button size="sm" variant="outline" disabled={saving === row.company.id} onClick={() => void toggleKitchenApproval(row)}>
+                      {row.kitchenRequired ? "Söndür" : "Aktiv et"}
                     </Button>
                   </div>
                 )}
