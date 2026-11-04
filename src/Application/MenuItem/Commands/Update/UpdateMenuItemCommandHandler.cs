@@ -198,7 +198,8 @@ public class UpdateMenuItemCommandHandler
                     ComponentMenuItemId = c.ComponentMenuItemId,
                     Quantity = c.Quantity < 1 ? 1 : c.Quantity,
                     // A limit below the default quantity would make the set invalid from the start.
-                    Limit = c.Limit is > 0 ? Math.Max(c.Limit.Value, c.Quantity < 1 ? 1 : c.Quantity) : null
+                    Limit = c.Limit is > 0 ? Math.Max(c.Limit.Value, c.Quantity < 1 ? 1 : c.Quantity) : null,
+                    CategoryMaxPick = c.CategoryMaxPick is > 0 ? c.CategoryMaxPick : null
                 }, cancellationToken);
             }
         }

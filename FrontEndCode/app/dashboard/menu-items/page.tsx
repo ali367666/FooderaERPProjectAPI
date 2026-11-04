@@ -462,13 +462,20 @@ export default function MenuItemsPage() {
     },
   ];
 
+  // A new product starts with the item type "Məhsul"; the user can still pick another from the list.
+  const defaultItemTypeId = (types: MenuItemTypeOption[]): string => {
+    const norm = (v: string) => v.trim().toLocaleLowerCase("az");
+    const found = types.find((t) => t.isActive && norm(t.name) === "məhsul");
+    return found ? String(found.id) : "";
+  };
+
   const resetForm = () => {
     setName("");
     setDescription("");
     setImageUrl(null);
     setMenuCategoryId("");
     setPreparationType(String(PreparationType.Kitchen));
-    setItemTypeId("");
+    setItemTypeId(defaultItemTypeId(itemTypes));
     setUnitId(String(UnitOfMeasure.Piece));
     setVatPercent("");
     setBarcode("");
@@ -508,6 +515,11 @@ export default function MenuItemsPage() {
     setFieldErrors({});
     setIsEditMode(false);
   };
+
+  useEffect(() => {
+    if (isDialogOpen && !isEditMode && itemTypeId === "") setItemTypeId(defaultItemTypeId(itemTypes));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemTypes, isDialogOpen]);
 
   const handleAdd = () => {
     if (!canCreate) return;
@@ -560,7 +572,7 @@ export default function MenuItemsPage() {
       if (item.isSet) {
         const components = await getMenuItemSetComponents(item.id);
         setSetComponents(
-          components.map((c) => ({ componentMenuItemId: c.componentMenuItemId, quantity: c.quantity, limit: c.limit })),
+          components.map((c) => ({ componentMenuItemId: c.componentMenuItemId, quantity: c.quantity, limit: c.limit, categoryMaxPick: c.categoryMaxPick })),
         );
       } else {
         setSetComponents([]);
@@ -664,14 +676,6 @@ export default function MenuItemsPage() {
     }
 
     const unit = Number(unitId) as UnitOfMeasureValue;
-    const isWeightBasedUnit = unit === UnitOfMeasure.Kg || unit === UnitOfMeasure.Gram;
-
-    if (!isSet && !isWeightBasedUnit && !barcode.trim()) {
-      const msg = "Barkod məcburidir.";
-      setError(msg);
-      window.alert(msg);
-      return;
-    }
 
     const basePayload = {
       name: trimmedName,
@@ -1009,21 +1013,8 @@ export default function MenuItemsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-foreground">
-                    Barcode
-                    {!isSet && Number(unitId) !== UnitOfMeasure.Kg && Number(unitId) !== UnitOfMeasure.Gram && (
-                      <span className="text-destructive"> *</span>
-                    )}
-                  </label>
-                  <Input
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
-                    placeholder={
-                      isSet || Number(unitId) === UnitOfMeasure.Kg || Number(unitId) === UnitOfMeasure.Gram
-                        ? "Optional"
-                        : "Məcburidir"
-                    }
-                  />
+                  <label className="mb-2 block text-sm font-medium text-foreground">Barcode</label>
+                  <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Optional" />
                 </div>
 
                 <div>
@@ -1206,8 +1197,8 @@ export default function MenuItemsPage() {
                 Barkodu gizlət
               </label>
               <label className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox checked={excludeFromDiscount} onCheckedChange={(v) => setExcludeFromDiscount(v === true)} />
-                Endirimdən istisna et
+                <Checkbox checked={!excludeFromDiscount} onCheckedChange={(v) => setExcludeFromDiscount(v !== true)} />
+                Endirimdə iştirak etsin
               </label>
               <label className="flex items-center gap-2 text-sm text-foreground">
                 <Checkbox checked={skipTaxCalculation} onCheckedChange={(v) => setSkipTaxCalculation(v === true)} />

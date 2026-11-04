@@ -2,6 +2,7 @@ using System.Text.Json;
 using Application.Common.Exceptions;
 using Application.Common.Helpers;
 using Application.Common.Interfaces;
+using Application.Orders.Services;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -24,6 +25,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
     private readonly IMenuItemSetComponentRepository _setComponentRepository;
     private readonly IMenuItemRepository _menuItemRepository;
     private readonly ICompanySettingsRepository _companySettingsRepository;
+    private readonly IDiscountRepository _discountRepository;
 
     public UpdateOrderLineCommandHandler(
         IOrderLineRepository orderLineRepository,
@@ -34,8 +36,10 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         ILogger<UpdateOrderLineCommandHandler> logger,
         IMenuItemSetComponentRepository setComponentRepository,
         IMenuItemRepository menuItemRepository,
-        ICompanySettingsRepository companySettingsRepository)
+        ICompanySettingsRepository companySettingsRepository,
+        IDiscountRepository discountRepository)
     {
+        _discountRepository = discountRepository;
         _orderLineRepository = orderLineRepository;
         _orderRepository = orderRepository;
         _recipeStockDeductionService = recipeStockDeductionService;
@@ -143,6 +147,11 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             var component = components.FirstOrDefault(x => x.ComponentMenuItemId == line.MenuItemId);
             if (component?.Limit is { } limit && newQuantity > limit * parentLine.Quantity)
                 throw new Exception($"{line.MenuItem.Name}: bu SET-də ən çox {limit * parentLine.Quantity} ola bilər.");
+
+            // Only raising a component can break the category cap (the set starts with every component in it, and the waiter lowers).
+            if (newQuantity > previousQuantity
+                && SetSelectionRules.FindCapViolation(parentLine, order.Lines, components, line.Id, newQuantity) is { } capViolation)
+                throw new Application.Common.Exceptions.BadRequestException(capViolation);
         }
         var quantityChanged = newQuantity != previousQuantity;
 
@@ -227,7 +236,13 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
                 line.GiftedAtUtc = line.IsGift ? DateTime.UtcNow : null;
             }
             if (request.Request.DiscountAmount.HasValue)
-                line.DiscountAmount = Math.Max(0, request.Request.DiscountAmount.Value);
+            {
+                var wanted = Math.Max(0, request.Request.DiscountAmount.Value);
+                if (wanted > 0 && wanted != line.DiscountAmount
+                    && (await _discountRepository.GetDiscountExcludedMenuItemIdsAsync(companyId, new[] { line.MenuItemId }, cancellationToken)).Contains(line.MenuItemId))
+                    throw new BadRequestException($"{line.MenuItem.Name} endirimdə iştirak etmir.");
+                line.DiscountAmount = wanted;
+            }
         }
 
         line.LineTotal = OrderLinePricing.ComputeLineTotal(line);

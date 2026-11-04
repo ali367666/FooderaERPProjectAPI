@@ -101,6 +101,9 @@ export type SetComponent = {
   componentMenuItemName: string;
   quantity: number;
   limit: number | null;
+  componentCategoryId: number | null;
+  /** The most the waiter may pick in total from this component's category in one set; null = no cap. */
+  categoryMaxPick: number | null;
 };
 
 export type SetComponentInput = {
@@ -108,6 +111,8 @@ export type SetComponentInput = {
   quantity: number;
   /** Most of this component one SET may hold (per set); null = no cap. */
   limit: number | null;
+  /** The most the waiter may pick from this component's category in one set (same value for the category's components); null = no cap. */
+  categoryMaxPick?: number | null;
 };
 
 export type MenuItemCreateInput = {
@@ -279,6 +284,14 @@ function normalizeSetComponent(item: unknown): SetComponent | null {
     quantity: Number(raw.quantity ?? raw.Quantity ?? 1),
     limit: (() => {
       const v = raw.limit ?? raw.Limit;
+      return v == null ? null : Number(v);
+    })(),
+    componentCategoryId: (() => {
+      const v = raw.componentCategoryId ?? raw.ComponentCategoryId;
+      return v == null ? null : Number(v);
+    })(),
+    categoryMaxPick: (() => {
+      const v = raw.categoryMaxPick ?? raw.CategoryMaxPick;
       return v == null ? null : Number(v);
     })(),
   };

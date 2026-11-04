@@ -1,4 +1,6 @@
+using Application.Common.Exceptions;
 using Application.Common.Interfaces;
+using Application.Orders.Services;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Orders.Dtos;
 using Domain.Enums;
@@ -9,12 +11,15 @@ namespace Application.Orders.Commands.Submit;
 public class SubmitOrderCommandHandler : IRequestHandler<SubmitOrderCommand, OrderResponse>
 {
     private readonly IOrderRepository _orderRepository;
+    private readonly IMenuItemSetComponentRepository _setComponentRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public SubmitOrderCommandHandler(
         IOrderRepository orderRepository,
+        IMenuItemSetComponentRepository setComponentRepository,
         ICurrentUserService currentUserService)
     {
+        _setComponentRepository = setComponentRepository;
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
     }
@@ -32,6 +37,15 @@ public class SubmitOrderCommandHandler : IRequestHandler<SubmitOrderCommand, Ord
 
         if (order.Lines.Count == 0)
             throw new Exception("Add at least one order line before submitting.");
+
+        // A set may cap how many products the waiter picks from a category (e.g. 1 of its 3 desserts).
+        foreach (var setLine in order.Lines.DistinctBy(x => x.Id)
+                     .Where(x => x.ParentLineId == null && x.MenuItem.IsSet && x.Status != OrderLineStatus.Cancelled))
+        {
+            var components = await _setComponentRepository.GetBySetMenuItemIdAsync(setLine.MenuItemId, cancellationToken);
+            if (SetSelectionRules.FindCapViolation(setLine, order.Lines, components) is { } violation)
+                throw new BadRequestException(violation);
+        }
 
         order.Status = OrderStatus.Open;
         _orderRepository.Update(order);

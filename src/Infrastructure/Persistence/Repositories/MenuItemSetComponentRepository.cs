@@ -17,7 +17,7 @@ public class MenuItemSetComponentRepository : IMenuItemSetComponentRepository
     public async Task<List<MenuItemSetComponent>> GetBySetMenuItemIdAsync(int setMenuItemId, CancellationToken cancellationToken)
     {
         return await _context.MenuItemSetComponents
-            .Include(x => x.ComponentMenuItem)
+            .Include(x => x.ComponentMenuItem).ThenInclude(m => m.MenuCategory)
             .Where(x => x.SetMenuItemId == setMenuItemId)
             .ToListAsync(cancellationToken);
     }
