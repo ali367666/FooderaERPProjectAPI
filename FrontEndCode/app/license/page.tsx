@@ -6,6 +6,7 @@ import { KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { importLicenseKey } from "@/lib/services/license-service";
+import { clearStoredAuth } from "@/lib/auth-client";
 
 function LicenseKeyForm() {
   const router = useRouter();
@@ -75,6 +76,19 @@ function LicenseKeyForm() {
             <p className="text-center text-xs text-muted-foreground">Açar internetsiz yoxlanılır.</p>
           </form>
         )}
+        <div className="mt-4 border-t pt-3 text-center">
+          <button
+            type="button"
+            className="text-sm text-muted-foreground underline hover:text-foreground"
+            onClick={() => {
+              // A leftover sign-in of a blocked company keeps sending every page here; this clears it so another account (e.g. the platform SuperAdmin) can sign in.
+              clearStoredAuth();
+              router.replace("/login");
+            }}
+          >
+            Başqa hesabla giriş (SuperAdmin / admin)
+          </button>
+        </div>
       </div>
     </div>
   );

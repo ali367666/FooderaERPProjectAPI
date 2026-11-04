@@ -39,7 +39,6 @@ import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-termin
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import {
   getRestaurantTables,
-  ensureStoreSaleTable,
   RestaurantTableType,
   type RestaurantTable,
 } from "@/lib/services/restaurant-table-service";
@@ -211,7 +210,6 @@ export default function PosTablesPage() {
   }, []);
 
   const [brandingLoaded, setBrandingLoaded] = useState(false);
-  const [storeModeBusy, setStoreModeBusy] = useState(false);
 
   useEffect(() => {
     if (!terminal?.companyId) return;
@@ -221,58 +219,15 @@ export default function PosTablesPage() {
       .finally(() => setBrandingLoaded(true));
   }, [terminal]);
 
-  const isStoreMode = branding?.moduleDataSecimi === true;
+  // The terminal's own choice wins; terminals set up before the choice existed follow the company's mode.
+  const isStoreMode = terminal?.mode ? terminal.mode === "store" : branding?.moduleDataSecimi === true;
 
   const warningMinutes = branding?.tableTimeWarningMinutes ?? 45;
 
+  // A store (mağaza) company sells from its own screens, apart from the restaurant POS.
   useEffect(() => {
-    const restaurantId = terminal?.restaurantId;
-    if (!restaurantId || !isStoreMode) return;
-    let cancelled = false;
-
-    const ensureStoreSale = async () => {
-      setStoreModeBusy(true);
-      try {
-        const waiterId = await getCurrentEmployeeId();
-        if (!waiterId) {
-          toast.error("Bu istifadəçi heç bir işçiyə bağlı deyil. Users səhifəsindən bağlayın.");
-          return;
-        }
-
-        const [storeTableId, allOrders] = await Promise.all([
-          ensureStoreSaleTable(restaurantId),
-          getOrders(),
-        ]);
-
-        if (cancelled) return;
-
-        const activeOrder = allOrders.find(
-          (o) => o.tableId === storeTableId && isActiveStatus(o.status),
-        );
-        if (activeOrder) {
-          router.replace(`/pos/order/${activeOrder.id}`);
-          return;
-        }
-
-        const order = await createOrder({
-          restaurantId,
-          tableId: storeTableId,
-          waiterId,
-          guestCount: null,
-        });
-        if (!cancelled) router.replace(`/pos/order/${order.id}`);
-      } catch (err) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : "Satış ekranı açıla bilmədi");
-      } finally {
-        if (!cancelled) setStoreModeBusy(false);
-      }
-    };
-
-    void ensureStoreSale();
-    return () => {
-      cancelled = true;
-    };
-  }, [terminal, isStoreMode, router]);
+    if (isStoreMode) router.replace("/store");
+  }, [isStoreMode, router]);
 
   useEffect(() => {
     const stillOverdueIds = new Set<number>();
@@ -668,7 +623,7 @@ export default function PosTablesPage() {
   if (isStoreMode) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        {storeModeBusy ? "Satış ekranı açılır..." : "Satış ekranına yönləndirilir..."}
+        Satış ekranına yönləndirilir...
       </div>
     );
   }

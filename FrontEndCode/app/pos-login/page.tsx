@@ -21,6 +21,7 @@ import {
   Clock3,
   CreditCard,
   Delete,
+  Keyboard,
   Headset,
   LogIn,
   MapPin,
@@ -47,12 +48,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { persistAuthUser } from "@/lib/auth-client";
+import { markPosSession, persistAuthUser } from "@/lib/auth-client";
 import {
   clearPosTerminalContext,
   getPosTerminalContext,
   savePosTerminalContext,
   type PosTerminalContext,
+  type PosTerminalMode,
 } from "@/lib/pos-terminal-client";
 import {
   lookupCompanyByCode,
@@ -177,7 +179,10 @@ export default function PosLoginPage() {
             clearPosTerminalContext();
             setTerminal(null);
           }}
-          onSuccess={() => router.replace("/pos")}
+          onSuccess={() => {
+            markPosSession();
+            router.replace("/pos");
+          }}
         />
       ) : (
         <div className="relative z-10 flex min-h-dvh items-center justify-center p-4">
@@ -210,6 +215,9 @@ function TerminalSetupView({
   // Set once a branch is chosen and the admin registered workstations for it: the operator still has
   // to pick which monitor this is.
   const [pendingRestaurant, setPendingRestaurant] = useState<RestaurantLookupItem | null | undefined>(undefined);
+  // The POS this terminal will open; asked right after the business is found.
+  const [mode, setMode] = useState<PosTerminalMode | null>(null);
+  const [companyIsStore, setCompanyIsStore] = useState(false);
 
   const handleLookup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -220,22 +228,11 @@ function TerminalSetupView({
     setIsLoading(true);
     try {
       const result = await lookupCompanyByCode(trimmed);
+      // The business's own mode is only a suggestion on the next step.
+      const branding = await getCompanySettingsBranding(result.companyId).catch(() => null);
+      setCompanyIsStore(branding?.moduleDataSecimi === true);
+      setMode(null);
       setLookup(result);
-      if (result.restaurants.length === 0) {
-        if (result.workstations.length === 0) {
-          onDone({
-            companyId: result.companyId,
-            companyCode: trimmed,
-            companyName: result.companyName,
-            restaurantId: null,
-            restaurantName: null,
-            workstationId: null,
-            workstationName: null,
-          });
-        } else {
-          setPendingRestaurant(null);
-        }
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Company was not found");
     } finally {
@@ -246,9 +243,32 @@ function TerminalSetupView({
   const workstationsFor = (restaurant: RestaurantLookupItem | null) =>
     (lookup?.workstations ?? []).filter((t) => t.restaurantId === null || t.restaurantId === restaurant?.id);
 
+  // After the mode is picked the rest of the setup goes on as before (branch, then monitor name).
+  const chooseMode = (picked: PosTerminalMode) => {
+    if (!lookup) return;
+    setMode(picked);
+    if (lookup.restaurants.length === 0) {
+      if (lookup.workstations.length === 0) {
+        onDone({
+          mode: picked,
+          companyId: lookup.companyId,
+          companyCode: companyCode.trim(),
+          companyName: lookup.companyName,
+          restaurantId: null,
+          restaurantName: null,
+          workstationId: null,
+          workstationName: null,
+        });
+      } else {
+        setPendingRestaurant(null);
+      }
+    }
+  };
+
   const finishSetup = (restaurant: RestaurantLookupItem | null, workstation: WorkstationLookupItem | null) => {
     if (!lookup) return;
     onDone({
+      mode: mode ?? undefined,
       companyId: lookup.companyId,
       companyCode: companyCode.trim(),
       companyName: lookup.companyName,
@@ -277,9 +297,11 @@ function TerminalSetupView({
         <CardDescription>
           {pendingRestaurant !== undefined
             ? "Bu monitorun adını seçin"
-            : lookup
-              ? "Bu terminalın işləyəcəyi filialı seçin"
-              : "Bu terminalın aid olduğu biznesin kodunu daxil edin"}
+            : lookup && mode === null
+              ? "Bu terminal hansı rejimdə işləyəcək?"
+              : lookup
+                ? "Bu terminalın işləyəcəyi filialı seçin"
+                : "Bu terminalın aid olduğu biznesin kodunu daxil edin"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -305,6 +327,43 @@ function TerminalSetupView({
               {isLoading ? "Axtarılır..." : "Davam et"}
             </Button>
           </form>
+        ) : mode === null ? (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-foreground">{lookup.companyName}</p>
+            <div className="grid gap-2">
+              {(
+                [
+                  { value: "restaurant", label: "Restoran POS", hint: "Masalar, sifarişlər, mətbəx" },
+                  { value: "store", label: "Mağaza POS", hint: "Barkodla satış, stok, müştəri və bonus" },
+                ] as { value: PosTerminalMode; label: string; hint: string }[]
+              ).map((opt) => (
+                <Button
+                  key={opt.value}
+                  type="button"
+                  variant={(companyIsStore ? "store" : "restaurant") === opt.value ? "default" : "outline"}
+                  className="h-auto justify-start py-3 text-left"
+                  onClick={() => chooseMode(opt.value)}
+                >
+                  <span>
+                    <span className="block text-base font-semibold">{opt.label}</span>
+                    <span className="block text-xs font-normal opacity-80">{opt.hint}</span>
+                  </span>
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Biznesin rejimi: {companyIsStore ? "Mağaza" : "Restoran"} (təklif olunur).</p>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={() => {
+                setLookup(null);
+                setError(null);
+              }}
+            >
+              Geri
+            </Button>
+          </div>
         ) : pendingRestaurant !== undefined ? (
           <div className="space-y-3">
             <p className="text-sm font-medium text-foreground">
@@ -330,9 +389,7 @@ function TerminalSetupView({
               variant="ghost"
               className="w-full text-muted-foreground"
               onClick={() => {
-                if (lookup.restaurants.length === 0) {
-                  setLookup(null);
-                }
+                setMode(null);
                 setPendingRestaurant(undefined);
                 setError(null);
               }}
@@ -370,7 +427,7 @@ function TerminalSetupView({
               variant="ghost"
               className="w-full text-muted-foreground"
               onClick={() => {
-                setLookup(null);
+                setMode(null);
                 setError(null);
               }}
             >
@@ -455,13 +512,14 @@ function PosLoginView({
 
   useEffect(() => {
     const focusRfid = () => {
-      if (dialogOpenRef.current) return;
+      if (dialogOpenRef.current || terminal.mode === "store") return;
       rfidInputRef.current?.focus();
     };
     focusRfid();
     const interval = window.setInterval(focusRfid, 1000);
     return () => window.clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terminal.mode]);
 
   const finishLogin = (result: { accessToken: string; refreshToken?: string; permissions: string[]; roles: string[] }) => {
     localStorage.setItem("token", result.accessToken);
@@ -511,6 +569,53 @@ function PosLoginView({
     }
   };
 
+  // Store terminals sign in with a code that may hold letters: no digit pad, a keyboard button opens the on-screen keys,
+  // and a real keyboard can be typed on directly.
+  const alphaMode = terminal.mode === "store";
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const typedAt = useRef<number[]>([]);
+  const submitRef = useRef<(v: string) => void>(() => undefined);
+  const rfidRef = useRef<(v: string) => void>(() => undefined);
+  const codeRef = useRef("");
+  codeRef.current = code;
+
+  useEffect(() => {
+    if (!alphaMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (dialogOpenRef.current || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const value = codeRef.current;
+        if (!value) return;
+        // A card reader types the whole id in a burst and presses Enter: that is a card, not a typed code.
+        const t = typedAt.current;
+        const burst = t.length >= 6 && (t[t.length - 1] - t[0]) / (t.length - 1) < 40;
+        typedAt.current = [];
+        if (burst) {
+          setCode("");
+          rfidRef.current(value);
+        } else {
+          submitRef.current(value);
+        }
+        return;
+      }
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        setCode((prev) => prev.slice(0, -1));
+        return;
+      }
+      if (/^[A-Za-z0-9]$/.test(e.key)) {
+        e.preventDefault();
+        typedAt.current.push(Date.now());
+        if (typedAt.current.length > 40) typedAt.current.shift();
+        setError(null);
+        setCode((prev) => (prev.length >= MAX_CODE_LENGTH ? prev : prev + e.key));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [alphaMode]);
+
   const pressDigit = (digit: string) => {
     if (isLoading) return;
     setError(null);
@@ -531,6 +636,9 @@ function PosLoginView({
     setError(null);
     setCode("");
   };
+
+  submitRef.current = (v) => void submitCode(v);
+  rfidRef.current = (v) => void submitRfid(v);
 
   const speedUp = () => {
     setIsRestarting(true);
@@ -609,7 +717,7 @@ function PosLoginView({
               <span className="text-primary">PRO</span>
             </h1>
             <p className="mt-0.5 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Restoran System
+              {terminal.mode === "store" ? "System" : "Restoran System"}
             </p>
           </header>
 
@@ -629,7 +737,7 @@ function PosLoginView({
               role="status"
             >
               {code.length === 0 ? (
-                <span className="truncate text-sm text-muted-foreground">PIN kodu daxil edin</span>
+                <span className="truncate text-sm text-muted-foreground">{alphaMode ? "Giriş kodunu yazın" : "PIN kodu daxil edin"}</span>
               ) : (
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   {Array.from({ length: visibleDots }).map((_, i) => (
@@ -665,12 +773,34 @@ function PosLoginView({
             </KeyButton>
           </div>
 
+          {alphaMode && keyboardOpen && (
+            <div className="mb-2.5 space-y-1.5">
+              {["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"].map((row) => (
+                <div key={row} className="flex justify-center gap-1.5">
+                  {row.split("").map((ch) => (
+                    <button
+                      key={ch}
+                      type="button"
+                      disabled={isLoading}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pressDigit(ch)}
+                      className="h-11 min-w-0 flex-1 rounded-lg border bg-background text-lg font-semibold shadow-sm transition active:scale-95 disabled:opacity-50"
+                    >
+                      {ch}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2.5 lg:gap-3">
-            {["7", "8", "9", "4", "5", "6", "1", "2", "3"].map((digit) => (
-              <KeyButton key={digit} disabled={isLoading} onClick={() => pressDigit(digit)}>
-                {digit}
-              </KeyButton>
-            ))}
+            {!alphaMode &&
+              ["7", "8", "9", "4", "5", "6", "1", "2", "3"].map((digit) => (
+                <KeyButton key={digit} disabled={isLoading} onClick={() => pressDigit(digit)}>
+                  {digit}
+                </KeyButton>
+              ))}
             <KeyButton
               onClick={() => setSettingsOpen(true)}
               className="flex-col gap-0.5 bg-muted/60 text-muted-foreground hover:text-foreground"
@@ -679,9 +809,20 @@ function PosLoginView({
               <Settings className="h-5 w-5" />
               <span className="text-[11px] font-medium">Ayarlar</span>
             </KeyButton>
-            <KeyButton disabled={isLoading} onClick={() => pressDigit("0")}>
-              0
-            </KeyButton>
+            {alphaMode ? (
+              <KeyButton
+                onClick={() => setKeyboardOpen((o) => !o)}
+                className={cn("flex-col gap-0.5", keyboardOpen ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground")}
+                aria-label="Ekran klaviaturası"
+                title="Ekran klaviaturası"
+              >
+                <Keyboard className="h-6 w-6" />
+              </KeyButton>
+            ) : (
+              <KeyButton disabled={isLoading} onClick={() => pressDigit("0")}>
+                0
+              </KeyButton>
+            )}
             <KeyButton
               onClick={() => setExitOpen(true)}
               className="bg-muted/60 text-destructive hover:bg-destructive/10"
@@ -731,7 +872,7 @@ function PosLoginView({
 
       {/* Bottom information bar */}
       <footer className="flex flex-wrap items-stretch gap-px border-t border-white/10 bg-black/40 text-white backdrop-blur-md">
-        <InfoSegment icon={<Store className="h-4 w-4" />} label="Restoran" value={restaurantLabel} />
+        <InfoSegment icon={<Store className="h-4 w-4" />} label={terminal.mode === "store" ? "Filial" : "Restoran"} value={restaurantLabel} />
         <InfoSegment
           icon={<Monitor className="h-4 w-4" />}
           label="Workstation"

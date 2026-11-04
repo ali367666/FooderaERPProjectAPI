@@ -2,7 +2,12 @@
 
 const TERMINAL_KEY = "posTerminalContext";
 
+/** Which POS this terminal opens: the restaurant POS (tables, orders) or the store POS (direct sales). */
+export type PosTerminalMode = "restaurant" | "store";
+
 export type PosTerminalContext = {
+  /** Chosen when the terminal is set up; terminals set up before this existed follow the company's mode. */
+  mode?: PosTerminalMode;
   companyId: number;
   companyCode: string;
   companyName: string;
@@ -22,6 +27,7 @@ export function getPosTerminalContext(): PosTerminalContext | null {
       return null;
     }
     return {
+      mode: parsed.mode === "store" || parsed.mode === "restaurant" ? parsed.mode : undefined,
       companyId: parsed.companyId,
       companyCode: parsed.companyCode,
       companyName: parsed.companyName,

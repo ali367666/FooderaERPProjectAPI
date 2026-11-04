@@ -89,7 +89,7 @@ export default function PosLayout({ children, modal }: { children: React.ReactNo
     router.replace("/pos-login");
   };
 
-  const isStoreMode = branding?.moduleDataSecimi === true;
+  const isStoreMode = terminal?.mode ? terminal.mode === "store" : branding?.moduleDataSecimi === true;
   // Only the order screen (/pos/order/{id}) hides the tabs; "/pos/orders" pages keep them.
   const showTabs = !pathname.startsWith("/pos/order/");
   // The tables screen fills the viewport (its action bar sits at the bottom) and owns the search box.
