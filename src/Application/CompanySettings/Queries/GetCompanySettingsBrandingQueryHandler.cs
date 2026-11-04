@@ -72,6 +72,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 ModuleDataSecimi = settings.ModuleDataSecimi,
                 ModuleQiymetSor = settings.ModuleQiymetSor,
                 ModuleKompleks = settings.ModuleKompleks,
+                SalesEditLocked = settings.SalesEditLocked,
                 PrintAutoOnPayment = settings.PrintAutoOnPayment,
                 PrintKitchenOnPayment = settings.PrintKitchenOnPayment,
                 PrintShowPreview = settings.PrintShowPreview,

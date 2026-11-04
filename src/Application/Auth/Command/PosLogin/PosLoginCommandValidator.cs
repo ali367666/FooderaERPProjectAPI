@@ -15,9 +15,9 @@ public sealed class PosLoginCommandValidator : AbstractValidator<PosLoginCommand
             .WithMessage("Provide either Code or RfidCardId, not both");
 
         RuleFor(x => x.Request.Code)
-            .Matches($@"^\d{{{StaffCodeRules.MinLength},{StaffCodeRules.MaxLoginLength}}}$")
+            .Matches($@"^[A-Za-z0-9]{{{StaffCodeRules.MinLength},{StaffCodeRules.MaxLoginLength}}}$")
             .When(x => !string.IsNullOrWhiteSpace(x.Request.Code))
-            .WithMessage($"Code must be {StaffCodeRules.MinLength} to {StaffCodeRules.MaxLoginLength} digits");
+            .WithMessage($"Code must be {StaffCodeRules.MinLength} to {StaffCodeRules.MaxLoginLength} letters or digits");
 
         RuleFor(x => x.Request.RfidCardId)
             .MaximumLength(64)

@@ -58,6 +58,20 @@ public interface IIdentityAdminService
     /// </summary>
     Task<string?> ValidateCompanySuperAdminAsync(string userName, string email, string password, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Checks a manager's credentials for an approval at the till: the user must belong to the company, be
+    /// active, know the password and hold the permission (the company SuperAdmin counts as holding all).
+    /// Returns the approver's id, or an error text.
+    /// </summary>
+    Task<(int? UserId, string? Error)> VerifyApproverAsync(
+        int companyId, string userName, string password, string requiredPermission, CancellationToken cancellationToken = default);
+
+    /// <summary>Whether the user holds the permission (the company SuperAdmin counts as holding all).</summary>
+    Task<bool> UserHoldsPermissionAsync(int userId, int companyId, string permission, CancellationToken cancellationToken = default);
+
+    /// <summary>Ids of the company's active users who hold the permission (the company SuperAdmin counts as holding all).</summary>
+    Task<List<int>> GetUserIdsWithPermissionAsync(int companyId, string permission, CancellationToken cancellationToken = default);
+
     /// <summary>Creates the company's own SuperAdmin user and assigns the global CompanySuperAdmin role.</summary>
     Task<(bool Ok, string? Error)> CreateCompanySuperAdminAsync(
         int companyId, string fullName, string userName, string email, string password,
