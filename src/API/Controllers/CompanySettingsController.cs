@@ -50,6 +50,19 @@ public class CompanySettingsController(IMediator mediator) : BaseController(medi
     /// icazəsi) üçündür — müştərinin öz admin panelindən dəyişdirilə bilmir.
     /// </summary>
     [Authorize(Policy = AppPermissions.CompanyUpdate)]
+    [HttpPut("sales-lock")]
+    public async Task<IActionResult> SetSalesLock([FromQuery] int companyId, [FromQuery] bool locked, CancellationToken cancellationToken)
+    {
+        var response = await Mediator.Send(new Application.CompanySettings.Commands.SetSalesLock.SetSalesLockCommand(companyId, locked), cancellationToken);
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
+
+    /// <summary>
+    /// Bir müştəri şirkətinin aktiv modullarını (Filial, Anbar, Rezervasiya, Paket, Data Seçimi və s.)
+    /// təyin edir. Yalnız platforma səviyyəsində şirkətləri idarə edən istifadəçi (Company.Update
+    /// icazəsi) üçündür — müştərinin öz admin panelindən dəyişdirilə bilmir.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.CompanyUpdate)]
     [HttpPut("modules")]
     public async Task<IActionResult> SetModules(
         [FromQuery] int companyId,

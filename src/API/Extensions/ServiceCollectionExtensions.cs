@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.İnterfaces;
 using Infrastructure.Authentication;
 using Infrastructure.Services;
@@ -41,6 +41,18 @@ public static class ServiceCollectionExtensions
                 IssuerSigningKey = new SymmetricSecurityKey(
                     Encoding.UTF8.GetBytes(jwtOptions.Secret)),
                 ClockSkew = TimeSpan.Zero
+            };
+
+            // Browsers cannot set headers on a WebSocket, so the hub takes the token from the query string.
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var token = context.Request.Query["access_token"];
+                    if (!string.IsNullOrEmpty(token) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                        context.Token = token;
+                    return Task.CompletedTask;
+                }
             };
         });
 

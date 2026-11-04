@@ -51,6 +51,9 @@ builder.Services.AddPermissionPolicies();
 builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PermissionAuthorizationHandler>();
 
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<Application.StoreMode.Notifications.IStoreRealtime, API.SignalRStoreRealtime>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -99,5 +102,6 @@ app.UseAuthentication();
 app.UseMiddleware<DeviceAccessMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<API.StoreHub>("/hubs/store");
 
 app.Run();
