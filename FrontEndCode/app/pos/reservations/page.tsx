@@ -186,7 +186,12 @@ export default function PosReservationsPage() {
               <span className="max-w-full truncate font-semibold">{r.guestName}</span>
               <span className={cn("flex items-center gap-1 text-xs", seated ? "text-white/80" : "text-muted-foreground")}>
                 <Users className="h-3 w-3" />
-                {r.guestCount} nəfər{r.tableName ? ` · ${r.tableName}` : ""}
+                {r.guestCount} nəfər
+                {r.isBanquet
+                  ? ` · Banket: ${r.banquetHallName ?? r.tableName ?? "zal"}`
+                  : r.tableName
+                    ? ` · ${r.tableName}`
+                    : ""}
               </span>
               <span className={cn("text-xs tabular-nums", seated ? "text-white/80" : "text-muted-foreground")}>{r.guestPhone}</span>
               <span className={cn("text-xs font-semibold", seated ? "text-white" : statusTextClass(r.status))}>

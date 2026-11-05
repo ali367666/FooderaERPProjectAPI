@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowLeftRight, Banknote, CalendarCheck, CalendarPlus, ChevronDown, ChevronUp, Clock, CreditCard, Hash, Keyboard, LayoutGrid, LogOut, MoreHorizontal, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, UtensilsCrossed, X } from "lucide-react";
+import { AlertCircle, Loader2, ArrowLeft, ArrowLeftRight, Banknote, CalendarCheck, CalendarPlus, ChevronDown, ChevronUp, Clock, CreditCard, Hash, Keyboard, LayoutGrid, LogOut, MoreHorizontal, Scale, Gift, Minus, Package, Pencil, Play, Plus, Printer, Receipt, Search, Square, StickyNote, Tag, Lightbulb, Percent, Trash2, User, UserCog, Users, UtensilsCrossed, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -55,7 +55,15 @@ import {
 import { useCancelReason } from "@/components/cancel-reason-dialog";
 import { getCounterparties, type Counterparty } from "@/lib/services/counterparty-service";
 import { getMenuCategories, type MenuCategory } from "@/lib/services/menu-category-service";
-import { getMenuItems, getMenuItemAvailability, MenuItemPriceType, UnitOfMeasure, type MenuItem } from "@/lib/services/menu-item-service";
+import {
+  getMenuItems,
+  getMenuItemAvailability,
+  MenuItemPriceType,
+  searchMenuItems,
+  UnitOfMeasure,
+  type MenuItem,
+  type MenuItemSearchResult,
+} from "@/lib/services/menu-item-service";
 import {
   getRestaurantTables,
   getRestaurantTableById,
@@ -99,23 +107,8 @@ function isWaiterRole(): boolean {
   return roles.some((r) => r.trim().toLowerCase() === "waiter");
 }
 
-/** Lower-cases and folds Azerbaijani letters so typing "aci" finds "Acı", "qehve" finds "Qəhvə". */
-function normalizeSearch(s: string): string {
-  let lower: string;
-  try {
-    lower = s.toLocaleLowerCase("az");
-  } catch {
-    lower = s.toLowerCase();
-  }
-  return lower
-    .replace(/ı/g, "i")
-    .replace(/ə/g, "e")
-    .replace(/ö/g, "o")
-    .replace(/ü/g, "u")
-    .replace(/ş/g, "s")
-    .replace(/ç/g, "c")
-    .replace(/ğ/g, "g");
-}
+/** Wait this long after the last keystroke before asking the server, so typing a word sends one request. */
+const PRODUCT_SEARCH_DEBOUNCE_MS = 250;
 
 function formatEmployeeName(e: Employee): string {
   const n = e.fullName?.trim();
@@ -210,19 +203,36 @@ export default function PosOrderPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchKeyboardOpen, setSearchKeyboardOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  // Server-side product search (GET /MenuItems/search). `searchResultsTerm` is the term the shown rows belong to.
+  const [searchResults, setSearchResults] = useState<MenuItemSearchResult[]>([]);
+  const [searchResultsTerm, setSearchResultsTerm] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchRetryTick, setSearchRetryTick] = useState(0);
+  // The row ↑ / ↓ (or a tap) highlighted; Enter adds it. -1 = none, so Enter never adds a row by itself.
+  const [searchHighlight, setSearchHighlight] = useState(-1);
+  const searchTableRef = useRef<HTMLTableSectionElement | null>(null);
   const [hallName, setHallName] = useState<string | null>(null);
-  // ↑ / ↓ next to the categories page through the products.
   const productScrollRef = useRef<HTMLDivElement | null>(null);
-  const [productScroll, setProductScroll] = useState({ up: false, down: false });
-  const syncProductScroll = useCallback(() => {
-    const el = productScrollRef.current;
+  // ↑ / ↓ around the category list page through the categories — shown only when they don't all fit.
+  const categoryScrollRef = useRef<HTMLDivElement | null>(null);
+  const [categoryScroll, setCategoryScroll] = useState({ overflow: false, up: false, down: false });
+  const syncCategoryScroll = useCallback(() => {
+    const el = categoryScrollRef.current;
     if (!el) return;
-    setProductScroll({ up: el.scrollTop > 4, down: el.scrollTop + el.clientHeight < el.scrollHeight - 4 });
+    const next = {
+      overflow: el.scrollHeight > el.clientHeight + 1,
+      up: el.scrollTop > 4,
+      down: el.scrollTop + el.clientHeight < el.scrollHeight - 4,
+    };
+    setCategoryScroll((prev) =>
+      prev.overflow === next.overflow && prev.up === next.up && prev.down === next.down ? prev : next,
+    );
   }, []);
-  const pageProducts = (direction: 1 | -1) => {
-    const el = productScrollRef.current;
+  const pageCategories = (direction: 1 | -1) => {
+    const el = categoryScrollRef.current;
     if (!el) return;
-    el.scrollBy({ top: direction * Math.max(el.clientHeight - 80, 120), behavior: "smooth" });
+    el.scrollBy({ top: direction * Math.max(el.clientHeight - 60, 60), behavior: "smooth" });
   };
   const canCreateReservation = useHasPermission("Reservation.Create");
 
@@ -685,43 +695,108 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     return ownItems;
   }, [sellableItems, ownItems, activeSubCategoryId]);
 
-  // Whatever the product pane shows changed: back to its first page, then re-check the ↑ / ↓ buttons.
+  // Whatever the product pane shows changed: back to its first page.
   useEffect(() => {
     productScrollRef.current?.scrollTo({ top: 0 });
-    syncProductScroll();
-  }, [activeCategoryId, activeSubCategoryId, productSearch, items, syncProductScroll]);
+  }, [activeCategoryId, activeSubCategoryId, productSearch, items]);
 
+  // Re-check whether the categories overflow (window resize, categories loaded, font size changed).
   useEffect(() => {
-    const el = productScrollRef.current;
+    syncCategoryScroll();
+    const el = categoryScrollRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(syncProductScroll);
+    const observer = new ResizeObserver(syncCategoryScroll);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loading, syncProductScroll]);
+  }, [loading, categories, branding?.categoryFontSize, syncCategoryScroll]);
 
   const productSearchTrimmed = productSearch.trim();
-  const searchResults = useMemo(() => {
-    if (!productSearchTrimmed) return [];
-    const term = normalizeSearch(productSearchTrimmed);
-    return sellableItems.filter((i) => {
-      if (i.hideFromPosSearch) return false;
-      const nameMatch = normalizeSearch(i.name).includes(term);
-      const codeMatch =
-        !i.hideBarcode &&
-        ((i.barcode != null && i.barcode === productSearchTrimmed) ||
-          (i.weightCode != null && i.weightCode === productSearchTrimmed));
-      return nameMatch || codeMatch;
-    });
-  }, [sellableItems, productSearchTrimmed]);
+  const isDeliveryOrder = order?.isDelivery === true;
 
-  const handleBarcodeEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== "Enter") return;
+  // Ask the server once typing pauses. A newer term aborts the request in flight, and the `cancelled` flag
+  // keeps a late answer for an older term from ever overwriting the rows of the newer one.
+  useEffect(() => {
+    const term = productSearchTrimmed;
+    if (!term) {
+      setSearchResults([]);
+      setSearchResultsTerm("");
+      setSearchLoading(false);
+      setSearchError(null);
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    setSearchLoading(true);
+    setSearchError(null);
+    const timer = window.setTimeout(() => {
+      searchMenuItems(term, { isDelivery: isDeliveryOrder, isBanquet, signal: controller.signal })
+        .then((rows) => {
+          if (cancelled) return;
+          setSearchResults(rows);
+          setSearchResultsTerm(term);
+          setSearchHighlight(-1);
+        })
+        .catch((err) => {
+          if (cancelled || controller.signal.aborted) return;
+          setSearchError(err instanceof Error ? err.message : "Məhsul axtarışı alınmadı");
+        })
+        .finally(() => {
+          if (!cancelled) setSearchLoading(false);
+        });
+    }, PRODUCT_SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [productSearchTrimmed, isDeliveryOrder, isBanquet, searchRetryTick]);
+
+  // Keep the highlighted row on screen while ↑ / ↓ walk the list.
+  useEffect(() => {
+    if (searchHighlight < 0) return;
+    searchTableRef.current?.children[searchHighlight]?.scrollIntoView({ block: "nearest" });
+  }, [searchHighlight]);
+
+  /** The full menu item behind a search row — selection reuses exactly what a product tile does. */
+  const menuItemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+
+  const selectSearchResult = (row: MenuItemSearchResult) => {
+    const item = menuItemById.get(row.id);
+    if (!item) {
+      toast.error("Məhsul menyuda tapılmadı — səhifəni yeniləyin.");
+      return;
+    }
+    if (busy || outOfStockIds.has(item.id) || lacksProductCode(item)) return;
+    handleItemClick(item);
+  };
+
+  /**
+   * Enter (physical or on-screen): a scanned barcode / PLU adds its product straight away, as before;
+   * otherwise only a row the cashier highlighted is added — typing a name and pressing Enter adds nothing.
+   */
+  const handleSearchEnter = () => {
     const exact = sellableItems.find(
       (i) => !i.hideBarcode && (i.barcode === productSearchTrimmed || i.weightCode === productSearchTrimmed),
     );
     if (exact) {
       void handleAddItem(exact.id);
       setProductSearch("");
+      return;
+    }
+    const row = searchResultsTerm === productSearchTrimmed ? searchResults[searchHighlight] : undefined;
+    if (row) selectSearchResult(row);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSearchEnter();
+    } else if (e.key === "Escape") {
+      setSearchKeyboardOpen(false);
+    } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && searchResults.length > 0) {
+      e.preventDefault();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setSearchHighlight((h) => Math.min(searchResults.length - 1, Math.max(0, h + step)));
     }
   };
 
@@ -786,7 +861,11 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
         (l) => l.menuItemId === setDialogItem.id && l.parentLineId == null && !knownLineIds.has(l.id),
       );
       setLineId = setLine?.id ?? null;
-      const changed = picks.filter((p) => p.quantity !== p.defaultQuantity);
+      // Removals first: the server adds every component, and while the unpicked options of a choice group are
+      // still on the set, raising another component would break the category cap ("1 of the 3 desserts").
+      const changed = picks
+        .filter((p) => p.quantity !== p.defaultQuantity)
+        .sort((a, b) => Number(a.quantity !== 0) - Number(b.quantity !== 0) || a.quantity - b.quantity);
       if (changed.length > 0) {
         if (!setLine) throw new Error("Əlavə olunan set tapılmadı.");
         const children = current.lines.filter((l) => l.parentLineId === setLine.id);
@@ -1608,6 +1687,128 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     );
   };
 
+  /** Search results as a touch-sized table; it scrolls above the on-screen keyboard, never under it. */
+  const renderSearchResults = () => {
+    // Rows for an older term stay visible (dimmed) until the newer answer arrives — no flicker while typing.
+    const stale = searchResultsTerm !== productSearchTrimmed;
+    const firstLoad = searchLoading && searchResultsTerm === "";
+    return (
+      <>
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-background pb-2 pt-3">
+          <p className="truncate text-sm font-semibold text-muted-foreground">
+            “{productSearchTrimmed}”
+            {!stale && !searchError && <> üzrə {searchResults.length} məhsul</>}
+          </p>
+          {searchLoading && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label="Axtarılır" />}
+        </div>
+
+        {searchError ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+            <p className="text-sm text-destructive">{searchError}</p>
+            <Button type="button" variant="outline" onClick={() => setSearchRetryTick((t) => t + 1)}>
+              Yenidən cəhd et
+            </Button>
+          </div>
+        ) : firstLoad ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Axtarılır...
+          </div>
+        ) : !stale && searchResults.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Nəticə tapılmadı</p>
+        ) : (
+          <div className={cn("overflow-hidden rounded-xl border bg-card shadow-sm transition-opacity", stale && "opacity-60")}>
+            <table className="w-full table-fixed border-collapse text-sm">
+              <thead className="bg-muted/60 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2.5 text-left">Məhsul</th>
+                  <th className="hidden w-36 px-3 py-2.5 text-left lg:table-cell">Barkod</th>
+                  <th className="hidden w-32 px-3 py-2.5 text-left md:table-cell">Kateqoriya</th>
+                  <th className="hidden w-32 px-3 py-2.5 text-left xl:table-cell">Alt kateqoriya</th>
+                  <th className="hidden w-20 px-3 py-2.5 text-left xl:table-cell">PLU</th>
+                  <th className="w-24 px-3 py-2.5 text-right">Qiymət</th>
+                </tr>
+              </thead>
+              <tbody ref={searchTableRef}>
+                {searchResults.map((row, index) => {
+                  const item = menuItemById.get(row.id);
+                  const isOutOfStock = outOfStockIds.has(row.id);
+                  const isMissingCode = item ? lacksProductCode(item) : false;
+                  const disabled = busy || stale || !item || isOutOfStock || isMissingCode;
+                  const highlighted = index === searchHighlight;
+                  const isWeighted = row.unitId === UnitOfMeasure.Kg || row.unitId === UnitOfMeasure.Gram;
+                  return (
+                    <tr
+                      key={row.id}
+                      aria-selected={highlighted}
+                      aria-disabled={disabled}
+                      onClick={() => {
+                        if (disabled) return;
+                        setSearchHighlight(index);
+                        selectSearchResult(row);
+                      }}
+                      className={cn(
+                        "h-14 cursor-pointer select-none border-t transition-colors",
+                        highlighted
+                          ? "bg-primary text-primary-foreground"
+                          : "odd:bg-background even:bg-muted/25 hover:bg-primary/10 active:bg-primary/15",
+                        disabled && "cursor-not-allowed opacity-50 grayscale",
+                      )}
+                    >
+                      <td className="px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-[15px] font-semibold" title={row.name}>
+                            {row.name}
+                          </span>
+                          {isWeighted && (
+                            <Scale
+                              className={cn("h-4 w-4 shrink-0", highlighted ? "text-primary-foreground" : "text-violet-700")}
+                              aria-label="Çəki ilə satılır"
+                            />
+                          )}
+                          {(row.isSet || (item != null && isSetProduct(item))) && (
+                            <Package className="h-4 w-4 shrink-0 opacity-70" aria-label="Set" />
+                          )}
+                          {isOutOfStock && (
+                            <span className="shrink-0 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
+                              Bitib
+                            </span>
+                          )}
+                          {isMissingCode && !isOutOfStock && (
+                            <span className="shrink-0 rounded-full bg-muted-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
+                              Kodsuz
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="hidden truncate px-3 py-2 font-mono text-xs tabular-nums lg:table-cell">{row.barcode ?? "—"}</td>
+                      <td className="hidden truncate px-3 py-2 md:table-cell" title={row.categoryName}>
+                        {row.categoryName || "—"}
+                      </td>
+                      <td className="hidden truncate px-3 py-2 xl:table-cell" title={row.subCategoryName ?? undefined}>
+                        {row.subCategoryName ?? "—"}
+                      </td>
+                      <td className="hidden truncate px-3 py-2 font-mono text-xs tabular-nums xl:table-cell">{row.weightCode ?? "—"}</td>
+                      <td
+                        className={cn(
+                          "px-3 py-2 text-right font-bold tabular-nums",
+                          highlighted ? "text-primary-foreground" : "text-primary",
+                        )}
+                      >
+                        {row.price.toFixed(2)} ₼
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>
+    );
+  };
+
   // The selected line's own controls (quantity, timer, weight, discount, hold, price lists, delete).
   const renderLineControls = (line: OrderLineDto, isHeld: boolean, isTimerRunning: boolean) => (
     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background p-2 shadow-sm">
@@ -1823,7 +2024,6 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
               </>
             )}
             <InfoCell label="Çek №" value={order.orderNumber} />
-            <InfoCell label="İstifadəçi" value={order.waiterName ?? "—"} grow />
             <button
               type="button"
               onClick={() => setMoreOpen(true)}
@@ -2232,10 +2432,8 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
                 ref={searchInputRef}
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  handleBarcodeEnter(e);
-                  if (e.key === "Escape") setSearchKeyboardOpen(false);
-                }}
+                onKeyDown={handleSearchKeyDown}
+                autoComplete="off"
                 inputMode={searchKeyboardOpen ? "none" : undefined}
                 placeholder="Məhsul axtar və ya barkod skan et..."
                 className="h-10 text-base"
@@ -2266,19 +2464,9 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
             </div>
           )}
 
-          <div ref={productScrollRef} onScroll={syncProductScroll} className="min-h-0 flex-1 overflow-y-auto p-3">
+          <div ref={productScrollRef} className={cn("min-h-0 flex-1 overflow-y-auto", productSearchTrimmed ? "px-3 pb-3" : "p-3")}>
             {productSearchTrimmed ? (
-              <>
-                <p className="mb-2 text-sm font-semibold text-muted-foreground">
-                  “{productSearchTrimmed}” üzrə {searchResults.length} məhsul
-                </p>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                  {searchResults.map(renderProduct)}
-                  {searchResults.length === 0 && (
-                    <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Nəticə tapılmadı</p>
-                  )}
-                </div>
-              </>
+              renderSearchResults()
             ) : (
               <>
                 <div className="mb-2 flex items-center gap-2">
@@ -2330,6 +2518,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
             <VirtualKeyboard
               value={productSearch}
               onChange={setProductSearch}
+              onEnter={handleSearchEnter}
               onClose={() => setSearchKeyboardOpen(false)}
               className="m-2 mt-0 shrink-0"
             />
@@ -2338,17 +2527,23 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
 
         {/* Categories */}
         <aside className="flex min-h-0 w-full shrink-0 flex-col border-t bg-background md:w-28 md:border-l md:border-t-0 lg:w-40">
-          <button
-            type="button"
-            onClick={() => pageProducts(-1)}
-            disabled={!productScroll.up}
-            className="hidden h-14 shrink-0 flex-col items-center justify-center border-b text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 md:flex"
-            title="Əvvəlki səhifəyə keç"
+          {categoryScroll.overflow && (
+            <button
+              type="button"
+              onClick={() => pageCategories(-1)}
+              disabled={!categoryScroll.up}
+              className="hidden h-14 shrink-0 flex-col items-center justify-center border-b text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 md:flex"
+              title="Əvvəlki səhifəyə keç"
+            >
+              <ChevronUp className="h-6 w-6" />
+              <span className="text-[10px] font-medium">Əvvəlki səhifə</span>
+            </button>
+          )}
+          <div
+            ref={categoryScrollRef}
+            onScroll={syncCategoryScroll}
+            className="flex min-h-0 flex-1 gap-2 overflow-auto p-2 md:flex-col"
           >
-            <ChevronUp className="h-6 w-6" />
-            <span className="text-[10px] font-medium">Əvvəlki səhifə</span>
-          </button>
-          <div className="flex min-h-0 flex-1 gap-2 overflow-auto p-2 md:flex-col">
             {topLevelCategories.map((cat) => {
               const active = !productSearchTrimmed && cat.id === activeCategoryId;
               return (
@@ -2373,16 +2568,18 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={() => pageProducts(1)}
-            disabled={!productScroll.down}
-            className="hidden h-14 shrink-0 flex-col items-center justify-center border-t text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 md:flex"
-            title="Növbəti səhifəyə keç"
-          >
-            <span className="text-[10px] font-medium">Növbəti səhifə</span>
-            <ChevronDown className="h-6 w-6" />
-          </button>
+          {categoryScroll.overflow && (
+            <button
+              type="button"
+              onClick={() => pageCategories(1)}
+              disabled={!categoryScroll.down}
+              className="hidden h-14 shrink-0 flex-col items-center justify-center border-t text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 md:flex"
+              title="Növbəti səhifəyə keç"
+            >
+              <span className="text-[10px] font-medium">Növbəti səhifə</span>
+              <ChevronDown className="h-6 w-6" />
+            </button>
+          )}
         </aside>
       </div>
 

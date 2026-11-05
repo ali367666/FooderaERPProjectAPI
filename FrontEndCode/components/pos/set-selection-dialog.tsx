@@ -27,6 +27,11 @@ export type SetPick = {
   quantity: number;
   /** False for a product that needs no preparation: the server adds its line as Ready, and a Ready line can't be removed. */
   removable: boolean;
+  /**
+   * The component belongs to a choice group (its category has a pick cap in the set, e.g. "1 of the 3 desserts").
+   * Leaving an option of a choice group out is the set's own rule, not a change of the set, so no permission is needed.
+   */
+  choice?: boolean;
 };
 
 type Props = {
@@ -40,7 +45,7 @@ type Props = {
   busy: boolean;
   /** "Pos.EditProductInSale": the count of a component may differ from the set's own count. */
   canChangeCount: boolean;
-  /** "Pos.DeleteProductInSale": a component may be left out of the set entirely. */
+  /** "Pos.DeleteProductInSale": a fixed component may be left out of the set entirely. */
   canLeaveOut: boolean;
   onClose: () => void;
   onConfirm: (picks: SetPick[]) => void;
@@ -50,18 +55,30 @@ const maxOf = (c: SetComponent) => Math.max(c.limit ?? c.quantity, c.quantity);
 
 /** Whether the user's permissions allow `quantity` of this component (the set's own count is always allowed). */
 export function isSetPickAllowed(
-  pick: Pick<SetPick, "defaultQuantity" | "quantity" | "removable">,
+  pick: Pick<SetPick, "defaultQuantity" | "quantity" | "removable" | "choice">,
   canChangeCount: boolean,
   canLeaveOut: boolean,
 ): boolean {
   if (pick.quantity === pick.defaultQuantity) return true;
-  if (pick.quantity === 0) return canLeaveOut && pick.removable;
+  if (pick.quantity === 0) return pick.choice === true || (canLeaveOut && pick.removable);
   return canChangeCount;
 }
 
+type Group = {
+  key: string;
+  name: string;
+  rank: number;
+  list: SetComponent[];
+  /** Most picks (sum of quantities) from this group in one set; null = a fixed part of the set. */
+  cap: number | null;
+};
+
 /**
- * POS dialog for a SET: the products it holds, grouped by their menu category. The waiter picks which of them
- * (and how many, up to the set's maximum) go on the order; nothing is added until "Əlavə et".
+ * POS dialog for a SET. The set's contents come grouped by menu category in two kinds:
+ * - fixed groups ("Setə daxildir") — always in the set; with permission a product may be left out or recounted;
+ * - choice groups ("N seçin") — the category has a pick cap in the set (`categoryMaxPick`), the waiter must choose
+ *   at least one and at most N of its products. The server checks the same cap when the order is sent (OK).
+ * Nothing is added until "Əlavə et".
  */
 export function SetSelectionDialog({
   item,
@@ -85,14 +102,54 @@ export function SetSelectionDialog({
     return product != null && product.preparationType !== PreparationType.None;
   };
 
-  const fullSet = (list: SetComponent[]) =>
-    Object.fromEntries(list.map((c) => [c.componentMenuItemId, c.quantity])) as Record<number, number>;
-  // What the waiter starts from: only the products that can't be left out.
-  const startingSet = (list: SetComponent[]) =>
-    Object.fromEntries(list.filter((c) => !removable(c)).map((c) => [c.componentMenuItemId, c.quantity])) as Record<
-      number,
-      number
-    >;
+  const groups = useMemo<Group[]>(() => {
+    const byCategory = new Map<number | null, SetComponent[]>();
+    for (const c of components ?? []) {
+      const categoryId = c.componentCategoryId ?? itemById.get(c.componentMenuItemId)?.menuCategoryId ?? null;
+      byCategory.set(categoryId, [...(byCategory.get(categoryId) ?? []), c]);
+    }
+    const order = new Map(categories.map((c, i) => [c.id, i]));
+    return [...byCategory.entries()]
+      .map(([categoryId, list]) => {
+        // Every component of a category carries the same cap; the smallest wins, as on the server.
+        const caps = list.map((c) => c.categoryMaxPick).filter((v): v is number => v != null && v > 0);
+        return {
+          key: String(categoryId ?? "other"),
+          name: categories.find((c) => c.id === categoryId)?.name ?? "Digər",
+          rank: categoryId == null ? Number.MAX_SAFE_INTEGER : order.get(categoryId) ?? Number.MAX_SAFE_INTEGER - 1,
+          list,
+          cap: caps.length > 0 ? Math.min(...caps) : null,
+        };
+      })
+      // Fixed contents first, then the choices, each in menu order.
+      .sort((a, b) => Number(a.cap != null) - Number(b.cap != null) || a.rank - b.rank);
+  }, [components, itemById, categories]);
+
+  const groupOf = useMemo(() => {
+    const map = new Map<number, Group>();
+    for (const g of groups) for (const c of g.list) map.set(c.componentMenuItemId, g);
+    return map;
+  }, [groups]);
+
+  /** Start: every fixed product at its set count; a choice group only pre-picked when it has no more options than its cap. */
+  const initialCounts = (list: SetComponent[], gs: Group[]) => {
+    const result: Record<number, number> = {};
+    for (const g of gs) {
+      if (g.cap == null) {
+        for (const c of g.list) result[c.componentMenuItemId] = c.quantity;
+        continue;
+      }
+      let left = g.cap;
+      if (g.list.length <= g.cap) {
+        for (const c of g.list) {
+          const q = Math.min(c.quantity, left);
+          if (q > 0) result[c.componentMenuItemId] = q;
+          left -= q;
+        }
+      }
+    }
+    return list.length > 0 ? result : {};
+  };
 
   useEffect(() => {
     setComponents(null);
@@ -103,10 +160,7 @@ export function SetSelectionDialog({
     let cancelled = false;
     getMenuItemSetComponents(item.id)
       .then((list) => {
-        if (cancelled) return;
-        setComponents(list);
-        // Who may leave products out starts from an empty set and picks; everyone else starts from the full set.
-        setCounts(canLeaveOut ? startingSet(list) : fullSet(list));
+        if (!cancelled) setComponents(list);
       })
       .catch((e) => {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : "Setin tərkibi yüklənmədi.");
@@ -114,56 +168,92 @@ export function SetSelectionDialog({
     return () => {
       cancelled = true;
     };
-    // Reload only when another set is opened; the menu list refreshing must not reset the waiter's picks.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item, canLeaveOut]);
+  }, [item]);
 
-  const groups = useMemo(() => {
-    const byCategory = new Map<number | null, SetComponent[]>();
-    for (const c of components ?? []) {
-      const categoryId = itemById.get(c.componentMenuItemId)?.menuCategoryId ?? null;
-      byCategory.set(categoryId, [...(byCategory.get(categoryId) ?? []), c]);
-    }
-    const order = new Map(categories.map((c, i) => [c.id, i]));
-    return [...byCategory.entries()]
-      .map(([categoryId, list]) => ({
-        key: categoryId ?? "other",
-        name: categories.find((c) => c.id === categoryId)?.name ?? "Digər",
-        rank: categoryId == null ? Number.MAX_SAFE_INTEGER : order.get(categoryId) ?? Number.MAX_SAFE_INTEGER - 1,
-        list,
-      }))
-      .sort((a, b) => a.rank - b.rank);
-  }, [components, itemById, categories]);
+  // The starting picks need the groups (caps), so they are set once the components are in.
+  useEffect(() => {
+    if (components) setCounts(initialCounts(components, groups));
+    // Only when another set's components arrive; the menu list refreshing must not reset the waiter's picks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [components]);
 
   const countOf = (c: SetComponent) => counts[c.componentMenuItemId] ?? 0;
-  const pickedTotal = (components ?? []).reduce((s, c) => s + countOf(c), 0);
+  const groupPicked = (g: Group) => g.list.reduce((s, c) => s + countOf(c), 0);
+  const isChoice = (c: SetComponent) => groupOf.get(c.componentMenuItemId)?.cap != null;
+
   const allowed = (c: SetComponent, quantity: number) =>
-    isSetPickAllowed({ defaultQuantity: c.quantity, quantity, removable: removable(c) }, canChangeCount, canLeaveOut);
+    isSetPickAllowed(
+      { defaultQuantity: c.quantity, quantity, removable: removable(c), choice: isChoice(c) },
+      canChangeCount,
+      canLeaveOut,
+    );
+
+  /** Most of `c` the waiter can have now: its own maximum, and in a choice group what the cap leaves. */
+  const ceilingOf = (c: SetComponent) => {
+    const g = groupOf.get(c.componentMenuItemId);
+    if (!g || g.cap == null) return maxOf(c);
+    return Math.min(maxOf(c), g.cap - groupPicked(g) + countOf(c));
+  };
 
   const setCount = (c: SetComponent, quantity: number) => {
-    if (busy || quantity < 0 || quantity > maxOf(c) || !allowed(c, quantity)) return;
+    if (busy || quantity < 0 || quantity > ceilingOf(c) || !allowed(c, quantity)) return;
     setError(null);
     setCounts((prev) => ({ ...prev, [c.componentMenuItemId]: quantity }));
   };
 
-  // Tapping a card picks it (1, or the set's count when the count may not change) or leaves it out again.
-  const toggle = (c: SetComponent) => {
+  /** Tapping a row: a fixed product goes out / back in; in a choice group it is picked, or (cap 1) replaces the pick. */
+  const tap = (c: SetComponent) => {
+    if (busy) return;
+    const g = groupOf.get(c.componentMenuItemId);
     const current = countOf(c);
-    if (current > 0) setCount(c, 0);
-    else setCount(c, canChangeCount ? 1 : c.quantity);
+    if (current > 0) {
+      setCount(c, 0);
+      return;
+    }
+    if (g?.cap == null) {
+      setCount(c, c.quantity);
+      return;
+    }
+    const pickQty = canChangeCount ? 1 : c.quantity;
+    if (g.cap === 1 || groupPicked(g) + pickQty > g.cap) {
+      // Radio behaviour for "1 seçin"; for a larger cap that is full, the tap swaps out the other picks.
+      if (pickQty > g.cap) return;
+      setError(null);
+      setCounts((prev) => {
+        const next = { ...prev };
+        for (const other of g.list) next[other.componentMenuItemId] = 0;
+        next[c.componentMenuItemId] = pickQty;
+        return next;
+      });
+      return;
+    }
+    setCount(c, pickQty);
   };
+
+  const missingChoice = groups.find((g) => g.cap != null && groupPicked(g) === 0);
+  const pickedTotal = (components ?? []).reduce((s, c) => s + countOf(c), 0);
 
   const handleConfirm = () => {
     if (!components) return;
+    if (missingChoice) {
+      setError(`“${missingChoice.name}” üçün seçim edin.`);
+      return;
+    }
+    const over = groups.find((g) => g.cap != null && groupPicked(g) > g.cap);
+    if (over) {
+      setError(`“${over.name}” kateqoriyasından ən çox ${over.cap} seçim edilə bilər.`);
+      return;
+    }
     if (components.length > 0 && pickedTotal === 0) {
       setError("Setə ən azı bir məhsul seçin.");
       return;
     }
-    const picks = components.map((c) => ({
+    const picks: SetPick[] = components.map((c) => ({
       componentMenuItemId: c.componentMenuItemId,
       defaultQuantity: c.quantity,
       quantity: countOf(c),
       removable: removable(c),
+      choice: isChoice(c),
     }));
     if (picks.some((p, i) => p.quantity > maxOf(components[i]) || !allowed(components[i], p.quantity))) {
       setError("Bu seçim üçün icazəniz yoxdur.");
@@ -172,27 +262,30 @@ export function SetSelectionDialog({
     onConfirm(picks);
   };
 
-  const locked = !canChangeCount && !canLeaveOut;
+  const hasChoices = groups.some((g) => g.cap != null);
+  const fixedLocked = !canChangeCount && !canLeaveOut;
   const price = priceOverride ?? (item ? item.stationPrice ?? item.price : 0);
 
   return (
     <Dialog open={item != null} onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh] sm:max-w-3xl">
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85dvh] sm:max-w-2xl">
         {/* pr-12 keeps the price clear of the dialog's close (X) button in the corner. */}
-        <DialogHeader className="shrink-0 border-b py-4 pl-4 pr-12 text-left sm:pl-6 sm:pr-14">
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <Layers className="h-5 w-5 text-primary" />
+        <DialogHeader className="shrink-0 border-b py-3 pl-4 pr-12 text-left sm:pl-5 sm:pr-14">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <Layers className="h-5 w-5 shrink-0 text-primary" />
             <span className="truncate">{item?.name}</span>
-            <span className="ml-auto shrink-0 text-lg font-bold tabular-nums text-primary">{price.toFixed(2)} ₼</span>
+            <span className="ml-auto shrink-0 font-bold tabular-nums text-primary">{price.toFixed(2)} ₼</span>
           </DialogTitle>
-          <DialogDescription>
-            {locked
-              ? "Set tam tərkibdə əlavə olunacaq — tərkibi dəyişmək üçün icazəniz yoxdur."
-              : "Setə daxil olacaq məhsullara toxunun. Hər məhsulun yanında ən çox neçə ədəd ola biləcəyi yazılıb."}
+          <DialogDescription className="text-xs">
+            {hasChoices
+              ? "Seçim qruplarından məhsul seçin. Sabit tərkib setə avtomatik daxildir."
+              : fixedLocked
+                ? "Set tam tərkibdə əlavə olunacaq."
+                : "Set tam tərkibdə əlavə olunur — lazım olsa məhsulu çıxarın və ya sayını dəyişin."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 px-4 py-4 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
           {loadError ? (
             <p className="py-10 text-center text-sm text-destructive">{loadError}</p>
           ) : components === null ? (
@@ -202,91 +295,132 @@ export function SetSelectionDialog({
               Bu setin tərkibi təyin edilməyib — set özü əlavə olunacaq.
             </p>
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-4">
               {groups.map((group) => {
-                const picked = group.list.filter((c) => countOf(c) > 0).length;
+                const picked = groupPicked(group);
+                const choice = group.cap != null;
+                const full = choice && picked >= group.cap!;
+                const missing = choice && picked === 0;
                 return (
-                  <section key={group.key} className="space-y-2">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{group.name}</h3>
-                      <span className={cn("text-xs tabular-nums", picked > 0 ? "font-semibold text-primary" : "text-muted-foreground")}>
-                        {picked} / {group.list.length} seçilib
-                      </span>
+                  <section key={group.key}>
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <h3 className="truncate text-sm font-semibold">{group.name}</h3>
+                      {choice ? (
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                            missing ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary",
+                          )}
+                        >
+                          {group.cap === 1 ? "1 seçin" : `${group.cap}-ə qədər seçin`} · məcburi
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          Setə daxildir
+                        </span>
+                      )}
+                      {choice && (
+                        <span
+                          className={cn(
+                            "ml-auto text-xs font-semibold tabular-nums",
+                            full ? "text-primary" : missing ? "text-destructive" : "text-muted-foreground",
+                          )}
+                        >
+                          {picked} / {group.cap}
+                        </span>
+                      )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+
+                    <div className="grid gap-1.5 sm:grid-cols-2">
                       {group.list.map((c) => {
                         const product = itemById.get(c.componentMenuItemId);
                         const count = countOf(c);
-                        const max = maxOf(c);
                         const selected = count > 0;
-                        const canToggle = selected ? allowed(c, 0) : allowed(c, canChangeCount ? 1 : c.quantity);
-                        const showStepper = selected && canChangeCount && max > 1;
+                        const ceiling = ceilingOf(c);
+                        const tapQty = choice ? (canChangeCount ? 1 : c.quantity) : c.quantity;
+                        // A full multi-pick group still lets a tap swap the picks; only a pick bigger than the cap is impossible.
+                        const canTap = selected
+                          ? allowed(c, 0)
+                          : allowed(c, tapQty) && (!choice || tapQty <= group.cap!);
+                        const dimmed = choice && full && !selected;
+                        const showStepper = selected && canChangeCount && maxOf(c) > 1;
                         return (
                           <div
                             key={c.componentMenuItemId}
                             className={cn(
-                              "relative flex flex-col overflow-hidden rounded-xl border-2 bg-card shadow-sm transition-all",
-                              selected ? "border-primary ring-2 ring-primary/20" : "border-border",
+                              "flex min-h-12 items-center gap-2 rounded-lg border px-2 transition-colors",
+                              selected ? "border-primary bg-primary/5" : "border-border bg-card",
+                              dimmed && "opacity-55",
                             )}
                           >
                             <button
                               type="button"
-                              disabled={busy || !canToggle}
-                              onClick={() => toggle(c)}
-                              className="flex min-h-24 flex-1 flex-col text-left active:scale-[0.98] disabled:cursor-not-allowed"
+                              disabled={busy || !canTap}
+                              onClick={() => tap(c)}
                               aria-pressed={selected}
+                              className="flex min-w-0 flex-1 items-center gap-2.5 self-stretch py-1.5 text-left disabled:cursor-not-allowed"
                             >
+                              <span
+                                className={cn(
+                                  "flex h-5 w-5 shrink-0 items-center justify-center border-2",
+                                  choice && group.cap === 1 ? "rounded-full" : "rounded",
+                                  selected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40",
+                                )}
+                              >
+                                {selected &&
+                                  (choice && group.cap === 1 ? (
+                                    <span className="h-2 w-2 rounded-full bg-primary-foreground" />
+                                  ) : (
+                                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                                  ))}
+                              </span>
                               {product?.imageUrl && (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={product.imageUrl} alt="" className="h-16 w-full shrink-0 object-cover" loading="lazy" />
+                                <img src={product.imageUrl} alt="" className="h-8 w-8 shrink-0 rounded object-cover" loading="lazy" />
                               )}
-                              <div className="flex flex-1 flex-col justify-between gap-1 p-2.5 pr-9">
-                                <span className="line-clamp-2 text-sm font-semibold leading-tight">{c.componentMenuItemName}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  Maks. {max}
-                                  {!removable(c) && " · məcburi"}
+                              <span className="min-w-0 flex-1">
+                                <span
+                                  className={cn(
+                                    "line-clamp-2 text-sm font-medium leading-tight",
+                                    !choice && !selected && "text-muted-foreground line-through",
+                                  )}
+                                >
+                                  {c.componentMenuItemName}
                                 </span>
-                              </div>
+                                {!choice && !selected && <span className="text-[11px] text-muted-foreground">setdən çıxarılıb</span>}
+                              </span>
+                              {!canTap && !choice && <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="İcazə yoxdur" />}
                             </button>
-                            <span
-                              className={cn(
-                                "pointer-events-none absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full border-2 px-1 text-xs font-bold tabular-nums",
-                                selected
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-muted-foreground/40 bg-background/90 text-transparent",
-                              )}
-                            >
-                              {selected ? (max > 1 ? count : <Check className="h-3.5 w-3.5" />) : <Check className="h-3.5 w-3.5" />}
-                            </span>
-                            {!canToggle && selected && (
-                              <Lock className="absolute bottom-2 right-2 h-3.5 w-3.5 text-muted-foreground" aria-label="İcazə yoxdur" />
-                            )}
-                            {showStepper && (
-                              <div className="flex items-center justify-between border-t bg-primary/5 p-1.5">
+
+                            {showStepper ? (
+                              <div className="flex shrink-0 items-center gap-1">
                                 <Button
                                   type="button"
                                   size="icon"
                                   variant="outline"
-                                  className="h-9 w-9"
-                                  disabled={busy || !allowed(c, count - 1)}
+                                  className="h-8 w-8"
+                                  disabled={busy || count <= 1 || !allowed(c, count - 1)}
                                   onClick={() => setCount(c, count - 1)}
                                   aria-label="Azalt"
                                 >
-                                  <Minus className="h-4 w-4" />
+                                  <Minus className="h-3.5 w-3.5" />
                                 </Button>
-                                <span className="text-base font-bold tabular-nums">{count}</span>
+                                <span className="w-6 text-center text-sm font-bold tabular-nums">{count}</span>
                                 <Button
                                   type="button"
                                   size="icon"
                                   variant="outline"
-                                  className="h-9 w-9"
-                                  disabled={busy || count >= max || !allowed(c, count + 1)}
+                                  className="h-8 w-8"
+                                  disabled={busy || count >= ceiling || !allowed(c, count + 1)}
                                   onClick={() => setCount(c, count + 1)}
                                   aria-label="Artır"
                                 >
-                                  <Plus className="h-4 w-4" />
+                                  <Plus className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
+                            ) : (
+                              selected &&
+                              count > 1 && <span className="shrink-0 text-sm font-semibold tabular-nums text-primary">× {count}</span>
                             )}
                           </div>
                         );
@@ -299,29 +433,31 @@ export function SetSelectionDialog({
           )}
         </div>
 
-        <DialogFooter className="shrink-0 flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div className="min-h-5 text-sm">
+        <DialogFooter className="shrink-0 flex-row items-center gap-2 border-t px-4 py-3 sm:justify-between sm:px-5">
+          <div className="min-w-0 flex-1 text-sm">
             {error ? (
               <span className="font-medium text-destructive">{error}</span>
+            ) : missingChoice ? (
+              <span className="text-muted-foreground">
+                “<span className="font-medium text-foreground">{missingChoice.name}</span>” üçün seçim edin
+              </span>
             ) : components && components.length > 0 ? (
               <span className="text-muted-foreground">
-                Seçilib: <span className="font-semibold text-foreground tabular-nums">{pickedTotal}</span> məhsul
+                Setdə: <span className="font-semibold tabular-nums text-foreground">{pickedTotal}</span> məhsul
               </span>
             ) : null}
           </div>
-          <div className="flex flex-wrap justify-end gap-2">
-            {components && components.length > 0 && !locked && (
-              <Button type="button" variant="ghost" size="lg" disabled={busy} onClick={() => setCounts(fullSet(components))}>
-                Tam set
-              </Button>
-            )}
-            <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={busy}>
-              Ləğv et
-            </Button>
-            <Button type="button" size="lg" onClick={handleConfirm} disabled={busy || components === null || !!loadError}>
-              {busy ? "Gözləyin…" : "Əlavə et"}
-            </Button>
-          </div>
+          <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={busy}>
+            Ləğv et
+          </Button>
+          <Button
+            type="button"
+            size="lg"
+            onClick={handleConfirm}
+            disabled={busy || components === null || !!loadError || !!missingChoice}
+          >
+            {busy ? "Gözləyin…" : "Əlavə et"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

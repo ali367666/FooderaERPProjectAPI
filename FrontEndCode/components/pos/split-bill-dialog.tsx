@@ -11,9 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { TouchNumpad } from "@/components/pos/touch-numpad";
+import { AmountCalculator, cashStatus } from "@/components/pos/amount-keypad";
 import { BankPicker, usePaymentBanks } from "@/components/pos/bank-picker";
 import { cn } from "@/lib/utils";
 import {
@@ -67,6 +65,10 @@ export function SplitBillDialog({
   const [selection, setSelection] = useState<Record<number, number>>({});
   const [method, setMethod] = useState<PaymentMethod>("Cash");
   const [receivedInput, setReceivedInput] = useState("");
+  // Filled in with what is due: the first key typed on the calculator replaces it.
+  const [receivedFresh, setReceivedFresh] = useState(true);
+  // Cash share: after picking the items, the money handed over is entered on its own calculator step.
+  const [cashStep, setCashStep] = useState(false);
   const fiscal = useFiscalMode();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,13 +106,13 @@ export function SplitBillDialog({
   // The table's recorded service charge ("Servis haqqı qeyd etmək") is added to the last share.
   const service = isFinal ? r2(order.serviceChargeAmount ?? 0) : 0;
   const due = r2(amount + service);
-  const received = Number(receivedInput) || 0;
-  const change = method === "Cash" ? Math.max(0, r2(received - due)) : 0;
+  const received = r2(Number(receivedInput) || 0);
 
   // Reset whenever the dialog opens or a payment changes what is left.
   useEffect(() => {
     if (!open) return;
     setSelection({});
+    setCashStep(false);
     setError(null);
     setBankId(null);
     setMethod(cashEnabled ? "Cash" : cardEnabled ? "Card" : "Credit");
@@ -118,6 +120,7 @@ export function SplitBillDialog({
 
   useEffect(() => {
     setReceivedInput(due > 0 ? due.toFixed(2) : "");
+    setReceivedFresh(true);
   }, [due, method]);
 
   const setQty = (l: OrderLineDto, qty: number) => {
@@ -159,6 +162,7 @@ export function SplitBillDialog({
         lines: selectedLines.map((l) => ({ orderLineId: l.id, quantity: selection[l.id] ?? 0 })),
       });
       setSelection({});
+      setCashStep(false);
       await onPaid(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Ödəniş uğursuz oldu";
@@ -174,15 +178,60 @@ export function SplitBillDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg md:max-w-3xl">
+      <DialogContent
+        className={cn(
+          "max-h-[95vh] overflow-y-auto",
+          cashStep ? "sm:max-w-md" : "sm:max-w-lg md:max-w-3xl",
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Hesab — hissə-hissə ödəniş</DialogTitle>
+          <DialogTitle>{cashStep ? "Nağd ödəniş" : "Hesab — hissə-hissə ödəniş"}</DialogTitle>
           <DialogDescription>
-            {order.tableName}: hər qonaq üçün öz məhsullarını seçin. Qalıq: {remainingAmount.toFixed(2)} ₼
+            {cashStep
+              ? `${order.tableName}: ${selectedLines.length} məhsul${isFinal ? " — son hesab, masa bağlanacaq" : ""}`
+              : `${order.tableName}: hər qonaq üçün öz məhsullarını seçin. Qalıq: ${remainingAmount.toFixed(2)} ₼`}
           </DialogDescription>
         </DialogHeader>
 
-        {payments === null ? (
+        {payments !== null && cashStep ? (
+          <div className="space-y-3">
+            <AmountCalculator
+              due={due}
+              value={receivedInput}
+              fresh={receivedFresh}
+              onChange={(v, fresh) => {
+                setReceivedInput(v);
+                setReceivedFresh(fresh);
+              }}
+              quickNotes
+              status={due > 0 ? cashStatus(received, due) : null}
+              onEnter={() => {
+                if (!busy && received >= due) void handlePay();
+              }}
+              disabled={busy}
+            />
+            {service > 0 && (
+              <p className="text-xs text-muted-foreground">Servis haqqı daxildir: {service.toFixed(2)} ₼</p>
+            )}
+            {error && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" className="h-12 flex-1" disabled={busy} onClick={() => setCashStep(false)}>
+                Geri
+              </Button>
+              <Button
+                className="h-12 flex-[2] text-base font-semibold"
+                disabled={busy || received < due}
+                onClick={() => void handlePay()}
+              >
+                {busy ? "Gözləyin…" : "Ödə"}
+              </Button>
+            </div>
+          </div>
+        ) : payments === null ? (
           loadError ? (
             <div className="space-y-3 py-4 text-center">
               <p className="text-sm text-destructive">{loadError}</p>
@@ -331,21 +380,6 @@ export function SplitBillDialog({
                 )}
               </div>
 
-              {method === "Cash" && (
-                <div className="space-y-2">
-                  <Label htmlFor="split-received">Alınan məbləğ</Label>
-                  <Input
-                    id="split-received"
-                    type="number"
-                    step="0.01"
-                    value={receivedInput}
-                    onChange={(e) => setReceivedInput(e.target.value)}
-                  />
-                  {touchScreen && <TouchNumpad value={receivedInput} onChange={setReceivedInput} allowDecimal />}
-                  <p className="text-sm text-muted-foreground">Qaytarılan: {change.toFixed(2)} ₼</p>
-                </div>
-              )}
-
               {method === "Card" && (
                 <BankPicker banks={banks} error={banksError} value={bankId} onChange={setBankId} disabled={busy} />
               )}
@@ -359,9 +393,18 @@ export function SplitBillDialog({
               <Button
                 className="h-12 w-full text-base font-semibold"
                 disabled={busy || (selectedLines.length === 0 && !isFinal) || due < 0 || needsBank}
-                onClick={() => void handlePay()}
+                onClick={() => {
+                  // Cash goes to its own calculator step; card / credit are paid straight away.
+                  if (method === "Cash") {
+                    setReceivedInput(due > 0 ? due.toFixed(2) : "");
+                    setReceivedFresh(true);
+                    setCashStep(true);
+                  } else {
+                    void handlePay();
+                  }
+                }}
               >
-                {busy ? "Gözləyin…" : `Ödə — ${due.toFixed(2)} ₼`}
+                {busy ? "Gözləyin…" : method === "Cash" ? `Davam et — ${due.toFixed(2)} ₼` : `Ödə — ${due.toFixed(2)} ₼`}
               </Button>
             </div>
 

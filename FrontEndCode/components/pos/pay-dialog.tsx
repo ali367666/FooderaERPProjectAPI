@@ -11,9 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { TouchNumpad } from "@/components/pos/touch-numpad";
+import { AmountCalculator, cashStatus } from "@/components/pos/amount-keypad";
 import { BankPicker, usePaymentBanks } from "@/components/pos/bank-picker";
 import {
   payOrderPart,
@@ -68,6 +66,12 @@ export function PayDialog({
 }: Props) {
   const [view, setView] = useState<"choose" | Method>("choose");
   const [amountInput, setAmountInput] = useState("");
+  // The amount was filled in for the cashier (bill total / quick note): the first key typed replaces it.
+  const [amountFresh, setAmountFresh] = useState(true);
+  const fillAmount = (value: string) => {
+    setAmountInput(value);
+    setAmountFresh(true);
+  };
   const fiscal = useFiscalMode();
   const [busy, setBusy] = useState(false);
   // A toast disappears in seconds — the server's refusal ("only ready orders can be paid"...) stays here.
@@ -83,14 +87,14 @@ export function PayDialog({
   const orderService = r2(order.serviceChargeAmount ?? 0);
   const service = isFinal ? orderService : 0;
   const due = r2((isFinal ? remaining : amount) + service);
-  const change = view === "Cash" && isFinal ? Math.max(0, r2(amount - due)) : 0;
   const leftAfter = isFinal ? 0 : r2(remaining - amount);
+  const dueAll = r2(remaining + orderService);
 
   // Back to the chooser (or the requested method) whenever the dialog opens or a payment changes what is left.
   useEffect(() => {
     if (open) {
       if (initialMethod) {
-        setAmountInput(remaining > 0 ? r2(remaining + orderService).toFixed(2) : "");
+        fillAmount(remaining > 0 ? r2(remaining + orderService).toFixed(2) : "");
         setView(initialMethod);
       } else {
         setView("choose");
@@ -103,7 +107,7 @@ export function PayDialog({
   }, [open, payments?.paidAmount, initialMethod]);
 
   const pick = (method: Method) => {
-    setAmountInput(remaining > 0 ? r2(remaining + orderService).toFixed(2) : "");
+    fillAmount(remaining > 0 ? r2(remaining + orderService).toFixed(2) : "");
     setView(method);
   };
 
@@ -141,7 +145,7 @@ export function PayDialog({
       // still to pay. (A settled bill closes the whole dialog from the page.)
       if (!result.orderClosed) {
         setView("choose");
-        setAmountInput("");
+        fillAmount("");
       }
       await onPaid(result);
     } catch (err) {
@@ -157,7 +161,13 @@ export function PayDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-sm">
+      <DialogContent
+        className="max-h-[95vh] overflow-y-auto sm:max-w-md"
+        onOpenAutoFocus={(e) => {
+          // Straight into the amount: the calculator takes the focus itself, not the first button.
+          if (view !== "choose" || initialMethod) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Hesab</DialogTitle>
           <DialogDescription>
@@ -234,47 +244,48 @@ export function PayDialog({
                 {view === "Card" && (
                   <BankPicker banks={banks} error={banksError} value={bankId} onChange={setBankId} disabled={busy} />
                 )}
-                <div className="space-y-1">
-                  <Label htmlFor="pay-amount">
-                    {view === "Cash" ? "Alınan məbləğ" : view === "Card" ? "Kartla ödənilən məbləğ" : "Borca yazılan məbləğ"}
-                  </Label>
-                  <Input
-                    id="pay-amount"
-                    type="number"
-                    step="0.01"
-                    autoFocus
-                    value={amountInput}
-                    onChange={(e) => setAmountInput(e.target.value)}
-                  />
-                  {touchScreen && <TouchNumpad value={amountInput} onChange={setAmountInput} allowDecimal />}
-                </div>
 
-                <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                  {isFinal ? (
-                    <>
-                      <p className="font-medium">Hesab tam ödəniləcək və bağlanacaq.</p>
-                      {service > 0 && (
-                        <p className="text-muted-foreground">Servis haqqı daxildir: {service.toFixed(2)} ₼</p>
-                      )}
-                      {view === "Cash" && (
-                        <p className="text-muted-foreground">Qaytarılan: {change.toFixed(2)} ₼</p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-medium">{amount.toFixed(2)} ₼ hesabdan çıxılacaq.</p>
-                      <p className="text-muted-foreground">
-                        Qalıq: {leftAfter.toFixed(2)} ₼ — {view === "Cash" ? "kartla" : "nağdla"} ödəyə bilərsiniz.
-                      </p>
-                    </>
-                  )}
-                </div>
+                <AmountCalculator
+                  key={view}
+                  due={dueAll}
+                  value={amountInput}
+                  fresh={amountFresh}
+                  onChange={(v, fresh) => {
+                    setAmountInput(v);
+                    setAmountFresh(fresh);
+                  }}
+                  label={view === "Cash" ? "Alınan məbləğ" : view === "Card" ? "Kartla ödənilən məbləğ" : "Borca yazılan məbləğ"}
+                  quickNotes={view === "Cash"}
+                  status={
+                    view === "Cash" && isFinal
+                      ? cashStatus(amount, due)
+                      : !isFinal && amount > 0
+                        ? {
+                            tone: "partial",
+                            label: `Qalıq — ${view === "Cash" ? "kartla" : "nağdla"} ödəyə bilərsiniz`,
+                            amount: leftAfter,
+                          }
+                        : null
+                  }
+                  onEnter={() => {
+                    if (!busy) void handlePay();
+                  }}
+                  disabled={busy}
+                />
+
+                {isFinal && service > 0 && (
+                  <p className="text-xs text-muted-foreground">Servis haqqı daxildir: {service.toFixed(2)} ₼</p>
+                )}
 
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setView("choose")} disabled={busy}>
+                  <Button variant="outline" className="h-12 flex-1" onClick={() => setView("choose")} disabled={busy}>
                     Geri
                   </Button>
-                  <Button className="flex-1" onClick={() => void handlePay()} disabled={busy || amount <= 0 || needsBank}>
+                  <Button
+                    className="h-12 flex-[2] text-base"
+                    onClick={() => void handlePay()}
+                    disabled={busy || amount <= 0 || needsBank || (view === "Cash" && isFinal && amount < due)}
+                  >
                     {busy ? "Gözləyin…" : "Ödə"}
                   </Button>
                 </div>

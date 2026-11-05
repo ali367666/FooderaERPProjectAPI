@@ -30,7 +30,21 @@ export type ReservationDto = {
   createdAtUtc: string;
   /** A banquet booking: several tables of a hall held together. */
   isBanquet?: boolean;
+  /** The banquet hall the booking holds; null for ordinary reservations. */
+  banquetHallId?: number | null;
+  banquetHallName?: string | null;
   banquetTables?: BanquetTableRef[];
+};
+
+/** A banquet hall as the reservation screen offers it: free for the asked time, or busy with the reason why not. */
+export type BanquetHallOption = {
+  id: number;
+  name: string;
+  tableCount: number;
+  /** Total seats of the hall's tables. */
+  capacity: number;
+  isAvailable: boolean;
+  busyReason: string | null;
 };
 
 /** A hall table as the banquet screen lists it: free to pick, or busy with the reason why not. */
@@ -46,7 +60,10 @@ export type BanquetTableOption = {
 
 export type CreateBanquetReservationInput = {
   restaurantId: number;
-  tableIds: number[];
+  /** The hall to book; every table of it is held. */
+  sectionId?: number | null;
+  /** Older way: an explicit set of tables instead of a whole hall. */
+  tableIds?: number[];
   guestName: string;
   guestPhone: string;
   guestCount: number;
@@ -97,6 +114,21 @@ export async function getBanquetTables(params: {
     return Array.isArray(res.data) ? res.data : [];
   } catch (e) {
     throw toApiFormError(e, "Masalar yüklənmədi");
+  }
+}
+
+/** Banquet halls of a branch; with date/time each is marked free or already booked for that span. */
+export async function getBanquetHalls(params: {
+  restaurantId: number;
+  date?: string;
+  time?: string;
+  durationMinutes?: number;
+}): Promise<BanquetHallOption[]> {
+  try {
+    const res = await api.get<BanquetHallOption[]>("/Banquets/halls", { params });
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (e) {
+    throw toApiFormError(e, "Banket zalları yüklənmədi");
   }
 }
 
