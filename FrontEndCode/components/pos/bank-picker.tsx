@@ -58,7 +58,9 @@ export function BankPicker({
 
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (banks === null) return <p className="text-sm text-muted-foreground">Banklar yüklənir…</p>;
-  if (banks.length === 0) return <p className="text-sm text-destructive">Kart ödənişi üçün bank tapılmadı.</p>;
+  // Banks are given to the company by the SuperAdmin (Rejimlər); the company's admin cannot add one.
+  if (banks.length === 0)
+    return <p className="text-sm text-destructive">Şirkətə bank verilməyib — kart ödənişi üçün SuperAdmin bank aktiv etməlidir.</p>;
 
   return (
     <div className="space-y-1.5">

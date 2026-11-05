@@ -51,6 +51,7 @@ import {
   type CompanySettingsBranding,
 } from "@/lib/services/company-settings-service";
 import { getCurrentShift, openShift, closeShift, type Shift, type ZReport } from "@/lib/services/shift-service";
+import { POS_SHIFT_CLOSED_EVENT } from "@/lib/pos-shift-events";
 
 const TABS = [
   { href: "/pos", label: "Masalar", storeLabel: "Satış", icon: LayoutGrid, permission: null as string | null, module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
@@ -59,7 +60,7 @@ const TABS = [
   { href: "/pos/take-away", label: "Tez satışlar", storeLabel: "Tez satışlar", icon: ShoppingBag, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/kitchen", label: "Mətbəx", storeLabel: "Mətbəx", icon: KitchenIcon, permission: "Kitchen.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: true },
   { href: "/pos/returns", label: "Geri qaytarma", storeLabel: "Geri qaytarma", icon: Undo2, permission: "Pos.ReturnSale", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
-  { href: "/pos/orders/history", label: "Köhnə qəbzlər", storeLabel: "Köhnə çeklər", icon: History, permission: "Pos.PrintOldReceipt", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
+  { href: "/pos/orders/history", label: "Qəbzlər", storeLabel: "Köhnə çeklər", icon: History, permission: "Pos.PrintOldReceipt", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/warehouse-adjust", label: "Anbar düzəlişi", storeLabel: "Anbar düzəlişi", icon: Boxes, permission: "Pos.WarehouseAmountChange", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
 ];
 
@@ -161,6 +162,17 @@ export default function PosLayout({ children, modal }: { children: React.ReactNo
       .then(setShift)
       .catch(() => setShift(null));
   }, [terminal]);
+
+  // The report modal's "Hesabatı bağla" closes the shift itself; reflect it here and show the Z report.
+  useEffect(() => {
+    const onShiftClosed = (e: Event) => {
+      setShift(null);
+      const report = (e as CustomEvent<ZReport | undefined>).detail;
+      if (report) setZReportResult(report);
+    };
+    window.addEventListener(POS_SHIFT_CLOSED_EVENT, onShiftClosed);
+    return () => window.removeEventListener(POS_SHIFT_CLOSED_EVENT, onShiftClosed);
+  }, []);
 
   const handleOpenShift = async () => {
     if (!terminal?.restaurantId) return;
@@ -274,8 +286,9 @@ export default function PosLayout({ children, modal }: { children: React.ReactNo
 
             <div className="flex items-center gap-1.5 border-l px-3">
               <FiscalLamp />
-              {/* Only while no shift is open (no openedAt) — an open shift needs no reminder in the header. */}
-              {!shift?.openedAt && (
+              {/* Only while no shift is open (no openedAt) — an open shift needs no reminder in the header.
+                  A company that works by the day (opening time set) has no shifts at all. */}
+              {!shift?.openedAt && branding?.worksWithShifts !== false && (
                 <button
                   type="button"
                   onClick={() => setShiftDialogOpen(true)}

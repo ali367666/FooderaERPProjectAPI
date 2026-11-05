@@ -309,6 +309,70 @@ export async function getMenuItems(): Promise<MenuItem[]> {
   }
 }
 
+/** One row of the POS product search (GET /MenuItems/search) — mirrors MenuItemSearchResponse. */
+export type MenuItemSearchResult = {
+  id: number;
+  name: string;
+  /** The price the POS charges for 1 unit (station / package / banquet rules already applied). */
+  price: number;
+  unitId: UnitOfMeasureValue;
+  isSet: boolean;
+  isTimeBased: boolean;
+  menuCategoryId: number;
+  /** Top-level category ("Kateqoriya"). */
+  categoryName: string;
+  /** Sub-category ("Alt kateqoriya"), null when the product sits directly in a top-level category. */
+  subCategoryName: string | null;
+  /** Null when the product's codes are hidden. */
+  barcode: string | null;
+  /** Scale code (PLU); null when hidden. */
+  weightCode: string | null;
+};
+
+function normalizeSearchResult(raw: unknown): MenuItemSearchResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = Number(r.id ?? r.Id);
+  if (!Number.isFinite(id)) return null;
+  const str = (v: unknown) => (v == null || v === "" ? null : String(v));
+  return {
+    id,
+    name: String(r.name ?? r.Name ?? ""),
+    price: Number(r.price ?? r.Price ?? 0),
+    unitId: Number(r.unitId ?? r.UnitId ?? UnitOfMeasure.Piece) as UnitOfMeasureValue,
+    isSet: Boolean(r.isSet ?? r.IsSet ?? false),
+    isTimeBased: Boolean(r.isTimeBased ?? r.IsTimeBased ?? false),
+    menuCategoryId: Number(r.menuCategoryId ?? r.MenuCategoryId ?? 0),
+    categoryName: String(r.categoryName ?? r.CategoryName ?? r.menuCategoryName ?? r.MenuCategoryName ?? ""),
+    subCategoryName: str(r.subCategoryName ?? r.SubCategoryName),
+    barcode: str(r.barcode ?? r.Barcode),
+    weightCode: str(r.weightCode ?? r.WeightCode),
+  };
+}
+
+/**
+ * POS product search: every typed word may appear anywhere in the name (Azerbaijani letters folded),
+ * or the term is an exact barcode / PLU. Results come A–Z with the price the order will charge.
+ * Pass `signal` to cancel a request that a newer keystroke has made stale.
+ */
+export async function searchMenuItems(
+  q: string,
+  options?: { isDelivery?: boolean; isBanquet?: boolean; signal?: AbortSignal },
+): Promise<MenuItemSearchResult[]> {
+  try {
+    const response = await api.get<unknown[]>("/MenuItems/search", {
+      params: { q, isDelivery: options?.isDelivery ?? false, isBanquet: options?.isBanquet ?? false },
+      signal: options?.signal,
+    });
+    const list = Array.isArray(response.data) ? response.data : [];
+    return list
+      .map((row) => normalizeSearchResult(row))
+      .filter((row): row is MenuItemSearchResult => row !== null);
+  } catch (error) {
+    throw toApiFormError(error, "Məhsul axtarışı alınmadı");
+  }
+}
+
 export async function getMenuItemById(id: number): Promise<MenuItem> {
   try {
     const response = await api.get<unknown>(`/MenuItems/${id}`);

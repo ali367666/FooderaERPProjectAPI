@@ -430,6 +430,81 @@ export async function getOrders(query: OrderListQuery = {}): Promise<OrderDto[]>
   }
 }
 
+/** One paid receipt of `GET /Orders/receipts` (no lines; the full receipt is read by id). */
+export type ReceiptListItemDto = {
+  id: number;
+  orderNumber: string;
+  receiptNumber: string | null;
+  restaurantId: number;
+  restaurantName: string | null;
+  tableName: string | null;
+  waiterName: string | null;
+  paidAt: string;
+  paymentMethod: string | null;
+  discountAmount: number;
+  totalAmount: number;
+};
+
+export type ReceiptListDto = {
+  /** The calendar days the list covers (business days, both inclusive). */
+  fromDate: string;
+  toDate: string;
+  count: number;
+  total: number;
+  items: ReceiptListItemDto[];
+};
+
+/**
+ * The POS old receipts (`GET /Orders/receipts`): paid orders of a period, filtered on the server.
+ * `today` asks for the current business day (06:00 → 06:00 in shifts, the calendar day otherwise);
+ * otherwise `from` / `to` (yyyy-MM-dd, inclusive) are sent as a custom period.
+ */
+export async function getReceipts(query: {
+  today?: boolean;
+  from?: string;
+  to?: string;
+  restaurantId?: number | null;
+}): Promise<ReceiptListDto> {
+  try {
+    const params: Record<string, string | number> = query.today
+      ? { period: "Today" }
+      : { period: "Custom", ...(query.from ? { from: query.from } : {}), ...(query.to ? { to: query.to } : {}) };
+    if (query.restaurantId) params.restaurantId = query.restaurantId;
+    const response = await api.get<unknown>("/Orders/receipts", { params });
+    assertApiSuccess(response.data);
+    const raw = (unwrapData<unknown>(response.data) ?? {}) as Record<string, unknown>;
+    const items = (pick<unknown[]>(raw, "items", "Items") ?? []).map((item): ReceiptListItemDto => {
+      const r = (item ?? {}) as Record<string, unknown>;
+      const str = (camel: string, pascal: string) => {
+        const v = pick<unknown>(r, camel, pascal);
+        return v === null || v === undefined || v === "" ? null : String(v);
+      };
+      return {
+        id: num(r, "id", "Id"),
+        orderNumber: str("orderNumber", "OrderNumber") ?? "",
+        receiptNumber: str("receiptNumber", "ReceiptNumber"),
+        restaurantId: num(r, "restaurantId", "RestaurantId"),
+        restaurantName: str("restaurantName", "RestaurantName"),
+        tableName: str("tableName", "TableName"),
+        waiterName: str("waiterName", "WaiterName"),
+        paidAt: str("paidAt", "PaidAt") ?? "",
+        paymentMethod: str("paymentMethod", "PaymentMethod"),
+        discountAmount: num(r, "discountAmount", "DiscountAmount"),
+        totalAmount: num(r, "totalAmount", "TotalAmount"),
+      };
+    });
+    return {
+      fromDate: String(pick(raw, "fromDate", "FromDate") ?? ""),
+      toDate: String(pick(raw, "toDate", "ToDate") ?? ""),
+      count: num(raw, "count", "Count", items.length),
+      total: num(raw, "total", "Total", items.reduce((s, i) => s + i.totalAmount, 0)),
+      items,
+    };
+  } catch (error) {
+    throw toApiFormError(error, "Failed to fetch receipts");
+  }
+}
+
 /** Unpaid, uncancelled "Tez satış" (take-away) orders — filtered on the server, optionally for one restaurant. */
 export async function getActiveTakeAwayOrders(restaurantId?: number | null): Promise<OrderDto[]> {
   try {

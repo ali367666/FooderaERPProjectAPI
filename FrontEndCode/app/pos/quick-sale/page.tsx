@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { ArrowLeft, Banknote, CreditCard, Minus, Plus, Printer, Scale, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +38,7 @@ import { escPosBarcode, receiptBarcodeValue } from "@/lib/receipt-barcode";
 import { BarcodeSvg } from "@/components/barcode-svg";
 import { useFiscalMode } from "@/lib/pos-fiscal-mode";
 import { TouchNumpad } from "@/components/pos/touch-numpad";
+import { AmountCalculator, cashStatus } from "@/components/pos/amount-keypad";
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
 import {
@@ -113,6 +113,8 @@ export default function QuickSalePage() {
 
   const [cashOpen, setCashOpen] = useState(false);
   const [cashInput, setCashInput] = useState("");
+  // Filled in with the total: the first key typed on the calculator replaces it.
+  const [cashFresh, setCashFresh] = useState(true);
   const [paying, setPaying] = useState(false);
 
   const [receipt, setReceipt] = useState<OrderReceiptDto | null>(null);
@@ -331,6 +333,7 @@ export default function QuickSalePage() {
   const openCash = () => {
     if (cartLines.length === 0) return;
     setCashInput(total.toFixed(2));
+    setCashFresh(true);
     setCashOpen(true);
   };
 
@@ -349,7 +352,6 @@ export default function QuickSalePage() {
   };
 
   const cashAmount = r2(Number(cashInput.replace(",", ".")) || 0);
-  const change = Math.max(0, r2(cashAmount - total));
 
   const closeReceipt = () => {
     setReceipt(null);
@@ -612,34 +614,40 @@ export default function QuickSalePage() {
 
       {/* Cash */}
       <Dialog open={cashOpen} onOpenChange={(o) => !paying && setCashOpen(o)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-sm">
+        <DialogContent
+          className="max-h-[95vh] overflow-y-auto sm:max-w-md"
+          // The calculator takes the focus itself (no text input, so no caret / on-screen keyboard).
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Nağd ödəniş</DialogTitle>
             <DialogDescription>Ödəniləcək: {total.toFixed(2)} ₼</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="quick-cash">Alınan məbləğ</Label>
-              <Input
-                id="quick-cash"
-                type="number"
-                step="0.01"
-                autoFocus
-                value={cashInput}
-                onChange={(e) => setCashInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && cashAmount >= total && void sell("Cash", cashAmount)}
-              />
-              {touchScreen && <TouchNumpad value={cashInput} onChange={setCashInput} allowDecimal />}
-            </div>
-            <div className="rounded-lg bg-muted/50 p-3 text-sm">
-              <p className="font-medium">Qaytarılan: {change.toFixed(2)} ₼</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" disabled={paying} onClick={() => setCashOpen(false)}>
+          <AmountCalculator
+            due={total}
+            value={cashInput}
+            fresh={cashFresh}
+            onChange={(v, fresh) => {
+              setCashInput(v);
+              setCashFresh(fresh);
+            }}
+            quickNotes
+            status={cashStatus(cashAmount, total)}
+            onEnter={() => {
+              if (!paying && cashAmount >= total) void sell("Cash", cashAmount);
+            }}
+            disabled={paying}
+          />
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" size="lg" className="h-12 flex-1" disabled={paying} onClick={() => setCashOpen(false)}>
               Geri
             </Button>
-            <Button disabled={paying || cashAmount < total} onClick={() => void sell("Cash", cashAmount)}>
+            <Button
+              size="lg"
+              className="h-12 flex-[2] text-base"
+              disabled={paying || cashAmount < total}
+              onClick={() => void sell("Cash", cashAmount)}
+            >
               {paying ? "Gözləyin…" : "Ödə"}
             </Button>
           </DialogFooter>
