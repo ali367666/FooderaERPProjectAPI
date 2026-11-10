@@ -338,14 +338,6 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
           </Button>
           {canReport && (
             <div className="flex flex-1 flex-wrap justify-end gap-2">
-              <Button variant="outline" size="lg" disabled={!report} onClick={() => setPreview((p) => !p)}>
-                {preview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                {preview ? "Xülasəyə qayıt" : "Çap etmədən izlə"}
-              </Button>
-              <Button size="lg" disabled={!report || loading} onClick={handlePrint}>
-                <Printer className="h-4 w-4" />
-                Çap et
-              </Button>
               {showCloseShift && (
                 <Button
                   size="lg"
@@ -359,6 +351,14 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
                   Hesabatı bağla
                 </Button>
               )}
+              <Button variant="outline" size="lg" disabled={!report} onClick={() => setPreview((p) => !p)}>
+                {preview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {preview ? "Xülasəyə qayıt" : "Çap etmədən izlə"}
+              </Button>
+              <Button size="lg" disabled={!report || loading} onClick={handlePrint}>
+                <Printer className="h-4 w-4" />
+                Çap et
+              </Button>
             </div>
           )}
         </DialogFooter>

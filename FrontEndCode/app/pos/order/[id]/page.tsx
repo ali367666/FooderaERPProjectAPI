@@ -203,9 +203,10 @@ export default function PosOrderPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchKeyboardOpen, setSearchKeyboardOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  // Server-side product search (GET /MenuItems/search). `searchResultsTerm` is the term the shown rows belong to.
+  // Server-side product search (GET /MenuItems/search). `searchResultsTerm` is the term the shown rows belong to
+  // ("" = the full list for an empty input, null = nothing loaded yet).
   const [searchResults, setSearchResults] = useState<MenuItemSearchResult[]>([]);
-  const [searchResultsTerm, setSearchResultsTerm] = useState("");
+  const [searchResultsTerm, setSearchResultsTerm] = useState<string | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchRetryTick, setSearchRetryTick] = useState(0);
@@ -712,14 +713,17 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
 
   const productSearchTrimmed = productSearch.trim();
   const isDeliveryOrder = order?.isDelivery === true;
+  // The list replaces the category grid while something is typed, or when the cashier opened the search —
+  // an empty input then lists every product (same endpoint, empty term).
+  const showSearchList = searchOpen || productSearchTrimmed !== "";
 
   // Ask the server once typing pauses. A newer term aborts the request in flight, and the `cancelled` flag
   // keeps a late answer for an older term from ever overwriting the rows of the newer one.
   useEffect(() => {
     const term = productSearchTrimmed;
-    if (!term) {
+    if (!showSearchList) {
       setSearchResults([]);
-      setSearchResultsTerm("");
+      setSearchResultsTerm(null);
       setSearchLoading(false);
       setSearchError(null);
       return;
@@ -743,13 +747,13 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
         .finally(() => {
           if (!cancelled) setSearchLoading(false);
         });
-    }, PRODUCT_SEARCH_DEBOUNCE_MS);
+    }, term ? PRODUCT_SEARCH_DEBOUNCE_MS : 0);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [productSearchTrimmed, isDeliveryOrder, isBanquet, searchRetryTick]);
+  }, [showSearchList, productSearchTrimmed, isDeliveryOrder, isBanquet, searchRetryTick]);
 
   // Keep the highlighted row on screen while ↑ / ↓ walk the list.
   useEffect(() => {
@@ -767,7 +771,22 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
       return;
     }
     if (busy || outOfStockIds.has(item.id) || lacksProductCode(item)) return;
-    handleItemClick(item);
+    handleItemClick(item, true);
+  };
+
+  /**
+   * A product picked from the search list empties the input once it is really on the order (a set / weight
+   * dialog backed out of leaves the search as it was), so the full list is back and the next product can be
+   * typed or scanned straight away.
+   */
+  const searchPickRef = useRef(false);
+  const finishSearchPick = () => {
+    if (!searchPickRef.current) return;
+    searchPickRef.current = false;
+    setProductSearch("");
+    setSearchHighlight(-1);
+    setSearchOpen(true);
+    window.setTimeout(() => searchInputRef.current?.focus({ preventScroll: true }), 0);
   };
 
   /**
@@ -807,6 +826,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
       const updated = await addOrderLine({ orderId: order.id, menuItemId, quantity });
       setOrder(updated);
       void loadAvailability(order.restaurantId);
+      finishSearchPick();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Məhsul əlavə olunmadı");
     } finally {
@@ -880,6 +900,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
       }
       setOrder(current);
       setSetDialogItem(null);
+      finishSearchPick();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Set əlavə olunmadı";
       if (current && setLineId != null) {
@@ -900,7 +921,8 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     }
   };
 
-  const handleItemClick = (item: MenuItem) => {
+  const handleItemClick = (item: MenuItem, fromSearch = false) => {
+    searchPickRef.current = fromSearch;
     // A SET: the waiter picks its products first; nothing goes on the order until the dialog is confirmed.
     if (isSetProduct(item)) {
       if (outOfStockIds.has(item.id)) return;
@@ -951,6 +973,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
       setWeightDialogItem(null);
       setWeightDialogLineId(null);
       setWeightKgInput("");
+      if (weightDialogLineId == null) finishSearchPick();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Çəki tətbiq edilmədi");
     } finally {
@@ -972,6 +995,15 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
     }
     const updated = await deleteOrderLine(lineId, cancel ?? undefined);
     setOrder(updated);
+    // Deleting the focused line moves focus to the line above it (or the next one when it was first).
+    if (selectedLineId === lineId) {
+      const before = order.lines.filter((l) => l.parentLineId == null && l.id !== lineId);
+      const removedIndex = order.lines.filter((l) => l.parentLineId == null).findIndex((l) => l.id === lineId);
+      const remainingIds = new Set(updated.lines.filter((l) => l.parentLineId == null).map((l) => l.id));
+      const previous = before.slice(0, removedIndex).reverse().find((l) => remainingIds.has(l.id));
+      const next = before.slice(removedIndex).find((l) => remainingIds.has(l.id));
+      setSelectedLineId(previous?.id ?? next?.id ?? null);
+    }
     return true;
   };
 
@@ -1631,7 +1663,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
 
   const showProductSearch = searchOpen || productSearchTrimmed !== "" || isStoreMode;
   const toggleProductSearch = () => {
-    if (searchOpen && !isStoreMode) {
+    if (searchOpen) {
       setSearchOpen(false);
       setSearchKeyboardOpen(false);
       setProductSearch("");
@@ -1691,13 +1723,18 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
   const renderSearchResults = () => {
     // Rows for an older term stay visible (dimmed) until the newer answer arrives — no flicker while typing.
     const stale = searchResultsTerm !== productSearchTrimmed;
-    const firstLoad = searchLoading && searchResultsTerm === "";
+    const firstLoad = searchLoading && searchResultsTerm === null;
     return (
       <>
         <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-background pb-2 pt-3">
           <p className="truncate text-sm font-semibold text-muted-foreground">
-            “{productSearchTrimmed}”
-            {!stale && !searchError && <> üzrə {searchResults.length} məhsul</>}
+            {productSearchTrimmed ? (
+              <>
+                “{productSearchTrimmed}”{!stale && !searchError && <> üzrə {searchResults.length} məhsul</>}
+              </>
+            ) : (
+              <>Bütün məhsullar{!stale && !searchError && <> · {searchResults.length}</>}</>
+            )}
           </p>
           {searchLoading && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label="Axtarılır" />}
         </div>
@@ -2449,7 +2486,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
               >
                 <Keyboard className="h-4 w-4" />
               </Button>
-              {(productSearch || (searchOpen && !isStoreMode)) && (
+              {(productSearch || searchOpen) && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -2464,8 +2501,8 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
             </div>
           )}
 
-          <div ref={productScrollRef} className={cn("min-h-0 flex-1 overflow-y-auto", productSearchTrimmed ? "px-3 pb-3" : "p-3")}>
-            {productSearchTrimmed ? (
+          <div ref={productScrollRef} className={cn("min-h-0 flex-1 overflow-y-auto", showSearchList ? "px-3 pb-3" : "p-3")}>
+            {showSearchList ? (
               renderSearchResults()
             ) : (
               <>
@@ -2618,7 +2655,7 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
         {!isPaid && canPay && (
           <BarButton icon={Receipt} label="Hesab" disabled={order.lines.length === 0 || busy} onClick={() => openPayDialog()} />
         )}
-        <BarButton icon={Search} label="Məhsul axtarışı" active={searchOpen && !isStoreMode} onClick={toggleProductSearch} />
+        <BarButton icon={Search} label="Məhsul axtarışı" active={searchOpen} onClick={toggleProductSearch} />
         {!isPaid && !isStoreMode && canChangeWaiter && (
           <BarButton icon={UserCog} label="Ofisiant dəyiş" disabled={busy} onClick={startReassign} />
         )}
