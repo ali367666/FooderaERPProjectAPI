@@ -25,9 +25,12 @@ public class ReservationsController : ControllerBase
     [HttpGet]
     [Authorize(Policy = AppPermissions.ReservationView)]
     public async Task<ActionResult<List<ReservationResponse>>> GetAll(
-        [FromQuery] DateTime? date, [FromQuery] DateTime? dateFrom, [FromQuery] DateTime? dateTo, CancellationToken ct)
+        [FromQuery] DateTime? date, [FromQuery] DateTime? dateFrom, [FromQuery] DateTime? dateTo,
+        [FromQuery] TimeSpan? fromTime, [FromQuery] TimeSpan? toTime, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetAllReservationsQuery { Date = date, DateFrom = dateFrom, DateTo = dateTo }, ct);
+        // fromTime / toTime (HH:mm) narrow the days to a time range, e.g. date=2026-11-04&fromTime=18:00&toTime=23:00.
+        var result = await _mediator.Send(
+            new GetAllReservationsQuery { Date = date, DateFrom = dateFrom, DateTo = dateTo, FromTime = fromTime, ToTime = toTime }, ct);
         return Ok(result);
     }
 

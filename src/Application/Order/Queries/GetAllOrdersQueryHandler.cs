@@ -28,7 +28,7 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
         var companyId = _currentUserService.CompanyId;
 
         var filter = request.Filter;
-        if (filter is not null && (filter.Period is not null || filter.From is not null || filter.To is not null))
+        if (filter is not null && (filter.Period is not null || filter.From is not null || filter.To is not null || filter.FromTime is not null || filter.ToTime is not null))
         {
             var settings = await _settingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
             var window = Application.Reports.ReportPeriodResolver.Resolve(
@@ -40,6 +40,7 @@ public class GetAllOrdersQueryHandler : IRequestHandler<GetAllOrdersQuery, List<
                 },
                 BusinessTime.Now,
                 Application.Reports.ReportPeriodResolver.DayStartFor(settings));
+            window = Application.Reports.ReportPeriodResolver.WithTimes(window, filter.FromTime, filter.ToTime, filter.From, filter.To);
             filter = filter with { PaidFromUtc = window.FromUtc, PaidToUtc = window.ToUtc };
         }
 

@@ -12,7 +12,8 @@ public class ReservationRepository : IReservationRepository
 
     public ReservationRepository(AppDbContext context) => _context = context;
 
-    public async Task<List<Reservation>> GetAllAsync(int companyId, DateTime? date, DateTime? dateFrom, DateTime? dateTo, CancellationToken ct)
+    public async Task<List<Reservation>> GetAllAsync(
+        int companyId, DateTime? date, DateTime? dateFrom, DateTime? dateTo, TimeSpan? fromTime, TimeSpan? toTime, CancellationToken ct)
     {
         var q = _context.Reservations
             .Include(r => r.Restaurant)
@@ -29,6 +30,30 @@ public class ReservationRepository : IReservationRepository
 
         if (dateTo.HasValue)
             q = q.Where(r => r.ReservationDate.Date <= dateTo.Value.Date);
+
+        // Time range: from fromTime on the first day to the end of the toTime minute on the last day. The first / last day is the
+        // range's own end, or the single day; with no day at all the time of day applies to every day.
+        var firstDay = (dateFrom ?? date)?.Date;
+        var lastDay = (dateTo ?? date)?.Date;
+        if (fromTime is { } from)
+        {
+            if (firstDay is { } first)
+                q = q.Where(r => r.ReservationDate.Date > first || r.ReservationTime >= from);
+            else
+                q = q.Where(r => r.ReservationTime >= from);
+        }
+        if (toTime is { } to)
+        {
+            // End of that minute; "23:59" runs to the end of the day.
+            var untilExclusive = to + TimeSpan.FromMinutes(1);
+            if (untilExclusive < TimeSpan.FromDays(1))
+            {
+                if (lastDay is { } last)
+                    q = q.Where(r => r.ReservationDate.Date < last || r.ReservationTime < untilExclusive);
+                else
+                    q = q.Where(r => r.ReservationTime < untilExclusive);
+            }
+        }
 
         return await q.OrderBy(r => r.ReservationDate)
                       .ThenBy(r => r.ReservationTime)

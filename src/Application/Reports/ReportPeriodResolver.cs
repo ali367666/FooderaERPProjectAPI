@@ -20,6 +20,32 @@ public static class ReportPeriodResolver
     public static TimeSpan DayStartFor(Domain.Entities.CompanySettings? settings)
         => settings?.OpeningTime is null ? DayStart : TimeSpan.Zero;
 
+    /// <summary>
+    /// Narrows a day window to a time of day: from <paramref name="fromTime"/> on the first day until the end of the minute
+    /// <paramref name="toTime"/> on the last day (clock time of the business location). A missing time keeps that side of the window.
+    /// A <paramref name="from"/> / <paramref name="to"/> that carries a time of day counts as that time.
+    /// </summary>
+    public static ReportWindow WithTimes(ReportWindow window, TimeSpan? fromTime, TimeSpan? toTime, DateTime? from = null, DateTime? to = null)
+    {
+        fromTime ??= from is { } f && f.TimeOfDay != TimeSpan.Zero ? f.TimeOfDay : null;
+        toTime ??= to is { } t && t.TimeOfDay != TimeSpan.Zero ? t.TimeOfDay : null;
+        if (fromTime is null && toTime is null)
+            return window;
+
+        foreach (var time in new[] { fromTime, toTime })
+            if (time is { } v && (v < TimeSpan.Zero || v >= TimeSpan.FromDays(1)))
+                throw new BadRequestException("Saat 00:00 ilə 23:59 arasında olmalıdır.");
+
+        var firstDay = window.FromLocal.Date;
+        var lastDay = window.ToLocal.AddTicks(-1).Date;
+        var fromLocal = fromTime is { } ft ? firstDay + ft : window.FromLocal;
+        var toLocal = toTime is { } tt ? lastDay + tt + TimeSpan.FromMinutes(1) : window.ToLocal;
+        if (toLocal <= fromLocal)
+            throw new BadRequestException("Bitmə vaxtı başlanğıc vaxtından sonra olmalıdır.");
+
+        return new ReportWindow(fromLocal, toLocal, BusinessTime.ToUtc(fromLocal), BusinessTime.ToUtc(toLocal));
+    }
+
     public static ReportWindow Resolve(BusinessReportRequest request) => Resolve(request, BusinessTime.Now);
 
     public static ReportWindow Resolve(BusinessReportRequest request, DateTime nowLocal) => Resolve(request, nowLocal, DayStart);

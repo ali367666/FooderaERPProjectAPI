@@ -18,6 +18,8 @@ public record OrderListFilter(
     Domain.Enums.ReportPeriod? Period = null,
     DateTime? From = null,
     DateTime? To = null,
+    TimeSpan? FromTime = null,
+    TimeSpan? ToTime = null,
     DateTime? PaidFromUtc = null,
     DateTime? PaidToUtc = null);
 
