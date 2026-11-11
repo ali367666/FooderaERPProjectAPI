@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 
 namespace Application.Common.Interfaces.Abstracts.Repositories;
 
@@ -17,8 +17,12 @@ public interface IRestaurantTableRepository
 
     Task<bool> RestaurantExistsAsync(int companyId, int restaurantId, CancellationToken cancellationToken);
 
-    Task<bool> ExistsByNameAsync(int companyId, int restaurantId, string name, CancellationToken cancellationToken);
-    Task<bool> ExistsByNameAsync(int companyId, int restaurantId, int excludeId, string name, CancellationToken cancellationToken);
+    /// <summary>
+    /// Whether the branch already has a table of this name in the same hall (section). The same name may repeat in different halls -
+    /// "Masa 1" in the main hall and "Masa 1" in a banquet hall are two tables. Tables without a hall share one namespace per branch.
+    /// </summary>
+    Task<bool> ExistsByNameAsync(int companyId, int restaurantId, int? sectionId, string name, CancellationToken cancellationToken);
+    Task<bool> ExistsByNameAsync(int companyId, int restaurantId, int? sectionId, int excludeId, string name, CancellationToken cancellationToken);
 
     void Update(Domain.Entities.RestaurantTable table);
     void Delete(Domain.Entities.RestaurantTable table);

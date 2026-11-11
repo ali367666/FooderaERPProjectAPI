@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -46,9 +46,12 @@ public class CreateRestaurantTableCommandHandler
             trimmedName,
             companyId);
 
+        // The name is unique within its hall: another hall (a banquet hall, say) may have a table of the same name.
+        var sectionId = dto.SectionId is > 0 ? dto.SectionId : null;
         var exists = await _restaurantTableRepository.ExistsByNameAsync(
             companyId,
             dto.RestaurantId,
+            sectionId,
             trimmedName,
             cancellationToken);
 
@@ -75,7 +78,7 @@ public class CreateRestaurantTableCommandHandler
                 trimmedName,
                 companyId);
 
-            throw new Exception("Bu restoranda bu adda masa artıq mövcuddur.");
+            throw new Exception("Bu zalda bu adda masa artıq mövcuddur.");
         }
 
         if (dto.SectionId is > 0)

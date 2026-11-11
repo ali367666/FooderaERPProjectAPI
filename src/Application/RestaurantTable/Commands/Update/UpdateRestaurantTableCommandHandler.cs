@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -61,9 +61,12 @@ public class UpdateRestaurantTableCommandHandler
             throw new Exception("Masa tapılmadı.");
         }
 
+        // The name is unique within its hall (the hall the table will be in after this update).
+        var sectionId = dto.SectionId is null ? table.SectionId : (dto.SectionId > 0 ? dto.SectionId : null);
         var exists = await _restaurantTableRepository.ExistsByNameAsync(
             companyId,
             dto.RestaurantId,
+            sectionId,
             table.Id,
             trimmedName,
             cancellationToken);
@@ -92,7 +95,7 @@ public class UpdateRestaurantTableCommandHandler
                 dto.RestaurantId,
                 companyId);
 
-            throw new Exception("Bu restoranda bu adda başqa masa artıq mövcuddur.");
+            throw new Exception("Bu zalda bu adda başqa masa artıq mövcuddur.");
         }
 
         if (dto.SectionId is > 0)

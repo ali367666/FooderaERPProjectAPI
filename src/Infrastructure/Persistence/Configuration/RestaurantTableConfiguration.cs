@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -41,8 +41,16 @@ public class RestaurantTableConfiguration : IEntityTypeConfiguration<RestaurantT
         builder.Property(x => x.HourlyRate).HasColumnType("decimal(18,2)");
         builder.Property(x => x.Note).HasMaxLength(500);
 
-        builder.HasIndex(x => new { x.CompanyId, x.Name })
+        // A table name is unique within a hall of a branch (not across the whole company): "Masa 1" may exist in several halls
+        // and several branches.
+        builder.HasIndex(x => new { x.CompanyId, x.RestaurantId, x.SectionId, x.Name })
             .IsUnique();
+
+        // Tables without a hall share one namespace per branch.
+        builder.HasIndex(x => new { x.CompanyId, x.RestaurantId, x.Name })
+            .IsUnique()
+            .HasDatabaseName("IX_RestaurantTables_CompanyId_RestaurantId_Name_NoSection")
+            .HasFilter("[SectionId] IS NULL");
 
         builder.HasOne(x => x.Section)
             .WithMany(x => x.Tables)
