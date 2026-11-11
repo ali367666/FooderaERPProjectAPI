@@ -50,6 +50,7 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddPermissionPolicies();
 builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationMiddlewareResultHandler, PermissionResultHandler>();
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<Application.StoreMode.Notifications.IStoreRealtime, API.SignalRStoreRealtime>();
