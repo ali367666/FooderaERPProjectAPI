@@ -291,6 +291,11 @@ export async function updateCompanySettings(
 
 export type CompanySettingsBranding = {
   openingTime: string | null;
+  /**
+   * True when the company works in shifts (no opening time): the business day starts at 06:00 and the report
+   * screen offers "Hesabatı bağla" (closing the shift). False when it works by the day - nothing to close.
+   */
+  worksWithShifts: boolean;
   loginLogoUrl: string | null;
   reportLogoUrl: string | null;
   wallpaperUrl: string | null;
@@ -410,8 +415,11 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
   const bool = (camel: string, pascal: string, def = false) =>
     Boolean(pick(raw, camel, pascal) ?? def);
 
+  const openingTime = strOrNull("openingTime", "OpeningTime");
   return {
-    openingTime: strOrNull("openingTime", "OpeningTime"),
+    openingTime,
+    // Older backends do not send the flag; no opening time means the company works in shifts.
+    worksWithShifts: bool("worksWithShifts", "WorksWithShifts", openingTime === null),
     loginLogoUrl: strOrNull("loginLogoUrl", "LoginLogoUrl"),
     reportLogoUrl: strOrNull("reportLogoUrl", "ReportLogoUrl"),
     wallpaperUrl: strOrNull("wallpaperUrl", "WallpaperUrl"),

@@ -1,6 +1,6 @@
 "use client";
 
-import { Delete, Keyboard, X } from "lucide-react";
+import { CornerDownLeft, Delete, Keyboard, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Azerbaijani layout (lower case — keys print upper case), plus W for Latin names.
@@ -19,11 +19,14 @@ export function VirtualKeyboard({
   value,
   onChange,
   onClose,
+  onEnter,
   className,
 }: {
   value: string;
   onChange: (value: string) => void;
   onClose: () => void;
+  /** When given, an Enter key is shown and pressing it calls this (same as Enter on a physical keyboard). */
+  onEnter?: () => void;
   className?: string;
 }) {
   const keyClass =
@@ -72,6 +75,18 @@ export function VirtualKeyboard({
         >
           <Keyboard className="h-5 w-5 text-muted-foreground" />
         </button>
+        {onEnter && (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="Enter"
+            className={cn(keyClass, "flex-[2] bg-muted/60 text-sm")}
+            onClick={onEnter}
+          >
+            <CornerDownLeft className="mr-1 h-4 w-4" />
+            Seç
+          </button>
+        )}
         <button
           type="button"
           tabIndex={-1}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Eye, EyeOff, Printer } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,9 +28,14 @@ import {
   type BusinessReportRequest,
   type BusinessReportSections,
 } from "@/lib/services/report-service";
+import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
+import { closeShift, getCurrentShift, type Shift } from "@/lib/services/shift-service";
+import { POS_SHIFT_CLOSED_EVENT } from "@/lib/pos-shift-events";
 
 /** The /Reports/business endpoint requires this permission. */
 const REPORTS_VIEW_PERMISSION = "Reports.View";
+/** Closing the shift (the Z report) requires this permission. */
+const CLOSE_SHIFT_PERMISSION = "Pos.ZReport";
 
 type OptionKey = keyof BusinessReportSections;
 
@@ -64,18 +69,22 @@ function loadOptions(): BusinessReportSections {
   return defaults;
 }
 
-/** Maps the period picker onto the backend periods; "yesterday" goes as a one-day custom period. */
+/**
+ * Maps the period picker onto the backend periods; "yesterday" goes as a one-day custom period.
+ * `dayStartHours` is where the business day starts: 06:00 in shifts, midnight when the company works by the day.
+ */
 function toPeriodRequest(
   period: PeriodKey,
   customFrom: string,
   customTo: string,
+  dayStartHours: number,
 ): Pick<BusinessReportRequest, "period" | "from" | "to"> | null {
   switch (period) {
     case "today":
       return { period: ReportPeriod.Today };
     case "yesterday": {
-      // Business day starts at 06:00, so "yesterday" is relative to the current business date.
-      const d = new Date(Date.now() - 6 * 60 * 60 * 1000);
+      // "Yesterday" is relative to the current business date, not the calendar date.
+      const d = new Date(Date.now() - dayStartHours * 60 * 60 * 1000);
       d.setDate(d.getDate() - 1);
       const day = toDateInputValue(d);
       return { period: ReportPeriod.Custom, from: day, to: day };
@@ -100,11 +109,65 @@ function toPeriodRequest(
 export function PosDayReportModal({ onClose }: { onClose: () => void }) {
   const permissions = usePermissionSet();
   const canReport = permissions.has(REPORTS_VIEW_PERMISSION);
+  const canCloseShift = permissions.has(CLOSE_SHIFT_PERMISSION);
+
+  // Shift vs day mode: a company with no opening time works in shifts and closes the shift from here;
+  // one with an opening time works by the day and has nothing to close. Assume shifts until branding loads.
+  const [worksWithShifts, setWorksWithShifts] = useState(true);
+  const [shift, setShift] = useState<Shift | null>(null);
+  useEffect(() => {
+    const terminal = getPosTerminalContext();
+    if (!terminal) return;
+    let cancelled = false;
+    getCompanySettingsBranding(terminal.companyId)
+      .then((b) => {
+        if (cancelled) return;
+        setWorksWithShifts(b.worksWithShifts);
+        if (b.worksWithShifts && terminal.restaurantId) {
+          return getCurrentShift(terminal.restaurantId).then((s) => !cancelled && setShift(s));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const [closeShiftOpen, setCloseShiftOpen] = useState(false);
+  const [closingCash, setClosingCash] = useState("");
+  const [closingShift, setClosingShift] = useState(false);
+  const showCloseShift = worksWithShifts && canCloseShift && shift?.isOpen === true;
+
+  const handleCloseShift = async () => {
+    if (!shift) return;
+    const amount = Number(closingCash.replace(",", "."));
+    if (closingCash.trim() === "" || !Number.isFinite(amount) || amount < 0) {
+      toast.error("Kassadakı nağd məbləği düzgün daxil edin.");
+      return;
+    }
+    setClosingShift(true);
+    try {
+      const zReport = await closeShift(shift.id, amount);
+      setShift(null);
+      setCloseShiftOpen(false);
+      toast.success("Hesabat bağlandı");
+      // The POS layout drops its shift, shows the Z report and asks for the next shift's opening cash.
+      window.dispatchEvent(new CustomEvent(POS_SHIFT_CLOSED_EVENT, { detail: zReport }));
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Hesabat bağlanmadı.");
+    } finally {
+      setClosingShift(false);
+    }
+  };
 
   const [period, setPeriod] = useState<PeriodKey>("today");
   const [customFrom, setCustomFrom] = useState(toDateInputValue(new Date()));
   const [customTo, setCustomTo] = useState(toDateInputValue(new Date()));
-  const periodRequest = useMemo(() => toPeriodRequest(period, customFrom, customTo), [period, customFrom, customTo]);
+  const periodRequest = useMemo(
+    () => toPeriodRequest(period, customFrom, customTo, worksWithShifts ? 6 : 0),
+    [period, customFrom, customTo, worksWithShifts],
+  );
 
   const [report, setReport] = useState<BusinessReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -275,6 +338,19 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
           </Button>
           {canReport && (
             <div className="flex flex-1 flex-wrap justify-end gap-2">
+              {showCloseShift && (
+                <Button
+                  size="lg"
+                  variant="destructive"
+                  onClick={() => {
+                    setClosingCash("");
+                    setCloseShiftOpen(true);
+                  }}
+                >
+                  <LockKeyhole className="h-4 w-4" />
+                  Hesabatı bağla
+                </Button>
+              )}
               <Button variant="outline" size="lg" disabled={!report} onClick={() => setPreview((p) => !p)}>
                 {preview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 {preview ? "Xülasəyə qayıt" : "Çap etmədən izlə"}
@@ -287,6 +363,46 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Closing the shift: the counted cash goes on the Z report; the next shift is opened from the header. */}
+      <Dialog open={closeShiftOpen} onOpenChange={(o) => !closingShift && setCloseShiftOpen(o)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Hesabat bağlansın?</DialogTitle>
+            <DialogDescription>
+              {shift?.openedAt ? `Növbə açılıb: ${formatDateTime(shift.openedAt)}. ` : ""}
+              Bağlandıqdan sonra Z-hesabat çıxarılır və yeni növbə açılmalıdır.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="dr-closing-cash">Kassadakı nağd</Label>
+            <Input
+              id="dr-closing-cash"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              autoFocus
+              value={closingCash}
+              onChange={(e) => setClosingCash(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void handleCloseShift()}
+            />
+            {report && (
+              <p className="text-xs text-muted-foreground">
+                Hesabata görə nağd qalıq: {formatCurrency(report.income.cashRemaining)}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={closingShift} onClick={() => setCloseShiftOpen(false)}>
+              Ləğv et
+            </Button>
+            <Button variant="destructive" disabled={closingShift} onClick={() => void handleCloseShift()}>
+              {closingShift ? "Bağlanır…" : "Bəli, bağla"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

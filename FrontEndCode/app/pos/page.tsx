@@ -990,34 +990,55 @@ export default function PosTablesPage() {
       </Dialog>
 
       <Dialog open={guestCountTable !== null} onOpenChange={(open) => !open && setGuestCountTable(null)}>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent
+          className="outline-none sm:max-w-sm"
+          // No input to focus (it would show a blinking caret): focus the dialog itself so a physical keyboard still works.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            (e.currentTarget as HTMLElement | null)?.focus();
+          }}
+          onKeyDown={(e) => {
+            if (/^\d$/.test(e.key)) {
+              e.preventDefault();
+              setGuestCountInput((v) => (v === "0" ? e.key : v + e.key).slice(0, 3));
+            } else if (e.key === "Backspace") {
+              e.preventDefault();
+              setGuestCountInput((v) => v.slice(0, -1));
+            } else if (e.key === "Enter" && !(e.target as HTMLElement).closest('[data-slot="dialog-footer"]')) {
+              // Enter confirms, also right after a numpad tap (instead of pressing that digit again).
+              e.preventDefault();
+              handleConfirmGuestCount();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Neçə nəfərsiniz?</DialogTitle>
-            <DialogDescription>{guestCountTable?.name} — masanı açmaq üçün adam sayını daxil edin.</DialogDescription>
+            <DialogDescription>{guestCountTable?.name} — masanı açmaq üçün adam sayını seçin.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="guest-count-input">Adam sayı</Label>
-            <Input
-              id="guest-count-input"
-              type="number"
-              min={1}
-              max={999}
-              autoFocus
-              value={guestCountInput}
-              onChange={(e) => setGuestCountInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleConfirmGuestCount();
-              }}
-            />
-            {branding?.touchScreenMode === true && (
-              <TouchNumpad value={guestCountInput} onChange={setGuestCountInput} />
-            )}
+          <div className="space-y-3">
+            {/* POS screens have no keyboard: the count is entered through the on-screen numpad. */}
+            <div className="space-y-1.5">
+              <Label>Adam sayı</Label>
+              <div
+                aria-live="polite"
+                className={cn(
+                  "flex h-12 items-center justify-center rounded-md border bg-muted/40 text-2xl font-bold select-none",
+                  !guestCountInput && "text-muted-foreground",
+                )}
+              >
+                {guestCountInput || "0"}
+              </div>
+              <TouchNumpad
+                value={guestCountInput}
+                onChange={(v) => setGuestCountInput(v.replace(/\D/g, "").slice(0, 3))}
+              />
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setGuestCountTable(null)}>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" size="lg" className="h-12 flex-1" onClick={() => setGuestCountTable(null)}>
               Ləğv et
             </Button>
-            <Button onClick={handleConfirmGuestCount} disabled={!guestCountValid}>
+            <Button size="lg" className="h-12 flex-1 text-base" onClick={handleConfirmGuestCount} disabled={!guestCountValid}>
               Masanı aç
             </Button>
           </DialogFooter>
