@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace Application.Auth.Commands.Login;
 
@@ -11,7 +11,6 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
             .MaximumLength(100);
 
         RuleFor(x => x.Request.Password)
-            .NotEmpty().WithMessage("Password is required")
-            .MinimumLength(6);
+            .NotEmpty().WithMessage("Password is required");
     }
 }
