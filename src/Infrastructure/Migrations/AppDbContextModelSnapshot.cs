@@ -137,6 +137,50 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.BarcodeCatalogEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Barcode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Unit")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Barcode")
+                        .IsUnique();
+
+                    b.ToTable("BarcodeCatalog", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.CashMovement", b =>
                 {
                     b.Property<int>("Id")
@@ -439,6 +483,9 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("ModuleDataSecimi")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ModuleDepartment")
                         .HasColumnType("bit");
 
                     b.Property<bool>("ModuleFilial")
@@ -2230,9 +2277,16 @@ namespace Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("RoleId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DepartmentId");
+
+                    b.HasIndex("CompanyId", "RoleId")
+                        .IsUnique()
+                        .HasFilter("[RoleId] IS NOT NULL");
 
                     b.HasIndex("CompanyId", "DepartmentId", "Name")
                         .IsUnique();
@@ -2825,8 +2879,14 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SectionId");
 
-                    b.HasIndex("CompanyId", "Name")
-                        .IsUnique();
+                    b.HasIndex("CompanyId", "RestaurantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_RestaurantTables_CompanyId_RestaurantId_Name_NoSection")
+                        .HasFilter("[SectionId] IS NULL");
+
+                    b.HasIndex("CompanyId", "RestaurantId", "SectionId", "Name")
+                        .IsUnique()
+                        .HasFilter("[SectionId] IS NOT NULL");
 
                     b.ToTable("RestaurantTables", (string)null);
                 });
@@ -5448,8 +5508,8 @@ namespace Infrastructure.Persistence.Migrations
                         .HasDefaultValue(false);
 
                     b.Property<string>("Code")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("CompanyId")
                         .HasColumnType("int");

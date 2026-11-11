@@ -49,6 +49,15 @@ public class StockItemController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>A scanned barcode: the name, type and unit the system already knows for it (the company's own item, else an earlier entry).</summary>
+    [HttpGet("barcode/{barcode}")]
+    [Authorize(Policy = AppPermissions.StockItemCreate)]
+    public async Task<IActionResult> LookupBarcode(string barcode, [FromQuery] int? companyId)
+    {
+        var result = await _mediator.Send(new Application.StockItem.Queries.LookupBarcode.LookupStockItemBarcodeQuery(barcode, companyId));
+        return Ok(result);
+    }
+
     [HttpGet("{id}")]
     [Authorize(Policy = AppPermissions.StockItemView)]
     public async Task<IActionResult> GetById(int id)

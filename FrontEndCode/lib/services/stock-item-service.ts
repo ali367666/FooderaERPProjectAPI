@@ -189,3 +189,37 @@ export async function deleteStockItem(id: number): Promise<void> {
     throw toApiFormError(error, "Failed to delete stock item");
   }
 }
+
+export type BarcodeLookup = {
+  found: boolean;
+  /** "company": the company already has this item; "catalog": the system learned it from an earlier entry. */
+  source: string | null;
+  name: string | null;
+  type: StockItemTypeValue | null;
+  unit: UnitOfMeasureValue | null;
+  existsInCompany: boolean;
+  existingStockItemId: number | null;
+};
+
+/** A scanned barcode: what the system already knows about the product (name, type, unit) to fill the form. */
+export async function lookupStockItemBarcode(barcode: string, companyId?: number | null): Promise<BarcodeLookup> {
+  try {
+    const response = await api.get<Record<string, unknown>>(`/StockItem/barcode/${encodeURIComponent(barcode.trim())}`, {
+      params: companyId ? { companyId } : undefined,
+    });
+    const raw = (response.data ?? {}) as Record<string, unknown>;
+    const pick = <T,>(camel: string, pascal: string) => (raw[camel] ?? raw[pascal]) as T | undefined;
+    const num = (v: unknown) => (v == null ? null : Number(v));
+    return {
+      found: Boolean(pick("found", "Found")),
+      source: (pick<string>("source", "Source") ?? null) as string | null,
+      name: (pick<string>("name", "Name") ?? null) as string | null,
+      type: num(pick("type", "Type")) as StockItemTypeValue | null,
+      unit: num(pick("unit", "Unit")) as UnitOfMeasureValue | null,
+      existsInCompany: Boolean(pick("existsInCompany", "ExistsInCompany")),
+      existingStockItemId: num(pick("existingStockItemId", "ExistingStockItemId")),
+    };
+  } catch (error) {
+    throw toApiFormError(error, "Barkod axtarışı alınmadı.");
+  }
+}

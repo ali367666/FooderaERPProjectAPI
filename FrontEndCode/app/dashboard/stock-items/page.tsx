@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ import {
   deleteStockItem,
   getStockItemById,
   getStockItemsForAllCompanies,
+  lookupStockItemBarcode,
   StockItemType,
   stockItemTypeLabel,
   UnitOfMeasure,
@@ -82,6 +84,8 @@ export default function StockItemsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [barcode, setBarcode] = useState("");
+  // The last barcode looked up, so a scanner's Enter followed by a blur asks once.
+  const lastLookedUp = useRef("");
   const [salePrice, setSalePrice] = useState("");
   const [type, setType] = useState<string>(String(StockItemType.RawMaterial));
   const [unit, setUnit] = useState<string>(String(UnitOfMeasure.Piece));
@@ -89,6 +93,27 @@ export default function StockItemsPage() {
   const [companyId, setCompanyId] = useState("");
   const [restaurantId, setRestaurantId] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // A scanned barcode fills the new item with what the system already knows (name, type, unit); nothing is saved until the form is.
+  const lookupBarcode = async () => {
+    const code = barcode.trim();
+    if (isEditMode || code.length < 6 || lastLookedUp.current === code) return;
+    lastLookedUp.current = code;
+    try {
+      const found = await lookupStockItemBarcode(code, Number(companyId) || null);
+      if (!found.found) return;
+      if (found.existsInCompany) {
+        toast.warning(`Bu barkodla məhsul artıq var: ${found.name}`);
+        return;
+      }
+      if (found.name && !name.trim()) setName(found.name);
+      if (found.type != null) setType(String(found.type));
+      if (found.unit != null) setUnit(String(found.unit));
+      toast.success("Məhsul məlumatı sistem bazasından gətirildi — yoxlayın.");
+    } catch {
+      // Without the lookup the form is simply filled by hand.
+    }
+  };
 
   const loadData = async (silent = false) => {
     if (companies.length === 0) {
@@ -422,15 +447,31 @@ export default function StockItemsPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
+              <label className="mb-2 block text-sm font-medium text-foreground">Barcode</label>
+              <Input
+                value={barcode}
+                onChange={(e) => {
+                  lastLookedUp.current = "";
+                  setBarcode(e.target.value);
+                }}
+                // A scanner types the digits and presses Enter: that fills the form instead of submitting it.
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void lookupBarcode();
+                  }
+                }}
+                onBlur={() => void lookupBarcode()}
+                placeholder="Barkodu oxudun (ilk dəfə məhsulu özünüz yazın)"
+                autoComplete="off"
+              />
+            </div>
+            <div className="sm:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">Name</label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
               {getFieldErrorMessage(fieldErrors, "name") && (
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "name")}</p>
               )}
-            </div>
-            <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-foreground">Barcode</label>
-              <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Optional" />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Satış qiyməti</label>

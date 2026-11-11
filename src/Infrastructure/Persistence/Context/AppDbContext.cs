@@ -64,6 +64,7 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     // Stock system
     public DbSet<StockCategory> Categories { get; set; } = null!;
     public DbSet<StockItem> StockItems { get; set; } = null!;
+    public DbSet<BarcodeCatalogEntry> BarcodeCatalog { get; set; } = null!;
     public DbSet<StockMovement> StockMovements { get; set; } = null!;
     public DbSet<MenuItemRecipeLine> MenuItemRecipeLines { get; set; } = null!;
     public DbSet<StockPurchase> StockPurchases { get; set; } = null!;
