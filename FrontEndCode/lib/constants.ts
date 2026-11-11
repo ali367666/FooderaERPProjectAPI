@@ -51,7 +51,7 @@ export interface NavItem {
   badge?: string;
   permission?: string;
   /** Company-level module toggle key (from CompanySettingsBranding) required for this item to show. */
-  module?: "moduleFilial" | "moduleAnbar" | "moduleRezervasyon" | "moduleMasaBolge";
+  module?: "moduleFilial" | "moduleAnbar" | "moduleRezervasyon" | "moduleMasaBolge" | "moduleDepartment";
   /** Restaurant-only page (tables, kitchen) with no equivalent in a Mağaza (store) business — hidden when moduleDataSecimi is on. */
   hiddenForStoreMode?: boolean;
   /** Label to show instead of `title` when the company is in Mağaza (store) mode — e.g. "Menu" reads as "Products" for a store. */
@@ -175,13 +175,10 @@ export const navGroups: NavGroup[] = [
         href: "/dashboard/departments",
         icon: Building2,
         permission: "Department.View",
+        // The SuperAdmin can switch departments off for a company; its employees and positions then need none.
+        module: "moduleDepartment",
       },
-      {
-        title: "Positions",
-        href: "/dashboard/positions",
-        icon: Briefcase,
-        permission: "Position.View",
-      },
+      // Positions are gone from the menu: an employee's job title is a role (Roles page); its position follows it.
       {
         title: "Employees",
         href: "/dashboard/employees",

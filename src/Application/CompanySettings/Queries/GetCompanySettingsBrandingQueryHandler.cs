@@ -73,6 +73,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 ModuleDataSecimi = settings.ModuleDataSecimi,
                 ModuleQiymetSor = settings.ModuleQiymetSor,
                 ModuleKompleks = settings.ModuleKompleks,
+                ModuleDepartment = settings.ModuleDepartment,
                 SalesEditLocked = settings.SalesEditLocked,
                 KitchenApprovalRequired = settings.KitchenApprovalRequired,
                 PrintAutoOnPayment = settings.PrintAutoOnPayment,

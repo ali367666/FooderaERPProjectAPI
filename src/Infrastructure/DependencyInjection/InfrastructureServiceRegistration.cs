@@ -33,6 +33,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IIdentityAdminService, IdentityAdminService>();
         services.AddScoped<ICompanyDefaultsSeeder, Infrastructure.Persistence.Seeds.CompanyDefaultsSeeder>();
         services.AddScoped<IPaymentBankProvisioner, Infrastructure.Services.PaymentBankProvisioner>();
+        services.AddScoped<IBarcodeCatalog, Infrastructure.Services.BarcodeCatalog>();
         services.AddScoped<IRestaurantRepository, RestaurantRepository>();
 
         // 🔹 Identity
@@ -117,6 +118,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IStoreWarehouseOpsRepository, StoreWarehouseOpsRepository>();
         services.AddScoped<Application.StoreMode.Trade.StorePaymentService>();
         services.AddScoped<Application.StoreMode.Approvals.StoreApprovalService>();
+        services.AddScoped<Application.Common.Helpers.DepartmentResolver>();
         services.AddScoped<Application.StoreMode.Customers.StoreBonusExpiryService>();
         services.AddScoped<Application.StoreMode.Fiscal.IStoreFiscalDevice, Infrastructure.Services.NotConfiguredStoreFiscalDevice>();
         services.AddScoped<Application.StoreMode.Fiscal.StoreFiscalService>();

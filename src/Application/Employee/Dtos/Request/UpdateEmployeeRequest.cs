@@ -1,4 +1,4 @@
-﻿namespace Application.Employees.Dtos;
+namespace Application.Employees.Dtos;
 
 public class UpdateEmployeeRequest
 {
@@ -24,6 +24,7 @@ public class UpdateEmployeeRequest
 
     public int DepartmentId { get; set; }
     public int PositionId { get; set; }
+    public int? RoleId { get; set; }
     public int RestaurantId { get; set; }
 
     public int? UserId { get; set; }

@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -15,13 +15,16 @@ public class UpdatePositionCommandHandler
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdatePositionCommandHandler> _logger;
+    private readonly Application.Common.Helpers.DepartmentResolver _departmentResolver;
 
     public UpdatePositionCommandHandler(
         IPositionRepository positionRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
-        ILogger<UpdatePositionCommandHandler> logger)
+        ILogger<UpdatePositionCommandHandler> logger,
+        Application.Common.Helpers.DepartmentResolver departmentResolver)
     {
+        _departmentResolver = departmentResolver;
         _positionRepository = positionRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
@@ -82,8 +85,12 @@ public class UpdatePositionCommandHandler
             ? request.Request.CompanyId.Value
             : (isSuperAdmin ? position.CompanyId : callerCompanyId);
 
+        // Without the Departments module the position keeps the department it has.
+        var departmentId = await _departmentResolver.ForPositionUpdateAsync(
+            companyId, request.Request.DepartmentId, position.DepartmentId, cancellationToken);
+
         var departmentExists = await _positionRepository.DepartmentExistsAsync(
-            request.Request.DepartmentId,
+            departmentId,
             companyId,
             cancellationToken);
 
@@ -91,7 +98,7 @@ public class UpdatePositionCommandHandler
         {
             _logger.LogWarning(
                 "Update Position rejected: DepartmentId={DepartmentId} does not belong to CompanyId={CompanyId}.",
-                request.Request.DepartmentId,
+                departmentId,
                 companyId);
 
             return BaseResponse.Fail("Department not found.");
@@ -104,26 +111,26 @@ public class UpdatePositionCommandHandler
 
         var exists = await _positionRepository.ExistsByNameAsync(
             companyId,
-            request.Request.DepartmentId,
+            departmentId,
             trimmedName,
             cancellationToken);
 
         if (exists &&
             !(string.Equals(oldName, trimmedName, StringComparison.OrdinalIgnoreCase)
-              && oldDepartmentId == request.Request.DepartmentId))
+              && oldDepartmentId == departmentId))
         {
             _logger.LogWarning(
                 "Position update rejected because duplicate exists. PositionId={PositionId}, Name={Name}, DepartmentId={DepartmentId}, CompanyId={CompanyId}",
                 request.Id,
                 trimmedName,
-                request.Request.DepartmentId,
+                departmentId,
                 companyId);
 
             return BaseResponse.Fail("Position with this name already exists in the department.");
         }
 
         position.Name = trimmedName;
-        position.DepartmentId = request.Request.DepartmentId;
+        position.DepartmentId = departmentId;
         position.Description = request.Request.Description;
         position.CompanyId = companyId;
 

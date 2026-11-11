@@ -22,6 +22,8 @@ export type Employee = {
   isActive: boolean;
   departmentId: number;
   positionId: number;
+  /** The role the position stands for: the employee's job title is a role. */
+  roleId?: number | null;
   restaurantId: number;
   departmentName?: string;
   positionName?: string;
@@ -37,7 +39,9 @@ export type EmployeeMutationInput = {
   address?: string;
   hireDate: string;
   departmentId: number;
+  /** Send the role (the job title) instead; 0 here. */
   positionId: number;
+  roleId?: number | null;
   restaurantId: number;
   userId?: number | null;
 };
@@ -73,6 +77,7 @@ function normalizeEmployee(item: unknown): Employee | null {
     isActive: Boolean(raw.isActive ?? raw.IsActive ?? true),
     departmentId: Number(raw.departmentId ?? raw.DepartmentId ?? 0),
     positionId: Number(raw.positionId ?? raw.PositionId ?? 0),
+    roleId: (raw.roleId ?? raw.RoleId ?? null) as number | null,
     restaurantId: Number(raw.restaurantId ?? raw.RestaurantId ?? 0),
     departmentName: String(raw.departmentName ?? raw.DepartmentName ?? ""),
     positionName: String(raw.positionName ?? raw.PositionName ?? ""),

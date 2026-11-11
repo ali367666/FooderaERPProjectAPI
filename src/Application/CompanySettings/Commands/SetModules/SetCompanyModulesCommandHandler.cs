@@ -41,6 +41,8 @@ public class SetCompanyModulesCommandHandler
         settings.ModuleDataSecimi = dto.ModuleDataSecimi;
         settings.ModuleQiymetSor = dto.ModuleQiymetSor;
         settings.ModuleKompleks = dto.ModuleKompleks;
+        if (dto.ModuleDepartment is { } moduleDepartment)
+            settings.ModuleDepartment = moduleDepartment;
 
         await _companySettingsRepository.SaveChangesAsync(cancellationToken);
 

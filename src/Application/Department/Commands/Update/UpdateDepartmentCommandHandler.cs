@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Application.Abstractions.Repositories;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -17,13 +17,16 @@ public sealed class UpdateDepartmentCommandHandler
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateDepartmentCommandHandler> _logger;
+    private readonly Application.Common.Helpers.DepartmentResolver _departmentResolver;
 
     public UpdateDepartmentCommandHandler(
         IDepartmentRepository departmentRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
-        ILogger<UpdateDepartmentCommandHandler> logger)
+        ILogger<UpdateDepartmentCommandHandler> logger,
+        Application.Common.Helpers.DepartmentResolver departmentResolver)
     {
+        _departmentResolver = departmentResolver;
         _departmentRepository = departmentRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
@@ -69,6 +72,9 @@ public sealed class UpdateDepartmentCommandHandler
             var companyId = isSuperAdmin && request.CompanyId > 0
                 ? request.CompanyId
                 : (isSuperAdmin ? department.CompanyId : callerCompanyId);
+
+            if (await _departmentResolver.IsModuleOffAsync(department.CompanyId, cancellationToken))
+                return BaseResponse<DepartmentResponse>.Fail(Application.Common.Helpers.DepartmentResolver.ModuleOffMessage);
 
             var trimmedName = request.Request.Name.Trim();
 

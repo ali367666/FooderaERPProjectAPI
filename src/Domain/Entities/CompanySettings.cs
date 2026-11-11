@@ -25,6 +25,13 @@ public class CompanySettings : CompanyEntity<int>
     public bool ModuleKompleks { get; set; }
 
     /// <summary>
+    /// Set by the platform SuperAdmin. When false the company does not use departments: the Departments page is hidden, departments
+    /// cannot be created or changed, and positions / employees are created without choosing one (they get the company's default
+    /// department behind the scenes). Existing departments and employees are left untouched, so switching it back on loses nothing.
+    /// </summary>
+    public bool ModuleDepartment { get; set; } = true;
+
+    /// <summary>
     /// Set by the platform SuperAdmin only. When true the company's store sales can no longer be changed after the fact
     /// (a sale cannot be cancelled); returns still work.
     /// </summary>

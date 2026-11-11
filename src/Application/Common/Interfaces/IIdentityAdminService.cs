@@ -52,6 +52,15 @@ public interface IIdentityAdminService
     Task CloneDefaultRolesForCompanyAsync(int companyId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The position that stands for a company role (the employee's job title), created when it does not exist yet.
+    /// Error when the role is not found or is not a company role.
+    /// </summary>
+    Task<(int? PositionId, string? Error)> EnsurePositionForRoleAsync(int roleId, CancellationToken cancellationToken = default);
+
+    /// <summary>Gives every role of the company its position and every old position its role (idempotent).</summary>
+    Task BackfillRolePositionsAsync(int companyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Checks that a new company SuperAdmin account can be created (email/username free, password
     /// meets the policy) — run before the company itself is saved, so a bad owner doesn't leave an
     /// orphan company behind. Returns null when OK, otherwise the error message.

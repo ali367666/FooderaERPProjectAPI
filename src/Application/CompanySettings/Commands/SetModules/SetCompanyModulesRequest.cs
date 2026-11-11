@@ -12,4 +12,7 @@ public class SetCompanyModulesRequest
     public bool ModuleDataSecimi { get; set; }
     public bool ModuleQiymetSor { get; set; }
     public bool ModuleKompleks { get; set; }
+
+    /// <summary>Null (an older client that does not send it) leaves the Departments switch as it is.</summary>
+    public bool? ModuleDepartment { get; set; }
 }

@@ -42,6 +42,7 @@ const MODULE_FIELDS: Array<{ key: keyof CompanyModules; label: string }> = [
   { key: "moduleFitnes", label: "Fitnes" },
   { key: "moduleQiymetSor", label: "Qiymət Sor" },
   { key: "moduleKompleks", label: "İstirahət Kompleksi" },
+  { key: "moduleDepartment", label: "Departamentlər" },
 ];
 
 function emptyCompanyModules(): CompanyModules {
@@ -56,6 +57,8 @@ function emptyCompanyModules(): CompanyModules {
     moduleDataSecimi: false,
     moduleQiymetSor: false,
     moduleKompleks: false,
+    // A new company starts with departments on.
+    moduleDepartment: true,
   };
 }
 
@@ -359,6 +362,7 @@ export default function CompaniesPage() {
           moduleDataSecimi: branding.moduleDataSecimi,
           moduleQiymetSor: branding.moduleQiymetSor,
           moduleKompleks: branding.moduleKompleks,
+          moduleDepartment: branding.moduleDepartment,
         });
       } catch {
         setModules(emptyCompanyModules());

@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.Employees.Dtos;
@@ -59,6 +59,7 @@ public class GetEmployeeByIdQueryHandler
             DepartmentName = employee.Department?.Name ?? string.Empty,
             PositionId = employee.PositionId,
             PositionName = employee.Position?.Name ?? string.Empty,
+            RoleId = employee.Position?.RoleId,
             RestaurantId = employee.RestaurantId,
             RestaurantName = employee.Restaurant?.Name ?? string.Empty,
             UserId = employee.UserId

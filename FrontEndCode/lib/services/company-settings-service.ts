@@ -326,6 +326,8 @@ export type CompanySettingsBranding = {
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
   moduleKompleks: boolean;
+  /** False: the company does not use departments (SuperAdmin switch). */
+  moduleDepartment: boolean;
   printAutoOnPayment: boolean;
   printKitchenOnPayment: boolean;
   printShowPreview: boolean;
@@ -444,6 +446,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
     moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
     moduleKompleks: bool("moduleKompleks", "ModuleKompleks"),
+    moduleDepartment: bool("moduleDepartment", "ModuleDepartment", true),
     printAutoOnPayment: bool("printAutoOnPayment", "PrintAutoOnPayment"),
     printKitchenOnPayment: bool("printKitchenOnPayment", "PrintKitchenOnPayment"),
     printShowPreview: bool("printShowPreview", "PrintShowPreview", true),

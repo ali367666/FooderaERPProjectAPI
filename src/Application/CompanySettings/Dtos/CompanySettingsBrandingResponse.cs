@@ -42,6 +42,7 @@ public class CompanySettingsBrandingResponse
     public bool ModuleDataSecimi { get; set; }
     public bool ModuleQiymetSor { get; set; }
     public bool ModuleKompleks { get; set; }
+    public bool ModuleDepartment { get; set; } = true;
     public bool SalesEditLocked { get; set; }
     public bool KitchenApprovalRequired { get; set; } = true;
 

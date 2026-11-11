@@ -21,6 +21,7 @@ const MODULE_LABELS: { key: keyof CompanyModules; label: string }[] = [
   { key: "moduleFitnes", label: "Fitnes" },
   { key: "moduleQiymetSor", label: "Qiymət sor" },
   { key: "moduleKompleks", label: "İstirahət kompleksi" },
+  { key: "moduleDepartment", label: "Departamentlər" },
 ];
 
 /** SuperAdmin: one place to switch each company between Restoran and Mağaza rejimi and to open/close its modules. */
@@ -49,6 +50,7 @@ export default function ModesPage() {
               moduleDataSecimi: b.moduleDataSecimi,
               moduleQiymetSor: b.moduleQiymetSor,
               moduleKompleks: b.moduleKompleks,
+              moduleDepartment: b.moduleDepartment,
             };
             const banks = await getCompanyPaymentBanks(company.id).catch(() => [] as PaymentBankStatus[]);
             return { company, modules, salesLocked: b.salesEditLocked, kitchenRequired: b.kitchenApprovalRequired, banks } as Row;

@@ -1,4 +1,4 @@
-﻿namespace Application.Employees.Dtos;
+namespace Application.Employees.Dtos;
 
 public class CreateEmployeeRequest
 {
@@ -24,6 +24,9 @@ public class CreateEmployeeRequest
 
     public int DepartmentId { get; set; }
     public int PositionId { get; set; }
+
+    /// <summary>The employee's job title is a company role: send the role instead of a position (its position is found or created).</summary>
+    public int? RoleId { get; set; }
     public int RestaurantId { get; set; }
 
     public int? UserId { get; set; }

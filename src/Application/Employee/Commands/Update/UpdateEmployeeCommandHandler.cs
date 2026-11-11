@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Application.Abstractions.Repositories;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -20,6 +20,8 @@ public class UpdateEmployeeCommandHandler
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateEmployeeCommandHandler> _logger;
+    private readonly Application.Common.Helpers.DepartmentResolver _departmentResolver;
+    private readonly IIdentityAdminService _identityAdmin;
 
     public UpdateEmployeeCommandHandler(
         IEmployeeRepository employeeRepository,
@@ -28,8 +30,12 @@ public class UpdateEmployeeCommandHandler
         IRestaurantRepository restaurantRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
-        ILogger<UpdateEmployeeCommandHandler> logger)
+        ILogger<UpdateEmployeeCommandHandler> logger,
+        Application.Common.Helpers.DepartmentResolver departmentResolver,
+        IIdentityAdminService identityAdmin)
     {
+        _departmentResolver = departmentResolver;
+        _identityAdmin = identityAdmin;
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _positionRepository = positionRepository;
@@ -75,25 +81,40 @@ public class UpdateEmployeeCommandHandler
                 };
             }
 
+            // The job title is a role: its position is found (or created) here.
+            var positionId = request.Request.PositionId;
+            if (request.Request.RoleId is > 0)
+            {
+                var ensured = await _identityAdmin.EnsurePositionForRoleAsync(request.Request.RoleId.Value, cancellationToken);
+                if (ensured.PositionId is not { } rolePositionId)
+                    return new BaseResponse { Success = false, Message = ensured.Error ?? "Rol tapılmadı." };
+                positionId = rolePositionId;
+            }
+            var oldPositionId = employee.PositionId;
+
+            // Without the Departments module the employee goes to the department of its position.
+            var departmentId = await _departmentResolver.ForEmployeeAsync(
+                employee.CompanyId, request.Request.DepartmentId, positionId, cancellationToken);
+
             Domain.Entities.Department? department;
             int companyId;
 
             if (isSuperAdmin)
             {
-                department = await _departmentRepository.GetByIdAsync(request.Request.DepartmentId, cancellationToken);
+                department = await _departmentRepository.GetByIdAsync(departmentId, cancellationToken);
                 companyId = department?.CompanyId ?? 0;
             }
             else
             {
                 companyId = callerCompanyId;
-                department = await _departmentRepository.GetByIdAsync(request.Request.DepartmentId, companyId, cancellationToken);
+                department = await _departmentRepository.GetByIdAsync(departmentId, companyId, cancellationToken);
             }
 
             if (department is null)
             {
                 _logger.LogWarning(
                     "Employee update olunmadı. Department tapılmadı. DepartmentId: {DepartmentId}, CallerCompanyId: {CallerCompanyId}",
-                    request.Request.DepartmentId,
+                    departmentId,
                     callerCompanyId);
 
                 return new BaseResponse
@@ -104,16 +125,17 @@ public class UpdateEmployeeCommandHandler
             }
 
             var position = await _positionRepository.GetByIdAsync(
-                request.Request.PositionId,
+                positionId,
                 companyId,
                 cancellationToken);
 
-            if (position is null || position.DepartmentId != request.Request.DepartmentId)
+            // A role's position carries no department of its own: only an old, role-less position must match the department.
+            if (position is null || (position.RoleId is null && position.DepartmentId != departmentId))
             {
                 _logger.LogWarning(
                     "Employee update olunmadı. Position yanlışdır. PositionId: {PositionId}, DepartmentId: {DepartmentId}, CompanyId: {CompanyId}",
-                    request.Request.PositionId,
-                    request.Request.DepartmentId,
+                    positionId,
+                    departmentId,
                     companyId);
 
                 return new BaseResponse
@@ -187,13 +209,20 @@ public class UpdateEmployeeCommandHandler
 
             employee.HireDate = request.Request.HireDate;
 
-            employee.DepartmentId = request.Request.DepartmentId;
-            employee.PositionId = request.Request.PositionId;
+            employee.DepartmentId = departmentId;
+            employee.PositionId = positionId;
             employee.RestaurantId = restaurant.Id;
             employee.CompanyId = companyId;
 
             _employeeRepository.Update(employee);
             await _employeeRepository.SaveChangesAsync(cancellationToken);
+
+            // The linked account follows the job title: it takes the new role and drops the old title's role.
+            if (oldPositionId != position.Id)
+            {
+                var oldRoleId = (await _positionRepository.GetByIdAsync(oldPositionId, companyId, cancellationToken))?.RoleId;
+                await Application.Employees.EmployeeRoleSync.ApplyAsync(_identityAdmin, _logger, employee.UserId, oldRoleId, position.RoleId, cancellationToken);
+            }
 
             var newValues = JsonSerializer.Serialize(new
             {

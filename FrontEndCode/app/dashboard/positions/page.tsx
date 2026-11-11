@@ -12,6 +12,7 @@ import {
 } from "@/lib/services/department-service";
 import { type Company } from "@/lib/services/company-service";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
+import { useCompanyModule } from "@/hooks/use-company-module";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
 import {
   Dialog,
@@ -117,6 +118,8 @@ function normalizePositions(
 
 export default function PositionsPage() {
   const { companies, companiesLoading, selectedCompanyId: scopeCompanyId } = useSelectedCompany();
+  // The SuperAdmin can switch departments off for a company: its forms then have no department to pick.
+  const departmentsOn = useCompanyModule("moduleDepartment") !== false;
   const [positions, setPositions] = useState<NormalizedPosition[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,7 +239,7 @@ export default function PositionsPage() {
       return;
     }
 
-    if (!Number.isFinite(parsedDepartmentId) || parsedDepartmentId <= 0) {
+    if (departmentsOn && (!Number.isFinite(parsedDepartmentId) || parsedDepartmentId <= 0)) {
       const msg = "Department selection is required.";
       setError(msg);
       window.alert(msg);
@@ -523,6 +526,7 @@ export default function PositionsPage() {
               )}
             </div>
 
+            {departmentsOn && (
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
                 Department
@@ -547,6 +551,7 @@ export default function PositionsPage() {
                 </p>
               )}
             </div>
+            )}
 
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">

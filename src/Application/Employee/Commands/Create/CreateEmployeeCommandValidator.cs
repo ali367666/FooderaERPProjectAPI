@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace Application.Employees.Commands.Create;
 
@@ -10,8 +10,10 @@ public class CreateEmployeeCommandValidator : AbstractValidator<CreateEmployeeCo
         RuleFor(x => x.Request.FirstName).NotEmpty().WithMessage("Ad və soyad mütləqdir.").MaximumLength(100);
         RuleFor(x => x.Request.LastName).MaximumLength(100);
 
-        RuleFor(x => x.Request.DepartmentId).GreaterThan(0);
-        RuleFor(x => x.Request.PositionId).GreaterThan(0);
+        // 0 = no department chosen: allowed only for a company without the Departments module (the handler refuses it otherwise).
+        RuleFor(x => x.Request.DepartmentId).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.Request).Must(r => r.PositionId > 0 || r.RoleId is > 0)
+            .WithMessage("Vəzifə (rol) seçin.");
 
         RuleFor(x => x.Request.HireDate)
             .LessThanOrEqualTo(DateTime.UtcNow)
