@@ -2393,7 +2393,8 @@ ${escPosBarcode(receiptBarcodeValue(order.id))}` : undefined;
             label={okBusy ? "Göndərilir…" : "OK"}
             tone="primary"
             className="min-w-[6.5rem] flex-[1.4] text-xl"
-            disabled={order.lines.length === 0 || busy || okBusy}
+            // One OK per batch: once everything is sent, OK waits until something new is added (a draft can always be confirmed).
+            disabled={order.lines.length === 0 || busy || okBusy || (order.status !== "draft" && printerGroups.length === 0)}
             onClick={() => void handleOk()}
           />
         )}

@@ -7,6 +7,15 @@ public interface IOrderRepository
     Task AddAsync(Domain.Entities.Order order, CancellationToken cancellationToken);
     Task<Domain.Entities.Order?> GetByIdAsync(int id, int companyId, CancellationToken cancellationToken);
     /// <summary>All company orders, newest first; when <paramref name="filter"/> is given, only matching orders.</summary>
+    /// <summary>
+    /// Marks the given order lines as sent to the kitchen at <paramref name="at"/>, but only those not sent yet, in one atomic step;
+    /// returns the ids this call actually claimed. A line claimed by an earlier (or a simultaneous) OK is not claimed again.
+    /// </summary>
+    Task<List<int>> ClaimKitchenLinesAsync(IReadOnlyCollection<int> lineIds, DateTime at, CancellationToken cancellationToken);
+
+    /// <summary>Gives the claimed lines back (printing failed), so the next OK sends them.</summary>
+    Task ReleaseKitchenLinesAsync(IReadOnlyCollection<int> lineIds, CancellationToken cancellationToken);
+
     /// <summary>Paid orders of the company (one branch or all) paid inside [fromUtc, toUtcExclusive), newest first, without their lines.</summary>
     Task<List<Application.Orders.Queries.Receipts.ReceiptListItem>> GetReceiptsAsync(int companyId, int? restaurantId, DateTime fromUtc, DateTime toUtcExclusive, CancellationToken cancellationToken);
 

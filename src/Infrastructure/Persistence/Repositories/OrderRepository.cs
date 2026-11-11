@@ -35,6 +35,29 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
+    public async Task<List<int>> ClaimKitchenLinesAsync(IReadOnlyCollection<int> lineIds, DateTime at, CancellationToken cancellationToken)
+    {
+        if (lineIds.Count == 0) return new();
+
+        // Only lines still unsent are updated, so a second OK pressed at the same moment claims nothing.
+        await _context.OrderLines
+            .Where(l => lineIds.Contains(l.Id) && l.KitchenPrintedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.KitchenPrintedAt, at), cancellationToken);
+
+        return await _context.OrderLines.AsNoTracking()
+            .Where(l => lineIds.Contains(l.Id) && l.KitchenPrintedAt == at)
+            .Select(l => l.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task ReleaseKitchenLinesAsync(IReadOnlyCollection<int> lineIds, CancellationToken cancellationToken)
+    {
+        if (lineIds.Count == 0) return;
+        await _context.OrderLines
+            .Where(l => lineIds.Contains(l.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.KitchenPrintedAt, (DateTime?)null), cancellationToken);
+    }
+
     public async Task<List<Application.Orders.Queries.Receipts.ReceiptListItem>> GetReceiptsAsync(
         int companyId, int? restaurantId, DateTime fromUtc, DateTime toUtcExclusive, CancellationToken cancellationToken)
     {
