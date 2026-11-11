@@ -43,6 +43,7 @@ public class CompanySettingsBrandingResponse
     public bool ModuleQiymetSor { get; set; }
     public bool ModuleKompleks { get; set; }
     public bool ModuleDepartment { get; set; } = true;
+    public bool ReceiptEditAllowed { get; set; }
     public bool SalesEditLocked { get; set; }
     public bool KitchenApprovalRequired { get; set; } = true;
 

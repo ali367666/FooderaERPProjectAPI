@@ -222,10 +222,13 @@ public class OrdersController : ControllerBase
         [FromQuery] Domain.Enums.OrderStatus[]? status,
         [FromQuery] Domain.Enums.ReportPeriod? period,
         [FromQuery] DateTime? from,
-        [FromQuery] DateTime? to)
+        [FromQuery] DateTime? to,
+        [FromQuery] TimeSpan? fromTime,
+        [FromQuery] TimeSpan? toTime)
     {
-        // period = Today / ThisWeek / ThisMonth / Custom; from / to are calendar days (one date alone = that day).
-        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(Statuses: status, Period: period, From: from, To: to)));
+        // period = Today / ThisWeek / ThisMonth / Custom; from / to are calendar days (one date alone = that day);
+        // fromTime / toTime (HH:mm) narrow them to a time range.
+        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(Statuses: status, Period: period, From: from, To: to, FromTime: fromTime, ToTime: toTime)));
         return Ok(result);
     }
 
@@ -233,18 +236,35 @@ public class OrdersController : ControllerBase
     /// <summary>
     /// The POS old receipts: paid orders of a period - today (a business day), this week, this month, a date range or one date.
     /// period = Today / ThisWeek / ThisMonth / Custom; from / to are calendar days (one date alone = that day); none = today.
+    /// fromTime / toTime (HH:mm, or a time inside from / to) narrow the days to a time range, e.g. from=2026-11-04&amp;fromTime=14:00&amp;toTime=18:30.
     /// </summary>
-    [Authorize(Policy = AppPermissions.OrdersView)]
+    [Authorize(Policy = AppPermissions.ReceiptView)]
     [HttpGet("receipts")]
     public async Task<ActionResult<Application.Orders.Queries.Receipts.ReceiptListResponse>> GetReceipts(
         [FromQuery] Domain.Enums.ReportPeriod? period,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
-        [FromQuery] int? restaurantId)
+        [FromQuery] int? restaurantId,
+        [FromQuery] TimeSpan? fromTime,
+        [FromQuery] TimeSpan? toTime)
     {
-        var result = await _mediator.Send(new Application.Orders.Queries.Receipts.GetReceiptsQuery(period, from, to, restaurantId));
+        var result = await _mediator.Send(new Application.Orders.Queries.Receipts.GetReceiptsQuery(period, from, to, restaurantId, fromTime, toTime));
         return Ok(result);
     }
+
+    /// <summary>Corrects the payment method (cash / card) of a paid receipt. Needs Receipt.EditPayment and the company's receipt-edit switch (SuperAdmin).</summary>
+    [Authorize(Policy = AppPermissions.ReceiptEditPayment)]
+    [HttpPut("{id:int}/receipt/payment")]
+    public async Task<ActionResult<Application.Orders.Commands.EditReceipt.ReceiptEditResponse>> ChangeReceiptPayment(
+        int id, [FromBody] Application.Orders.Commands.EditReceipt.ChangeReceiptPaymentRequest request)
+        => Ok(await _mediator.Send(new Application.Orders.Commands.EditReceipt.ChangeReceiptPaymentCommand(id, request)));
+
+    /// <summary>Corrects the quantity of one item of a paid receipt (0 removes it); the totals and the payment follow. Needs Receipt.EditItems and the company's receipt-edit switch (SuperAdmin).</summary>
+    [Authorize(Policy = AppPermissions.ReceiptEditItems)]
+    [HttpPut("{id:int}/receipt/lines/{lineId:int}")]
+    public async Task<ActionResult<Application.Orders.Commands.EditReceipt.ReceiptEditResponse>> EditReceiptLine(
+        int id, int lineId, [FromBody] Application.Orders.Commands.EditReceipt.EditReceiptLineRequest request)
+        => Ok(await _mediator.Send(new Application.Orders.Commands.EditReceipt.EditReceiptLineCommand(id, lineId, request)));
 
     [Authorize(Policy = AppPermissions.OrdersView)]
     [HttpGet("active")]

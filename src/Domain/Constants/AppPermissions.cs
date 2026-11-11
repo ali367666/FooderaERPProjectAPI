@@ -194,6 +194,11 @@ public static class AppPermissions
     public const string PosDeleteReceipt = "Pos.DeleteReceipt";
     public const string PosWarehouseAmountChange = "Pos.WarehouseAmountChange";
     public const string PosPrintOldReceipt = "Pos.PrintOldReceipt";
+
+    // Old (paid) receipts: none of them = cannot look; View = can look; the edit ones also let the receipt be corrected.
+    public const string ReceiptView = "Receipt.View";
+    public const string ReceiptEditPayment = "Receipt.EditPayment";
+    public const string ReceiptEditItems = "Receipt.EditItems";
     public const string PosReturnSale = "Pos.ReturnSale";
     public const string PosUnlockBill = "Pos.UnlockBill";
 

@@ -30,6 +30,10 @@ public class IdentityAdminService : IIdentityAdminService
         AppPermissions.CompanyCreate,
         AppPermissions.CompanyUpdate,
         AppPermissions.CompanyDelete,
+        // Old receipts: given to a role by the SuperAdmin only.
+        AppPermissions.ReceiptView,
+        AppPermissions.ReceiptEditPayment,
+        AppPermissions.ReceiptEditItems,
     ];
 
     private readonly UserManager<User> _userManager;

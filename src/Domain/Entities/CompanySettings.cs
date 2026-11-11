@@ -32,6 +32,12 @@ public class CompanySettings : CompanyEntity<int>
     public bool ModuleDepartment { get; set; } = true;
 
     /// <summary>
+    /// Set by the platform SuperAdmin only. When true the company's authorised staff (Receipt.EditPayment / Receipt.EditItems) may
+    /// correct a paid receipt - its payment method or its items and quantities. Closed by default.
+    /// </summary>
+    public bool ReceiptEditAllowed { get; set; }
+
+    /// <summary>
     /// Set by the platform SuperAdmin only. When true the company's store sales can no longer be changed after the fact
     /// (a sale cannot be cancelled); returns still work.
     /// </summary>

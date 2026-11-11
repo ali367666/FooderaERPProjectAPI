@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Reflection;
 using Domain.Constants;
 using Domain.Entities;
@@ -135,6 +135,10 @@ public static class IdentitySeeder
         Domain.Constants.AppPermissions.CompanyCreate,
         Domain.Constants.AppPermissions.CompanyUpdate,
         Domain.Constants.AppPermissions.CompanyDelete,
+        // Old receipts: looking at them and correcting them is given by the SuperAdmin, never by a tenant's own admin.
+        Domain.Constants.AppPermissions.ReceiptView,
+        Domain.Constants.AppPermissions.ReceiptEditPayment,
+        Domain.Constants.AppPermissions.ReceiptEditItems,
     ];
 
     /// <summary>

@@ -189,6 +189,9 @@ const PERMISSION_LABELS: Record<string, string> = {
   "Pos.DeleteReceipt": "Köhnə qəbzi sil",
   "Pos.WarehouseAmountChange": "Anbar məbləğini dəyiş",
   "Pos.PrintOldReceipt": "Köhnə qəbzi çap et",
+  "Receipt.View": "Köhnə qəbzlərə bax",
+  "Receipt.EditPayment": "Qəbzin ödəniş üsulunu düzəlt (nağd/kart)",
+  "Receipt.EditItems": "Qəbzin məhsul və sayını düzəlt",
   "Pos.ReturnSale": "Satışı geri qaytar (barkodla)",
   "Pos.UnlockBill": "Verilmiş hesabın kilidini aç",
 
@@ -277,6 +280,7 @@ const MODULE_LABELS: Record<string, string> = {
   Reservation: "Rezervasiyalar",
   Discount: "Endirimlər",
   Pos: "POS",
+  Receipt: "Qəbzlər",
   RestaurantSection: "Filial bölmələri",
   Printer: "Printerlər",
   Counterparty: "Kontragentlər",
@@ -330,6 +334,8 @@ const RESTAURANT_ONLY_MODULES = new Set([
   "StockWriteOff",
   // the restaurant's till; a store has its own StoreCash* permissions
   "CashRegister",
+  // restaurant receipts; a store has its own sale documents
+  "Receipt",
 ]);
 
 /**

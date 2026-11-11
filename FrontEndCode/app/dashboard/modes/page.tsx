@@ -5,11 +5,11 @@ import { Store, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getCompanies, getCompanyPaymentBanks, setCompanyKitchenApproval, setCompanyPaymentBanks, type PaymentBankStatus, setCompanyModules, setCompanySalesLock, type Company, type CompanyModules } from "@/lib/services/company-service";
+import { getCompanies, getCompanyPaymentBanks, setCompanyKitchenApproval, setCompanyPaymentBanks, setCompanyReceiptEdit, type PaymentBankStatus, setCompanyModules, setCompanySalesLock, type Company, type CompanyModules } from "@/lib/services/company-service";
 import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
 import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 
-type Row = { company: Company; modules: CompanyModules | null; salesLocked: boolean; kitchenRequired: boolean; banks: PaymentBankStatus[] };
+type Row = { company: Company; modules: CompanyModules | null; salesLocked: boolean; kitchenRequired: boolean; receiptEdit: boolean; banks: PaymentBankStatus[] };
 
 const MODULE_LABELS: { key: keyof CompanyModules; label: string }[] = [
   { key: "moduleFilial", label: "Filial" },
@@ -53,9 +53,9 @@ export default function ModesPage() {
               moduleDepartment: b.moduleDepartment,
             };
             const banks = await getCompanyPaymentBanks(company.id).catch(() => [] as PaymentBankStatus[]);
-            return { company, modules, salesLocked: b.salesEditLocked, kitchenRequired: b.kitchenApprovalRequired, banks } as Row;
+            return { company, modules, salesLocked: b.salesEditLocked, kitchenRequired: b.kitchenApprovalRequired, receiptEdit: b.receiptEditAllowed, banks } as Row;
           } catch {
-            return { company, modules: null, salesLocked: false, kitchenRequired: true, banks: [] } as Row;
+            return { company, modules: null, salesLocked: false, kitchenRequired: true, receiptEdit: false, banks: [] } as Row;
           }
         }),
       );
@@ -91,6 +91,19 @@ export default function ModesPage() {
       await setCompanyPaymentBanks(row.company.id, banks.filter((b) => b.enabled).map((b) => b.name));
       setRows((prev) => prev.map((r) => (r.company.id === row.company.id ? { ...r, banks } : r)));
       toast.success(`${row.company.name}: banklar yadda saxlanıldı.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Yazılmadı.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const toggleReceiptEdit = async (row: Row) => {
+    setSaving(row.company.id);
+    try {
+      await setCompanyReceiptEdit(row.company.id, !row.receiptEdit);
+      setRows((prev) => prev.map((r) => (r.company.id === row.company.id ? { ...r, receiptEdit: !row.receiptEdit } : r)));
+      toast.success(`${row.company.name}: qəbz düzəlişi ${row.receiptEdit ? "bağlandı" : "açıldı"}.`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Yazılmadı.");
     } finally {
@@ -191,6 +204,18 @@ export default function ModesPage() {
                         {b.name}
                       </label>
                     ))}
+                  </div>
+                )}
+                {m && !isStore && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
+                    <span>
+                      Ödənilmiş qəbzin düzəlişi (ödəniş üsulu, məhsul və say):{" "}
+                      <b className={row.receiptEdit ? "text-amber-600" : "text-emerald-600"}>{row.receiptEdit ? "açıqdır" : "bağlıdır"}</b>
+                      <span className="text-muted-foreground"> — açıq olanda yalnız "Qəbzi düzəlt" icazəsi olan rollar düzəldə bilir</span>
+                    </span>
+                    <Button size="sm" variant="outline" disabled={saving === row.company.id} onClick={() => void toggleReceiptEdit(row)}>
+                      {row.receiptEdit ? "Bağla" : "Aç"}
+                    </Button>
                   </div>
                 )}
                 {m && !isStore && (
