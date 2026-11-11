@@ -86,7 +86,7 @@ export function useStoreApproval() {
           }}
         >
           <div className="space-y-1">
-            <Label htmlFor="appr-code">Menecerin kodu</Label>
+            <Label htmlFor="appr-code">Menecerin kodu və ya kartı</Label>
             <Input id="appr-code" type="password" autoFocus autoComplete="new-password" value={code} onChange={(e) => setCode(e.target.value)} />
           </div>
           <div className="space-y-1">

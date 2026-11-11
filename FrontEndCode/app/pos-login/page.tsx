@@ -591,12 +591,9 @@ function PosLoginView({
         const t = typedAt.current;
         const burst = t.length >= 6 && (t[t.length - 1] - t[0]) / (t.length - 1) < 40;
         typedAt.current = [];
-        if (burst) {
-          setCode("");
-          rfidRef.current(value);
-        } else {
-          submitRef.current(value);
-        }
+        // A store staff card is recognised like a code (its barcode is the user's store card); the burst only matters for the length.
+        void burst;
+        submitRef.current(value);
         return;
       }
       if (e.key === "Backspace") {
@@ -609,7 +606,8 @@ function PosLoginView({
         typedAt.current.push(Date.now());
         if (typedAt.current.length > 40) typedAt.current.shift();
         setError(null);
-        setCode((prev) => (prev.length >= MAX_CODE_LENGTH ? prev : prev + e.key));
+        // A scanned card is a long run of digits: a store terminal has no cap on the code's length.
+        setCode((prev) => prev + e.key);
       }
     };
     window.addEventListener("keydown", onKey);

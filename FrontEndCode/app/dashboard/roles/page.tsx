@@ -198,11 +198,6 @@ export default function RolesPage() {
     { key: "roleId" as const, label: "ID" },
     { key: "name" as const, label: "Role name" },
     { key: "companyName" as const, label: "Company" },
-    {
-      key: "requiresRotatingPin" as const,
-      label: "Gündəlik kod",
-      render: (value: boolean) => (value ? "Bəli" : "Xeyr"),
-    },
   ];
 
   const handleAdd = () => {
@@ -373,20 +368,6 @@ export default function RolesPage() {
               )}
             </div>
           )}
-
-          <div className="mt-4">
-            <label className="flex items-center gap-2 text-sm font-normal">
-              <Checkbox
-                checked={requiresRotatingPin}
-                onCheckedChange={(v) => setRequiresRotatingPin(Boolean(v))}
-              />
-              Gündəlik dəyişən kod tələb olunsun
-            </label>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Açılsa, bu rola aid işçilər POS-a daxil olarkən kodun qarşısına həmin günün tarixini (4 rəqəm, avtomatik dəyişir)
-              əlavə etməlidir. Bağlı qalarsa, sabit kod kifayətdir.
-            </p>
-          </div>
 
           <div className="mt-4">
             <Label>Səlahiyyətlər</Label>

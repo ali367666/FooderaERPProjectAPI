@@ -13,7 +13,8 @@ public class StaffCodeTests
     [InlineData("al i", true, false)]
     [InlineData("ə12", true, false)]
     [InlineData("", true, false)]
-    [InlineData("123456789012345678901", true, false)]
+    [InlineData("123456789012345678901", true, true)]   // a store code may be a long card barcode
+    [InlineData("123456789012345678901", false, false)]
     public void Restaurants_keep_digits_only_and_stores_may_add_latin_letters(string code, bool allowLetters, bool expected)
         => Assert.Equal(expected, StaffCodeRules.IsValid(code, allowLetters));
 }

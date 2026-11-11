@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -16,7 +16,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                .IsRequired();
 
         builder.Property(x => x.Code)
-               .HasMaxLength(Domain.Constants.StaffCodeRules.MaxLength);
+               .HasMaxLength(Domain.Constants.StaffCodeRules.StoreMaxLength);
 
         builder.Property(x => x.RfidCardId)
                .HasMaxLength(64);

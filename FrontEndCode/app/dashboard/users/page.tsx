@@ -60,11 +60,6 @@ type UserRow = {
   positionName: string;
 };
 
-/** Today's month and day (MMdd) — the suffix staff add to their code for the admin panel. */
-function todayMonthDay(): string {
-  const now = new Date();
-  return String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
-}
 
 function formatEmployeeName(e: Employee): string {
   const n = e.fullName?.trim();
@@ -337,8 +332,8 @@ export default function UsersPage() {
       toast.error("Company is required.");
       return;
     }
-    if (code.trim() && !/^\d{1,20}$/.test(code.trim())) {
-      toast.error("Kod yalnız rəqəmlərdən ibarət olmalıdır (maks. 20).");
+    if (code.trim() && !(storeMode ? /^[A-Za-z0-9]{1,450}$/ : /^\d{1,20}$/).test(code.trim())) {
+      toast.error(storeMode ? "Kod yalnız hərf və rəqəmlərdən ibarət olmalıdır." : "Kod yalnız rəqəmlərdən ibarət olmalıdır (maks. 20).");
       return;
     }
     if (!editingProtected && !code.trim() && (canAccessAdminPanel || canAccessFrontOffice)) {
@@ -707,12 +702,17 @@ export default function UsersPage() {
                 id="u-code"
                 className="mt-1"
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(storeMode ? /[^A-Za-z0-9]/g : /\D/g, "").slice(0, 20))}
-                placeholder="e.g. 0002"
+                onChange={(e) => setCode(e.target.value.replace(storeMode ? /[^A-Za-z0-9]/g : /\D/g, "").slice(0, storeMode ? 450 : 20))}
+                placeholder={storeMode ? "Kodu yazın və ya kartı oxudun" : "e.g. 0002"}
                 inputMode={storeMode ? "text" : "numeric"}
-                maxLength={20}
+                maxLength={storeMode ? 450 : 20}
                 autoComplete="off"
               />
+              {storeMode && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Kartı oxuyucu ilə oxudun: barkodun rəqəmləri avtomatik kod kimi yazılır (uzunluq məhdud deyil). Satış ekranında kod əvəzinə kartı oxutmaq olar.
+                </p>
+              )}
               {getFieldErrorMessage(fieldErrors, "code") && (
                 <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "code")}</p>
               )}
@@ -751,8 +751,7 @@ export default function UsersPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   {canAccessAdminPanel ? (
                     <>
-                      İstifadəçi adı və şifrə yerinə kod + bu günün ayı və günü — bu gün{" "}
-                      <span className="font-mono">{(code || "1234") + todayMonthDay()}</span>.
+                      Admin panelə istifadəçi adı və şifrə yerinə kodla daxil olur: <span className="font-mono">{code || "1234"}</span>.
                     </>
                   ) : (
                     <>
