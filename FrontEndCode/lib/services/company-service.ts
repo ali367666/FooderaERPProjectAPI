@@ -221,18 +221,6 @@ export async function setCompanyPaymentBanks(companyId: number, names: string[])
   }
 }
 
-/** SuperAdmin only: whether staff with the receipt-edit permissions may correct a company's paid receipts. */
-export async function setCompanyReceiptEdit(companyId: number, allowed: boolean): Promise<void> {
-  try {
-    const response = await api.put<ApiResponse<unknown>>("/company-settings/receipt-edit", null, { params: { companyId, allowed } });
-    if (response.data?.success === false) {
-      throw new ApiFormError(response.data.message || "Failed to update the receipt edit switch");
-    }
-  } catch (error) {
-    throw toApiFormError(error, "Failed to update the receipt edit switch");
-  }
-}
-
 /** SuperAdmin only: whether a restaurant's orders wait for the kitchen to accept them / mark them ready before payment. */
 export async function setCompanyKitchenApproval(companyId: number, required: boolean): Promise<void> {
   try {

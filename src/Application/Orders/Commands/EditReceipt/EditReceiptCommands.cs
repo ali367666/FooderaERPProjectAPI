@@ -50,14 +50,12 @@ public class ReceiptEditResponse
 internal static class ReceiptEditGuards
 {
     public static async Task<Domain.Entities.Order> LoadEditableAsync(
-        IOrderRepository orders, ICompanySettingsRepository settings, ICurrentUserService user, int orderId, string reason, CancellationToken ct)
+        IOrderRepository orders, ICurrentUserService user, int orderId, string reason, CancellationToken ct)
     {
         var order = await orders.GetByIdWithLinesAsync(orderId, ct);
         if (order is null || !user.CanAccessCompany(order.CompanyId))
             throw new NotFoundException("Qəbz tapılmadı.");
 
-        if ((await settings.GetByCompanyIdAsync(order.CompanyId, ct))?.ReceiptEditAllowed != true)
-            throw new BadRequestException("Qəbz düzəlişi bu şirkətdə bağlıdır.");
         if (string.IsNullOrWhiteSpace(reason))
             throw new BadRequestException("Düzəlişin səbəbini yazın.");
         if (!order.IsPaid || order.Status != OrderStatus.Paid)
@@ -80,18 +78,16 @@ public class ChangeReceiptPaymentCommandHandler : IRequestHandler<ChangeReceiptP
 {
     private readonly IOrderRepository _orders;
     private readonly IOrderPaymentRepository _payments;
-    private readonly ICompanySettingsRepository _settings;
     private readonly ICounterpartyRepository _counterparties;
     private readonly ICurrentUserService _user;
     private readonly IAuditLogService _audit;
 
     public ChangeReceiptPaymentCommandHandler(
-        IOrderRepository orders, IOrderPaymentRepository payments, ICompanySettingsRepository settings,
+        IOrderRepository orders, IOrderPaymentRepository payments,
         ICounterpartyRepository counterparties, ICurrentUserService user, IAuditLogService audit)
     {
         _orders = orders;
         _payments = payments;
-        _settings = settings;
         _counterparties = counterparties;
         _user = user;
         _audit = audit;
@@ -100,7 +96,7 @@ public class ChangeReceiptPaymentCommandHandler : IRequestHandler<ChangeReceiptP
     public async Task<ReceiptEditResponse> Handle(ChangeReceiptPaymentCommand command, CancellationToken ct)
     {
         var dto = command.Request;
-        var order = await ReceiptEditGuards.LoadEditableAsync(_orders, _settings, _user, command.OrderId, dto.Reason, ct);
+        var order = await ReceiptEditGuards.LoadEditableAsync(_orders, _user, command.OrderId, dto.Reason, ct);
 
         if (!Enum.TryParse<PaymentMethod>(dto.Method, true, out var method) || method is not (PaymentMethod.Cash or PaymentMethod.Card))
             throw new BadRequestException("Ödəniş üsulu nağd və ya kart olmalıdır.");
@@ -151,18 +147,16 @@ public class EditReceiptLineCommandHandler : IRequestHandler<EditReceiptLineComm
 {
     private readonly IOrderRepository _orders;
     private readonly IOrderPaymentRepository _payments;
-    private readonly ICompanySettingsRepository _settings;
     private readonly IRecipeStockDeductionService _stock;
     private readonly ICurrentUserService _user;
     private readonly IAuditLogService _audit;
 
     public EditReceiptLineCommandHandler(
-        IOrderRepository orders, IOrderPaymentRepository payments, ICompanySettingsRepository settings,
+        IOrderRepository orders, IOrderPaymentRepository payments,
         IRecipeStockDeductionService stock, ICurrentUserService user, IAuditLogService audit)
     {
         _orders = orders;
         _payments = payments;
-        _settings = settings;
         _stock = stock;
         _user = user;
         _audit = audit;
@@ -171,7 +165,7 @@ public class EditReceiptLineCommandHandler : IRequestHandler<EditReceiptLineComm
     public async Task<ReceiptEditResponse> Handle(EditReceiptLineCommand command, CancellationToken ct)
     {
         var dto = command.Request;
-        var order = await ReceiptEditGuards.LoadEditableAsync(_orders, _settings, _user, command.OrderId, dto.Reason, ct);
+        var order = await ReceiptEditGuards.LoadEditableAsync(_orders, _user, command.OrderId, dto.Reason, ct);
 
         if (order.IsFiscal)
             throw new BadRequestException("Fiskal çekin məhsulları dəyişdirilə bilməz.");

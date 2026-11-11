@@ -328,8 +328,6 @@ export type CompanySettingsBranding = {
   salesEditLocked: boolean;
   /** Restaurant: the kitchen must accept an order and mark it ready before it can be paid. */
   kitchenApprovalRequired: boolean;
-  /** SuperAdmin switch: staff with the receipt-edit permissions may correct paid receipts. */
-  receiptEditAllowed: boolean;
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
   moduleKompleks: boolean;
@@ -453,7 +451,6 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     moduleFitnes: bool("moduleFitnes", "ModuleFitnes"),
     salesEditLocked: bool("salesEditLocked", "SalesEditLocked"),
     kitchenApprovalRequired: bool("kitchenApprovalRequired", "KitchenApprovalRequired"),
-    receiptEditAllowed: bool("receiptEditAllowed", "ReceiptEditAllowed"),
     moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
     moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
     moduleKompleks: bool("moduleKompleks", "ModuleKompleks"),

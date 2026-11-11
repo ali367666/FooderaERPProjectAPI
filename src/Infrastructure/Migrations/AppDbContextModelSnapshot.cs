@@ -585,9 +585,6 @@ namespace Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<bool>("ReceiptEditAllowed")
-                        .HasColumnType("bit");
-
                     b.Property<int?>("ReceiptFontSize")
                         .HasColumnType("int");
 

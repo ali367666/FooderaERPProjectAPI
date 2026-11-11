@@ -93,11 +93,45 @@ public static class IdentitySeeder
         }
 
         await GrantLowerPriceToChangePriceRolesAsync(dbContext, newPermissionNames);
+        await GrantReceiptPermissionsToCompanyAdminsOnceAsync(roleManager, dbContext);
         await EnsureSuperAdminHasAllPermissionsAsync(roleManager, dbContext);
         await EnsureAdminTemplateHasBroadPermissionsAsync(roleManager, dbContext);
         await EnsureCompanySuperAdminTemplateAsync(roleManager, dbContext, newPermissionNames);
 
         await dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Looking at old receipts and correcting them is up to each company's admin. An admin can only hand out what their own role holds,
+    /// so the first time these permissions exist (no role of any company holds them yet) every company Admin / CompanySuperAdmin role gets
+    /// them; after that the admin decides who has them and a later start never gives them back.
+    /// </summary>
+    private static async Task GrantReceiptPermissionsToCompanyAdminsOnceAsync(RoleManager<AppRole> roleManager, AppDbContext dbContext)
+    {
+        var names = new[] { AppPermissions.ReceiptView, AppPermissions.ReceiptEditPayment, AppPermissions.ReceiptEditItems };
+        var superAdmin = AppRoles.SuperAdmin.ToUpperInvariant();
+        var companyAdminNames = new[] { AppRoles.Admin.ToUpperInvariant(), AppRoles.CompanySuperAdmin.ToUpperInvariant() };
+
+        var adminRoles = await dbContext.Roles
+            .Where(r => r.CompanyId != null && r.NormalizedName != null && companyAdminNames.Contains(r.NormalizedName))
+            .ToListAsync();
+        if (adminRoles.Count == 0)
+            return;
+
+        foreach (var name in names)
+        {
+            var permission = await dbContext.Permissions.AsNoTracking().FirstOrDefaultAsync(x => x.Name == name);
+            if (permission is null)
+                continue;
+
+            var heldByACompanyRole = await dbContext.RolePermissions.AnyAsync(x =>
+                x.PermissionId == permission.Id && x.Role.NormalizedName != superAdmin);
+            if (heldByACompanyRole)
+                continue;
+
+            foreach (var role in adminRoles)
+                await GrantRolePermissionsAsync(roleManager, dbContext, role, new List<Permission> { permission });
+        }
     }
 
     /// <summary>
@@ -135,10 +169,6 @@ public static class IdentitySeeder
         Domain.Constants.AppPermissions.CompanyCreate,
         Domain.Constants.AppPermissions.CompanyUpdate,
         Domain.Constants.AppPermissions.CompanyDelete,
-        // Old receipts: looking at them and correcting them is given by the SuperAdmin, never by a tenant's own admin.
-        Domain.Constants.AppPermissions.ReceiptView,
-        Domain.Constants.AppPermissions.ReceiptEditPayment,
-        Domain.Constants.AppPermissions.ReceiptEditItems,
     ];
 
     /// <summary>

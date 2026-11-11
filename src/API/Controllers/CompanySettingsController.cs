@@ -68,15 +68,6 @@ public class CompanySettingsController(IMediator mediator) : BaseController(medi
         return response.Success ? Ok(response) : BadRequest(response);
     }
 
-    /// <summary>SuperAdmin: whether a company's authorised staff may correct paid receipts (payment method, items and quantities). Closed by default.</summary>
-    [Authorize(Policy = AppPermissions.CompanyUpdate)]
-    [HttpPut("receipt-edit")]
-    public async Task<IActionResult> SetReceiptEdit([FromQuery] int companyId, [FromQuery] bool allowed, CancellationToken cancellationToken)
-    {
-        var response = await Mediator.Send(new Application.CompanySettings.Commands.SetReceiptEdit.SetReceiptEditCommand(companyId, allowed), cancellationToken);
-        return response.Success ? Ok(response) : BadRequest(response);
-    }
-
     [Authorize(Policy = AppPermissions.CompanyUpdate)]
     [HttpPut("kitchen-approval")]
     public async Task<IActionResult> SetKitchenApproval([FromQuery] int companyId, [FromQuery] bool required, CancellationToken cancellationToken)
