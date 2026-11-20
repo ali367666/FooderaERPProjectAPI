@@ -103,6 +103,23 @@ erDiagram
     string Name
     int32 ParentCategoryId FK
   }
+  StoreCostLayer {
+    int32 Id PK
+    int32 CompanyId FK
+    datetime CreatedAtUtc
+    int32 CreatedByUserId
+    string DocumentNo
+    string DocumentType
+    bool IsOpeningBalance
+    datetime LastModifiedAtUtc
+    int32 LastModifiedByUserId
+    decimal OriginalQuantity
+    datetime ReceivedAtUtc
+    decimal RemainingQuantity
+    int32 StoreProductId FK
+    decimal UnitCost
+    int32 WarehouseId FK
+  }
   StoreCustomer {
     int32 Id PK
     decimal BonusPercentOverride
@@ -136,6 +153,46 @@ erDiagram
     int32 ReversedByUserId
     int32 StoreCashShiftId FK
     int32 StoreCustomerId FK
+  }
+  StoreExpense {
+    int32 Id PK
+    string CancelReason
+    datetime CancelledAtUtc
+    int32 CancelledByUserId
+    int32 CompanyId FK
+    datetime CreatedAtUtc
+    int32 CreatedByUserId
+    datetime DocumentDate
+    string DocumentNo
+    datetime LastModifiedAtUtc
+    int32 LastModifiedByUserId
+    string Note
+  }
+  StoreExpenseItem {
+    int32 Id PK
+    int32 CompanyId FK
+    datetime CreatedAtUtc
+    int32 CreatedByUserId
+    bool IsActive
+    datetime LastModifiedAtUtc
+    int32 LastModifiedByUserId
+    string Name
+  }
+  StoreExpenseLine {
+    int32 Id PK
+    decimal Amount
+    datetime CreatedAtUtc
+    int32 CreatedByUserId
+    datetime LastModifiedAtUtc
+    int32 LastModifiedByUserId
+    string Note
+    string Payee
+    int32 ReversalMovementId
+    int32 StoreCashMovementId
+    int32 StoreCashRegisterId FK
+    int32 StoreCashShiftId
+    int32 StoreExpenseId FK
+    int32 StoreExpenseItemId FK
   }
   StoreHeldSale {
     int32 Id PK
@@ -357,6 +414,7 @@ erDiagram
     string FiscalReceiptNo
     int FiscalStatus
     bool IsReceiptless
+    bool IsWholesale
     datetime LastModifiedAtUtc
     int32 LastModifiedByUserId
     string Note
@@ -486,6 +544,7 @@ erDiagram
     int32 LastModifiedByUserId
     decimal MaxDiscountPercent
     int32 QuickSlotCount
+    int32 QuickSlotPageSize
     string ReceiptFooter
     string ReceiptHeader
     int32 ReceiptWidthMm
@@ -625,8 +684,11 @@ erDiagram
   Company ||--o{ StoreCashRegister : "CompanyId"
   Company ||--o{ StoreCashShift : "CompanyId"
   Company ||--o{ StoreCategory : "CompanyId"
+  Company ||--o{ StoreCostLayer : "CompanyId"
   Company ||--o{ StoreCustomer : "CompanyId"
   Company ||--o{ StoreCustomerPayment : "CompanyId"
+  Company ||--o{ StoreExpense : "CompanyId"
+  Company ||--o{ StoreExpenseItem : "CompanyId"
   Company ||--o{ StoreHeldSale : "CompanyId"
   Company ||--o{ StoreInventory : "CompanyId"
   Company ||--o{ StoreLedgerEntry : "CompanyId"
@@ -649,6 +711,7 @@ erDiagram
   Company ||--o{ StoreUserBranch : "CompanyId"
   Restaurant ||--o{ StoreCashRegister : "RestaurantId"
   StoreCashRegister ||--o{ StoreCashShift : "StoreCashRegisterId"
+  StoreCashRegister ||--o{ StoreExpenseLine : "StoreCashRegisterId"
   StoreCashRegister ||--o{ StoreHeldSale : "StoreCashRegisterId"
   StoreCashRegister ||--o{ StoreQuickSlot : "StoreCashRegisterId"
   StoreCashRegister ||--o{ StoreSale : "StoreCashRegisterId"
@@ -663,8 +726,11 @@ erDiagram
   StoreCustomer ||--o{ StoreBonusEntry : "StoreCustomerId"
   StoreCustomer ||--o{ StoreCustomerPayment : "StoreCustomerId"
   StoreCustomer ||--o{ StoreSale : "StoreCustomerId"
+  StoreExpense ||--o{ StoreExpenseLine : "StoreExpenseId"
+  StoreExpenseItem ||--o{ StoreExpenseLine : "StoreExpenseItemId"
   StoreInventory ||--o{ StoreInventoryLine : "StoreInventoryId"
   StoreProduct ||--o{ StoreBranchPrice : "StoreProductId"
+  StoreProduct ||--o{ StoreCostLayer : "StoreProductId"
   StoreProduct ||--o{ StoreInventoryLine : "StoreProductId"
   StoreProduct ||--o{ StorePriceHistory : "StoreProductId"
   StoreProduct ||--o{ StoreProductBarcode : "StoreProductId"
@@ -692,6 +758,7 @@ erDiagram
   StoreSupplierPayment ||--o{ StorePaymentAllocation : "StoreSupplierPaymentId"
   StoreTransfer ||--o{ StoreTransferLine : "StoreTransferId"
   Warehouse ||--o{ StoreCashRegister : "WarehouseId"
+  Warehouse ||--o{ StoreCostLayer : "WarehouseId"
   Warehouse ||--o{ StoreInventory : "WarehouseId"
   Warehouse ||--o{ StorePurchase : "WarehouseId"
   Warehouse ||--o{ StoreSerialUnit : "WarehouseId"
@@ -719,11 +786,19 @@ erDiagram
 | StoreCashShifts | StoreCashRegisterId | bəli |
 | StoreCategories | CompanyId |  |
 | StoreCategories | ParentCategoryId |  |
+| StoreCostLayers | StoreProductId |  |
+| StoreCostLayers | WarehouseId |  |
+| StoreCostLayers | CompanyId, WarehouseId, StoreProductId, ReceivedAtUtc |  |
 | StoreCustomers | CompanyId, Code | bəli |
 | StoreCustomers | CompanyId, Phone |  |
 | StoreCustomerPayments | StoreCashShiftId |  |
 | StoreCustomerPayments | StoreCustomerId |  |
 | StoreCustomerPayments | CompanyId, DocumentNo | bəli |
+| StoreExpenses | CompanyId, DocumentDate |  |
+| StoreExpenseItems | CompanyId, Name | bəli |
+| StoreExpenseLines | StoreCashRegisterId |  |
+| StoreExpenseLines | StoreExpenseId |  |
+| StoreExpenseLines | StoreExpenseItemId |  |
 | StoreHeldSales | CompanyId |  |
 | StoreHeldSales | StoreCashRegisterId |  |
 | StoreInventories | CategoryId |  |

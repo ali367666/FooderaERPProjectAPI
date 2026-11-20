@@ -32,7 +32,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "LƏĞV EDİLİB",
     "Ləğv et",
     "Menecer təsdiqi",
-    "Menecerin kodu",
+    "Menecerin kodu və ya kartı",
     "Məbləğ",
     "Mədaxil",
     "Məxaric",
@@ -2202,6 +2202,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Company List",
     "Company Name",
     "Country",
+    "Departamentlər",
     "Description",
     "Email",
     "Enter address",
@@ -2267,6 +2268,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
   "/dashboard/modes": [
     "Anbar",
     "Bu səhifə yalnız SuperAdmin üçündür.",
+    "Departamentlər",
     "Filial",
     "Fitnes",
     "İstirahət kompleksi",
@@ -2296,24 +2298,6 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Select company",
     "Status"
   ],
-  "/dashboard/positions": [
-    "Cancel",
-    "Company",
-    "Company Name",
-    "Department",
-    "Department Name",
-    "Description",
-    "Enter description",
-    "Enter position details and save changes.",
-    "Enter position name",
-    "Loading positions...",
-    "Position List",
-    "Position Name",
-    "Positions",
-    "Select a company",
-    "Select a department",
-    "Status"
-  ],
   "/dashboard/employees": [
     "Address",
     "Address (optional)",
@@ -2340,8 +2324,9 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Position",
     "Select branch",
     "Select department",
-    "Select position",
-    "Status"
+    "Status",
+    "Vəzifə (rol)",
+    "Vəzifə (rol) seçin"
   ],
   "/dashboard/stock-categories": [
     "Active",
@@ -2362,6 +2347,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
   ],
   "/dashboard/stock-items": [
     "Barcode",
+    "Barkodu oxudun (ilk dəfə məhsulu özünüz yazın)",
     "Branch (optional)",
     "Bu məhsula bağlı menyu maddəsinin Dəzgah qiyməti boşdursa, POS-da bu qiymət işlədilir.",
     "Cancel",
@@ -3104,6 +3090,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
   "/dashboard/users": [
     "Account active",
     "Admin panel",
+    "Admin panelə istifadəçi adı və şifrə yerinə kodla daxil olur:",
     "Anbar (depo)",
     "Assign credentials, company, and optional employee link.",
     "Branch",
@@ -3138,8 +3125,6 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "0 && !editingGlobalRole && (",
     "Bütün şirkətlərin SuperAdmin-ləri üçün ortaq şablon. Burada söndürdüyünüz icazə heç bir şirkətdə heç kimdə olmayacaq.",
     "Company",
-    "Gündəlik dəyişən kod tələb olunsun",
-    "Gündəlik kod",
     "Ləğv et",
     "Loading roles…",
     "məs. Kassir",

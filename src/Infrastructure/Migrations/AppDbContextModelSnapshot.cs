@@ -680,6 +680,9 @@ namespace Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<int>("StoreCostMethod")
+                        .HasColumnType("int");
+
                     b.Property<bool>("TableBusyWarning")
                         .HasColumnType("bit");
 
@@ -3496,6 +3499,69 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("StoreCategories", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCostLayer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("DocumentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsOpeningBalance")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OriginalQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("RemainingQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("StoreProductId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreProductId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "WarehouseId", "StoreProductId", "ReceivedAtUtc");
+
+                    b.ToTable("StoreCostLayers", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.StoreMode.StoreCustomer", b =>
                 {
                     b.Property<int>("Id")
@@ -3628,6 +3694,157 @@ namespace Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("StoreCustomerPayments", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreExpense", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CancelledByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("DocumentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DocumentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "DocumentDate");
+
+                    b.ToTable("StoreExpenses", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreExpenseItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("StoreExpenseItems", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreExpenseLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastModifiedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Payee")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("ReversalMovementId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StoreCashMovementId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashRegisterId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreCashShiftId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreExpenseId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreExpenseItemId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreCashRegisterId");
+
+                    b.HasIndex("StoreExpenseId");
+
+                    b.HasIndex("StoreExpenseItemId");
+
+                    b.ToTable("StoreExpenseLines", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.StoreMode.StoreHeldSale", b =>
@@ -4444,6 +4661,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsReceiptless")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsWholesale")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("LastModifiedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -4928,6 +5148,11 @@ namespace Infrastructure.Persistence.Migrations
                         .HasDefaultValue(10m);
 
                     b.Property<int>("QuickSlotCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(50);
+
+                    b.Property<int>("QuickSlotPageSize")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(50);
@@ -5975,6 +6200,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<int>("Status")
                         .IsConcurrencyToken()
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("SubmittedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("SupplierInvoiceNo")
                         .HasMaxLength(100)
@@ -7675,6 +7903,33 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("ParentCategory");
                 });
 
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreCostLayer", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreProduct", "StoreProduct")
+                        .WithMany()
+                        .HasForeignKey("StoreProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("StoreProduct");
+
+                    b.Navigation("Warehouse");
+                });
+
             modelBuilder.Entity("Domain.Entities.StoreMode.StoreCustomer", b =>
                 {
                     b.HasOne("Domain.Entities.Company", "Company")
@@ -7711,6 +7966,55 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("StoreCashShift");
 
                     b.Navigation("StoreCustomer");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreExpense", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreExpenseItem", b =>
+                {
+                    b.HasOne("Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreExpenseLine", b =>
+                {
+                    b.HasOne("Domain.Entities.StoreMode.StoreCashRegister", "StoreCashRegister")
+                        .WithMany()
+                        .HasForeignKey("StoreCashRegisterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreExpense", "StoreExpense")
+                        .WithMany("Lines")
+                        .HasForeignKey("StoreExpenseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.StoreMode.StoreExpenseItem", "StoreExpenseItem")
+                        .WithMany()
+                        .HasForeignKey("StoreExpenseItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("StoreCashRegister");
+
+                    b.Navigation("StoreExpense");
+
+                    b.Navigation("StoreExpenseItem");
                 });
 
             modelBuilder.Entity("Domain.Entities.StoreMode.StoreHeldSale", b =>
@@ -8884,6 +9188,11 @@ namespace Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Domain.Entities.SaleReturn", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Domain.Entities.StoreMode.StoreExpense", b =>
                 {
                     b.Navigation("Lines");
                 });
