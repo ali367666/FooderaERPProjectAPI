@@ -338,7 +338,7 @@ public class StoreReportsHandlers :
     }
 
     private static (DateTime FromUtc, DateTime ToUtc) Bounds(DateTime from, DateTime to)
-        => (BusinessTime.ToUtc(from.Date + ReportPeriodResolver.DayStart), BusinessTime.ToUtc(to.Date.AddDays(1) + ReportPeriodResolver.DayStart));
+        => (ReportPeriodResolver.StoreFromUtc(from), ReportPeriodResolver.StoreToUtc(to));
 
     // ---- Sales and profit -------------------------------------------------------------------
 

@@ -70,8 +70,8 @@ public class StoreTransfersHandlers :
 
     public async Task<List<StoreTransferResponse>> Handle(GetStoreTransfersQuery query, CancellationToken ct)
     {
-        DateTime? fromUtc = query.From is { } f ? BusinessTime.ToUtc(f.Date + ReportPeriodResolver.DayStart) : null;
-        DateTime? toUtc = query.To is { } t ? BusinessTime.ToUtc(t.Date.AddDays(1) + ReportPeriodResolver.DayStart) : null;
+        DateTime? fromUtc = query.From is { } f ? ReportPeriodResolver.StoreFromUtc(f) : null;
+        DateTime? toUtc = query.To is { } t ? ReportPeriodResolver.StoreToUtc(t) : null;
 
         var rows = await _ops.SearchTransfersAsync(_currentUser.CompanyId, query.Status, query.WarehouseId, fromUtc, toUtc, ct);
         if (await _access.AllowedWarehousesAsync(ct) is { } allowedWarehouses)

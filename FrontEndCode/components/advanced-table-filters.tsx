@@ -39,6 +39,8 @@ export function createInitialFilterState<T>(defs: TableFilterDef<T>[]): Record<s
     } else if (d.ui === "dateRange") {
       s[`${d.id}:from`] = "";
       s[`${d.id}:to`] = "";
+      s[`${d.id}:fromTime`] = "";
+      s[`${d.id}:toTime`] = "";
     } else if (d.ui === "status" || d.ui === "occupancy") {
       s[d.id] = "all";
     } else {
@@ -49,6 +51,37 @@ export function createInitialFilterState<T>(defs: TableFilterDef<T>[]): Record<s
 }
 
 const inputCompactClass = "h-8 px-2 py-1 text-xs placeholder:text-xs";
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Whether a moment falls into a `dateRange` filter: the days (local time) and, when set, the time of day. The time range works like the POS
+ * ones: from `fromTime` on the first day to the end of the `toTime` minute on the last day. With no day at all the time of day applies to every day.
+ */
+export function matchesDateTimeRange(ms: number, get: (key: string) => string, id: string): boolean {
+  const from = get(`${id}:from`);
+  const to = get(`${id}:to`);
+  const fromTime = get(`${id}:fromTime`);
+  const toTime = get(`${id}:toTime`);
+  if (!from && !to && !fromTime && !toTime) return true;
+  if (!ms) return false;
+
+  const d = new Date(ms);
+  const day = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+  if (from && day < from) return false;
+  if (to && day > to) return false;
+  const firstDay = from || to;
+  const lastDay = to || from;
+  if (fromTime) {
+    if (firstDay ? day === firstDay && time < fromTime : time < fromTime) return false;
+  }
+  if (toTime) {
+    if (lastDay ? day === lastDay && time > toTime : time > toTime) return false;
+  }
+  return true;
+}
 
 type FilterControlProps<T> = {
   def: TableFilterDef<T>;
@@ -175,6 +208,22 @@ function FilterControl<T>({ def, state, setVal }: FilterControlProps<T>) {
               className={inputCompactClass}
               value={state[`${def.id}:to`] ?? ""}
               onChange={(e) => setVal(`${def.id}:to`, e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Input
+              type="time"
+              className={inputCompactClass}
+              aria-label={`${def.label}: saat başlanğıc`}
+              value={state[`${def.id}:fromTime`] ?? ""}
+              onChange={(e) => setVal(`${def.id}:fromTime`, e.target.value)}
+            />
+            <Input
+              type="time"
+              className={inputCompactClass}
+              aria-label={`${def.label}: saat son`}
+              value={state[`${def.id}:toTime`] ?? ""}
+              onChange={(e) => setVal(`${def.id}:toTime`, e.target.value)}
             />
           </div>
         </>,

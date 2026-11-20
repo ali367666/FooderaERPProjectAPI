@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStorePermissions as usePermissionSet } from "@/lib/store/use-store-permissions";
 import { formatCurrency } from "@/lib/format-currency";
-import { toDateInputValue } from "@/lib/report-period";
+import { toDateInputValue, withTime } from "@/lib/report-period";
+import { TimeRangeInputs, useTimeRangeEnabled } from "@/components/store/time-range-inputs";
 import { cn } from "@/lib/utils";
 import {
   StoreShiftStatus,
@@ -29,6 +30,9 @@ export default function StoreShiftsPage() {
 
   const [from, setFrom] = useState(weekAgo);
   const [to, setTo] = useState(today);
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
+  const timesOn = useTimeRangeEnabled();
   const [registerId, setRegisterId] = useState<number | "">("");
   const [registers, setRegisters] = useState<StoreCashRegister[]>([]);
   const [shifts, setShifts] = useState<StoreShift[]>([]);
@@ -62,13 +66,13 @@ export default function StoreShiftsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setShifts(await getStoreShifts({ registerId: registerId === "" ? null : registerId, from, to }));
+      setShifts(await getStoreShifts({ registerId: registerId === "" ? null : registerId, from: timesOn ? withTime(from, fromTime) : from, to: timesOn ? withTime(to, toTime) : to }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Növbələr yüklənmədi.");
     } finally {
       setLoading(false);
     }
-  }, [registerId, from, to]);
+  }, [registerId, from, to, fromTime, toTime, timesOn]);
 
   useEffect(() => {
     void load();
@@ -95,6 +99,7 @@ export default function StoreShiftsPage() {
           <Label htmlFor="sh-to">Son</Label>
           <Input id="sh-to" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
         </div>
+        <TimeRangeInputs idPrefix="sh" fromTime={fromTime} toTime={toTime} onFromTime={setFromTime} onToTime={setToTime} />
         <div className="space-y-1">
           <Label htmlFor="sh-reg">Kassa</Label>
           <select

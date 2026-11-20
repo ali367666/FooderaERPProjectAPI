@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStoreApproval } from "@/components/store/approval";
 import { formatCurrency } from "@/lib/format-currency";
-import { toDateInputValue } from "@/lib/report-period";
+import { toDateInputValue, withTime } from "@/lib/report-period";
+import { TimeRangeInputs, useTimeRangeEnabled } from "@/components/store/time-range-inputs";
 import { cn } from "@/lib/utils";
 import { printStoreSale } from "@/lib/store/store-receipt";
 import {
@@ -33,6 +34,9 @@ export default function StoreSalesPage() {
 
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
+  const timesOn = useTimeRangeEnabled();
   const [documentNo, setDocumentNo] = useState("");
   const [status, setStatus] = useState<number | "">("");
   const [page, setPage] = useState(1);
@@ -48,8 +52,8 @@ export default function StoreSalesPage() {
     setLoading(true);
     try {
       const res = await searchStoreSales({
-        from,
-        to,
+        from: timesOn ? withTime(from, fromTime) : from,
+        to: timesOn ? withTime(to, toTime) : to,
         documentNo: documentNo.trim() || undefined,
         status: status === "" ? null : status,
         page,
@@ -62,7 +66,7 @@ export default function StoreSalesPage() {
     } finally {
       setLoading(false);
     }
-  }, [from, to, documentNo, status, page]);
+  }, [from, to, fromTime, toTime, timesOn, documentNo, status, page]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 250);
@@ -114,6 +118,7 @@ export default function StoreSalesPage() {
           <Label htmlFor="s-to">Son</Label>
           <Input id="s-to" type="date" value={to} min={from} onChange={(e) => { setTo(e.target.value); setPage(1); }} />
         </div>
+        <TimeRangeInputs idPrefix="s" fromTime={fromTime} toTime={toTime} onFromTime={(v) => { setFromTime(v); setPage(1); }} onToTime={(v) => { setToTime(v); setPage(1); }} />
         <div className="space-y-1">
           <Label htmlFor="s-no">Çek №</Label>
           <Input id="s-no" value={documentNo} onChange={(e) => { setDocumentNo(e.target.value); setPage(1); }} placeholder="S-0000123" />

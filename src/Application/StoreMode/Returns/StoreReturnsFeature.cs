@@ -541,8 +541,8 @@ public class StoreReturnsHandlers :
 
     public async Task<List<StoreReturnResponse>> Handle(SearchStoreReturnsQuery query, CancellationToken ct)
     {
-        DateTime? fromUtc = query.From is { } f ? BusinessTime.ToUtc(f.Date + ReportPeriodResolver.DayStart) : null;
-        DateTime? toUtc = query.To is { } t ? BusinessTime.ToUtc(t.Date.AddDays(1) + ReportPeriodResolver.DayStart) : null;
+        DateTime? fromUtc = query.From is { } f ? ReportPeriodResolver.StoreFromUtc(f) : null;
+        DateTime? toUtc = query.To is { } t ? ReportPeriodResolver.StoreToUtc(t) : null;
 
         var rows = await _repository.SearchReturnsAsync(_currentUser.CompanyId, fromUtc, toUtc, 200, ct);
         var result = new List<StoreReturnResponse>();

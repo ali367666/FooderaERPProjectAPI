@@ -33,7 +33,7 @@ import { getZReport, type ZReport, type ZReportReceipt } from "@/lib/services/an
 import { getOrderById, type OrderDto } from "@/lib/services/order-service";
 import { ReceiptLinesTable } from "@/components/receipt-lines-table";
 import { formatCurrency } from "@/lib/format-currency";
-import { PERIODS, computeRange, toDateInputValue, type PeriodKey } from "@/lib/report-period";
+import { PERIODS, computeRangeWithTimes, toDateInputValue, type PeriodKey } from "@/lib/report-period";
 import { cn } from "@/lib/utils";
 
 type ReportKey = "sales" | "products" | "tables" | "waiters" | "categories" | "receipts" | "cancellations" | "gifts";
@@ -148,6 +148,8 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState<PeriodKey>("today");
   const [customFrom, setCustomFrom] = useState(toDateInputValue(new Date()));
   const [customTo, setCustomTo] = useState(toDateInputValue(new Date()));
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
   const [report, setReport] = useState<ZReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<ReportKey>("sales");
@@ -155,7 +157,7 @@ export default function ReportsPage() {
   const [openTables, setOpenTables] = useState<Set<number>>(new Set());
   const [detail, setDetail] = useState<OrderDto | null>(null);
 
-  const range = useMemo(() => computeRange(period, customFrom, customTo), [period, customFrom, customTo]);
+  const range = useMemo(() => computeRangeWithTimes(period, customFrom, customTo, inPos ? "" : fromTime, inPos ? "" : toTime), [period, customFrom, customTo, fromTime, toTime, inPos]);
 
   const load = useCallback(async () => {
     if (!range) return;
@@ -237,6 +239,24 @@ export default function ReportsPage() {
           </Button>
         ))}
       </div>
+
+      {!inPos && (
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <Label htmlFor="rp-from-time">Saat: başlanğıc</Label>
+            <Input id="rp-from-time" type="time" className="mt-1 w-32" value={fromTime} onChange={(e) => setFromTime(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="rp-to-time">Saat: son</Label>
+            <Input id="rp-to-time" type="time" className="mt-1 w-32" value={toTime} onChange={(e) => setToTime(e.target.value)} />
+          </div>
+          {(fromTime || toTime) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFromTime(""); setToTime(""); }}>
+              Saatı təmizlə
+            </Button>
+          )}
+        </div>
+      )}
 
       {period === "custom" && (
         <div className="flex flex-wrap items-end gap-3">

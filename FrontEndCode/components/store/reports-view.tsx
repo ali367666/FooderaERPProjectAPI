@@ -13,7 +13,8 @@ import { ProductRatingReport } from "@/components/store/product-rating-report";
 import { StockSummaryReport } from "@/components/store/stock-summary-report";
 import { useStorePermissions as usePermissionSet } from "@/lib/store/use-store-permissions";
 import { formatCurrency } from "@/lib/format-currency";
-import { toDateInputValue } from "@/lib/report-period";
+import { toDateInputValue, withTime } from "@/lib/report-period";
+import { TimeRangeInputs } from "@/components/store/time-range-inputs";
 import { cn } from "@/lib/utils";
 import { getWarehouses, type Warehouse } from "@/lib/services/warehouse-service";
 import {
@@ -101,6 +102,10 @@ export function StoreReportsView({ fixedTab, title }: { fixedTab?: ReportTab; ti
   const [tab, setTab] = useState<Tab>(fixedTab ?? (canFinance ? "matrix" : "stock"));
   const [from, setFrom] = useState(toDateInputValue(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   const [to, setTo] = useState(today);
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
+  const fromQ = withTime(from, fromTime);
+  const toQ = withTime(to, toTime);
   const [warehouseId, setWarehouseId] = useState<number | "">("");
   const [categoryId, setCategoryId] = useState<number | "">("");
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -129,35 +134,35 @@ export function StoreReportsView({ fixedTab, title }: { fixedTab?: ReportTab; ti
       if (tab === "sales") {
         setSales(
           await getStoreSalesReport({
-            from,
-            to,
+            from: fromQ,
+            to: toQ,
             warehouseId: warehouseId === "" ? null : warehouseId,
             categoryId: categoryId === "" ? null : categoryId,
             includeUnsold,
           }),
         );
       } else if (tab === "stock") {
-        setStock(await getStoreStockReport({ from, to, warehouseId: warehouseId === "" ? null : warehouseId, categoryId: categoryId === "" ? null : categoryId }));
+        setStock(await getStoreStockReport({ from: fromQ, to: toQ, warehouseId: warehouseId === "" ? null : warehouseId, categoryId: categoryId === "" ? null : categoryId }));
       } else if (tab === "cash") {
-        setCash(await getStoreCashReport({ from, to }));
+        setCash(await getStoreCashReport({ from: fromQ, to: toQ }));
       } else if (tab === "debts") {
         setDebts(await getStoreCustomerDebtReport());
       } else if (tab === "docs") {
         const [sales, returns] = await Promise.all([
-          searchStoreSales({ from, to, status: docStatus === "" ? null : docStatus, page: 1, pageSize: 200 }),
-          searchStoreReturns({ from, to }),
+          searchStoreSales({ from: fromQ, to: toQ, status: docStatus === "" ? null : docStatus, page: 1, pageSize: 200 }),
+          searchStoreReturns({ from: fromQ, to: toQ }),
         ]);
         setDocSales(sales.items);
         setDocReturns(returns);
       } else {
-        setBonus(await getStoreBonusReport({ from, to }));
+        setBonus(await getStoreBonusReport({ from: fromQ, to: toQ }));
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Hesabat yüklənmədi.");
     } finally {
       setLoading(false);
     }
-  }, [tab, from, to, warehouseId, categoryId, includeUnsold, docStatus]);
+  }, [tab, fromQ, toQ, warehouseId, categoryId, includeUnsold, docStatus]);
 
   useEffect(() => {
     void load();
@@ -285,6 +290,7 @@ export function StoreReportsView({ fixedTab, title }: { fixedTab?: ReportTab; ti
             <Label htmlFor="rp-to">Son</Label>
             <Input id="rp-to" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
           </div>
+          <TimeRangeInputs idPrefix="rp" fromTime={fromTime} toTime={toTime} onFromTime={setFromTime} onToTime={setToTime} />
           {(tab === "sales" || tab === "stock" || tab === "stocksum") && (
             <>
               <div className="space-y-1">

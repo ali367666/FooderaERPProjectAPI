@@ -130,8 +130,8 @@ public class StoreSuppliersHandlers :
         var companyId = _currentUser.CompanyId;
         var supplier = await _trade.GetSupplierAsync(query.SupplierId, companyId, ct) ?? throw new NotFoundException("Təchizatçı tapılmadı.");
 
-        DateTime? fromUtc = query.From is { } f ? BusinessTime.ToUtc(f.Date + ReportPeriodResolver.DayStart) : null;
-        DateTime? toUtc = query.To is { } t ? BusinessTime.ToUtc(t.Date.AddDays(1) + ReportPeriodResolver.DayStart) : null;
+        DateTime? fromUtc = query.From is { } f ? ReportPeriodResolver.StoreFromUtc(f) : null;
+        DateTime? toUtc = query.To is { } t ? ReportPeriodResolver.StoreToUtc(t) : null;
 
         var opening = fromUtc is { } from
             ? await _trade.GetLedgerBalanceBeforeAsync(companyId, StoreLedgerPartyType.Supplier, supplier.Id, from, ct)

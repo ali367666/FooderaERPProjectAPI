@@ -17,6 +17,28 @@ public static class ReportPeriodResolver
     private const int MaxCustomDays = 366;
 
     /// <summary>Where the business day starts for the company: 06:00 when it works in shifts, midnight when it works by the day.</summary>
+    /// <summary>
+    /// Store reports and lists take whole days (the shop's day starts at <see cref="DayStart"/>). A <paramref name="from"/> / <paramref name="to"/> that
+    /// carries a time of day (2026-11-12T18:00) narrows the window: from that clock time on the first day to the end of that minute on the last day.
+    /// A time before the day start belongs to the night after the date, like the rest of that business day. Dates without a time keep whole days.
+    /// </summary>
+    public static DateTime StoreFromUtc(DateTime from)
+    {
+        var tod = from.TimeOfDay;
+        var local = tod == TimeSpan.Zero ? from.Date + DayStart : from.Date + (tod < DayStart ? tod + TimeSpan.FromDays(1) : tod);
+        return BusinessTime.ToUtc(local);
+    }
+
+    /// <summary>The (exclusive) end of the window; see <see cref="StoreFromUtc"/>.</summary>
+    public static DateTime StoreToUtc(DateTime to)
+    {
+        var tod = to.TimeOfDay;
+        var local = tod == TimeSpan.Zero
+            ? to.Date.AddDays(1) + DayStart
+            : to.Date + (tod < DayStart ? tod + TimeSpan.FromDays(1) : tod) + TimeSpan.FromMinutes(1);
+        return BusinessTime.ToUtc(local);
+    }
+
     public static TimeSpan DayStartFor(Domain.Entities.CompanySettings? settings)
         => settings?.OpeningTime is null ? DayStart : TimeSpan.Zero;
 

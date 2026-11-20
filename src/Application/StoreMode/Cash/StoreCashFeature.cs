@@ -213,8 +213,8 @@ public class StoreCashHandlers :
 
     public async Task<List<StoreShiftResponse>> Handle(GetStoreShiftsQuery query, CancellationToken ct)
     {
-        DateTime? fromUtc = query.From is { } f ? BusinessTime.ToUtc(f.Date + ReportPeriodResolver.DayStart) : null;
-        DateTime? toUtc = query.To is { } t ? BusinessTime.ToUtc(t.Date.AddDays(1) + ReportPeriodResolver.DayStart) : null;
+        DateTime? fromUtc = query.From is { } f ? ReportPeriodResolver.StoreFromUtc(f) : null;
+        DateTime? toUtc = query.To is { } t ? ReportPeriodResolver.StoreToUtc(t) : null;
 
         var shifts = await _repository.SearchShiftsAsync(_currentUser.CompanyId, query.RegisterId, fromUtc, toUtc, ct);
         if (await _access.AllowedBranchesAsync(ct) is { } allowedBranches)

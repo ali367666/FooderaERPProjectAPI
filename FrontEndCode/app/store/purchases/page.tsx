@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useStorePermissions as usePermissionSet } from "@/lib/store/use-store-permissions";
 import { formatCurrency } from "@/lib/format-currency";
-import { toDateInputValue } from "@/lib/report-period";
+import { toDateInputValue, withTime } from "@/lib/report-period";
+import { TimeRangeInputs, useTimeRangeEnabled } from "@/components/store/time-range-inputs";
 import { cn } from "@/lib/utils";
 import { getWarehouses, type Warehouse } from "@/lib/services/warehouse-service";
 import {
@@ -64,6 +65,9 @@ export default function StorePurchasesPage() {
 
   const [from, setFrom] = useState(toDateInputValue(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   const [to, setTo] = useState(toDateInputValue(new Date()));
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
+  const timesOn = useTimeRangeEnabled();
   const [supplierFilter, setSupplierFilter] = useState<number | "">("");
   const [statusFilter, setStatusFilter] = useState<number | "">("");
   const [q, setQ] = useState("");
@@ -109,8 +113,8 @@ export default function StorePurchasesPage() {
       const res = await searchStorePurchases({
         supplierId: supplierFilter === "" ? null : supplierFilter,
         status: statusFilter === "" ? null : statusFilter,
-        from,
-        to,
+        from: timesOn ? withTime(from, fromTime) : from,
+        to: timesOn ? withTime(to, toTime) : to,
         q: q.trim() || undefined,
         page,
         pageSize: PAGE_SIZE,
@@ -122,7 +126,7 @@ export default function StorePurchasesPage() {
     } finally {
       setLoading(false);
     }
-  }, [supplierFilter, statusFilter, from, to, q, page]);
+  }, [supplierFilter, statusFilter, from, to, fromTime, toTime, timesOn, q, page]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 250);
@@ -324,6 +328,7 @@ export default function StorePurchasesPage() {
           <Label htmlFor="pu-to">Son</Label>
           <Input id="pu-to" type="date" value={to} min={from} onChange={(e) => { setTo(e.target.value); setPage(1); }} />
         </div>
+        <TimeRangeInputs idPrefix="pu" fromTime={fromTime} toTime={toTime} onFromTime={(v) => { setFromTime(v); setPage(1); }} onToTime={(v) => { setToTime(v); setPage(1); }} />
         <div className="space-y-1">
           <Label htmlFor="pu-sup">Təchizatçı</Label>
           <select id="pu-sup" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={supplierFilter} onChange={(e) => { setSupplierFilter(e.target.value ? Number(e.target.value) : ""); setPage(1); }}>

@@ -163,8 +163,8 @@ public class StoreCustomersHandlers :
         var companyId = _currentUser.CompanyId;
         var customer = await _customers.GetCustomerAsync(query.CustomerId, companyId, ct) ?? throw new NotFoundException("Müştəri tapılmadı.");
 
-        DateTime? fromUtc = query.From is { } f ? BusinessTime.ToUtc(f.Date + ReportPeriodResolver.DayStart) : null;
-        DateTime? toUtc = query.To is { } t ? BusinessTime.ToUtc(t.Date.AddDays(1) + ReportPeriodResolver.DayStart) : null;
+        DateTime? fromUtc = query.From is { } f ? ReportPeriodResolver.StoreFromUtc(f) : null;
+        DateTime? toUtc = query.To is { } t ? ReportPeriodResolver.StoreToUtc(t) : null;
 
         var debtOpening = fromUtc is { } from
             ? await _trade.GetLedgerBalanceBeforeAsync(companyId, StoreLedgerPartyType.Customer, customer.Id, from, ct)

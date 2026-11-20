@@ -266,8 +266,8 @@ public class StoreSalesHandlers :
 
     public async Task<StoreSalePageResponse> Handle(SearchStoreSalesQuery query, CancellationToken ct)
     {
-        DateTime? fromUtc = query.From is { } f ? BusinessTime.ToUtc(f.Date + ReportPeriodResolver.DayStart) : null;
-        DateTime? toUtc = query.To is { } t ? BusinessTime.ToUtc(t.Date.AddDays(1) + ReportPeriodResolver.DayStart) : null;
+        DateTime? fromUtc = query.From is { } f ? ReportPeriodResolver.StoreFromUtc(f) : null;
+        DateTime? toUtc = query.To is { } t ? ReportPeriodResolver.StoreToUtc(t) : null;
         var pageSize = Math.Clamp(query.PageSize, 1, 200);
         var page = Math.Max(1, query.Page);
 
