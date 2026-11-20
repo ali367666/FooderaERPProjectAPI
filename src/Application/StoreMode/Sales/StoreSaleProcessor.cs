@@ -382,7 +382,7 @@ public sealed class StoreSaleProcessor
             if (minimum > 0 && before > minimum && balance.Quantity <= minimum)
                 prepared.LowStock.Add((group.First().ProductName, balance.Quantity, minimum));
 
-            await _repository.AddMovementAsync(new StoreStockMovement
+            var movement = new StoreStockMovement
             {
                 CompanyId = sale.CompanyId,
                 WarehouseId = prepared.WarehouseId,
@@ -396,7 +396,12 @@ public sealed class StoreSaleProcessor
                 DocumentId = sale.Id,
                 DocumentNo = sale.DocumentNo,
                 CreatedByUserId = userId,
-            }, ct);
+            };
+            await _repository.AddMovementAsync(movement, ct);
+
+            // With FIFO / LIFO the movement's cost is the cost of the delivery layers the sale used up; the sale line keeps it.
+            foreach (var l in group)
+                l.UnitCost = movement.UnitCost;
         }
 
         var now = DateTime.UtcNow;

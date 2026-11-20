@@ -44,6 +44,12 @@ public class CompanySettings : CompanyEntity<int>
     /// </summary>
     public bool KitchenApprovalRequired { get; set; } = true;
 
+    /// <summary>
+    /// Set by the platform SuperAdmin only. How the store's warehouse goods are costed: weighted average (default), FIFO or LIFO.
+    /// With FIFO / LIFO every delivery is kept as a cost layer and a sale takes its cost from the layers it uses up.
+    /// </summary>
+    public Domain.Enums.StoreCostMethod StoreCostMethod { get; set; } = Domain.Enums.StoreCostMethod.Average;
+
     public bool IntegrationWolt { get; set; }
     public bool IntegrationBolt { get; set; }
     public bool Integration189Delivery { get; set; }

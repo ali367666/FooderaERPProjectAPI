@@ -81,6 +81,7 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<StoreProductBarcode> StoreProductBarcodes { get; set; } = null!;
     public DbSet<StoreStockBalance> StoreStockBalances { get; set; } = null!;
     public DbSet<StoreStockMovement> StoreStockMovements { get; set; } = null!;
+    public DbSet<StoreCostLayer> StoreCostLayers { get; set; } = null!;
     public DbSet<StoreExpenseItem> StoreExpenseItems { get; set; } = null!;
     public DbSet<StoreExpense> StoreExpenses { get; set; } = null!;
     public DbSet<StoreExpenseLine> StoreExpenseLines { get; set; } = null!;

@@ -5,11 +5,17 @@ import { Store, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getCompanies, getCompanyPaymentBanks, setCompanyKitchenApproval, setCompanyPaymentBanks, type PaymentBankStatus, setCompanyModules, setCompanySalesLock, type Company, type CompanyModules } from "@/lib/services/company-service";
+import { getCompanies, getCompanyPaymentBanks, setCompanyKitchenApproval, setCompanyPaymentBanks, setCompanyStoreCostMethod, type PaymentBankStatus, setCompanyModules, setCompanySalesLock, type Company, type CompanyModules } from "@/lib/services/company-service";
 import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
 import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 
-type Row = { company: Company; modules: CompanyModules | null; salesLocked: boolean; kitchenRequired: boolean; banks: PaymentBankStatus[] };
+type Row = { company: Company; modules: CompanyModules | null; salesLocked: boolean; kitchenRequired: boolean; costMethod: number; banks: PaymentBankStatus[] };
+
+const COST_METHODS: { value: number; label: string; hint: string }[] = [
+  { value: 0, label: "Orta maya", hint: "Standart: bütün alışların orta qiyməti" },
+  { value: 1, label: "FIFO", hint: "Ən köhnə alış əvvəl satılır, satışın maya dəyəri o alışın qiymətidir" },
+  { value: 2, label: "LIFO", hint: "Ən yeni alış əvvəl satılır, satışın maya dəyəri o alışın qiymətidir" },
+];
 
 const MODULE_LABELS: { key: keyof CompanyModules; label: string }[] = [
   { key: "moduleFilial", label: "Filial" },
@@ -53,9 +59,9 @@ export default function ModesPage() {
               moduleDepartment: b.moduleDepartment,
             };
             const banks = await getCompanyPaymentBanks(company.id).catch(() => [] as PaymentBankStatus[]);
-            return { company, modules, salesLocked: b.salesEditLocked, kitchenRequired: b.kitchenApprovalRequired, banks } as Row;
+            return { company, modules, salesLocked: b.salesEditLocked, kitchenRequired: b.kitchenApprovalRequired, costMethod: b.storeCostMethod, banks } as Row;
           } catch {
-            return { company, modules: null, salesLocked: false, kitchenRequired: true, banks: [] } as Row;
+            return { company, modules: null, salesLocked: false, kitchenRequired: true, costMethod: 0, banks: [] } as Row;
           }
         }),
       );
@@ -91,6 +97,28 @@ export default function ModesPage() {
       await setCompanyPaymentBanks(row.company.id, banks.filter((b) => b.enabled).map((b) => b.name));
       setRows((prev) => prev.map((r) => (r.company.id === row.company.id ? { ...r, banks } : r)));
       toast.success(`${row.company.name}: banklar yadda saxlanıldı.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Yazılmadı.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const changeCostMethod = async (row: Row, method: number) => {
+    if (method === row.costMethod) return;
+    const label = COST_METHODS.find((c) => c.value === method)?.label ?? "";
+    const turningOn = row.costMethod === 0 && method !== 0;
+    const warning = turningOn
+      ? `${row.company.name}: ${label} işə salınsın? Anbardakı mövcud mal ilkin qat kimi orta maya ilə götürüləcək, bundan sonrakı hər alış ayrı qat olacaq.`
+      : method === 0
+        ? `${row.company.name}: ${label} (orta maya) qaytarılsın? Maya qatları silinəcək.`
+        : `${row.company.name}: ${label} seçilsin? Mövcud qatlar saxlanılır, yalnız sıra dəyişir.`;
+    if (!window.confirm(warning)) return;
+    setSaving(row.company.id);
+    try {
+      const message = await setCompanyStoreCostMethod(row.company.id, method);
+      setRows((prev) => prev.map((r) => (r.company.id === row.company.id ? { ...r, costMethod: method } : r)));
+      toast.success(message ?? `${row.company.name}: ${label}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Yazılmadı.");
     } finally {
@@ -166,6 +194,31 @@ export default function ModesPage() {
                     <span className="text-xs text-red-600">Parametrlər yüklənmədi</span>
                   )}
                 </div>
+                {m && isStore && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
+                    <span>
+                      Anbar mallarının maya metodu:{" "}
+                      <b className={row.costMethod === 0 ? "text-muted-foreground" : "text-emerald-600"}>
+                        {COST_METHODS.find((c) => c.value === row.costMethod)?.label ?? "Orta maya"}
+                      </b>
+                      <span className="text-muted-foreground"> — {COST_METHODS.find((c) => c.value === row.costMethod)?.hint}</span>
+                    </span>
+                    <div className="flex gap-1">
+                      {COST_METHODS.map((c) => (
+                        <Button
+                          key={c.value}
+                          size="sm"
+                          title={c.hint}
+                          variant={row.costMethod === c.value ? "default" : "outline"}
+                          disabled={saving === row.company.id}
+                          onClick={() => void changeCostMethod(row, c.value)}
+                        >
+                          {c.value === 0 ? "Söndür (orta maya)" : c.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {m && isStore && (
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
                     <span>

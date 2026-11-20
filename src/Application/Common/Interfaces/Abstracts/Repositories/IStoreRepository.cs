@@ -32,6 +32,9 @@ public interface IStoreRepository
     Task<decimal> GetTotalQuantityAsync(int companyId, int productId, CancellationToken ct);
     Task<Dictionary<int, decimal>> GetWarehouseQuantitiesAsync(int companyId, int warehouseId, IReadOnlyCollection<int> productIds, CancellationToken ct);
     Task<List<StoreStockBalance>> SearchBalancesAsync(int companyId, int? warehouseId, string? term, bool lowOnly, CancellationToken ct);
+    /// <summary>What each warehouse's stock of each product is worth by its FIFO / LIFO cost layers; null when the company costs by the weighted average.</summary>
+    Task<Dictionary<(int WarehouseId, int ProductId), decimal>?> GetLayerStockValuesAsync(int companyId, CancellationToken ct);
+
     Task AddMovementAsync(StoreStockMovement movement, CancellationToken ct);
     Task<List<StoreStockMovement>> SearchMovementsAsync(
         int companyId, int? warehouseId, int? productId, DateTime? fromUtc, DateTime? toUtcExclusive, int take, CancellationToken ct);

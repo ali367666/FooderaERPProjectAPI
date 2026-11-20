@@ -96,6 +96,7 @@ export const navGroups: NavGroup[] = [
       { title: "Dövr nəticəsi (mənfəət-zərər)", href: "/dashboard/store/reports/netice", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
       { title: "Ümumi stok", href: "/dashboard/store/reports/umumi-stok", icon: Boxes, permission: "StoreReport.View", storeOnly: true },
       { title: "Mal axını", href: "/dashboard/store/reports/mal-axini", icon: Boxes, permission: "StoreReport.View", storeOnly: true },
+      { title: "Maya qatları (FIFO/LIFO)", href: "/dashboard/store/cost-layers", icon: Layers, permission: "StoreReport.View", storeOnly: true },
       { title: "Stok hesabatı", href: "/dashboard/store/reports/stok-hesabati", icon: Boxes, permission: "StoreReport.View", storeOnly: true },
       { title: "Reytinq", href: "/dashboard/store/reports/reytinq", icon: BarChart3, permission: "StoreReport.View", storeOnly: true },
       { title: "Kassa hesabatı", href: "/dashboard/store/reports/kassa-hesabati", icon: BarChart3, permission: "StoreReport.View", storeOnly: true },

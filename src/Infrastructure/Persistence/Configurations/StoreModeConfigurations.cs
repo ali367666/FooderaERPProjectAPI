@@ -230,6 +230,24 @@ public class StoreSalePaymentConfiguration : IEntityTypeConfiguration<StoreSaleP
     }
 }
 
+public class StoreCostLayerConfiguration : IEntityTypeConfiguration<StoreCostLayer>
+{
+    public void Configure(EntityTypeBuilder<StoreCostLayer> b)
+    {
+        b.ToTable("StoreCostLayers");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.OriginalQuantity).HasColumnType("decimal(18,4)");
+        b.Property(x => x.RemainingQuantity).HasColumnType("decimal(18,4)");
+        b.Property(x => x.UnitCost).HasColumnType("decimal(18,4)");
+        b.Property(x => x.DocumentType).HasMaxLength(50);
+        b.Property(x => x.DocumentNo).HasMaxLength(50);
+        b.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.StoreProduct).WithMany().HasForeignKey(x => x.StoreProductId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.CompanyId, x.WarehouseId, x.StoreProductId, x.ReceivedAtUtc });
+    }
+}
+
 public class StoreExpenseItemConfiguration : IEntityTypeConfiguration<StoreExpenseItem>
 {
     public void Configure(EntityTypeBuilder<StoreExpenseItem> b)

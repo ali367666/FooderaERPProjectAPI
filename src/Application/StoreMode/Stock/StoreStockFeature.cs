@@ -55,7 +55,9 @@ public class StoreStockHandlers :
             _currentUser.CompanyId, query.WarehouseId, query.Term, query.LowOnly, ct);
         if (await _access.AllowedWarehousesAsync(ct) is { } allowedWarehouses)
             rows = rows.Where(r => allowedWarehouses.Contains(r.WarehouseId)).ToList();
-        return rows.Select(Map).ToList();
+        // With FIFO / LIFO the stock is worth what its cost layers say, not the average cost.
+        var layerValues = await _repository.GetLayerStockValuesAsync(_currentUser.CompanyId, ct);
+        return rows.Select(b => Map(b, layerValues)).ToList();
     }
 
     public async Task<List<StoreStockMovementResponse>> Handle(GetStoreMovementsQuery query, CancellationToken ct)
@@ -298,7 +300,7 @@ public class StoreStockHandlers :
         };
     }
 
-    private static StoreStockBalanceResponse Map(StoreStockBalance b)
+    private static StoreStockBalanceResponse Map(StoreStockBalance b, Dictionary<(int WarehouseId, int ProductId), decimal>? layerValues = null)
     {
         var p = b.StoreProduct;
         return new StoreStockBalanceResponse
@@ -314,7 +316,9 @@ public class StoreStockHandlers :
             MinimumStock = p.MinimumStock,
             IsLow = b.Quantity <= p.MinimumStock,
             AverageCost = p.AverageCost,
-            Value = Math.Round(b.Quantity * p.AverageCost, 2, MidpointRounding.AwayFromZero),
+            Value = layerValues is not null && layerValues.TryGetValue((b.WarehouseId, b.StoreProductId), out var layered)
+                ? layered
+                : Math.Round(b.Quantity * p.AverageCost, 2, MidpointRounding.AwayFromZero),
         };
     }
 }

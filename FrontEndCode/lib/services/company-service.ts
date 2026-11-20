@@ -233,6 +233,19 @@ export async function setCompanyKitchenApproval(companyId: number, required: boo
   }
 }
 
+/** SuperAdmin only: how a company's store warehouse goods are costed (0 = weighted average / off, 1 = FIFO, 2 = LIFO). */
+export async function setCompanyStoreCostMethod(companyId: number, method: number): Promise<string | null> {
+  try {
+    const response = await api.put<ApiResponse<unknown>>("/company-settings/store-cost-method", null, { params: { companyId, method } });
+    if (response.data?.success === false) {
+      throw new ApiFormError(response.data.message || "Failed to update the cost method");
+    }
+    return (response.data as { message?: string } | undefined)?.message ?? null;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update the cost method");
+  }
+}
+
 /** SuperAdmin only: opens or closes changing a company's store sales (cancelling them). */
 export async function setCompanySalesLock(companyId: number, locked: boolean): Promise<void> {
   try {

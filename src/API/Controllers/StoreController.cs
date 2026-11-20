@@ -373,6 +373,16 @@ public class StoreController : ControllerBase
     }
 
     /// <summary>
+    /// The cost layers of the warehouse goods (every delivery still held, with its cost), kept while the SuperAdmin has switched the company to
+    /// FIFO or LIFO costing. <c>method</c> in the answer: 0 = weighted average (no layers), 1 = FIFO, 2 = LIFO.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.StoreReportView)]
+    [HttpGet("cost-layers")]
+    public async Task<ActionResult<StoreCostLayersResponse>> GetCostLayers(
+        [FromQuery] int? warehouseId, [FromQuery] int? productId, [FromQuery] bool onlyRemaining = true, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetStoreCostLayersQuery(warehouseId, productId, onlyRemaining), ct));
+
+    /// <summary>
     /// The goods flow: per warehouse and product the opening stock, what each kind of movement did (purchase, sale, returns, transfers, adjustments,
     /// waste, own use) and the closing stock, in pieces and in cost value.
     /// </summary>

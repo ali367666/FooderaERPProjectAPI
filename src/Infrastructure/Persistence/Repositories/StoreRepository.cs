@@ -10,10 +10,12 @@ namespace Infrastructure.Persistence.Repositories;
 public class StoreRepository : IStoreRepository
 {
     private readonly AppDbContext _context;
+    private readonly Costing.StoreCostLayerEngine _costing;
 
     public StoreRepository(AppDbContext context)
     {
         _context = context;
+        _costing = new Costing.StoreCostLayerEngine(context);
     }
 
     // ---- Catalog ----------------------------------------------------------------------------
@@ -161,8 +163,15 @@ public class StoreRepository : IStoreRepository
         return await query.OrderBy(x => x.StoreProduct.Name).ToListAsync(ct);
     }
 
+    public Task<Dictionary<(int WarehouseId, int ProductId), decimal>?> GetLayerStockValuesAsync(int companyId, CancellationToken ct)
+        => new StoreCostingRepository(_context).GetStockValuesAsync(companyId, ct);
+
     public async Task AddMovementAsync(StoreStockMovement movement, CancellationToken ct)
-        => await _context.StoreStockMovements.AddAsync(movement, ct);
+    {
+        // With FIFO / LIFO the layers are kept here and goods going out get the cost of the layers they use up.
+        await _costing.ApplyAsync(movement, ct);
+        await _context.StoreStockMovements.AddAsync(movement, ct);
+    }
 
     public Task<List<StoreStockMovement>> SearchMovementsAsync(
         int companyId, int? warehouseId, int? productId, DateTime? fromUtc, DateTime? toUtcExclusive, int take, CancellationToken ct)

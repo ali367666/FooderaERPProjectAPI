@@ -328,6 +328,8 @@ export type CompanySettingsBranding = {
   salesEditLocked: boolean;
   /** Restaurant: the kitchen must accept an order and mark it ready before it can be paid. */
   kitchenApprovalRequired: boolean;
+  /** 0 = weighted average, 1 = FIFO, 2 = LIFO (set by the SuperAdmin). */
+  storeCostMethod: number;
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
   moduleKompleks: boolean;
@@ -451,6 +453,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     moduleFitnes: bool("moduleFitnes", "ModuleFitnes"),
     salesEditLocked: bool("salesEditLocked", "SalesEditLocked"),
     kitchenApprovalRequired: bool("kitchenApprovalRequired", "KitchenApprovalRequired"),
+    storeCostMethod: numOrNull("storeCostMethod", "StoreCostMethod") ?? 0,
     moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
     moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
     moduleKompleks: bool("moduleKompleks", "ModuleKompleks"),

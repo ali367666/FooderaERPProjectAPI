@@ -76,6 +76,7 @@ public class GetCompanySettingsBrandingQueryHandler
                 ModuleDepartment = settings.ModuleDepartment,
                 SalesEditLocked = settings.SalesEditLocked,
                 KitchenApprovalRequired = settings.KitchenApprovalRequired,
+                StoreCostMethod = (int)settings.StoreCostMethod,
                 PrintAutoOnPayment = settings.PrintAutoOnPayment,
                 PrintKitchenOnPayment = settings.PrintKitchenOnPayment,
                 PrintShowPreview = settings.PrintShowPreview,

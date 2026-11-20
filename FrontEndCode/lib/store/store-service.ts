@@ -1505,6 +1505,35 @@ export const getStoreProductFlowLines = (productId: number, params: { from: stri
     "Hərəkətlər yüklənmədi",
   );
 
+export type StoreCostLayer = {
+  id: number;
+  warehouseId: number;
+  warehouseName: string;
+  productId: number;
+  productName: string;
+  receivedAtUtc: string;
+  originalQuantity: number;
+  remainingQuantity: number;
+  unitCost: number;
+  /** What is left of the layer times its cost (AZN). */
+  value: number;
+  documentType: string | null;
+  documentNo: string | null;
+  isOpeningBalance: boolean;
+};
+
+export type StoreCostLayers = { method: number; totalValue: number; totalQuantity: number; layers: StoreCostLayer[] };
+
+/** The cost layers of the warehouse goods (kept while the SuperAdmin has the company on FIFO / LIFO). */
+export const getStoreCostLayers = (params: { warehouseId?: number | null; productId?: number | null; onlyRemaining?: boolean }) =>
+  call(
+    () =>
+      api.get<StoreCostLayers>("/store/cost-layers", {
+        params: { warehouseId: params.warehouseId || undefined, productId: params.productId || undefined, onlyRemaining: params.onlyRemaining ?? true },
+      }),
+    "Maya qatları yüklənmədi",
+  );
+
 export type StoreExpenseItem = { id: number; name: string; isActive: boolean };
 
 export type StoreExpenseLine = {

@@ -83,6 +83,17 @@ public enum StoreCashMovementType
     Out = 2
 }
 
+/// <summary>How the cost of goods leaving a store warehouse is worked out. Chosen per company by the platform SuperAdmin.</summary>
+public enum StoreCostMethod
+{
+    /// <summary>The weighted average cost of the product (the default).</summary>
+    Average = 0,
+    /// <summary>First in, first out: the oldest delivery is used up first and its cost is the cost of the sale.</summary>
+    Fifo = 1,
+    /// <summary>Last in, first out: the newest delivery is used up first and its cost is the cost of the sale.</summary>
+    Lifo = 2
+}
+
 public enum StorePurchaseStatus
 {
     /// <summary>Not yet received: changes neither stock nor the supplier's balance.</summary>

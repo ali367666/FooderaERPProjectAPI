@@ -234,7 +234,7 @@ public class StoreTransfersHandlers :
                 line.ShippedQuantity = line.Quantity;
                 line.UnitCost = line.StoreProduct.AverageCost > 0 ? line.StoreProduct.AverageCost : line.StoreProduct.PurchasePrice;
 
-                await _store.AddMovementAsync(new StoreStockMovement
+                var outMovement = new StoreStockMovement
                 {
                     CompanyId = companyId,
                     WarehouseId = transfer.FromWarehouseId,
@@ -249,7 +249,11 @@ public class StoreTransfersHandlers :
                     DocumentNo = transfer.DocumentNo,
                     Reason = $"→ {transfer.ToWarehouse.Name}",
                     CreatedByUserId = userId,
-                }, ct);
+                };
+                await _store.AddMovementAsync(outMovement, ct);
+
+                // With FIFO / LIFO the goods that left cost what their layers cost; the receiving warehouse gets them at that cost.
+                line.UnitCost = outMovement.UnitCost;
 
                 if (serialByLine.TryGetValue(line.Id, out var units))
                     foreach (var unit in units)

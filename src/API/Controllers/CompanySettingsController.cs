@@ -68,6 +68,15 @@ public class CompanySettingsController(IMediator mediator) : BaseController(medi
         return response.Success ? Ok(response) : BadRequest(response);
     }
 
+    /// <summary>SuperAdmin: how the company's store warehouse goods are costed. method: 0 = weighted average (off), 1 = FIFO, 2 = LIFO.</summary>
+    [Authorize(Policy = AppPermissions.CompanyUpdate)]
+    [HttpPut("store-cost-method")]
+    public async Task<IActionResult> SetStoreCostMethod([FromQuery] int companyId, [FromQuery] Domain.Enums.StoreCostMethod method, CancellationToken cancellationToken)
+    {
+        var response = await Mediator.Send(new Application.CompanySettings.Commands.SetStoreCostMethod.SetStoreCostMethodCommand(companyId, method), cancellationToken);
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
+
     [Authorize(Policy = AppPermissions.CompanyUpdate)]
     [HttpPut("kitchen-approval")]
     public async Task<IActionResult> SetKitchenApproval([FromQuery] int companyId, [FromQuery] bool required, CancellationToken cancellationToken)

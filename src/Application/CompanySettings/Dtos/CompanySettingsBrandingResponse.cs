@@ -46,6 +46,9 @@ public class CompanySettingsBrandingResponse
     public bool SalesEditLocked { get; set; }
     public bool KitchenApprovalRequired { get; set; } = true;
 
+    /// <summary>0 = weighted average, 1 = FIFO, 2 = LIFO (set by the SuperAdmin).</summary>
+    public int StoreCostMethod { get; set; }
+
     public bool PrintAutoOnPayment { get; set; }
     public bool PrintKitchenOnPayment { get; set; }
     public bool PrintShowPreview { get; set; } = true;

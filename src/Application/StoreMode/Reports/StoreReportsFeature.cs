@@ -663,6 +663,9 @@ public class StoreReportsHandlers :
         if (q.CategoryId is { } categoryId)
             balances = balances.Where(b => b.StoreProduct.CategoryId == categoryId).ToList();
 
+        // With FIFO / LIFO the stock is worth what its cost layers say, not the average cost.
+        var layerValues = await _store.GetLayerStockValuesAsync(companyId, ct);
+
         StoreStockBalanceResponse Map(Domain.Entities.StoreMode.StoreStockBalance b) => new()
         {
             WarehouseId = b.WarehouseId,
@@ -676,7 +679,9 @@ public class StoreReportsHandlers :
             MinimumStock = b.StoreProduct.MinimumStock,
             IsLow = b.Quantity <= b.StoreProduct.MinimumStock,
             AverageCost = b.StoreProduct.AverageCost,
-            Value = R2(b.Quantity * b.StoreProduct.AverageCost),
+            Value = layerValues is not null && layerValues.TryGetValue((b.WarehouseId, b.StoreProductId), out var layered)
+                ? layered
+                : R2(b.Quantity * b.StoreProduct.AverageCost),
         };
 
         var rows = balances.Select(Map).ToList();
