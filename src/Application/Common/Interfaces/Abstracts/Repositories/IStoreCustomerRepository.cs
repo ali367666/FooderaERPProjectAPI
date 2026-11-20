@@ -23,5 +23,8 @@ public interface IStoreCustomerRepository
     Task<List<StoreCustomerPayment>> GetCustomerPaymentsAsync(int companyId, int customerId, CancellationToken ct);
     Task<List<StoreCustomerPayment>> GetPaymentsForShiftAsync(int shiftId, CancellationToken ct);
 
+    /// <summary>Customer payments in a period with the customer and the till they were taken at (the cash receipt orders list).</summary>
+    Task<List<StoreCustomerPayment>> GetPaymentsForOrdersAsync(int companyId, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct);
+
     Task SaveChangesAsync(CancellationToken ct);
 }

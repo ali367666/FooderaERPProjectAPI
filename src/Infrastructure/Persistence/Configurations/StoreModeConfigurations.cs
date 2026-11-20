@@ -229,3 +229,44 @@ public class StoreSalePaymentConfiguration : IEntityTypeConfiguration<StoreSaleP
         b.Property(x => x.Reference).HasMaxLength(100);
     }
 }
+
+public class StoreExpenseItemConfiguration : IEntityTypeConfiguration<StoreExpenseItem>
+{
+    public void Configure(EntityTypeBuilder<StoreExpenseItem> b)
+    {
+        b.ToTable("StoreExpenseItems");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Name).IsRequired().HasMaxLength(100);
+        b.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.CompanyId, x.Name }).IsUnique();
+    }
+}
+
+public class StoreExpenseConfiguration : IEntityTypeConfiguration<StoreExpense>
+{
+    public void Configure(EntityTypeBuilder<StoreExpense> b)
+    {
+        b.ToTable("StoreExpenses");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.DocumentNo).IsRequired().HasMaxLength(50);
+        b.Property(x => x.Note).HasMaxLength(500);
+        b.Property(x => x.CancelReason).HasMaxLength(500);
+        b.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.CompanyId, x.DocumentDate });
+    }
+}
+
+public class StoreExpenseLineConfiguration : IEntityTypeConfiguration<StoreExpenseLine>
+{
+    public void Configure(EntityTypeBuilder<StoreExpenseLine> b)
+    {
+        b.ToTable("StoreExpenseLines");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+        b.Property(x => x.Payee).HasMaxLength(200);
+        b.Property(x => x.Note).HasMaxLength(500);
+        b.HasOne(x => x.StoreExpense).WithMany(x => x.Lines).HasForeignKey(x => x.StoreExpenseId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.StoreCashRegister).WithMany().HasForeignKey(x => x.StoreCashRegisterId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.StoreExpenseItem).WithMany().HasForeignKey(x => x.StoreExpenseItemId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

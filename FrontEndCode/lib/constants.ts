@@ -78,6 +78,8 @@ export const navGroups: NavGroup[] = [
       { title: "Stok", href: "/dashboard/store/stock", icon: Boxes, permission: "StoreStock.View", storeOnly: true },
       { title: "Alışlar", href: "/dashboard/store/purchases", icon: Truck, permission: "StorePurchase.View", storeOnly: true },
       { title: "Təchizatçılar", href: "/dashboard/store/suppliers", icon: Briefcase, permission: "StoreSupplier.View", storeOnly: true },
+      { title: "Kassa orderləri", href: "/dashboard/store/cash-orders", icon: Wallet, permission: "StoreReport.View", storeOnly: true },
+      { title: "Digər xərclər", href: "/dashboard/store/expenses", icon: Wallet, permission: "StoreReport.View", storeOnly: true },
       { title: "İnventarizasiya", href: "/dashboard/store/inventory", icon: ClipboardCheck, permission: "StoreInventory.View", storeOnly: true },
       { title: "Transfer", href: "/dashboard/store/transfers", icon: ArrowLeftRight, permission: "StoreTransfer.View", storeOnly: true },
       { title: "Müştərilər", href: "/dashboard/store/customers", icon: Users, permission: "StoreCustomer.View", storeOnly: true },
@@ -91,6 +93,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { title: "Satış hesabatı", href: "/dashboard/store/reports/satis-hesabati", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
       { title: "Satış və mənfəət", href: "/dashboard/store/reports/satis-menfeet", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
+      { title: "Dövr nəticəsi (mənfəət-zərər)", href: "/dashboard/store/reports/netice", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
       { title: "Ümumi stok", href: "/dashboard/store/reports/umumi-stok", icon: Boxes, permission: "StoreReport.View", storeOnly: true },
       { title: "Mal axını", href: "/dashboard/store/reports/mal-axini", icon: Boxes, permission: "StoreReport.View", storeOnly: true },
       { title: "Stok hesabatı", href: "/dashboard/store/reports/stok-hesabati", icon: Boxes, permission: "StoreReport.View", storeOnly: true },

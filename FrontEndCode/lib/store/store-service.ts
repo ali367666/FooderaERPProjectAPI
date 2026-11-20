@@ -1234,8 +1234,57 @@ export const getStoreCustomerStatement = (id: number, params: { from?: string; t
     "Müştəri hesabı yüklənmədi",
   );
 
-export const payStoreCustomerDebt = (body: { customerId: number; amount: number; method: number; reference?: string | null; note?: string | null }) =>
+export const payStoreCustomerDebt = (body: { customerId: number; amount: number; method: number; reference?: string | null; note?: string | null; registerId?: number | null }) =>
   call(() => api.post<StoreCustomerStatement>("/store/customer-payments", body), "Ödəniş yazılmadı");
+
+export type StoreCashOrder = {
+  /** "in": receipt order (customer payment); "out": payment order (supplier payment). */
+  kind: "in" | "out";
+  id: number;
+  documentNo: string;
+  dateUtc: string;
+  registerId: number | null;
+  registerName: string | null;
+  partyId: number;
+  partyName: string;
+  partyCode: string | null;
+  amount: number;
+  method: number;
+  basis: string | null;
+  note: string | null;
+  authorName: string | null;
+  isReversed: boolean;
+  reversedAtUtc: string | null;
+  reverseReason: string | null;
+};
+
+export type StoreCashOrderList = { totalIn: number; totalOut: number; items: StoreCashOrder[] };
+
+/** Cash orders: receipt orders (customer payments) and payment orders (supplier payments) as documents. */
+export const getStoreCashOrders = (params: {
+  kind?: "in" | "out" | "";
+  from?: string;
+  to?: string;
+  registerId?: number | null;
+  partyId?: number | null;
+  code?: string;
+  includeReversed?: boolean;
+}) =>
+  call(
+    () =>
+      api.get<StoreCashOrderList>("/store/cash-orders", {
+        params: {
+          kind: params.kind || undefined,
+          from: params.from || undefined,
+          to: params.to || undefined,
+          registerId: params.registerId || undefined,
+          partyId: params.partyId || undefined,
+          code: params.code?.trim() || undefined,
+          includeReversed: params.includeReversed ?? true,
+        },
+      }),
+    "Kassa orderləri yüklənmədi",
+  );
 
 export const adjustStoreBonus = (body: { customerId: number; amount: number; reason: string }) =>
   call(() => api.post<StoreCustomer>("/store/bonus/adjustments", body), "Bonus düzəlişi yazılmadı");
@@ -1455,6 +1504,97 @@ export const getStoreProductFlowLines = (productId: number, params: { from: stri
       }),
     "Hərəkətlər yüklənmədi",
   );
+
+export type StoreExpenseItem = { id: number; name: string; isActive: boolean };
+
+export type StoreExpenseLine = {
+  id: number;
+  registerId: number;
+  registerName: string;
+  expenseItemId: number;
+  expenseItemName: string;
+  payee: string | null;
+  amount: number;
+  note: string | null;
+};
+
+export type StoreExpense = {
+  id: number;
+  documentNo: string;
+  documentDate: string;
+  note: string | null;
+  authorName: string | null;
+  total: number;
+  isCancelled: boolean;
+  cancelledAtUtc: string | null;
+  cancelReason: string | null;
+  lines: StoreExpenseLine[];
+};
+
+export type StoreExpenseList = { total: number; byItem: { name: string; amount: number }[]; items: StoreExpense[] };
+
+export const getStoreExpenseItems = (includeInactive = false) =>
+  call(() => api.get<StoreExpenseItem[]>("/store/expense-items", { params: { includeInactive } }), "Xərc maddələri yüklənmədi");
+
+export const saveStoreExpenseItem = (id: number | null, body: { name: string; isActive: boolean }) =>
+  call(
+    () => (id ? api.put<StoreExpenseItem>(`/store/expense-items/${id}`, body) : api.post<StoreExpenseItem>("/store/expense-items", body)),
+    "Xərc maddəsi yazılmadı",
+  );
+
+/** Expense documents (digər xərclər) filtered by period, till, item, payee and code. */
+export const getStoreExpenses = (params: {
+  from?: string;
+  to?: string;
+  registerId?: number | null;
+  expenseItemId?: number | null;
+  payee?: string;
+  code?: string;
+  includeCancelled?: boolean;
+}) =>
+  call(
+    () =>
+      api.get<StoreExpenseList>("/store/expenses", {
+        params: {
+          from: params.from || undefined,
+          to: params.to || undefined,
+          registerId: params.registerId || undefined,
+          expenseItemId: params.expenseItemId || undefined,
+          payee: params.payee?.trim() || undefined,
+          code: params.code?.trim() || undefined,
+          includeCancelled: params.includeCancelled ?? true,
+        },
+      }),
+    "Xərclər yüklənmədi",
+  );
+
+/** Writes an expense document: every line takes its amount out of its till's open shift. */
+export const createStoreExpense = (body: { note?: string | null; lines: { registerId: number; expenseItemId: number; payee?: string | null; amount: number; note?: string | null }[] }) =>
+  call(() => api.post<StoreExpense>("/store/expenses", body), "Xərc sənədi yazılmadı");
+
+export const cancelStoreExpense = (id: number, reason: string) =>
+  call(() => api.post<StoreExpense>(`/store/expenses/${id}/cancel`, { reason }), "Xərc sənədi ləğv edilmədi");
+
+export type StoreProfitLoss = {
+  from: string;
+  to: string;
+  salesCount: number;
+  /** Net sales less returns (the turnover). */
+  sales: number;
+  /** What the goods sold cost, returned goods given back. */
+  costOfGoods: number;
+  grossProfit: number;
+  /** Other expenses paid out of the tills (cancelled documents left out). */
+  expenses: number;
+  /** Gross profit less expenses; negative is a loss. */
+  netIncome: number;
+  expensesByItem: { name: string; amount: number }[];
+  days: { day: string; sales: number; grossProfit: number; expenses: number; netIncome: number }[];
+};
+
+/** The result of a period: sales, cost of goods, gross profit, other expenses and net income. */
+export const getStoreProfitLoss = (params: { from: string; to: string }) =>
+  call(() => api.get<StoreProfitLoss>("/store/reports/profit-loss", { params }), "Dövr nəticəsi yüklənmədi");
 
 export const getStoreAlerts = () => call(() => api.get<StoreAlert[]>("/store/alerts"), "Bildirişlər yüklənmədi");
 

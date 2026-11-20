@@ -88,6 +88,12 @@ public class CreateStoreCustomerPaymentRequest
     public StorePaymentMethod Method { get; set; } = StorePaymentMethod.Cash;
     public string? Reference { get; set; }
     public string? Note { get; set; }
+
+    /// <summary>
+    /// The till the payment is taken at (a cash receipt order made in the admin panel): it lands in that till's open shift.
+    /// Left out, it is the signed-in cashier's own open shift, as at the till.
+    /// </summary>
+    public int? RegisterId { get; set; }
 }
 
 public class AdjustStoreBonusRequest

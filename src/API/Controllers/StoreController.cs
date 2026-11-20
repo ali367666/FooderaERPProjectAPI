@@ -188,6 +188,65 @@ public class StoreController : ControllerBase
         [FromQuery] int? registerId, [FromQuery] DateTime? from, [FromQuery] DateTime? to,
         [FromQuery] int? cashierUserId, [FromQuery] string? code, CancellationToken ct)
         => Ok(await _mediator.Send(new GetStoreShiftsQuery(registerId, from, to, cashierUserId, code), ct));
+
+    /// <summary>The result of a period: sales, cost of goods, gross profit, other expenses and net income, with the expenses per item and the days.</summary>
+    [Authorize(Policy = AppPermissions.StoreReportFinance)]
+    [HttpGet("reports/profit-loss")]
+    public async Task<ActionResult<StoreProfitLossResponse>> GetProfitLoss([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+    {
+        var day = DateTime.UtcNow.Date;
+        return Ok(await _mediator.Send(new GetStoreProfitLossQuery(from ?? new DateTime(day.Year, day.Month, 1), to ?? day), ct));
+    }
+
+    // ---- Expenses (digər xərclər) -----------------------------------------------------------
+
+    /// <summary>The company's expense items (salary, rent, utilities...).</summary>
+    [Authorize(Policy = AppPermissions.StoreReportView)]
+    [HttpGet("expense-items")]
+    public async Task<ActionResult<List<StoreExpenseItemResponse>>> GetExpenseItems([FromQuery] bool includeInactive = false, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetStoreExpenseItemsQuery(includeInactive), ct));
+
+    [Authorize(Policy = AppPermissions.StoreRegisterManage)]
+    [HttpPost("expense-items")]
+    public async Task<ActionResult<StoreExpenseItemResponse>> CreateExpenseItem([FromBody] SaveStoreExpenseItemRequest request, CancellationToken ct)
+        => Ok(await _mediator.Send(new SaveStoreExpenseItemCommand(null, request), ct));
+
+    [Authorize(Policy = AppPermissions.StoreRegisterManage)]
+    [HttpPut("expense-items/{id:int}")]
+    public async Task<ActionResult<StoreExpenseItemResponse>> UpdateExpenseItem(int id, [FromBody] SaveStoreExpenseItemRequest request, CancellationToken ct)
+        => Ok(await _mediator.Send(new SaveStoreExpenseItemCommand(id, request), ct));
+
+    /// <summary>Expense documents filtered by period, till, item, payee and code, with the total and the total per item.</summary>
+    [Authorize(Policy = AppPermissions.StoreReportView)]
+    [HttpGet("expenses")]
+    public async Task<ActionResult<StoreExpenseListResponse>> GetExpenses(
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int? registerId, [FromQuery] int? expenseItemId,
+        [FromQuery] string? payee, [FromQuery] string? code, [FromQuery] bool includeCancelled = true, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetStoreExpensesQuery(from, to, registerId, expenseItemId, payee, code, includeCancelled), ct));
+
+    /// <summary>Writes an expense document: every line takes its amount out of its till's open shift.</summary>
+    [Authorize(Policy = AppPermissions.StoreCashMovementOut)]
+    [HttpPost("expenses")]
+    public async Task<ActionResult<StoreExpenseResponse>> CreateExpense([FromBody] CreateStoreExpenseRequest request, CancellationToken ct)
+        => Ok(await _mediator.Send(new CreateStoreExpenseCommand(request), ct));
+
+    /// <summary>Cancels an expense document: the money goes back into the tills' open shifts.</summary>
+    [Authorize(Policy = AppPermissions.StoreCashMovementOut)]
+    [HttpPost("expenses/{id:int}/cancel")]
+    public async Task<ActionResult<StoreExpenseResponse>> CancelExpense(int id, [FromBody] ReverseStorePaymentRequest request, CancellationToken ct)
+        => Ok(await _mediator.Send(new CancelStoreExpenseCommand(id, request.Reason), ct));
+
+    /// <summary>
+    /// Cash orders: receipt orders (customer payments) and payment orders (supplier payments) as documents, filtered by kind, period, till, party and code.
+    /// They are created with <c>POST customer-payments</c> (give <c>registerId</c> to choose the till) and <c>POST supplier-payments</c>.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.StoreReportView)]
+    [HttpGet("cash-orders")]
+    public async Task<ActionResult<StoreCashOrderListResponse>> GetCashOrders(
+        [FromQuery] string? kind, [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int? registerId,
+        [FromQuery] int? partyId, [FromQuery] string? code, [FromQuery] bool includeReversed = true, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetStoreCashOrdersQuery(kind, from, to, registerId, partyId, code, includeReversed), ct));
+
     /// <summary>The shift document: everything that happened in one shift (sold products, sales, cancellations, returns, cash movements, approvals).</summary>
     [Authorize(Policy = AppPermissions.StoreReportView)]
     [HttpGet("shifts/{id:int}/document")]

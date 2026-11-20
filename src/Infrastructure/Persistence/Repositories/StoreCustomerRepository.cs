@@ -88,6 +88,17 @@ public class StoreCustomerRepository : IStoreCustomerRepository
             .Take(200)
             .ToListAsync(ct);
 
+    public Task<List<StoreCustomerPayment>> GetPaymentsForOrdersAsync(int companyId, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct)
+        => _context.StoreCustomerPayments.AsNoTracking()
+            .Include(x => x.StoreCustomer)
+            .Include(x => x.StoreCashShift).ThenInclude(s => s.StoreCashRegister)
+            .Where(x => x.CompanyId == companyId
+                && (fromUtc == null || x.CreatedAtUtc >= fromUtc)
+                && (toUtcExclusive == null || x.CreatedAtUtc < toUtcExclusive))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(2000)
+            .ToListAsync(ct);
+
     public Task<List<StoreCustomerPayment>> GetPaymentsForShiftAsync(int shiftId, CancellationToken ct)
         => _context.StoreCustomerPayments.AsNoTracking()
             .Where(x => x.StoreCashShiftId == shiftId && x.ReversedAtUtc == null)

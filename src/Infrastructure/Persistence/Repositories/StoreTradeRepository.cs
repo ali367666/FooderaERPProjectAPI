@@ -169,6 +169,16 @@ public class StoreTradeRepository : IStoreTradeRepository
     public async Task AddSupplierPaymentAsync(StoreSupplierPayment payment, CancellationToken ct)
         => await _context.StoreSupplierPayments.AddAsync(payment, ct);
 
+    public Task<List<StoreSupplierPayment>> GetSupplierPaymentsForOrdersAsync(int companyId, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct)
+        => _context.StoreSupplierPayments.AsNoTracking()
+            .Include(x => x.StoreSupplier)
+            .Where(x => x.CompanyId == companyId
+                && (fromUtc == null || x.PaymentDate >= fromUtc)
+                && (toUtcExclusive == null || x.PaymentDate < toUtcExclusive))
+            .OrderByDescending(x => x.PaymentDate).ThenByDescending(x => x.Id)
+            .Take(2000)
+            .ToListAsync(ct);
+
     public Task<List<StoreSupplierPayment>> GetSupplierPaymentsAsync(int companyId, int supplierId, CancellationToken ct)
         => _context.StoreSupplierPayments.AsNoTracking()
             .Include(x => x.Allocations).ThenInclude(a => a.StorePurchase)

@@ -247,8 +247,18 @@ public class StoreCustomersHandlers :
             throw new BadRequestException("Müştəri ödənişi nağd və ya kartla qəbul edilir.");
 
         var customer = await _customers.GetCustomerAsync(dto.CustomerId, companyId, ct) ?? throw new BadRequestException("Müştəri tapılmadı.");
-        var shift = await _store.GetOpenShiftForUserAsync(companyId, userId, ct)
-            ?? throw new BadRequestException("Ödəniş qəbul etmək üçün əvvəlcə növbəni açın.");
+        StoreCashShift shift;
+        if (dto.RegisterId is { } registerId)
+        {
+            _ = await _store.GetRegisterAsync(registerId, companyId, ct) ?? throw new BadRequestException("Kassa tapılmadı.");
+            shift = await _store.GetOpenShiftForRegisterAsync(registerId, ct)
+                ?? throw new BadRequestException("Bu kassada açıq növbə yoxdur: pul növbənin kassasına düşür. Əvvəlcə növbəni açın.");
+        }
+        else
+        {
+            shift = await _store.GetOpenShiftForUserAsync(companyId, userId, ct)
+                ?? throw new BadRequestException("Ödəniş qəbul etmək üçün əvvəlcə növbəni açın.");
+        }
 
         var debt = await _trade.GetLedgerBalanceAsync(companyId, StoreLedgerPartyType.Customer, customer.Id, ct);
         if (amount > Math.Max(0, debt))

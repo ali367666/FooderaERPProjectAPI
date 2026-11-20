@@ -54,6 +54,9 @@ public interface IStoreTradeRepository
     Task AddSupplierPaymentAsync(StoreSupplierPayment payment, CancellationToken ct);
     Task<List<StoreSupplierPayment>> GetSupplierPaymentsAsync(int companyId, int supplierId, CancellationToken ct);
 
+    /// <summary>Supplier payments in a period with the supplier (the cash payment orders list).</summary>
+    Task<List<StoreSupplierPayment>> GetSupplierPaymentsForOrdersAsync(int companyId, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct);
+
     // Price history
     Task AddPriceHistoryAsync(StorePriceHistory entry, CancellationToken ct);
     Task<List<StorePriceHistory>> GetPriceHistoryAsync(int companyId, int productId, CancellationToken ct);
