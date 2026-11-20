@@ -289,6 +289,7 @@ public class StoreSalesHandlers :
                 RegisterName = s.StoreCashRegister?.Name,
                 Total = s.Total,
                 LineCount = s.Lines.Count,
+                IsWholesale = s.IsWholesale,
             }).ToList(),
         };
     }

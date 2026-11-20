@@ -326,6 +326,8 @@ export type StoreSale = {
   customerId: number | null;
   customerName: string | null;
   isReceiptless: boolean;
+  /** Made on the wholesale screen of the admin panel. */
+  isWholesale: boolean;
   fiscalStatus: number;
   fiscalReceiptNo: string | null;
   fiscalError: string | null;
@@ -368,6 +370,7 @@ export type StoreSaleListItem = {
   registerName: string | null;
   total: number;
   lineCount: number;
+  isWholesale: boolean;
 };
 
 export type CreateStoreSalePayload = {
@@ -386,6 +389,10 @@ export type CreateStoreSalePayload = {
   payments: { method: StorePaymentMethodValue; amount: number; reference?: string | null }[];
   note?: string | null;
   approval?: StoreApproval | null;
+  /** A wholesale sale of the admin panel: wholesale price, the chosen warehouse, any open shift of the till. */
+  wholesale?: boolean;
+  warehouseId?: number | null;
+  useRetailPrice?: boolean;
 };
 
 async function call<T>(fn: () => Promise<{ data: T }>, fallback: string): Promise<T> {

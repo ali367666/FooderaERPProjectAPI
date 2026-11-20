@@ -110,6 +110,9 @@ public class StoreSale : CompanyEntity<int>
 
     /// <summary>Sold without printing a receipt (allowed by the company rule and the cashier's permission); the sale is recorded all the same.</summary>
     public bool IsReceiptless { get; set; }
+
+    /// <summary>Made on the wholesale screen of the admin panel (topdan satış): wholesale prices, a customer, partly or wholly on credit.</summary>
+    public bool IsWholesale { get; set; }
     public string? FiscalReceiptNo { get; set; }
     public string? FiscalError { get; set; }
 

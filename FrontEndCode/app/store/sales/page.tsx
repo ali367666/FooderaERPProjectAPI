@@ -167,7 +167,10 @@ export default function StoreSalesPage() {
             ) : (
               items.map((s) => (
                 <tr key={s.id} className="cursor-pointer border-t hover:bg-muted/40" onClick={() => void open(s.id)}>
-                  <td className="px-3 py-2 font-medium">{s.documentNo}</td>
+                  <td className="px-3 py-2 font-medium">
+                    {s.documentNo}
+                    {s.isWholesale && <Badge variant="outline" className="ml-2">Topdan</Badge>}
+                  </td>
                   <td className="px-3 py-2">{new Date(s.createdAtUtc).toLocaleString("az-AZ")}</td>
                   <td className="px-3 py-2">{s.registerName ?? "—"}</td>
                   <td className="px-3 py-2">{s.cashierName ?? "—"}</td>

@@ -73,6 +73,7 @@ export const navGroups: NavGroup[] = [
   {
     title: "MAĞAZA",
     items: [
+      { title: "Topdan satış", href: "/dashboard/store/wholesale", icon: ShoppingCart, permission: "StoreSale.Approve", storeOnly: true },
       { title: "Satışlar", href: "/dashboard/store/sales", icon: FileText, permission: "StoreSale.View", storeOnly: true },
       { title: "Məhsullar", href: "/dashboard/store/products", icon: Package, permission: "StoreProduct.View", storeOnly: true },
       { title: "Stok", href: "/dashboard/store/stock", icon: Boxes, permission: "StoreStock.View", storeOnly: true },

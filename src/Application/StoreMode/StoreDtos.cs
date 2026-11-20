@@ -319,6 +319,18 @@ public class CreateStoreSaleRequest
 
     /// <summary>A manager's credentials, when the cashier lacks the permission for a discount or price change in this sale.</summary>
     public StoreApprovalRequest? Approval { get; set; }
+
+    /// <summary>
+    /// A wholesale sale made in the admin panel (topdan satış): needs the manager permission, may be made on any open shift of the till
+    /// (the cash lands there), takes the goods from <see cref="WarehouseId"/> and uses the wholesale price.
+    /// </summary>
+    public bool Wholesale { get; set; }
+
+    /// <summary>The warehouse the goods are taken from; left out, the till's own warehouse.</summary>
+    public int? WarehouseId { get; set; }
+
+    /// <summary>A wholesale sale at the retail price list instead of the wholesale one.</summary>
+    public bool UseRetailPrice { get; set; }
 }
 
 public class CreateStoreSaleLineRequest
@@ -405,6 +417,7 @@ public class StoreSaleResponse
     public DateTime? CancelledAtUtc { get; set; }
     public string? CancelReason { get; set; }
     public bool IsReceiptless { get; set; }
+    public bool IsWholesale { get; set; }
     public StoreFiscalStatus FiscalStatus { get; set; }
     public string? FiscalReceiptNo { get; set; }
     public string? FiscalError { get; set; }
@@ -422,6 +435,7 @@ public class StoreSaleListItemResponse
     public string? RegisterName { get; set; }
     public decimal Total { get; set; }
     public int LineCount { get; set; }
+    public bool IsWholesale { get; set; }
 }
 
 public class StoreSalePageResponse

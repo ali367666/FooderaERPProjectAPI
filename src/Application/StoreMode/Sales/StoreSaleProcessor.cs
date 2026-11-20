@@ -115,10 +115,26 @@ public sealed class StoreSaleProcessor
             throw new BadRequestException("Bu kassa aktiv deyil.");
         await _access.EnsureBranchAsync(register.RestaurantId, ct);
 
+        // A wholesale sale is made in the admin panel by a manager: it lands on whatever shift is open on that till.
+        if (dto.Wholesale && !_currentUser.HasPermission(AppPermissions.StoreSaleApprove))
+            throw new BadRequestException("Topdan satış üçün menecer icazəsi (StoreSale.Approve) lazımdır.");
+
         var shift = await _repository.GetOpenShiftForRegisterAsync(register.Id, ct)
-            ?? throw new BadRequestException("Satış üçün əvvəlcə növbəni açın.");
-        if (shift.CashierUserId != userId)
+            ?? throw new BadRequestException(dto.Wholesale
+                ? "Seçilən kassada açıq növbə yoxdur: nağd ödəniş növbənin kassasına düşür. Əvvəlcə növbəni açın."
+                : "Satış üçün əvvəlcə növbəni açın.");
+        if (shift.CashierUserId != userId && !dto.Wholesale)
             throw new BadRequestException("Bu kassada başqa kassirin növbəsi açıqdır.");
+
+        // The goods come from the till's warehouse, or from the one chosen on the wholesale screen.
+        var warehouseId = register.WarehouseId;
+        if (dto.Wholesale && dto.WarehouseId is { } chosenWarehouse && chosenWarehouse != register.WarehouseId)
+        {
+            if (!await _repository.WarehouseExistsAsync(companyId, chosenWarehouse, ct))
+                throw new BadRequestException("Anbar tapılmadı.");
+            await _access.EnsureWarehouseAsync(chosenWarehouse, ct);
+            warehouseId = chosenWarehouse;
+        }
 
         var settings = await _repository.GetOrCreateSettingsAsync(companyId, ct);
         var approvals = new List<(string, int, string?)>();
@@ -149,6 +165,10 @@ public sealed class StoreSaleProcessor
                 throw new BadRequestException($"\"{product.Name}\" ədədlə satılır, miqdar tam olmalıdır.");
 
             var current = StorePricingServiceStatic(product, branchPrices);
+
+            // A wholesale sale uses the wholesale price when the product has one; the price a manager changes is compared with that.
+            if (dto.Wholesale && !dto.UseRetailPrice && product.WholesalePrice is { } wholesale && wholesale > 0)
+                current = R2(wholesale);
             var price = current;
             string? priceReason = null;
             if (line.OverridePrice is { } overridePrice && overridePrice != current)
@@ -201,7 +221,7 @@ public sealed class StoreSaleProcessor
                     var unit = serialUnits.FirstOrDefault(u => u.SerialNumber == serial);
                     if (unit is null || unit.StoreProductId != product.Id)
                         throw new BadRequestException($"\"{serial}\" nömrəsi bu məhsul üçün tapılmadı.");
-                    if (unit.Status != StoreSerialStatus.InStock || unit.WarehouseId != register.WarehouseId)
+                    if (unit.Status != StoreSerialStatus.InStock || unit.WarehouseId != warehouseId)
                         throw new BadRequestException($"\"{serial}\" bu kassanın anbarında satışa hazır deyil.");
                     units.Add(unit);
                 }
@@ -313,7 +333,7 @@ public sealed class StoreSaleProcessor
         var balances = new Dictionary<int, StoreStockBalance>();
         foreach (var group in lines.GroupBy(l => l.StoreProductId))
         {
-            var balance = await _repository.GetOrCreateBalanceAsync(companyId, register.WarehouseId, group.Key, ct);
+            var balance = await _repository.GetOrCreateBalanceAsync(companyId, warehouseId, group.Key, ct);
             var needed = group.Sum(l => l.Quantity);
             var available = balance.Quantity + (incomingStock?.GetValueOrDefault(group.Key) ?? 0m);
             if (!settings.AllowNegativeStock && available < needed)
@@ -328,7 +348,7 @@ public sealed class StoreSaleProcessor
             DocumentNo = Guid.NewGuid().ToString("N"),
             OperationId = dto.OperationId,
             RestaurantId = register.RestaurantId,
-            WarehouseId = register.WarehouseId,
+            WarehouseId = warehouseId,
             StoreCashRegisterId = register.Id,
             StoreCashRegister = register,
             StoreCashShiftId = shift.Id,
@@ -345,6 +365,7 @@ public sealed class StoreSaleProcessor
             ChangeAmount = change,
             Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim(),
             IsReceiptless = dto.Receiptless,
+            IsWholesale = dto.Wholesale,
             CreatedByUserId = userId,
             Lines = lines,
             Payments = payments,
@@ -353,7 +374,7 @@ public sealed class StoreSaleProcessor
         return new PreparedSale
         {
             Sale = sale,
-            WarehouseId = register.WarehouseId,
+            WarehouseId = warehouseId,
             Balances = balances,
             SerialLines = serialLines,
             Approvals = approvals,
@@ -512,6 +533,7 @@ public sealed class StoreSaleProcessor
             CancelledAtUtc = s.CancelledAtUtc,
             CancelReason = s.CancelReason,
             IsReceiptless = s.IsReceiptless,
+            IsWholesale = s.IsWholesale,
             FiscalStatus = s.FiscalStatus,
             FiscalReceiptNo = s.FiscalReceiptNo,
             FiscalError = s.FiscalError,
