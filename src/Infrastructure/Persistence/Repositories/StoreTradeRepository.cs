@@ -68,6 +68,22 @@ public class StoreTradeRepository : IStoreTradeRepository
             .OrderBy(x => x.EntryDate).ThenBy(x => x.Id)
             .ToListAsync(ct);
 
+    public Task<Dictionary<int, decimal>> GetLedgerBalancesBeforeAsync(int companyId, StoreLedgerPartyType partyType, DateTime beforeUtc, CancellationToken ct)
+        => _context.StoreLedgerEntries.AsNoTracking()
+            .Where(x => x.CompanyId == companyId && x.PartyType == partyType && x.EntryDate < beforeUtc)
+            .GroupBy(x => x.PartyId)
+            .Select(g => new { g.Key, Sum = g.Sum(x => x.Amount) })
+            .ToDictionaryAsync(x => x.Key, x => x.Sum, ct);
+
+    public Task<List<StoreLedgerEntry>> GetLedgerForAllAsync(
+        int companyId, StoreLedgerPartyType partyType, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct)
+        => _context.StoreLedgerEntries.AsNoTracking()
+            .Where(x => x.CompanyId == companyId && x.PartyType == partyType
+                && (fromUtc == null || x.EntryDate >= fromUtc)
+                && (toUtcExclusive == null || x.EntryDate < toUtcExclusive))
+            .OrderBy(x => x.EntryDate).ThenBy(x => x.Id)
+            .ToListAsync(ct);
+
     public async Task<decimal> GetLedgerBalanceBeforeAsync(
         int companyId, StoreLedgerPartyType partyType, int partyId, DateTime beforeUtc, CancellationToken ct)
         => await _context.StoreLedgerEntries

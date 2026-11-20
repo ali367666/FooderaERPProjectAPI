@@ -254,6 +254,69 @@ public class StoreReportRepository : IStoreReportRepository
         }).ToList();
     }
 
+    public async Task<List<ProductFlowRow>> GetProductFlowAsync(
+        int companyId, DateTime fromUtc, DateTime toUtcExclusive, int? warehouseId, IReadOnlyCollection<int>? warehouseIds,
+        int? categoryId, int? productId, CancellationToken ct)
+    {
+        var grouped = await _context.StoreStockMovements.AsNoTracking()
+            .Where(m => m.CompanyId == companyId
+                && m.CreatedAtUtc < toUtcExclusive
+                && (warehouseId == null || m.WarehouseId == warehouseId)
+                && (warehouseIds == null || warehouseIds.Contains(m.WarehouseId))
+                && (categoryId == null || m.StoreProduct.CategoryId == categoryId)
+                && (productId == null || m.StoreProductId == productId))
+            .GroupBy(m => new { m.WarehouseId, m.StoreProductId, m.Type })
+            .Select(g => new
+            {
+                g.Key.WarehouseId,
+                g.Key.StoreProductId,
+                g.Key.Type,
+                OpeningQty = g.Sum(m => m.CreatedAtUtc < fromUtc ? m.Quantity : 0m),
+                OpeningValue = g.Sum(m => m.CreatedAtUtc < fromUtc ? m.Quantity * m.UnitCost : 0m),
+                PeriodQty = g.Sum(m => m.CreatedAtUtc >= fromUtc ? m.Quantity : 0m),
+                PeriodValue = g.Sum(m => m.CreatedAtUtc >= fromUtc ? m.Quantity * m.UnitCost : 0m),
+            })
+            .ToListAsync(ct);
+        grouped = grouped.Where(g => g.OpeningQty != 0 || g.OpeningValue != 0 || g.PeriodQty != 0 || g.PeriodValue != 0).ToList();
+        if (grouped.Count == 0) return new();
+
+        var productIds = grouped.Select(g => g.StoreProductId).Distinct().ToList();
+        var products = await _context.StoreProducts.AsNoTracking()
+            .Where(p => productIds.Contains(p.Id))
+            .Select(p => new
+            {
+                p.Id,
+                p.Name,
+                p.CategoryId,
+                CategoryName = p.Category != null ? p.Category.Name : null,
+                Barcode = p.Barcodes.OrderByDescending(b => b.IsPrimary).Select(b => b.Barcode).FirstOrDefault(),
+            })
+            .ToDictionaryAsync(p => p.Id, ct);
+        var warehouses = await _context.Warehouses.AsNoTracking()
+            .Where(w => w.CompanyId == companyId)
+            .ToDictionaryAsync(w => w.Id, w => w.Name, ct);
+
+        return grouped.Select(g =>
+        {
+            var p = products[g.StoreProductId];
+            return new ProductFlowRow(
+                g.WarehouseId, warehouses.GetValueOrDefault(g.WarehouseId, "—"), g.StoreProductId, p.Name, p.Barcode, p.CategoryId, p.CategoryName,
+                g.Type, g.OpeningQty, g.OpeningValue, g.PeriodQty, g.PeriodValue);
+        }).ToList();
+    }
+
+    public async Task<List<ProductMovementLineRow>> GetProductMovementLinesAsync(
+        int companyId, int productId, DateTime fromUtc, DateTime toUtcExclusive, int? warehouseId, IReadOnlyCollection<int>? warehouseIds, CancellationToken ct)
+        => await _context.StoreStockMovements.AsNoTracking()
+            .Where(m => m.CompanyId == companyId && m.StoreProductId == productId
+                && m.CreatedAtUtc >= fromUtc && m.CreatedAtUtc < toUtcExclusive
+                && (warehouseId == null || m.WarehouseId == warehouseId)
+                && (warehouseIds == null || warehouseIds.Contains(m.WarehouseId)))
+            .OrderBy(m => m.CreatedAtUtc).ThenBy(m => m.Id)
+            .Select(m => new ProductMovementLineRow(
+                m.CreatedAtUtc, m.WarehouseId, m.Warehouse.Name, m.Type, m.Quantity, m.UnitCost, m.BalanceAfter, m.DocumentType, m.DocumentNo, m.Reason))
+            .ToListAsync(ct);
+
     public async Task<Dictionary<int, ProductInfoRow>> GetProductInfoAsync(int companyId, IReadOnlyCollection<int> productIds, CancellationToken ct)
     {
         if (productIds.Count == 0) return new();

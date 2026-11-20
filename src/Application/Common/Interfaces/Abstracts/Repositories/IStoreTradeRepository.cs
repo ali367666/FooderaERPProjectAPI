@@ -21,6 +21,13 @@ public interface IStoreTradeRepository
     Task<Dictionary<int, decimal>> GetLedgerBalancesAsync(int companyId, StoreLedgerPartyType partyType, CancellationToken ct);
     Task<List<StoreLedgerEntry>> GetLedgerAsync(
         int companyId, StoreLedgerPartyType partyType, int partyId, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct);
+    /// <summary>The balance of every party of that kind before a moment (the opening balance of a settlement report).</summary>
+    Task<Dictionary<int, decimal>> GetLedgerBalancesBeforeAsync(int companyId, StoreLedgerPartyType partyType, DateTime beforeUtc, CancellationToken ct);
+
+    /// <summary>Every ledger entry of every party of that kind inside a period.</summary>
+    Task<List<StoreLedgerEntry>> GetLedgerForAllAsync(
+        int companyId, StoreLedgerPartyType partyType, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct);
+
     Task<decimal> GetLedgerBalanceBeforeAsync(
         int companyId, StoreLedgerPartyType partyType, int partyId, DateTime beforeUtc, CancellationToken ct);
 

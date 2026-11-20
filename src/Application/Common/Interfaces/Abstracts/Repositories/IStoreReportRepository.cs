@@ -37,6 +37,18 @@ public interface IStoreReportRepository
     Task<List<StockSummaryRow>> GetStockSummaryAsync(
         int companyId, DateTime fromUtc, DateTime toUtcExclusive, int? warehouseId, IReadOnlyCollection<int>? warehouseIds, int? categoryId, CancellationToken ct);
 
+    /// <summary>
+    /// Per warehouse, product and movement kind: the signed quantity and cost value before the period (the opening) and inside it,
+    /// straight from the movement ledger (the goods flow report).
+    /// </summary>
+    Task<List<ProductFlowRow>> GetProductFlowAsync(
+        int companyId, DateTime fromUtc, DateTime toUtcExclusive, int? warehouseId, IReadOnlyCollection<int>? warehouseIds,
+        int? categoryId, int? productId, CancellationToken ct);
+
+    /// <summary>The movement lines of one product inside a period, oldest first.</summary>
+    Task<List<ProductMovementLineRow>> GetProductMovementLinesAsync(
+        int companyId, int productId, DateTime fromUtc, DateTime toUtcExclusive, int? warehouseId, IReadOnlyCollection<int>? warehouseIds, CancellationToken ct);
+
     /// <summary>Code, barcode and current sale price of the given products.</summary>
     Task<Dictionary<int, ProductInfoRow>> GetProductInfoAsync(int companyId, IReadOnlyCollection<int> productIds, CancellationToken ct);
 
@@ -64,6 +76,14 @@ public record SaleDetailRow(
 public record StockSummaryRow(
     int WarehouseId, string WarehouseName, int ProductId, string ProductName, string? Barcode, decimal PurchasePrice, decimal SalePrice,
     decimal OpeningQty, decimal OpeningValue, decimal InQty, decimal InValue, decimal OutQty, decimal OutValue);
+
+public record ProductFlowRow(
+    int WarehouseId, string WarehouseName, int ProductId, string ProductName, string? Barcode, int? CategoryId, string? CategoryName,
+    StoreStockMovementType Type, decimal OpeningQty, decimal OpeningValue, decimal PeriodQty, decimal PeriodValue);
+
+public record ProductMovementLineRow(
+    DateTime CreatedAtUtc, int WarehouseId, string WarehouseName, StoreStockMovementType Type, decimal Quantity, decimal UnitCost,
+    decimal BalanceAfter, string? DocumentType, string? DocumentNo, string? Reason);
 
 public record ProductInfoRow(int ProductId, string? Sku, string? Barcode, decimal SalePrice);
 

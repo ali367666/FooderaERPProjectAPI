@@ -300,6 +300,42 @@ public class StoreController : ControllerBase
 
     // ---- Reports ----------------------------------------------------------------------------
 
+    /// <summary>
+    /// Settlements with counterparties (qarşılıqlı hesablaşma): for each customer or supplier the opening debt, the increase and decrease over the
+    /// period and the closing debt, with the movements behind them. <c>partyType</c> is "customers" or "suppliers".
+    /// </summary>
+    [Authorize(Policy = AppPermissions.StoreReportFinance)]
+    [HttpGet("reports/settlements")]
+    public async Task<ActionResult<StoreSettlementsResponse>> GetSettlements(
+        [FromQuery] string partyType, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+    {
+        var day = DateTime.UtcNow.Date;
+        return Ok(await _mediator.Send(new GetStoreSettlementsQuery(partyType, from ?? new DateTime(day.Year, day.Month, 1), to ?? day), ct));
+    }
+
+    /// <summary>
+    /// The goods flow: per warehouse and product the opening stock, what each kind of movement did (purchase, sale, returns, transfers, adjustments,
+    /// waste, own use) and the closing stock, in pieces and in cost value.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.StoreReportView)]
+    [HttpGet("reports/product-flow")]
+    public async Task<ActionResult<StoreProductFlowResponse>> GetProductFlow(
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int? warehouseId, [FromQuery] int? categoryId, [FromQuery] int? productId, CancellationToken ct)
+    {
+        var day = DateTime.UtcNow.Date;
+        return Ok(await _mediator.Send(new GetStoreProductFlowQuery(from ?? day.AddDays(-29), to ?? day, warehouseId, categoryId, productId), ct));
+    }
+
+    /// <summary>The movement lines of one product behind the goods flow.</summary>
+    [Authorize(Policy = AppPermissions.StoreReportView)]
+    [HttpGet("reports/product-flow/{productId:int}/lines")]
+    public async Task<ActionResult<List<StoreProductFlowLineResponse>>> GetProductFlowLines(
+        int productId, [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int? warehouseId, CancellationToken ct)
+    {
+        var day = DateTime.UtcNow.Date;
+        return Ok(await _mediator.Send(new GetStoreProductFlowLinesQuery(productId, from ?? day.AddDays(-29), to ?? day, warehouseId), ct));
+    }
+
     /// <summary>Sales, discounts, returns, cost and profit for a period, with breakdowns by day, product, category, cashier, till and payment method.</summary>
     [Authorize(Policy = AppPermissions.StoreReportFinance)]
     [HttpGet("reports/sales")]

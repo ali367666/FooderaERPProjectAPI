@@ -1368,6 +1368,94 @@ export const getStoreCustomerDebtReport = () =>
 export const getStoreBonusReport = (params: { from: string; to: string }) =>
   call(() => api.get<StoreBonusReport>("/store/reports/bonus", { params }), "Bonus hesabatı yüklənmədi");
 
+export type StoreSettlementEntry = {
+  entryDate: string;
+  typeName: string;
+  documentType: string | null;
+  documentNo: string | null;
+  note: string | null;
+  increase: number;
+  decrease: number;
+};
+
+export type StoreSettlementRow = {
+  partyId: number;
+  name: string;
+  phone: string | null;
+  /** Positive: the party's natural direction (a customer owes us, we owe a supplier); negative: the other way round. */
+  openingDebt: number;
+  increase: number;
+  decrease: number;
+  closingDebt: number;
+  entries: StoreSettlementEntry[];
+};
+
+export type StoreSettlements = {
+  partyType: "customers" | "suppliers";
+  from: string;
+  to: string;
+  openingDebt: number;
+  increase: number;
+  decrease: number;
+  closingDebt: number;
+  rows: StoreSettlementRow[];
+};
+
+/** Settlements with counterparties: opening debt, increase, decrease and closing debt per customer or supplier. */
+export const getStoreSettlements = (params: { partyType: "customers" | "suppliers"; from: string; to: string }) =>
+  call(() => api.get<StoreSettlements>("/store/reports/settlements", { params }), "Qarşılıqlı hesablaşma yüklənmədi");
+
+export type StoreFlowFigure = { qty: number; value: number };
+
+export type StoreProductFlowRow = {
+  warehouseId: number;
+  warehouseName: string;
+  productId: number;
+  productName: string;
+  barcode: string | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  opening: StoreFlowFigure;
+  /** Signed, keyed by movement kind: purchase, saleReturn, transferIn, adjustUp, sale, purchaseReturn, transferOut, adjustDown, waste, internalUse. */
+  moves: Record<string, StoreFlowFigure>;
+  closing: StoreFlowFigure;
+};
+
+export type StoreProductFlow = { from: string; to: string; total: StoreProductFlowRow; rows: StoreProductFlowRow[] };
+
+export type StoreProductFlowLine = {
+  createdAtUtc: string;
+  warehouseId: number;
+  warehouseName: string;
+  bucket: string;
+  quantity: number;
+  unitCost: number;
+  value: number;
+  balanceAfter: number;
+  documentType: string | null;
+  documentNo: string | null;
+  reason: string | null;
+};
+
+/** The goods flow: opening stock, what each kind of movement did and the closing stock, per warehouse and product. */
+export const getStoreProductFlow = (params: { from: string; to: string; warehouseId?: number | null; categoryId?: number | null }) =>
+  call(
+    () =>
+      api.get<StoreProductFlow>("/store/reports/product-flow", {
+        params: { from: params.from, to: params.to, warehouseId: params.warehouseId || undefined, categoryId: params.categoryId || undefined },
+      }),
+    "Mal axını yüklənmədi",
+  );
+
+export const getStoreProductFlowLines = (productId: number, params: { from: string; to: string; warehouseId?: number | null }) =>
+  call(
+    () =>
+      api.get<StoreProductFlowLine[]>(`/store/reports/product-flow/${productId}/lines`, {
+        params: { from: params.from, to: params.to, warehouseId: params.warehouseId || undefined },
+      }),
+    "Hərəkətlər yüklənmədi",
+  );
+
 export const getStoreAlerts = () => call(() => api.get<StoreAlert[]>("/store/alerts"), "Bildirişlər yüklənmədi");
 
 // ---- Product CSV ----------------------------------------------------------------------------
