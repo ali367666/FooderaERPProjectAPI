@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Banknote, ChevronDown, ChevronLeft, ChevronRight, Search, ChevronUp, CreditCard, Lock, Minus, Pause, Play, Plus, Printer, ScanBarcode, Tag, Trash2, Undo2, UserRound, Wallet, X } from "lucide-react";
+import { Banknote, LayoutGrid, ChevronDown, ChevronLeft, ChevronRight, Search, ChevronUp, CreditCard, Lock, Minus, Pause, Play, Plus, Printer, ScanBarcode, Tag, Trash2, Undo2, UserRound, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStoreApproval } from "@/components/store/approval";
 import { ShiftReportView } from "@/components/store/shift-report-view";
@@ -14,7 +14,7 @@ import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { getPosTerminalContext } from "@/lib/pos-terminal-client";
-import { printStoreSale } from "@/lib/store/store-receipt";
+import { printStoreSale, printStoreShiftReport } from "@/lib/store/store-receipt";
 import { enqueueSale, syncQueuedSales } from "@/lib/store/offline-queue";
 import { refreshOfflineCatalog } from "@/lib/store/offline-catalog";
 import {
@@ -101,7 +101,7 @@ export default function StorePosPage() {
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [term, setTerm] = useState("");
   const [products, setProducts] = useState<StoreProduct[]>([]);
-  const [view, setView] = useState<"products" | "quick">("products");
+  const [quickOpen, setQuickOpen] = useState(false);
   const [quickPage, setQuickPage] = useState(0);
   const [quickPageSize, setQuickPageSize] = useState(50);
   // The product list scrolls with the arrow buttons (large, for touch screens) as well as with the wheel.
@@ -135,6 +135,7 @@ export default function StorePosPage() {
   const [customer, setCustomer] = useState<StoreCustomer | null>(null);
   const [customerOpen, setCustomerOpen] = useState(false);
   const [customerTerm, setCustomerTerm] = useState("");
+  const [cardScan, setCardScan] = useState("");
   const [customerResults, setCustomerResults] = useState<StoreCustomer[]>([]);
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
@@ -215,7 +216,7 @@ export default function StorePosPage() {
     getStoreQuickSlots(register.id).then(setSlots).catch(() => setSlots([]));
   }, [register, shift]);
 
-  const dialogOpen = customerOpen || payOpen || !!doneSale || !!qtyFor || !!serialFor || closeOpen || moveOpen || reportOpen || heldOpen;
+  const dialogOpen = customerOpen || payOpen || !!doneSale || !!qtyFor || !!serialFor || closeOpen || moveOpen || reportOpen || heldOpen || quickOpen;
   useEffect(() => {
     if (shift && !dialogOpen) scanRef.current?.focus();
   }, [shift, dialogOpen]);
@@ -403,6 +404,23 @@ export default function StorePosPage() {
       toast.error("Əvvəlcə cari səbəti tamamlayın, saxlayın və ya təmizləyin.");
       return;
     }
+    await loadHeldIntoCart(h);
+  };
+
+  // After a sale is finished the sale that has been waiting longest opens by itself; the cashier does not have to look for it.
+  const resumeNextHeld = async (registerId: number) => {
+    try {
+      const waiting = await getStoreHeldSales(registerId);
+      if (waiting.length === 0) return;
+      const next = [...waiting].sort((a, b) => a.createdAtUtc.localeCompare(b.createdAtUtc))[0];
+      await loadHeldIntoCart(next);
+      toast.info(`Növbədə gözləyən satış açıldı (${next.itemCount} məhsul).`);
+    } catch {
+      // The waiting sale stays in the list ("Saxlanılanlar"); nothing is lost.
+    }
+  };
+
+  const loadHeldIntoCart = async (h: StoreHeldSale) => {
     try {
       const taken = await resumeStoreHeldSale(h.id);
       const loaded: CartLine[] = [];
@@ -422,6 +440,17 @@ export default function StorePosPage() {
       setHeldOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Saxlanılan satış açılmadı.");
+    }
+  };
+
+  // X-report: look at it, or print it straight away.
+  const printReportNow = async () => {
+    if (!shift) return;
+    try {
+      const r = await getStoreShiftReport(shift.id);
+      if (!printStoreShiftReport(r)) toast.error("Çap pəncərəsi açılmadı — popup bloklamasını söndürün.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Hesabat yüklənmədi.");
     }
   };
 
@@ -620,6 +649,7 @@ export default function StorePosPage() {
       setCustomer(null);
       setDoneSale(sale);
       setReceiptless(false);
+      void resumeNextHeld(register.id);
     } catch (e) {
       if (e instanceof StoreOfflineError) {
         // No connection: the sale waits on this device and goes to the server as soon as it is back.
@@ -736,7 +766,10 @@ export default function StorePosPage() {
             Saxlanılanlar
           </Button>
           <Button variant="outline" className="h-11" onClick={() => void showReport()}>
-            X-Hesabat
+            X-Hesabat (izlə)
+          </Button>
+          <Button variant="outline" className="h-11" aria-label="X-Hesabatı çap et" title="X-Hesabatı çap et" onClick={() => void printReportNow()}>
+            <Printer className="h-4 w-4" />
           </Button>
           <Button variant="outline" className="h-11" onClick={() => router.push("/store/returns")}>
             <Undo2 className="mr-1 h-4 w-4" />
@@ -773,25 +806,12 @@ export default function StorePosPage() {
         </p>
 
         <div className="flex items-center gap-2">
-          <div className="flex rounded-md border">
-            {(
-              [
-                ["products", "Məhsullar"],
-                ["quick", `Sürətli düymələr (${allFilledSlots.length})`],
-              ] as const
-            ).map(([k, label]) => (
-              <button
-                key={k}
-                onClick={() => setView(k)}
-                className={cn("px-3 py-1.5 text-sm", view === k ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Button type="button" variant="outline" className="h-10" onClick={() => setQuickOpen(true)}>
+            <LayoutGrid className="mr-1.5 h-4 w-4" />
+            Sürətli düymələr ({allFilledSlots.length})
+          </Button>
         </div>
 
-        {view === "products" ? (
           <div className="flex min-h-0 flex-1 flex-col gap-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -843,37 +863,6 @@ export default function StorePosPage() {
             </div>
             </div>
           </div>
-        ) : (
-          <div className="flex min-h-0 flex-1 gap-2">
-          <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
-            {filledSlots.length === 0 ? (
-              <p className="col-span-full py-10 text-center text-sm text-muted-foreground">
-                Bu kassa üçün sürətli düymə təyin edilməyib. “Kassalar” bölməsindən düymələri təyin edin.
-              </p>
-            ) : (
-              filledSlots.map((s) => (
-                <button
-                  key={s.slotNumber}
-                  onClick={() => void pickSlot(s)}
-                  style={s.color ? { backgroundColor: s.color, color: "#fff" } : undefined}
-                  className="flex min-h-20 flex-col items-center justify-center rounded-lg border bg-card p-2 text-center transition-opacity hover:opacity-90 active:scale-[0.98]"
-                >
-                  <span className="line-clamp-2 text-sm font-semibold">{s.label || s.productName}</span>
-                  <span className="mt-1 text-xs opacity-80">{s.salePrice != null ? formatCurrency(s.salePrice) : ""}</span>
-                </button>
-              ))
-            )}
-          </div>
-          <div className="flex shrink-0 flex-col justify-center gap-3">
-            <Button type="button" variant="outline" className="h-20 w-14" aria-label="Əvvəlki 50" disabled={quickPage === 0} onClick={() => setQuickPage((p) => Math.max(0, p - 1))}>
-              <ChevronLeft className="h-8 w-8" />
-            </Button>
-            <Button type="button" variant="outline" className="h-20 w-14" aria-label="Növbəti 50" disabled={quickPage >= Math.ceil(slots.length / 50) - 1} onClick={() => setQuickPage((p) => p + 1)}>
-              <ChevronRight className="h-8 w-8" />
-            </Button>
-          </div>
-          </div>
-        )}
       </section>
 
       {/* Right: cart */}
@@ -1145,15 +1134,82 @@ export default function StorePosPage() {
         </DialogContent>
       </Dialog>
 
+
+      {/* Quick-sale buttons: their own small page over the sale screen */}
+      <Dialog open={quickOpen} onOpenChange={setQuickOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Sürətli düymələr</DialogTitle>
+            <DialogDescription>Düyməyə toxunanda məhsul səbətə düşür. Bağlamaq üçün pəncərənin kənarına toxunun.</DialogDescription>
+          </DialogHeader>
+        <div className="flex min-h-0 flex-1 gap-2">
+        <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+          {filledSlots.length === 0 ? (
+            <p className="col-span-full py-10 text-center text-sm text-muted-foreground">
+              Bu kassa üçün sürətli düymə təyin edilməyib. “Kassalar” bölməsindən düymələri təyin edin.
+            </p>
+          ) : (
+            filledSlots.map((s) => (
+              <button
+                key={s.slotNumber}
+                onClick={() => void pickSlot(s)}
+                style={s.color ? { backgroundColor: s.color, color: "#fff" } : undefined}
+                className="flex min-h-20 flex-col items-center justify-center rounded-lg border bg-card p-2 text-center transition-opacity hover:opacity-90 active:scale-[0.98]"
+              >
+                <span className="line-clamp-2 text-sm font-semibold">{s.label || s.productName}</span>
+                <span className="mt-1 text-xs opacity-80">{s.salePrice != null ? formatCurrency(s.salePrice) : ""}</span>
+              </button>
+            ))
+          )}
+        </div>
+        <div className="flex shrink-0 flex-col justify-center gap-3">
+          <Button type="button" variant="outline" className="h-20 w-14" aria-label="Əvvəlki səhifə" disabled={quickPage === 0} onClick={() => setQuickPage((p) => Math.max(0, p - 1))}>
+            <ChevronLeft className="h-8 w-8" />
+          </Button>
+          <Button type="button" variant="outline" className="h-20 w-14" aria-label="Növbəti səhifə" disabled={quickPage >= Math.ceil(slots.length / quickPageSize) - 1} onClick={() => setQuickPage((p) => p + 1)}>
+            <ChevronRight className="h-8 w-8" />
+          </Button>
+        </div>
+        </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Customer */}
       <Dialog open={customerOpen} onOpenChange={setCustomerOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Müştəri</DialogTitle>
-            <DialogDescription>Kod və ya telefonla tapın; bonus və borc üçün lazımdır.</DialogDescription>
+            <DialogDescription>Bonus kartını oxudun və ya kod, telefon, adla tapın; bonus və borc üçün lazımdır.</DialogDescription>
           </DialogHeader>
+          <div className="space-y-1 rounded-md border border-dashed p-3">
+            <Label htmlFor="card-scan" className="flex items-center gap-1.5 text-sm font-medium">
+              <ScanBarcode className="h-4 w-4" />
+              Bonus kartının barkodunu oxudun
+            </Label>
+            <Input
+              id="card-scan"
+              autoFocus
+              autoComplete="off"
+              placeholder="Skaneri kartın barkoduna tutun…"
+              value={cardScan}
+              onChange={(e) => setCardScan(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key !== "Enter" || !cardScan.trim()) return;
+                e.preventDefault();
+                try {
+                  const card = await findStoreCustomer(cardScan.trim());
+                  setCustomer(card);
+                  setCardScan("");
+                  setCustomerOpen(false);
+                  toast.success(`Müştəri: ${card.name}`);
+                } catch {
+                  setCardScan("");
+                  toast.error("Bu barkodla müştəri kartı tapılmadı.");
+                }
+              }}
+            />
+          </div>
           <Input
-            autoFocus
             placeholder="Kod, telefon və ya ad…"
             value={customerTerm}
             onChange={(e) => setCustomerTerm(e.target.value)}

@@ -57,8 +57,8 @@ public class StoreCustomersHandlers :
 
     private static decimal R2(decimal v) => Math.Round(v, 2, MidpointRounding.AwayFromZero);
 
-    // The screen shows the company's normal bonus percent to everyone; a customer's own (higher) percent is calculated for real
-    // but shown only to those who may adjust bonus.
+    // The screen shows the percent the customer really earns: their own one when the admin set it, else the company's normal percent.
+    // (The editable override field itself stays with those who may adjust bonus.)
     private StoreCustomerResponse Map(StoreCustomer c, decimal debt, decimal bonus, decimal shownPercent) => new()
     {
         Id = c.Id,
@@ -69,7 +69,7 @@ public class StoreCustomersHandlers :
         Note = c.Note,
         CreditLimit = c.CreditLimit,
         BonusPercentOverride = _currentUser.HasPermission(Domain.Constants.AppPermissions.StoreBonusAdjust) ? c.BonusPercentOverride : null,
-        BonusPercentShown = shownPercent,
+        BonusPercentShown = c.BonusPercentOverride ?? shownPercent,
         IsActive = c.IsActive,
         Debt = debt,
         BonusBalance = bonus,
