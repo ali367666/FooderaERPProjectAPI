@@ -45,6 +45,7 @@ export default function StoreRegistersPage() {
   const [receiptFooter, setReceiptFooter] = useState("");
   const [allowReceiptless, setAllowReceiptless] = useState(false);
   const [quickSlotCount, setQuickSlotCount] = useState(50);
+  const [quickSlotPageSize, setQuickSlotPageSize] = useState(50);
   const [maxDiscount, setMaxDiscount] = useState("10");
   const [bonusEarn, setBonusEarn] = useState("0");
   const [bonusMax, setBonusMax] = useState("50");
@@ -61,6 +62,7 @@ export default function StoreRegistersPage() {
   // Quick-sale buttons
   const [slotRegister, setSlotRegister] = useState<StoreCashRegister | null>(null);
   const [slotPage, setSlotPage] = useState(0);
+  const pageSize = Math.max(1, quickSlotPageSize || 50);
   const [slotLoading, setSlotLoading] = useState(false);
   const [slots, setSlots] = useState<StoreQuickSlot[]>([]);
   const [slotEdit, setSlotEdit] = useState<StoreQuickSlot | null>(null);
@@ -83,6 +85,7 @@ export default function StoreRegistersPage() {
           setReceiptFooter(s.receiptFooter ?? "");
           setAllowReceiptless(s.allowReceiptlessSale);
           setQuickSlotCount(s.quickSlotCount);
+          setQuickSlotPageSize(s.quickSlotPageSize > 0 ? s.quickSlotPageSize : 50);
           setMaxDiscount(String(s.maxDiscountPercent));
           setBonusEarn(String(s.bonusEarnPercent));
           setBonusMax(String(s.bonusMaxPaymentPercent));
@@ -139,7 +142,7 @@ export default function StoreRegistersPage() {
       return;
     }
     try {
-      await updateStoreSettings({ quickSlotCount: Math.max(1, Math.floor(Number(quickSlotCount) || 50)), receiptWidthMm: receiptWidth, receiptHeader: receiptHeader.trim() || null, receiptFooter: receiptFooter.trim() || null, allowReceiptlessSale: allowReceiptless, fiscalEnabled, allowNegativeStock: allowNegative, maxDiscountPercent: limit, bonusEarnPercent: earn, bonusMaxPaymentPercent: max, bonusExpiryDays: Math.max(0, Math.floor(Number(bonusExpiry) || 0)) });
+      await updateStoreSettings({ quickSlotCount: Math.max(1, Math.floor(Number(quickSlotCount) || 50)), quickSlotPageSize: Math.min(500, Math.max(1, Math.floor(Number(quickSlotPageSize) || 50))), receiptWidthMm: receiptWidth, receiptHeader: receiptHeader.trim() || null, receiptFooter: receiptFooter.trim() || null, allowReceiptlessSale: allowReceiptless, fiscalEnabled, allowNegativeStock: allowNegative, maxDiscountPercent: limit, bonusEarnPercent: earn, bonusMaxPaymentPercent: max, bonusExpiryDays: Math.max(0, Math.floor(Number(bonusExpiry) || 0)) });
       toast.success("Qaydalar yadda saxlanıldı");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Yazılmadı.");
@@ -148,7 +151,7 @@ export default function StoreRegistersPage() {
 
   // ---- Quick slots ------------------------------------------------------------------------
 
-  // The quick buttons are one shared set for all tills (100 buttons, 2 pages of 50); any till can be used to reach them.
+  // The quick buttons are one shared set for all tills, shown a page at a time (the admin sets the total and the page size); any till can be used to reach them.
   const openSlots = async (r: StoreCashRegister) => {
     try {
       setSlots(await getStoreQuickSlots(r.id));
@@ -314,6 +317,10 @@ export default function StoreRegistersPage() {
               <Input id="qs-count" className="w-32" inputMode="numeric" value={quickSlotCount} onChange={(e) => setQuickSlotCount(Number(e.target.value.replace(/\D/g, "")) || 0)} />
             </div>
             <div className="space-y-1">
+              <Label htmlFor="qs-page">Bir səhifədə düymə sayı</Label>
+              <Input id="qs-page" className="w-32" inputMode="numeric" value={quickSlotPageSize} onChange={(e) => setQuickSlotPageSize(Number(e.target.value.replace(/\D/g, "")) || 0)} />
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="rc-width">Çek eni</Label>
               <select id="rc-width" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={receiptWidth} onChange={(e) => setReceiptWidth(Number(e.target.value))}>
                 <option value={80}>80 mm</option>
@@ -408,16 +415,16 @@ export default function StoreRegistersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 50 quick-sale buttons */}
+      {/* quick-sale buttons, a page at a time */}
       <Dialog open={slotRegister != null} onOpenChange={(o) => !o && setSlotRegister(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Sürətli düymələr (bütün kassalar üçün ortaq) — {slotPage * 50 + 1}–{Math.min(slots.length, slotPage * 50 + 50)}</DialogTitle>
+            <DialogTitle>Sürətli düymələr (bütün kassalar üçün ortaq) — {slotPage * pageSize + 1}–{Math.min(slots.length, slotPage * pageSize + pageSize)}</DialogTitle>
             <DialogDescription>Düyməyə basıb məhsul təyin edin, ad və rəng verin. Kassada bir toxunuşla səbətə düşür.</DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
             <div className="grid flex-1 grid-cols-5 gap-2 sm:grid-cols-10">
-            {slots.filter((s) => s.slotNumber > slotPage * 50 && s.slotNumber <= slotPage * 50 + 50).map((s) => (
+            {slots.filter((s) => s.slotNumber > slotPage * pageSize && s.slotNumber <= slotPage * pageSize + pageSize).map((s) => (
               <button
                 key={s.slotNumber}
                 onClick={() => editSlot(s)}
@@ -431,10 +438,10 @@ export default function StoreRegistersPage() {
             ))}
             </div>
             <div className="flex shrink-0 flex-col gap-2">
-              <Button type="button" variant="outline" size="icon" disabled={slotPage === 0} onClick={() => setSlotPage((p) => Math.max(0, p - 1))} aria-label="Əvvəlki 50">
+              <Button type="button" variant="outline" size="icon" disabled={slotPage === 0} onClick={() => setSlotPage((p) => Math.max(0, p - 1))} aria-label="Əvvəlki səhifə">
                 <ChevronLeft className="h-5 w-5" />
               </Button>
-              <Button type="button" variant="outline" size="icon" disabled={slotPage >= Math.ceil(slots.length / 50) - 1} onClick={() => setSlotPage((p) => p + 1)} aria-label="Növbəti 50">
+              <Button type="button" variant="outline" size="icon" disabled={slotPage >= Math.ceil(slots.length / pageSize) - 1} onClick={() => setSlotPage((p) => p + 1)} aria-label="Növbəti səhifə">
                 <ChevronRight className="h-5 w-5" />
               </Button>
             </div>

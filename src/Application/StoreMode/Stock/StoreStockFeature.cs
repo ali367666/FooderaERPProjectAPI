@@ -247,6 +247,7 @@ public class StoreStockHandlers :
             ReceiptFooter = settings.ReceiptFooter,
             AllowReceiptlessSale = settings.AllowReceiptlessSale,
             QuickSlotCount = settings.QuickSlotCount,
+            QuickSlotPageSize = settings.QuickSlotPageSize,
         };
     }
 
@@ -276,6 +277,9 @@ public class StoreStockHandlers :
         if (command.Request.QuickSlotCount is < 1 or > 10000)
             throw new BadRequestException("Sürətli düymələrin sayı 1 ilə 10000 arasında olmalıdır.");
         settings.QuickSlotCount = command.Request.QuickSlotCount;
+        if (command.Request.QuickSlotPageSize is < 1 or > 500)
+            throw new BadRequestException("Bir səhifədəki düymə sayı 1 ilə 500 arasında olmalıdır.");
+        settings.QuickSlotPageSize = command.Request.QuickSlotPageSize;
         await _repository.SaveChangesAsync(ct);
         return new StoreSettingsResponse
         {
@@ -290,6 +294,7 @@ public class StoreStockHandlers :
             ReceiptFooter = settings.ReceiptFooter,
             AllowReceiptlessSale = settings.AllowReceiptlessSale,
             QuickSlotCount = settings.QuickSlotCount,
+            QuickSlotPageSize = settings.QuickSlotPageSize,
         };
     }
 

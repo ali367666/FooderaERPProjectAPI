@@ -152,4 +152,7 @@ public class StoreSettings : CompanyEntity<int>
 
     /// <summary>How many quick-sale buttons the till shows (the admin decides, as many as needed; shown 50 to a page).</summary>
     public int QuickSlotCount { get; set; } = 50;
+
+    /// <summary>How many quick-sale buttons the till shows on one page (the arrows turn the pages); the admin decides.</summary>
+    public int QuickSlotPageSize { get; set; } = 50;
 }

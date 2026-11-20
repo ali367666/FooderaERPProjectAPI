@@ -104,6 +104,7 @@ public class StoreSettingsConfiguration : IEntityTypeConfiguration<StoreSettings
         b.Property(x => x.BonusMaxPaymentPercent).HasColumnType("decimal(5,2)").HasDefaultValue(50m);
         b.Property(x => x.ReceiptWidthMm).HasDefaultValue(80);
         b.Property(x => x.QuickSlotCount).HasDefaultValue(50);
+        b.Property(x => x.QuickSlotPageSize).HasDefaultValue(50);
         b.Property(x => x.ReceiptHeader).HasMaxLength(200);
         b.Property(x => x.ReceiptFooter).HasMaxLength(200);
         b.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);

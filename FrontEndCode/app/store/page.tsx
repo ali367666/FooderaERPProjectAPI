@@ -103,6 +103,7 @@ export default function StorePosPage() {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [view, setView] = useState<"products" | "quick">("products");
   const [quickPage, setQuickPage] = useState(0);
+  const [quickPageSize, setQuickPageSize] = useState(50);
   // The product list scrolls with the arrow buttons (large, for touch screens) as well as with the wheel.
   const listRef = useRef<HTMLDivElement>(null);
   // Search box right above the product list (the scan field at the top stays for barcodes).
@@ -163,6 +164,7 @@ export default function StorePosPage() {
       .then((st) => {
         setAllowReceiptless(st.allowReceiptlessSale);
         setBonusMaxPercent(st.bonusMaxPaymentPercent);
+        setQuickPageSize(st.quickSlotPageSize > 0 ? st.quickSlotPageSize : 50);
       })
       .catch(() => undefined);
   }, []);
@@ -698,9 +700,9 @@ export default function StorePosPage() {
     );
   }
 
-  // 100 shared buttons in 2 pages of 50; the right / left arrow turns the page.
+  // The shared buttons are shown a page at a time (the admin sets how many); the right / left arrow turns the page.
   const allFilledSlots = slots.filter((s) => s.productId);
-  const filledSlots = allFilledSlots.filter((s) => s.slotNumber > quickPage * 50 && s.slotNumber <= quickPage * 50 + 50);
+  const filledSlots = allFilledSlots.filter((s) => s.slotNumber > quickPage * quickPageSize && s.slotNumber <= quickPage * quickPageSize + quickPageSize);
 
   return (
     <div className="flex h-full min-h-0 flex-col md:flex-row">

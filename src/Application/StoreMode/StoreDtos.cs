@@ -173,6 +173,7 @@ public class StoreSettingsResponse
     public string? ReceiptFooter { get; set; }
     public bool AllowReceiptlessSale { get; set; }
     public int QuickSlotCount { get; set; } = 50;
+    public int QuickSlotPageSize { get; set; } = 50;
 }
 
 // ---- Registers and shifts ------------------------------------------------------------------

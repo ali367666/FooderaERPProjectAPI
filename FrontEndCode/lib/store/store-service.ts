@@ -60,6 +60,8 @@ export type StoreSettings = {
   receiptFooter: string | null;
   allowReceiptlessSale: boolean;
   quickSlotCount: number;
+  /** Quick buttons shown on one page of the till (the arrows turn the pages). */
+  quickSlotPageSize: number;
 };
 
 export type StoreCategory = { id: number; name: string; parentCategoryId: number | null; isActive: boolean; earnsBonus: boolean };

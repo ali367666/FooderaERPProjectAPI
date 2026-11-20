@@ -233,6 +233,7 @@ public class StoreSyncHandlers :
                 ReceiptFooter = settings.ReceiptFooter,
                 AllowReceiptlessSale = settings.AllowReceiptlessSale,
                 QuickSlotCount = settings.QuickSlotCount,
+                QuickSlotPageSize = settings.QuickSlotPageSize,
             },
         };
 
