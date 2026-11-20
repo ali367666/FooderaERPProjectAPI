@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import { assertApiSuccess } from "@/lib/api-base-response";
 
-export const StockWriteOffReason = { Waste: 1, Spoiled: 2, Broken: 3, Expired: 4, Other: 5 } as const;
+export const StockWriteOffReason = { Waste: 1, Spoiled: 2, Broken: 3, Expired: 4, Other: 5, Expense: 6 } as const;
 export type StockWriteOffReasonValue = (typeof StockWriteOffReason)[keyof typeof StockWriteOffReason];
 
 export const WRITE_OFF_REASON_LABELS: Record<StockWriteOffReasonValue, string> = {
@@ -10,6 +10,7 @@ export const WRITE_OFF_REASON_LABELS: Record<StockWriteOffReasonValue, string> =
   [StockWriteOffReason.Broken]: "Sınıb",
   [StockWriteOffReason.Expired]: "Müddəti bitib",
   [StockWriteOffReason.Other]: "Digər",
+  [StockWriteOffReason.Expense]: "Xərcə silinib",
 };
 
 export type StockWriteOff = {

@@ -20,4 +20,6 @@ public enum StockMovementType
     WriteOffOut = 9,
     /// <summary>Stock decrease from goods handed back to the supplier.</summary>
     PurchaseReturnOut = 10,
+    /// <summary>Stock increase entered by hand (a gift, a found item, a correction) without a purchase document.</summary>
+    ManualIn = 11,
 }

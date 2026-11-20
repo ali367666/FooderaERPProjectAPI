@@ -11,5 +11,7 @@ public enum StockWriteOffReason
     Broken = 3,
     /// <summary>Passed its expiry date.</summary>
     Expired = 4,
-    Other = 5
+    Other = 5,
+    /// <summary>Used up as an expense (detergent, napkins, a cup given away): the stock drops and the cost is the business's.</summary>
+    Expense = 6
 }

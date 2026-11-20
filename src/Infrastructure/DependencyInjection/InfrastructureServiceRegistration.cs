@@ -105,6 +105,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IRestaurantSectionRepository, RestaurantSectionRepository>();
         services.AddScoped<IQrMenuRepository, QrMenuRepository>();
         services.AddScoped<IStockWriteOffRepository, StockWriteOffRepository>();
+        services.AddScoped<IStockAssetRepository, StockAssetRepository>();
         services.AddScoped<IStoreCostingRepository, StoreCostingRepository>();
         services.AddScoped<IStoreExpenseRepository, StoreExpenseRepository>();
         services.AddScoped<ICompanyDepositRepository, CompanyDepositRepository>();

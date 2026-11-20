@@ -90,6 +90,7 @@ public class CreateStockWriteOffCommandHandler : IRequestHandler<CreateStockWrit
                 CreatedAtUtc = now,
             };
             await _writeOffRepository.AddAsync(writeOff, cancellationToken);
+            await _writeOffRepository.SaveChangesAsync(cancellationToken);
 
             await _stockMovementRepository.AddAsync(
                 new StockMovement
@@ -101,6 +102,7 @@ public class CreateStockWriteOffCommandHandler : IRequestHandler<CreateStockWrit
                     StockItemId = request.StockItemId,
                     Type = StockMovementType.WriteOffOut,
                     SourceType = StockMovementSourceType.StockWriteOff,
+                    SourceId = writeOff.Id,
                     MovementDate = now,
                     Quantity = request.Quantity,
                     Note = $"Write-off: {request.Reason}" + (writeOff.Note is null ? "" : $" — {writeOff.Note}"),

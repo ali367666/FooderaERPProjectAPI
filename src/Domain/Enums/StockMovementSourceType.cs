@@ -9,4 +9,5 @@ public enum StockMovementSourceType
     StockPurchase = 4,
     StockPurchaseReturn = 5,
     StockWriteOff = 6,
+    StockAdjustment = 7,
 }

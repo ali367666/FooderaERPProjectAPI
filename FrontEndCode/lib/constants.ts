@@ -277,6 +277,14 @@ export const navGroups: NavGroup[] = [
         module: "moduleAnbar",
       },
       {
+        title: "Ləvazimat və inventar",
+        href: "/dashboard/stock-assets",
+        hiddenForStoreMode: true,
+        icon: Boxes,
+        permission: "WarehouseStock.View",
+        module: "moduleAnbar",
+      },
+      {
         title: "Konturagentlər",
         href: "/dashboard/counterparties",
         icon: Building2,
