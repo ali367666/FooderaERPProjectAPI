@@ -73,6 +73,9 @@ internal static class StockPurchaseMapper
             ReturnedAzn = returnedTotal,
             NetTotalAzn = net,
             SupplierInvoiceNo = p.SupplierInvoiceNo,
+            // Older purchases have no submit time: a purchase still waiting was last touched when it was submitted.
+            SubmittedAtUtc = p.SubmittedAtUtc ?? (p.Status == StockPurchaseStatus.Pending ? p.LastModifiedAtUtc : null),
+            DecidedAtUtc = p.ApprovedAtUtc ?? (p.Status == StockPurchaseStatus.Rejected ? p.LastModifiedAtUtc : null),
             ApprovedAtUtc = p.ApprovedAtUtc,
             CancelledAtUtc = p.CancelledAtUtc,
             PaidAmountAzn = p.PaidAmountAzn,

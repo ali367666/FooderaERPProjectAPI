@@ -84,6 +84,10 @@ export type StockPurchaseDto = {
   warehouseName: string;
   note: string | null;
   supplierInvoiceNo?: string | null;
+  /** When it was sent for approval (put on hold). */
+  submittedAtUtc?: string | null;
+  /** When the wait ended: approved (OK) or rejected; null while it still waits. */
+  decidedAtUtc?: string | null;
   approvedAtUtc?: string | null;
   cancelledAtUtc?: string | null;
   /** Paid to the supplier so far (AZN). */

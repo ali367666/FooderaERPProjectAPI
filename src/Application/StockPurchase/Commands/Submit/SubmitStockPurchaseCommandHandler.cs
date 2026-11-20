@@ -36,8 +36,9 @@ public class SubmitStockPurchaseCommandHandler
             return new BaseResponse { Success = false, Message = "Yalnız draft statusundakı alışlar göndərilə bilər." };
 
         purchase.Status = StockPurchaseStatus.Pending;
+        purchase.SubmittedAtUtc = DateTime.UtcNow;
         purchase.LastModifiedByUserId = _currentUserService.UserId;
-        purchase.LastModifiedAtUtc = DateTime.UtcNow;
+        purchase.LastModifiedAtUtc = purchase.SubmittedAtUtc;
         _purchaseRepository.Update(purchase);
         await _purchaseRepository.SaveChangesAsync(cancellationToken);
 

@@ -33,6 +33,13 @@ public class StockPurchaseResponse
     public decimal NetTotalAzn { get; set; }
 
     public string? SupplierInvoiceNo { get; set; }
+    /// <summary>When it was sent for approval (put on hold).</summary>
+    public DateTime? SubmittedAtUtc { get; set; }
+
+    /// <summary>When the wait ended: approved (OK) or rejected; null while it is still waiting.</summary>
+    public DateTime? DecidedAtUtc { get; set; }
+
+    /// <summary>When it was approved (OK).</summary>
     public DateTime? ApprovedAtUtc { get; set; }
     public DateTime? CancelledAtUtc { get; set; }
 

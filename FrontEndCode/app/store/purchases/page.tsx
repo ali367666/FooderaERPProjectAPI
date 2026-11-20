@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useStorePermissions as usePermissionSet } from "@/lib/store/use-store-permissions";
 import { formatCurrency } from "@/lib/format-currency";
+import { PurchaseWaitInfo } from "@/components/purchase-wait-info";
 import { toDateInputValue, withTime } from "@/lib/report-period";
 import { TimeRangeInputs, useTimeRangeEnabled } from "@/components/store/time-range-inputs";
 import { cn } from "@/lib/utils";
@@ -365,6 +366,7 @@ export default function StorePurchasesPage() {
               <th className="px-3 py-2 font-medium">Tarix</th>
               <th className="px-3 py-2 font-medium">Təchizatçı</th>
               <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2 font-medium">Gözləmə / OK</th>
               <th className="px-3 py-2 text-right font-medium">Məbləğ</th>
               <th className="px-3 py-2 text-right font-medium">Ödənilib</th>
               <th className="px-3 py-2 text-right font-medium">Qalan</th>
@@ -373,7 +375,7 @@ export default function StorePurchasesPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                   Yüklənir…
                 </td>
               </tr>
@@ -393,6 +395,13 @@ export default function StorePurchasesPage() {
                   <td className="px-3 py-2">{fmtDate(p.purchaseDate)}</td>
                   <td className="px-3 py-2">{p.supplierName}</td>
                   <td className="px-3 py-2">{statusBadge(p.status)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {p.status === StorePurchaseStatus.Cancelled ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <PurchaseWaitInfo waitingSince={p.createdAtUtc} decidedAt={p.confirmedAtUtc} />
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right">{formatCurrency(p.total)}</td>
                   <td className="px-3 py-2 text-right">{formatCurrency(p.paid)}</td>
                   <td className={cn("px-3 py-2 text-right font-medium", p.outstanding > 0 && "text-red-600")}>{formatCurrency(p.outstanding)}</td>
@@ -562,6 +571,9 @@ export default function StorePurchasesPage() {
               {detail?.supplierName} — {detail?.warehouseName} — {detail ? fmtDate(detail.purchaseDate) : ""}
               {detail?.supplierInvoiceNo && ` — qaimə ${detail.supplierInvoiceNo}`}
             </DialogDescription>
+            {detail && detail.status !== StorePurchaseStatus.Cancelled && (
+              <PurchaseWaitInfo waitingSince={detail.createdAtUtc} decidedAt={detail.confirmedAtUtc} />
+            )}
           </DialogHeader>
           {detail && (
             <div className="space-y-4">

@@ -29,6 +29,9 @@ public class StockPurchase : CompanyEntity<int>
     /// <summary>The supplier's own invoice (qaimə) number, for matching the paper document.</summary>
     public string? SupplierInvoiceNo { get; set; }
 
+    /// <summary>When the purchase was sent for approval (put on hold); the wait lasts until it is approved or rejected.</summary>
+    public DateTime? SubmittedAtUtc { get; set; }
+
     public int? ApprovedByUserId { get; set; }
     public DateTime? ApprovedAtUtc { get; set; }
 

@@ -30,6 +30,7 @@ import {
   type StockPurchaseDto,
 } from "@/lib/services/stock-purchase-service";
 import { toApiFormError } from "@/lib/api-error";
+import { PurchaseWaitInfo } from "@/components/purchase-wait-info";
 import { toast } from "sonner";
 
 const ITEMS_PER_PAGE = 10;
@@ -324,12 +325,13 @@ export function StockPurchaseListPage() {
                         <th className="text-right py-2 px-3 font-medium">Qalan borc</th>
                         <th className="text-left py-2 px-3 font-medium">Warehouse</th>
                         <th className="text-left py-2 px-3 font-medium">Status</th>
+                        <th className="text-left py-2 px-3 font-medium">Gözləmə / OK</th>
                       </tr>
                     </thead>
                     <tbody>
                       {slice.length === 0 ? (
                         <tr>
-                          <td colSpan={13} className="py-10 text-center text-muted-foreground">
+                          <td colSpan={14} className="py-10 text-center text-muted-foreground">
                             No purchases match your filters.
                           </td>
                         </tr>
@@ -392,6 +394,13 @@ export function StockPurchaseListPage() {
                               </td>
                               <td className="py-2 px-3">{row.warehouseName}</td>
                               <td className="py-2 px-3"><StatusBadge status={row.status} /></td>
+                              <td className="py-2 px-3 whitespace-nowrap">
+                                <PurchaseWaitInfo
+                                  waitingSince={row.raw.submittedAtUtc}
+                                  decidedAt={row.raw.decidedAtUtc}
+                                  decision={row.status === StockPurchaseStatus.Rejected ? "rejected" : "ok"}
+                                />
+                              </td>
                             </tr>
                           );
                         })

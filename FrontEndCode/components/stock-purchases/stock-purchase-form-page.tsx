@@ -14,6 +14,8 @@ import {
 import { StockPurchaseMasterForm } from "./stock-purchase-master-form";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { toApiFormError } from "@/lib/api-error";
+import { PurchaseWaitInfo } from "@/components/purchase-wait-info";
+import { StockPurchaseStatus } from "@/lib/services/stock-purchase-service";
 
 type Props = {
   id?: number;
@@ -67,6 +69,14 @@ export function StockPurchaseFormPage({ id, mode }: Props) {
           <p className="text-muted-foreground text-sm mt-1">
             Konturagent: {purchase.counterpartyName} · {purchase.warehouseName} · {purchase.currencyCode}
           </p>
+        )}
+        {mode === "view" && purchase?.submittedAtUtc && (
+          <PurchaseWaitInfo
+            className="mt-2"
+            waitingSince={purchase.submittedAtUtc}
+            decidedAt={purchase.decidedAtUtc}
+            decision={purchase.status === StockPurchaseStatus.Rejected ? "rejected" : "ok"}
+          />
         )}
       </div>
       <StockPurchaseMasterForm

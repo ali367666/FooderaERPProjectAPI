@@ -191,6 +191,8 @@ public class StorePurchasesHandlers :
                 Total = p.Total,
                 Paid = paid.GetValueOrDefault(p.Id),
                 Outstanding = p.Status == StorePurchaseStatus.Confirmed ? StorePaymentService.Outstanding(p, paid, returned) : 0m,
+                CreatedAtUtc = p.CreatedAtUtc,
+                ConfirmedAtUtc = p.ConfirmedAtUtc,
             }).ToList(),
         };
     }

@@ -287,6 +287,10 @@ public class StorePurchaseListItemResponse
     public decimal Total { get; set; }
     public decimal Paid { get; set; }
     public decimal Outstanding { get; set; }
+
+    /// <summary>A draft waits from the moment it is written until it is confirmed (OK).</summary>
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? ConfirmedAtUtc { get; set; }
 }
 
 public class StorePurchasePageResponse

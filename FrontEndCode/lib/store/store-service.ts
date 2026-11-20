@@ -918,6 +918,9 @@ export type StorePurchaseListItem = {
   total: number;
   paid: number;
   outstanding: number;
+  /** A draft waits from the moment it is written until it is confirmed (OK). */
+  createdAtUtc: string;
+  confirmedAtUtc: string | null;
 };
 
 export type StorePriceHistoryEntry = {
