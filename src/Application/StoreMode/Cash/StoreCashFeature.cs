@@ -26,7 +26,12 @@ public record CloseStoreShiftCommand(int ShiftId, CloseStoreShiftRequest Request
 
 public record AddStoreCashMovementCommand(int ShiftId, StoreCashMovementRequest Request) : IRequest<StoreShiftReportResponse>;
 
-public record GetStoreShiftsQuery(int? RegisterId, DateTime? From, DateTime? To) : IRequest<List<StoreShiftResponse>>;
+/// <summary>
+/// The shifts, narrowed by till, cashier and date / time range. <paramref name="Code"/> (NV-000123, or just 123) finds one shift document
+/// whatever its date.
+/// </summary>
+public record GetStoreShiftsQuery(int? RegisterId, DateTime? From, DateTime? To, int? CashierUserId = null, string? Code = null)
+    : IRequest<List<StoreShiftResponse>>;
 
 internal static class StoreShiftMapper
 {
@@ -216,7 +221,20 @@ public class StoreCashHandlers :
         DateTime? fromUtc = query.From is { } f ? ReportPeriodResolver.StoreFromUtc(f) : null;
         DateTime? toUtc = query.To is { } t ? ReportPeriodResolver.StoreToUtc(t) : null;
 
-        var shifts = await _repository.SearchShiftsAsync(_currentUser.CompanyId, query.RegisterId, fromUtc, toUtc, ct);
+        int? shiftId = null;
+        if (!string.IsNullOrWhiteSpace(query.Code))
+        {
+            // A document code finds that document whatever its date.
+            var digits = new string(query.Code.Where(char.IsDigit).ToArray());
+            if (!int.TryParse(digits, out var parsed))
+                return new List<StoreShiftResponse>();
+            shiftId = parsed;
+            fromUtc = null;
+            toUtc = null;
+        }
+
+        var shifts = await _repository.SearchShiftsAsync(
+            _currentUser.CompanyId, query.RegisterId, fromUtc, toUtc, ct, query.CashierUserId, shiftId);
         if (await _access.AllowedBranchesAsync(ct) is { } allowedBranches)
             shifts = shifts.Where(s => allowedBranches.Contains(s.RestaurantId)).ToList();
         var names = await _repository.GetUserNamesAsync(shifts.Select(s => s.CashierUserId), ct);

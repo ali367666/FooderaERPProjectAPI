@@ -227,6 +227,9 @@ public class StoreCashMovementRequest
 public class StoreShiftResponse
 {
     public int Id { get; set; }
+
+    /// <summary>The shift document's code (NV-000123).</summary>
+    public string Code => $"NV-{Id:D6}";
     public int StoreCashRegisterId { get; set; }
     public string RegisterName { get; set; } = default!;
     public int RestaurantId { get; set; }

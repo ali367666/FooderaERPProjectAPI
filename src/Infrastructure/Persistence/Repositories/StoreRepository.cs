@@ -228,10 +228,12 @@ public class StoreRepository : IStoreRepository
             .ToListAsync(ct);
 
     public Task<List<StoreCashShift>> SearchShiftsAsync(
-        int companyId, int? registerId, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct)
+        int companyId, int? registerId, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct, int? cashierUserId = null, int? shiftId = null)
         => _context.StoreCashShifts.AsNoTracking()
             .Include(x => x.StoreCashRegister)
             .Where(x => x.CompanyId == companyId
+                && (shiftId == null || x.Id == shiftId)
+                && (cashierUserId == null || x.CashierUserId == cashierUserId)
                 && (registerId == null || x.StoreCashRegisterId == registerId)
                 && (fromUtc == null || x.OpenedAtUtc >= fromUtc)
                 && (toUtcExclusive == null || x.OpenedAtUtc < toUtcExclusive))
@@ -273,6 +275,29 @@ public class StoreRepository : IStoreRepository
         => _context.StoreSales.AsNoTracking()
             .Include(x => x.Payments)
             .Where(x => x.StoreCashShiftId == shiftId)
+            .ToListAsync(ct);
+
+    public Task<List<StoreSale>> GetSalesWithLinesForShiftAsync(int shiftId, CancellationToken ct)
+        => _context.StoreSales.AsNoTracking()
+            .Include(x => x.Lines)
+            .Include(x => x.Payments)
+            .Include(x => x.StoreCustomer)
+            .Where(x => x.StoreCashShiftId == shiftId)
+            .OrderBy(x => x.CreatedAtUtc)
+            .ToListAsync(ct);
+
+    public Task<List<StoreSaleReturn>> GetReturnsWithLinesForShiftAsync(int shiftId, CancellationToken ct)
+        => _context.StoreSaleReturns.AsNoTracking()
+            .Include(x => x.Lines)
+            .Include(x => x.StoreSale)
+            .Where(x => x.StoreCashShiftId == shiftId)
+            .OrderBy(x => x.CreatedAtUtc)
+            .ToListAsync(ct);
+
+    public Task<List<StoreApprovalLog>> GetApprovalLogsAsync(int companyId, int cashierUserId, DateTime fromUtc, DateTime toUtc, CancellationToken ct)
+        => _context.StoreApprovalLogs.AsNoTracking()
+            .Where(x => x.CompanyId == companyId && x.CreatedByUserId == cashierUserId && x.CreatedAtUtc >= fromUtc && x.CreatedAtUtc <= toUtc)
+            .OrderBy(x => x.CreatedAtUtc)
             .ToListAsync(ct);
 
     public async Task<(List<StoreSale> Items, int Total)> SearchSalesAsync(

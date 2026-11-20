@@ -82,6 +82,7 @@ export const navGroups: NavGroup[] = [
       { title: "Transfer", href: "/dashboard/store/transfers", icon: ArrowLeftRight, permission: "StoreTransfer.View", storeOnly: true },
       { title: "Müştərilər", href: "/dashboard/store/customers", icon: Users, permission: "StoreCustomer.View", storeOnly: true },
       { title: "Növbələr", href: "/dashboard/store/shifts", icon: Timer, permission: "StoreReport.View", storeOnly: true },
+      { title: "Növbə sənədləri", href: "/dashboard/store/shift-documents", icon: FileText, permission: "StoreReport.View", storeOnly: true },
       { title: "Kassalar və qaydalar", href: "/dashboard/store/registers", icon: Settings, permission: "StoreRegister.Manage", storeOnly: true },
     ],
   },

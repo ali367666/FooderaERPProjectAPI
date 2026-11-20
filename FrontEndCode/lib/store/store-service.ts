@@ -166,6 +166,7 @@ export type StoreCashRegister = {
 
 export type StoreShift = {
   id: number;
+  code: string;
   storeCashRegisterId: number;
   registerName: string;
   restaurantId: number;
@@ -535,14 +536,76 @@ export async function getMyStoreShift(): Promise<StoreShift | null> {
 export const openStoreShift = (storeCashRegisterId: number, openingCash: number) =>
   call(() => api.post<StoreShift>("/store/shifts/open", { storeCashRegisterId, openingCash }), "Növbə açılmadı");
 
-export const getStoreShifts = (params: { registerId?: number | null; from?: string; to?: string }) =>
+export const getStoreShifts = (params: { registerId?: number | null; from?: string; to?: string; cashierUserId?: number | null; code?: string }) =>
   call(
     () =>
       api.get<StoreShift[]>("/store/shifts", {
-        params: { registerId: params.registerId || undefined, from: params.from || undefined, to: params.to || undefined },
+        params: {
+          registerId: params.registerId || undefined,
+          from: params.from || undefined,
+          to: params.to || undefined,
+          cashierUserId: params.cashierUserId || undefined,
+          code: params.code?.trim() || undefined,
+        },
       }),
     "Növbələr yüklənmədi",
   );
+
+export type StoreShiftDocumentProduct = {
+  productId: number;
+  productName: string;
+  barcode: string | null;
+  soldQuantity: number;
+  soldAmount: number;
+  returnedQuantity: number;
+  returnedAmount: number;
+};
+
+export type StoreShiftDocumentSale = {
+  id: number;
+  documentNo: string;
+  createdAtUtc: string;
+  status: number;
+  customerName: string | null;
+  subTotal: number;
+  discountTotal: number;
+  total: number;
+  payments: { method: number; amount: number }[];
+  lines: { lineId: number; productName: string; barcode: string | null; quantity: number; unitPrice: number; discountAmount: number; lineTotal: number }[];
+  cancelledAtUtc: string | null;
+  cancelledByName: string | null;
+  cancelReason: string | null;
+  isReceiptless: boolean;
+};
+
+export type StoreShiftDocumentReturn = {
+  id: number;
+  documentNo: string;
+  saleDocumentNo: string;
+  createdAtUtc: string;
+  reason: string;
+  totalAmount: number;
+  refundAmount: number;
+  refundMethod: number;
+  lines: { productName: string; quantity: number; amount: number }[];
+};
+
+export type StoreShiftDocument = {
+  name: string;
+  code: string;
+  report: StoreShiftReport;
+  productKinds: number;
+  soldQuantity: number;
+  returnedQuantity: number;
+  products: StoreShiftDocumentProduct[];
+  sales: StoreShiftDocumentSale[];
+  returns: StoreShiftDocumentReturn[];
+  approvals: { createdAtUtc: string; action: string; documentNo: string | null; approvedByName: string | null; reason: string | null }[];
+};
+
+/** The shift as a document: sold products, every sale, cancellation, return, cash movement and manager approval. */
+export const getStoreShiftDocument = (id: number) =>
+  call(() => api.get<StoreShiftDocument>(`/store/shifts/${id}/document`), "Növbə sənədi yüklənmədi");
 
 export const getStoreShiftReport = (id: number) =>
   call(() => api.get<StoreShiftReport>(`/store/shifts/${id}/report`), "Hesabat yüklənmədi");

@@ -185,8 +185,14 @@ public class StoreController : ControllerBase
     [Authorize(Policy = AppPermissions.StoreReportView)]
     [HttpGet("shifts")]
     public async Task<ActionResult<List<StoreShiftResponse>>> GetShifts(
-        [FromQuery] int? registerId, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
-        => Ok(await _mediator.Send(new GetStoreShiftsQuery(registerId, from, to), ct));
+        [FromQuery] int? registerId, [FromQuery] DateTime? from, [FromQuery] DateTime? to,
+        [FromQuery] int? cashierUserId, [FromQuery] string? code, CancellationToken ct)
+        => Ok(await _mediator.Send(new GetStoreShiftsQuery(registerId, from, to, cashierUserId, code), ct));
+    /// <summary>The shift document: everything that happened in one shift (sold products, sales, cancellations, returns, cash movements, approvals).</summary>
+    [Authorize(Policy = AppPermissions.StoreReportView)]
+    [HttpGet("shifts/{id:int}/document")]
+    public async Task<ActionResult<StoreShiftDocumentResponse>> GetShiftDocument(int id, CancellationToken ct)
+        => Ok(await _mediator.Send(new GetStoreShiftDocumentQuery(id), ct));
 
     /// <summary>X-Report of an open shift (does not close it) or Z-Report of a closed one.</summary>
     [Authorize(Policy = AppPermissions.StoreSaleCreate)]

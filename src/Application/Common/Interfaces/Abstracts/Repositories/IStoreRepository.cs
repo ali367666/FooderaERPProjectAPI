@@ -48,7 +48,8 @@ public interface IStoreRepository
     Task<StoreCashShift?> GetOpenShiftForRegisterAsync(int registerId, CancellationToken ct);
     Task<StoreCashShift?> GetOpenShiftForUserAsync(int companyId, int userId, CancellationToken ct);
     Task<List<StoreCashShift>> GetOpenShiftsAsync(int companyId, IReadOnlyCollection<int> registerIds, CancellationToken ct);
-    Task<List<StoreCashShift>> SearchShiftsAsync(int companyId, int? registerId, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct);
+    Task<List<StoreCashShift>> SearchShiftsAsync(
+        int companyId, int? registerId, DateTime? fromUtc, DateTime? toUtcExclusive, CancellationToken ct, int? cashierUserId = null, int? shiftId = null);
     Task AddShiftAsync(StoreCashShift shift, CancellationToken ct);
     Task AddCashMovementAsync(StoreCashMovement movement, CancellationToken ct);
     Task<List<StoreCashMovement>> GetCashMovementsAsync(int shiftId, CancellationToken ct);
@@ -57,6 +58,15 @@ public interface IStoreRepository
     Task<StoreSale?> GetSaleByOperationAsync(int companyId, Guid operationId, CancellationToken ct);
     Task<StoreSale?> GetSaleAsync(int id, int companyId, CancellationToken ct);
     Task<List<StoreSale>> GetSalesForShiftAsync(int shiftId, CancellationToken ct);
+
+    /// <summary>The shift's sales with their lines, payments and customer (the shift document).</summary>
+    Task<List<StoreSale>> GetSalesWithLinesForShiftAsync(int shiftId, CancellationToken ct);
+
+    /// <summary>The shift's returns with their lines (the shift document).</summary>
+    Task<List<StoreSaleReturn>> GetReturnsWithLinesForShiftAsync(int shiftId, CancellationToken ct);
+
+    /// <summary>Manager approvals (removed cart lines, discounts, cash movements...) given to a cashier while a shift was running.</summary>
+    Task<List<StoreApprovalLog>> GetApprovalLogsAsync(int companyId, int cashierUserId, DateTime fromUtc, DateTime toUtc, CancellationToken ct);
     Task<(List<StoreSale> Items, int Total)> SearchSalesAsync(
         int companyId, DateTime? fromUtc, DateTime? toUtcExclusive, int? shiftId, StoreSaleStatus? status, string? documentNo,
         int skip, int take, IReadOnlyCollection<int>? branchIds, CancellationToken ct);
