@@ -458,11 +458,14 @@ export type ReceiptListDto = {
  * The POS old receipts (`GET /Orders/receipts`): paid orders of a period, filtered on the server.
  * `today` asks for the current business day (06:00 → 06:00 in shifts, the calendar day otherwise);
  * otherwise `from` / `to` (yyyy-MM-dd, inclusive) are sent as a custom period.
+ * `fromTime` / `toTime` (HH:mm) narrow it: from fromTime on the first day to the end of the toTime minute on the last day.
  */
 export async function getReceipts(query: {
   today?: boolean;
   from?: string;
   to?: string;
+  fromTime?: string;
+  toTime?: string;
   restaurantId?: number | null;
 }): Promise<ReceiptListDto> {
   try {
@@ -470,6 +473,8 @@ export async function getReceipts(query: {
       ? { period: "Today" }
       : { period: "Custom", ...(query.from ? { from: query.from } : {}), ...(query.to ? { to: query.to } : {}) };
     if (query.restaurantId) params.restaurantId = query.restaurantId;
+    if (query.fromTime) params.fromTime = query.fromTime;
+    if (query.toTime) params.toTime = query.toTime;
     const response = await api.get<unknown>("/Orders/receipts", { params });
     assertApiSuccess(response.data);
     const raw = (unwrapData<unknown>(response.data) ?? {}) as Record<string, unknown>;

@@ -86,14 +86,18 @@ export type CreateReservationInput = {
   note?: string | null;
 };
 
-/** `yyyy-MM-dd` days: one `date`, or an inclusive `dateFrom`–`dateTo` range where either end may be left out. */
-export type ReservationListQuery = { date?: string; dateFrom?: string; dateTo?: string };
+/**
+ * `yyyy-MM-dd` days: one `date`, or an inclusive `dateFrom`–`dateTo` range where either end may be left out.
+ * `fromTime` / `toTime` (HH:mm) narrow it: from fromTime on the first day to the end of the toTime minute on the last day.
+ */
+export type ReservationListQuery = { date?: string; dateFrom?: string; dateTo?: string; fromTime?: string; toTime?: string };
 
 export async function getReservations(query: string | ReservationListQuery = {}): Promise<ReservationDto[]> {
   try {
-    const { date, dateFrom, dateTo } = typeof query === "string" ? { date: query } : query;
+    const { date, dateFrom, dateTo, fromTime, toTime }: ReservationListQuery =
+      typeof query === "string" ? { date: query } : query;
     const params = Object.fromEntries(
-      Object.entries({ date, dateFrom, dateTo }).filter(([, v]) => v),
+      Object.entries({ date, dateFrom, dateTo, fromTime, toTime }).filter(([, v]) => v),
     );
     const res = await api.get<ReservationDto[]>("/Reservations", { params });
     return Array.isArray(res.data) ? res.data : [];

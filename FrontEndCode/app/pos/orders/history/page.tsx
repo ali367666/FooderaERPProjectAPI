@@ -59,6 +59,8 @@ export default function PosOrderHistoryPage() {
         today: isToday,
         from: range.from,
         to: range.to,
+        fromTime: range.fromTime,
+        toTime: range.toTime,
         restaurantId: terminal.restaurantId,
       });
       // Dates changed quickly: an older answer must not replace the newer range's list.
@@ -126,7 +128,7 @@ export default function PosOrderHistoryPage() {
         </div>
       }
     >
-      <PosDateRangeFilter value={range} onChange={setRange} />
+      <PosDateRangeFilter value={range} onChange={setRange} withTime />
 
       {!loading && orders.length > 0 && (
         <p className="text-sm text-muted-foreground">

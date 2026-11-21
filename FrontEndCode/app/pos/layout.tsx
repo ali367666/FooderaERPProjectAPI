@@ -286,16 +286,16 @@ export default function PosLayout({ children, modal }: { children: React.ReactNo
 
             <div className="flex items-center gap-1.5 border-l px-3">
               <FiscalLamp />
-              {/* Only while no shift is open (no openedAt) — an open shift needs no reminder in the header.
-                  A company that works by the day (opening time set) has no shifts at all. */}
-              {!shift?.openedAt && branding?.worksWithShifts !== false && (
+              {/* Shown only while the backend reports an open shift (the report not closed yet); a closed shift shows
+                  nothing. A company that works by the day gets no shift from the backend, so nothing is shown there. */}
+              {shift?.isOpen && (
                 <button
                   type="button"
                   onClick={() => setShiftDialogOpen(true)}
-                  className="flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-600"
+                  className="flex items-center gap-1.5 rounded-md bg-emerald-100 px-2.5 py-1.5 text-xs font-medium text-emerald-800"
                 >
                   <Clock className="h-3.5 w-3.5" />
-                  <span className="hidden lg:inline">Növbə bağlıdır</span>
+                  <span className="hidden lg:inline">Növbə açıqdır</span>
                 </button>
               )}
               {canAccessSettings && (

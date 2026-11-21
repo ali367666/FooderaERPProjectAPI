@@ -13,6 +13,10 @@ import { BanquetReservationDialog } from "@/components/reservations/banquet-rese
 import { toApiFormError } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Calendar as DayCalendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TimePicker } from "@/components/ui/time-picker";
+import { az } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
   Plus, RefreshCw, ChevronLeft, ChevronRight,
@@ -69,6 +73,10 @@ const EMPTY_FORM: CreateReservationInput = {
 
 export function ReservationsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  // Optional HH:mm range inside the chosen day ("" = no limit on that side).
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
+  const [dateOpen, setDateOpen] = useState(false);
   const [items, setItems] = useState<ReservationDto[]>([]);
   const [restaurants, setRestaurants] = useState<{ id: number; name: string }[]>([]);
   const [tables, setTables] = useState<{ id: number; restaurantId: number; name: string; capacity: number }[]>([]);
@@ -85,7 +93,7 @@ export function ReservationsPage() {
       const [r, t, res] = await Promise.all([
         getRestaurants(),
         getRestaurantTables(),
-        getReservations(isoDate(selectedDate)),
+        getReservations({ date: isoDate(selectedDate), fromTime, toTime }),
       ]);
       setRestaurants(r.map(x => ({ id: x.id, name: x.name })));
       setTables(t.map(x => ({ id: x.id, restaurantId: x.restaurantId, name: x.name, capacity: x.capacity })));
@@ -95,7 +103,7 @@ export function ReservationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, fromTime, toTime]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -213,12 +221,39 @@ export function ReservationsPage() {
         <Button variant="ghost" size="sm" onClick={() => setSelectedDate(new Date())} className="text-xs">
           Bu gün
         </Button>
-        <input
-          type="date"
-          value={isoDate(selectedDate)}
-          onChange={e => setSelectedDate(new Date(e.target.value))}
-          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-        />
+        <Popover open={dateOpen} onOpenChange={setDateOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon" aria-label="Tarix seç">
+              <Calendar className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <DayCalendar
+              mode="single"
+              locale={az}
+              weekStartsOn={1}
+              selected={selectedDate}
+              defaultMonth={selectedDate}
+              onSelect={d => { if (d) { setSelectedDate(d); setDateOpen(false); } }}
+              className="p-3"
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Time range inside the day */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Saat aralığı</span>
+        <TimePicker value={fromTime} onChange={setFromTime} placeholder="Gün başı" aria-label="Başlanğıc saat" className="w-32" />
+        <span className="text-sm text-muted-foreground">—</span>
+        <TimePicker value={toTime} onChange={setToTime} placeholder="Gün sonu" aria-label="Son saat" className="w-32" />
+        {(fromTime || toTime) && (
+          <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-muted-foreground"
+            onClick={() => { setFromTime(""); setToTime(""); }}>
+            <X className="h-3.5 w-3.5" />
+            Saatı götür
+          </Button>
+        )}
       </div>
 
       {/* Summary strip */}
@@ -233,7 +268,9 @@ export function ReservationsPage() {
           );
         })}
         {items.length === 0 && !loading && (
-          <span className="text-muted-foreground text-sm">Bu gün üçün rezervasiya yoxdur.</span>
+          <span className="text-muted-foreground text-sm">
+            {fromTime || toTime ? "Seçilən saat aralığında rezervasiya yoxdur." : "Bu gün üçün rezervasiya yoxdur."}
+          </span>
         )}
       </div>
 

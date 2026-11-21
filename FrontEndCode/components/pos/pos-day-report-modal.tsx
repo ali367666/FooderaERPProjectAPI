@@ -222,8 +222,12 @@ export function PosDayReportModal({ onClose }: { onClose: () => void }) {
     printHtml(documentRef.current.innerHTML);
   };
 
+  // While the shift is open (the "close the report" case) and the report has no end time of its own yet — its window
+  // still runs past now — the end shown is the live clock, not the end of the business day.
+  const now = useNow(showCloseShift);
+  const liveEnd = showCloseShift && report != null && new Date(report.toLocal).getTime() > now.getTime();
   const rangeLabel = report
-    ? `${formatDateTime(report.fromLocal)} – ${formatDateTime(report.toLocal)}`
+    ? `${formatDateTime(report.fromLocal)} – ${liveEnd ? format(now, "dd.MM.yyyy HH:mm:ss") : formatDateTime(report.toLocal)}`
     : periodRequest
       ? "—"
       : "Tarix aralığı seçin";
@@ -678,6 +682,18 @@ function DocTable({ title, head, rows }: { title: string; head: string[]; rows: 
       )}
     </section>
   );
+}
+
+/** The current time, ticking every second while `live`; standing still otherwise. */
+function useNow(live: boolean): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!live) return;
+    setNow(new Date());
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, [live]);
+  return now;
 }
 
 function formatDateTime(iso: string): string {

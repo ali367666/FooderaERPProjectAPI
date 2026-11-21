@@ -10,6 +10,7 @@ import { PosEmpty, PosPage, PosPageError, PosPageLoading, PosTileGrid, posTileCl
 import {
   PosDateRangeFilter,
   formatRange,
+  hasRangeTime,
   todayIso,
   todayRange,
   type PosDateRange,
@@ -93,7 +94,12 @@ export default function PosReservationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const all = await getReservations({ dateFrom: range.from, dateTo: range.to });
+      const all = await getReservations({
+        dateFrom: range.from,
+        dateTo: range.to,
+        fromTime: range.fromTime,
+        toTime: range.toTime,
+      });
       // Days paged through quickly: an older answer must not replace the newer day's list.
       if (requestId !== loadSeq.current) return;
       const filtered = all.filter((r) => !terminal?.restaurantId || r.restaurantId === terminal.restaurantId);
@@ -129,7 +135,7 @@ export default function PosReservationsPage() {
 
   if (terminal === undefined) return <PosPageLoading />;
 
-  const isToday = range.from === todayIso() && range.to === todayIso();
+  const isToday = range.from === todayIso() && range.to === todayIso() && !hasRangeTime(range);
   /** Tiles show their date only when the list spans more than one day. */
   const singleDay = range.from === range.to;
 
@@ -159,7 +165,7 @@ export default function PosReservationsPage() {
         />
       )}
 
-      <PosDateRangeFilter value={range} onChange={setRange} />
+      <PosDateRangeFilter value={range} onChange={setRange} withTime />
 
       {error && <PosPageError message={error} />}
 
