@@ -14,11 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.QuickSales.Commands.Create;
 
-/// <summary>
-/// "Tez satış" in one request: the order, its lines, the stock and the payment are written in a single
-/// transaction. A quick sale never stays open, so it needs none of the table machinery — every sale of a
-/// branch shares one virtual "Tez satış" table instead of creating a table per sale.
-/// </summary>
+
 public class QuickSaleCommandHandler : IRequestHandler<QuickSaleCommand, QuickSaleResponse>
 {
     public const string SharedTableName = "Tez satış";
