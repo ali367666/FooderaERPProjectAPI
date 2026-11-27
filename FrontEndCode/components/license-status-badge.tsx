@@ -50,7 +50,7 @@ export function LicenseStatusBadge({ className, companyId }: { className?: strin
         )}
       >
         <MonitorSmartphone className="h-3.5 w-3.5" />
-        {status.licenseKeyValid ? `Lisenziya · ${status.daysLeft} gün` : "Lisenziya bitib"}
+        {status.licenseKeyValid ? `Lisenziya · ${status.daysLeft} gün qalıb` : "Lisenziya bitib"}
       </span>
     );
   }
@@ -76,7 +76,7 @@ export function LicenseStatusBadge({ className, companyId }: { className?: strin
       )}
     >
       {online ? <Globe className="h-3.5 w-3.5" /> : <MonitorSmartphone className="h-3.5 w-3.5" />}
-      {online ? `Online · ${status.daysLeft} gün` : "Offline"}
+      {online ? `Online · ${status.daysLeft} gün qalıb` : "Offline"}
     </span>
   );
 }
