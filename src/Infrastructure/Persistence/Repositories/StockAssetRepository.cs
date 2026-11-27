@@ -15,11 +15,11 @@ public class StockAssetRepository : IStockAssetRepository
         _context = context;
     }
 
-    public Task<List<StockItem>> GetAssetItemsAsync(int companyId, CancellationToken cancellationToken)
+    public Task<List<StockItem>> GetAssetItemsAsync(int companyId, bool allTypes, CancellationToken cancellationToken)
         => _context.StockItems.AsNoTracking()
             .Include(x => x.Category)
             .Include(x => x.WarehouseStocks).ThenInclude(w => w.Warehouse)
-            .Where(x => x.CompanyId == companyId && x.Type == StockItemType.NonFood)
+            .Where(x => x.CompanyId == companyId && (allTypes || x.Type == StockItemType.NonFood))
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
@@ -29,8 +29,7 @@ public class StockAssetRepository : IStockAssetRepository
             .Include(x => x.StockItem)
             .Include(x => x.Warehouse)
             .Where(x => x.CompanyId == companyId
-                && x.StockItem.Type == StockItemType.NonFood
-                && (stockItemId == null || x.StockItemId == stockItemId)
+                && (stockItemId != null ? x.StockItemId == stockItemId : x.StockItem.Type == StockItemType.NonFood)
                 && (fromUtc == null || x.MovementDate >= fromUtc)
                 && (toUtcExclusive == null || x.MovementDate < toUtcExclusive))
             .OrderByDescending(x => x.MovementDate).ThenByDescending(x => x.Id)

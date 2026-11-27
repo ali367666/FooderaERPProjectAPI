@@ -1,5 +1,7 @@
 "use client";
 
+import { getStoredToken } from "@/lib/auth-client";
+import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -37,7 +39,7 @@ import {
   type StockRequestDto,
 } from "@/lib/services/stock-request-service";
 import { AppPermissions } from "@/lib/app-permissions";
-import { usePermissionSet } from "@/hooks/use-auth-permissions";
+import { usePermissionSet, useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 
 function newLine(): StockRequestLineDraft {
   return {
@@ -55,6 +57,9 @@ export function StockRequestFormPage({ variant }: { variant: Variant }) {
   const searchParams = useSearchParams();
   const permissions = usePermissionSet();
   const { companies, selectedCompanyId: toolbarCompanyId } = useSelectedCompany();
+  const isSuperAdmin = useIsSuperAdmin();
+  // The server always works in the caller's own company, except for the SuperAdmin.
+  const ownCompanyId = isSuperAdmin ? null : getCompanyIdFromToken(getStoredToken());
 
   const documentId = variant === "edit" ? Number(params.id) : NaN;
   const modeParam = (searchParams.get("mode") ?? "edit") as "view" | "edit";
@@ -196,9 +201,13 @@ export function StockRequestFormPage({ variant }: { variant: Variant }) {
 
   useEffect(() => {
     if (variant !== "create") return;
+    if (ownCompanyId) {
+      if (companyId !== String(ownCompanyId)) setCompanyId(String(ownCompanyId));
+      return;
+    }
     if (companyId) return;
     if (toolbarCompanyId != null) setCompanyId(String(toolbarCompanyId));
-  }, [variant, companyId, toolbarCompanyId]);
+  }, [variant, companyId, toolbarCompanyId, ownCompanyId]);
 
   useEffect(() => {
     if (variant !== "edit") return;
@@ -479,6 +488,7 @@ export function StockRequestFormPage({ variant }: { variant: Variant }) {
           <>
             <StockRequestMasterForm
               companies={companiesForMaster}
+              showCompany={isSuperAdmin}
               warehouses={warehousesForCompany}
               companyId={companyId}
               onCompanyIdChange={(v) => {
@@ -507,13 +517,17 @@ export function StockRequestFormPage({ variant }: { variant: Variant }) {
         lineCount={lines.length}
         headerRight={
           !effectiveReadOnly ? (
-            <span className="text-xs text-muted-foreground">Add items from the selected company.</span>
+            <span className="text-xs text-muted-foreground">
+              {companyId && stockItems.length === 0 ? "Bu şirkətdə stok məhsulu tapılmadı." : "Add items from the selected company."}
+            </span>
           ) : null
         }
       >
         <StockRequestLinesTable
           lines={lines}
           stockItems={stockItems}
+          companyId={Number(companyId) || 0}
+          onItemCreated={(item) => setStockItems((prev) => [...prev.filter((s) => s.id !== item.id), item].sort((a, b) => a.name.localeCompare(b.name, "az")))}
           onChange={setLines}
           readOnly={effectiveReadOnly}
           rowErrors={lineErrors}

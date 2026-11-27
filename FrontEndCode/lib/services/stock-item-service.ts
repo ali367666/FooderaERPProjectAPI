@@ -145,7 +145,8 @@ export async function getStockItemById(id: number): Promise<StockItem> {
   }
 }
 
-export async function createStockItem(payload: StockItemMutationInput): Promise<void> {
+/** Creates a stock item and returns its id. */
+export async function createStockItem(payload: StockItemMutationInput): Promise<number> {
   try {
     const response = await api.post<unknown>("/StockItem", {
       name: payload.name.trim(),
@@ -158,6 +159,7 @@ export async function createStockItem(payload: StockItemMutationInput): Promise<
       salePrice: payload.salePrice ?? null,
     });
     assertApiSuccess(response.data);
+    return Number(readBaseResponseData<unknown>(response.data)) || 0;
   } catch (error) {
     throw toApiFormError(error, "Failed to create stock item");
   }

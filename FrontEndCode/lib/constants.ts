@@ -60,6 +60,11 @@ export interface NavItem {
   storeOnly?: boolean;
   /** Platform pages for the SuperAdmin only. */
   superAdminOnly?: boolean;
+  /**
+   * The page is gathered under another menu entry (its href): it is left out of the menu while that entry is there for the user, and is still
+   * found by the menu search and opened by its address. Without that entry (no permission, store mode) it is listed as usual.
+   */
+  foldedUnder?: string;
 }
 
 export interface NavGroup {
@@ -200,8 +205,17 @@ export const navGroups: NavGroup[] = [
     title: "INVENTORY & OPERATIONS",
     items: [
       {
+        title: "Stok",
+        href: "/dashboard/stock",
+        hiddenForStoreMode: true,
+        icon: Boxes,
+        permission: "StockItem.View",
+        module: "moduleAnbar",
+      },
+      {
         title: "Stock Categories",
         href: "/dashboard/stock-categories",
+        foldedUnder: "/dashboard/stock",
         hiddenForStoreMode: true,
         icon: Layers,
         permission: "StockCategory.View",
@@ -210,13 +224,14 @@ export const navGroups: NavGroup[] = [
       {
         title: "Stock Items",
         href: "/dashboard/stock-items",
+        foldedUnder: "/dashboard/stock",
         hiddenForStoreMode: true,
         icon: Boxes,
         permission: "StockItem.View",
         module: "moduleAnbar",
       },
       {
-        title: "Warehouses",
+        title: "Anbarlar",
         href: "/dashboard/warehouses",
         icon: Warehouse,
         permission: "Warehouse.View",
@@ -225,6 +240,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Stock entry documents",
         href: "/dashboard/warehouse-stock-documents",
+        foldedUnder: "/dashboard/stock",
         hiddenForStoreMode: true,
         icon: FileText,
         module: "moduleAnbar",
@@ -232,6 +248,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Warehouse stock balances",
         href: "/dashboard/warehouse-stocks",
+        foldedUnder: "/dashboard/stock",
         hiddenForStoreMode: true,
         icon: ClipboardList,
         permission: "WarehouseStock.View",
@@ -240,12 +257,13 @@ export const navGroups: NavGroup[] = [
       {
         title: "Stock movements",
         href: "/dashboard/stock-movements",
+        foldedUnder: "/dashboard/stock",
         hiddenForStoreMode: true,
         icon: History,
         module: "moduleAnbar",
       },
       {
-        title: "Stock Requests",
+        title: "Stok sorğuları",
         href: "/dashboard/stock-requests",
         hiddenForStoreMode: true,
         icon: Package,
@@ -253,7 +271,7 @@ export const navGroups: NavGroup[] = [
         module: "moduleAnbar",
       },
       {
-        title: "Stock Purchases",
+        title: "Alışlar",
         href: "/dashboard/stock-purchases",
         hiddenForStoreMode: true,
         icon: ShoppingCart,
@@ -263,6 +281,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Mal alışı xərcləri",
         href: "/dashboard/stock-purchase-costs",
+        foldedUnder: "/dashboard/stock-purchases",
         hiddenForStoreMode: true,
         icon: Calculator,
         permission: "StockPurchase.View",
@@ -271,6 +290,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Stok tənzimləmə",
         href: "/dashboard/stock-writeoffs",
+        foldedUnder: "/dashboard/stock",
         hiddenForStoreMode: true,
         icon: Package,
         permission: "StockWriteOff.View",
@@ -279,6 +299,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Ləvazimat və inventar",
         href: "/dashboard/stock-assets",
+        foldedUnder: "/dashboard/stock",
         hiddenForStoreMode: true,
         icon: Boxes,
         permission: "WarehouseStock.View",
@@ -287,6 +308,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Konturagentlər",
         href: "/dashboard/counterparties",
+        foldedUnder: "/dashboard/stock-purchases",
         icon: Building2,
         permission: "Counterparty.View",
         module: "moduleAnbar",

@@ -7,6 +7,9 @@ export type StockAsset = {
   stockItemId: number;
   name: string;
   barcode: string | null;
+  categoryId: number;
+  /** Domain.Enums.StockItemType */
+  type: number;
   categoryName: string;
   unit: number;
   totalQuantity: number;
@@ -36,9 +39,12 @@ export type StockAssetOperation = {
 
 export const UNIT_SHORT: Record<number, string> = { 1: "ədəd", 2: "kq", 3: "q", 4: "litr", 5: "ml" };
 
-/** The company's non-food stock items (plates, glasses, cutlery, detergent...) with their stock and value. */
-export async function getStockAssets(): Promise<StockAssetList> {
-  const res = await api.get<StockAssetList>("/stockassets");
+/**
+ * The company's non-food stock items (plates, glasses, cutlery, detergent...) with their stock and value; with `allTypes` every stock item
+ * (the stock page).
+ */
+export async function getStockAssets(allTypes = false): Promise<StockAssetList> {
+  const res = await api.get<StockAssetList>("/stockassets", { params: allTypes ? { allTypes: true } : undefined });
   return res.data;
 }
 
@@ -49,7 +55,7 @@ export async function getStockAssetHistory(params: { from?: string; to?: string;
   return res.data;
 }
 
-/** Raises the stock of a non-food item by hand (a gift, a found item, a correction). */
+/** Raises the stock of an item by hand (a gift, a found item, a correction). */
 export async function increaseStockAsset(payload: { warehouseId: number; stockItemId: number; quantity: number; note?: string | null }): Promise<string | null> {
   const res = await api.post("/stockassets/increase", payload);
   assertApiSuccess(res.data);

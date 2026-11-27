@@ -108,6 +108,14 @@ export function AppSidebar() {
 
   const isStoreMode = Boolean(branding?.moduleDataSecimi);
 
+  // Pages gathered under another entry are not listed while that entry is there; the search below still finds them.
+  const menuGroups = useMemo(() => {
+    const shown = new Set(visibleNavGroups.flatMap((g) => g.items.map((i) => i.href)));
+    return visibleNavGroups
+      .map((g) => ({ ...g, items: g.items.filter((i) => !i.foldedUnder || !shown.has(i.foldedUnder)) }))
+      .filter((g) => g.items.length > 0);
+  }, [visibleNavGroups]);
+
   // The search looks at the page names AND at the words written inside every page (labels, headings,
   // placeholders...), so "slogan" finds Tənzimləmələr. Only pages the user may open are searched.
   const [query, setQuery] = useState("");
@@ -265,7 +273,7 @@ export function AppSidebar() {
               )}
             </div>
           ) : (
-          visibleNavGroups.map((group) => (
+          menuGroups.map((group) => (
             <div key={group.title} className="mb-8">
               <h3 className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                 {isStoreMode && group.storeModeTitle ? group.storeModeTitle : group.title}

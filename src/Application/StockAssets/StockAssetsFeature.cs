@@ -23,6 +23,8 @@ public class StockAssetResponse
     public int StockItemId { get; set; }
     public string Name { get; set; } = default!;
     public string? Barcode { get; set; }
+    public int CategoryId { get; set; }
+    public StockItemType Type { get; set; }
     public string CategoryName { get; set; } = default!;
     public UnitOfMeasure Unit { get; set; }
     public decimal TotalQuantity { get; set; }
@@ -71,7 +73,8 @@ public class CreateStockAssetIncreaseRequest
 
 // ---- Queries and commands ------------------------------------------------------------------
 
-public record GetStockAssetsQuery : IRequest<StockAssetListResponse>;
+/// <summary>Non-food items with their stock; with <paramref name="AllTypes"/> every stock item (the stock page).</summary>
+public record GetStockAssetsQuery(bool AllTypes = false) : IRequest<StockAssetListResponse>;
 
 public record GetStockAssetHistoryQuery(DateTime? From, DateTime? To, int? StockItemId) : IRequest<List<StockAssetOperationResponse>>;
 
@@ -110,7 +113,7 @@ public class StockAssetsHandlers :
 
     public async Task<StockAssetListResponse> Handle(GetStockAssetsQuery query, CancellationToken ct)
     {
-        var items = await _assets.GetAssetItemsAsync(_currentUser.CompanyId, ct);
+        var items = await _assets.GetAssetItemsAsync(_currentUser.CompanyId, query.AllTypes, ct);
         var rows = items.Select(i =>
         {
             var warehouses = i.WarehouseStocks
@@ -125,6 +128,8 @@ public class StockAssetsHandlers :
                 StockItemId = i.Id,
                 Name = i.Name,
                 Barcode = i.Barcode,
+                CategoryId = i.CategoryId,
+                Type = i.Type,
                 CategoryName = i.Category?.Name ?? string.Empty,
                 Unit = i.Unit,
                 TotalQuantity = total,
@@ -210,8 +215,6 @@ public class StockAssetsHandlers :
         var item = (await _purchases.GetStockItemsAsync(companyId, new[] { request.StockItemId }, ct)).FirstOrDefault();
         if (item is null)
             return Fail("Stok məhsulu tapılmadı.");
-        if (item.Type != StockItemType.NonFood)
-            return Fail("Bu bölmə yalnız qeyri-ərzaq (ləvazimat) məhsulları üçündür.");
 
         await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
         try

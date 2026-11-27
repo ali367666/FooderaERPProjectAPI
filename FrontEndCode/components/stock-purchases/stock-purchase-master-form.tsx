@@ -21,6 +21,7 @@ import {
 import { getWarehouses } from "@/lib/services/warehouse-service";
 import { getCounterparties } from "@/lib/services/counterparty-service";
 import { getStockItemsForAllCompanies } from "@/lib/services/stock-item-service";
+import { NewStockItemButton } from "@/components/stock/new-stock-item-button";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { toApiFormError } from "@/lib/api-error";
 
@@ -129,6 +130,16 @@ export function StockPurchaseMasterForm({ companyId, initial, readOnly, onSave, 
       unitPriceForeign: "",
       unitPriceAzn: 0,
     }]);
+  }
+
+  /** A product created right here goes into the first line that has none yet, else into a new line. */
+  function addCreatedItem(item: { id: number; name: string }) {
+    setStockItems((prev) => [...prev.filter((s) => s.id !== item.id), item].sort((a, b) => a.name.localeCompare(b.name, "az")));
+    setLines((prev) => {
+      const empty = prev.findIndex((l) => !l.stockItemId);
+      if (empty >= 0) return prev.map((l, i) => (i === empty ? { ...l, stockItemId: item.id } : l));
+      return [...prev, { key: `new-${Date.now()}`, stockItemId: item.id, quantity: "", unitPriceForeign: "", unitPriceAzn: 0 }];
+    });
   }
 
   function removeLine(key: string) {
@@ -284,9 +295,12 @@ export function StockPurchaseMasterForm({ companyId, initial, readOnly, onSave, 
         <div className="flex items-center justify-between">
           <h3 className="font-medium">Purchase Lines</h3>
           {!readOnly && (
-            <Button type="button" variant="outline" size="sm" onClick={addLine}>
-              <Plus className="h-4 w-4 mr-1" /> Add line
-            </Button>
+            <div className="flex gap-2">
+              <NewStockItemButton companyId={companyId} onCreated={addCreatedItem} />
+              <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                <Plus className="h-4 w-4 mr-1" /> Add line
+              </Button>
+            </div>
           )}
         </div>
 
