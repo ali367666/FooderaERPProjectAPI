@@ -7,7 +7,8 @@ internal static class ZReportBuilder
     public static ZReportResponse Build(
         Domain.Entities.Shift shift,
         List<Domain.Entities.Order> paidOrders,
-        List<Domain.Entities.SaleReturn> returns)
+        List<Domain.Entities.SaleReturn> returns,
+        List<ZReportBankBreakdown> bankBreakdown)
     {
         return new ZReportResponse
         {
@@ -21,6 +22,7 @@ internal static class ZReportBuilder
             GrossTotal = paidOrders.Sum(o => o.TotalAmount),
             TotalDiscount = paidOrders.Sum(o => o.DiscountAmount),
             TotalServiceCharge = paidOrders.Sum(o => o.ServiceChargeAmount ?? 0),
+            BankBreakdown = bankBreakdown,
             ReturnCount = returns.Count,
             TotalReturns = returns.Sum(r => r.TotalAmount),
             NetTotal = paidOrders.Sum(o => o.TotalAmount) - returns.Sum(r => r.TotalAmount),

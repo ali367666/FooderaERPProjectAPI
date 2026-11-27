@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -16,13 +16,16 @@ public class CreatePositionCommandHandler
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<CreatePositionCommandHandler> _logger;
+    private readonly Application.Common.Helpers.DepartmentResolver _departmentResolver;
 
     public CreatePositionCommandHandler(
         IPositionRepository positionRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
-        ILogger<CreatePositionCommandHandler> logger)
+        ILogger<CreatePositionCommandHandler> logger,
+        Application.Common.Helpers.DepartmentResolver departmentResolver)
     {
+        _departmentResolver = departmentResolver;
         _positionRepository = positionRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
@@ -39,15 +42,18 @@ public class CreatePositionCommandHandler
             ? request.Request.CompanyId
             : _currentUserService.CompanyId;
 
+        // Without the Departments module a position is put in the company's default department.
+        var departmentId = await _departmentResolver.ForNewPositionAsync(companyId, request.Request.DepartmentId, cancellationToken);
+
         _logger.LogInformation(
             "CreatePositionCommand başladı. Name: {Name}, DepartmentId: {DepartmentId}, CompanyId: {CompanyId}",
             request.Request.Name,
-            request.Request.DepartmentId,
+            departmentId,
             companyId);
 
         var exists = await _positionRepository.ExistsByNameAsync(
             companyId,
-            request.Request.DepartmentId,
+            departmentId,
             request.Request.Name.Trim(),
             cancellationToken);
 
@@ -56,7 +62,7 @@ public class CreatePositionCommandHandler
             _logger.LogWarning(
                 "Position yaradılmadı. Eyni adda position artıq mövcuddur. Name: {Name}, DepartmentId: {DepartmentId}, CompanyId: {CompanyId}",
                 request.Request.Name,
-                request.Request.DepartmentId,
+                departmentId,
                 companyId);
 
             return new BaseResponse<int>
@@ -69,7 +75,7 @@ public class CreatePositionCommandHandler
         var position = new Domain.Entities.Position
         {
             CompanyId = companyId,
-            DepartmentId = request.Request.DepartmentId,
+            DepartmentId = departmentId,
             Name = request.Request.Name.Trim()
         };
 

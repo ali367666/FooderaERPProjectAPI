@@ -13,6 +13,8 @@ const selectCls = cn(FILTER_SELECT_CLASS, "h-10");
 
 type StockRequestMasterFormProps = {
   companies: Company[];
+  /** Only the platform SuperAdmin picks a company; everyone else works in their own, so the field is not shown. */
+  showCompany: boolean;
   warehouses: Warehouse[];
   companyId: string;
   onCompanyIdChange: (v: string) => void;
@@ -34,6 +36,7 @@ type StockRequestMasterFormProps = {
 
 export function StockRequestMasterForm({
   companies,
+  showCompany,
   warehouses,
   companyId,
   onCompanyIdChange,
@@ -62,7 +65,8 @@ export function StockRequestMasterForm({
         ) : null}
       </div>
 
-      <div className="space-y-2">
+      {showCompany ? (
+      <div className="space-y-2 sm:col-span-2">
         <Label htmlFor="sr-company">Company</Label>
         <select
           id="sr-company"
@@ -80,6 +84,7 @@ export function StockRequestMasterForm({
         </select>
         {errors.company ? <p className="text-sm text-destructive">{errors.company}</p> : null}
       </div>
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="sr-req-wh">Requesting warehouse</Label>

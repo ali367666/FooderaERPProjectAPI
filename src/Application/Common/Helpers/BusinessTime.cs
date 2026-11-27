@@ -14,6 +14,10 @@ public static class BusinessTime
     public static DateTime FromUtc(DateTime utc) =>
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Zone);
 
+ 
+    public static DateTime ToUtc(DateTime local) =>
+        TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), Zone);
+
     private static TimeZoneInfo ResolveZone()
     {
         foreach (var id in new[] { "Asia/Baku", "Azerbaijan Standard Time" })

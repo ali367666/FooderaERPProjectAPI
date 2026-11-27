@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import { assertApiSuccess, readBaseResponseData, readBaseResponseList } from "@/lib/api-base-response";
 import { ApiFormError, toApiFormError } from "@/lib/api-error";
 import { fetchListsPerCompany } from "@/lib/company-scope-utils";
+import { uniqueById } from "@/lib/utils";
 
 export type AppRole = {
   id: number;
@@ -55,7 +56,9 @@ export async function getRoles(companyId?: number): Promise<AppRole[]> {
 
 /** Merge GET /roles for each company id — used when "All Companies" is selected. */
 export async function getRolesForAllCompanies(companyIds: number[]): Promise<AppRole[]> {
-  return fetchListsPerCompany(companyIds, (id) => getRoles(id));
+  // Every per-company call also returns the shared CompanySuperAdmin template for a SuperAdmin,
+  // so the merged list holds it once per company.
+  return uniqueById(await fetchListsPerCompany(companyIds, (id) => getRoles(id)));
 }
 
 export async function getRoleById(id: number): Promise<AppRole> {

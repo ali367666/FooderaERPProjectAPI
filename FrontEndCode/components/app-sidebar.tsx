@@ -6,8 +6,11 @@ import { usePathname } from "next/navigation";
 import { navGroups } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
-import { ChefHat, Menu, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ChefHat, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
+import { PAGE_SEARCH_INDEX } from "@/lib/search-index.generated";
+import { matchesAllWords, searchWords } from "@/lib/search-text";
+import { searchData, type GlobalSearchResult } from "@/lib/services/global-search-service";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePermissionSet } from "@/hooks/use-auth-permissions";
 import { getStoredAuthUser, getStoredToken } from "@/lib/auth-client";
 import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
@@ -17,12 +20,21 @@ import {
 } from "@/lib/services/company-settings-service";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { useSelectedRestaurant } from "@/contexts/selected-restaurant-context";
+import { useMyProfile } from "@/contexts/my-profile-context";
 
-export function AppSidebar() {
+type AppSidebarProps = {
+  /** Desktop only: the panel is folded to a narrow strip of icons. The mobile drawer is always full. */
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+};
+
+export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const permissionSet = usePermissionSet();
   const [branding, setBranding] = useState<CompanySettingsBranding | null>(null);
+  // Until the company's mode is known the menu must not guess (a store company would flash the restaurant sections first).
+  const [brandingReady, setBrandingReady] = useState(false);
 
   useEffect(() => {
     applyTheme(branding);
@@ -39,16 +51,50 @@ export function AppSidebar() {
     return roles.some((r) => r.trim().toLowerCase() === "superadmin");
   }, [permissionSet]);
 
+  // The platform SuperAdmin sees the product's own name; a company's users see their company's name. It stays empty
+  // while the profile loads, so "Foodera" never flashes at a tenant.
+  const { profile } = useMyProfile();
+  const brandName = isSuperAdmin ? "Foodera" : profile?.companyName ?? "";
+
   useEffect(() => {
     // A SuperAdmin browsing another company (Company filter) — and, within it, one specific branch
     // (Filial filter / "Data Seçimi") — must see THAT company/branch's own module-driven nav, not
     // their own. A tenant Admin only ever has their own company anyway.
     const ownCompanyId = getCompanyIdFromToken(getStoredToken());
     const effectiveCompanyId = selectedCompanyId ?? ownCompanyId;
-    if (!effectiveCompanyId) return;
+    if (!effectiveCompanyId) {
+      setBrandingReady(true);
+      return;
+    }
+    const cacheKey = `branding:${effectiveCompanyId}:${selectedRestaurantId ?? 0}`;
+    let cancelled = false;
+    // The last answer for this company is shown at once (no flash on later visits) and refreshed from the server.
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        setBranding(JSON.parse(cached) as CompanySettingsBranding);
+        setBrandingReady(true);
+      } else {
+        setBrandingReady(false);
+      }
+    } catch {
+      setBrandingReady(false);
+    }
     getCompanySettingsBranding(effectiveCompanyId, selectedRestaurantId ?? undefined)
-      .then(setBranding)
-      .catch(() => setBranding(null));
+      .then((b) => {
+        if (cancelled) return;
+        setBranding(b);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(b));
+        } catch {
+          // storage blocked: just no cache
+        }
+      })
+      .catch(() => !cancelled && setBranding(null))
+      .finally(() => !cancelled && setBrandingReady(true));
+    return () => {
+      cancelled = true;
+    };
   }, [selectedCompanyId, selectedRestaurantId]);
 
   const visibleNavGroups = useMemo(
@@ -57,18 +103,73 @@ export function AppSidebar() {
         .map((group) => ({
           ...group,
           items: group.items.filter((item) => {
+            // While the mode is still loading the restaurant pages stay listed (nothing vanishes); only store-only pages wait.
+            if (!brandingReady && item.storeOnly) return false;
             if (item.module && branding && branding[item.module] === false) return false;
             if (item.hiddenForStoreMode && branding?.moduleDataSecimi) return false;
+            if (item.storeOnly && !branding?.moduleDataSecimi) return false;
+            if (item.superAdminOnly && !isSuperAdmin) return false;
             if (!item.permission) return true;
             if (isSuperAdmin) return true;
             return permissionSet.has(item.permission);
           }),
         }))
         .filter((group) => group.items.length > 0),
-    [isSuperAdmin, permissionSet, branding],
+    [isSuperAdmin, permissionSet, branding, brandingReady],
   );
 
   const isStoreMode = Boolean(branding?.moduleDataSecimi);
+
+  // Pages gathered under another entry are not listed while that entry is there; the search below still finds them.
+  const menuGroups = useMemo(() => {
+    const shown = new Set(visibleNavGroups.flatMap((g) => g.items.map((i) => i.href)));
+    return visibleNavGroups
+      .map((g) => ({ ...g, items: g.items.filter((i) => !i.foldedUnder || !shown.has(i.foldedUnder)) }))
+      .filter((g) => g.items.length > 0);
+  }, [visibleNavGroups]);
+
+  // The search looks at the page names AND at the words written inside every page (labels, headings,
+  // placeholders...), so "slogan" finds Tənzimləmələr. Only pages the user may open are searched.
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const words = useMemo(() => searchWords(query), [query]);
+  // The records themselves (products, employees, counterparties...), asked from the server while typing.
+  const [dataResults, setDataResults] = useState<GlobalSearchResult[]>([]);
+  useEffect(() => {
+    const term = query.trim();
+    if (words.length === 0 || term.length < 2) {
+      setDataResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      searchData(term, selectedCompanyId)
+        .then((rows) => !cancelled && setDataResults(rows))
+        .catch(() => !cancelled && setDataResults([]));
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query, words, selectedCompanyId]);
+
+  const searchResults = useMemo(() => {
+    if (words.length === 0) return [];
+    const results: { href: string; title: string; group: string; titleMatch: boolean; phrases: string[] }[] = [];
+    for (const group of visibleNavGroups) {
+      const groupTitle = isStoreMode && group.storeModeTitle ? group.storeModeTitle : group.title;
+      for (const item of group.items) {
+        const title = isStoreMode && item.storeModeTitle ? item.storeModeTitle : item.title;
+        const titleMatch = matchesAllWords(`${title} ${groupTitle}`, words);
+        const phrases = (PAGE_SEARCH_INDEX[item.href] ?? []).filter((p) => matchesAllWords(p, words));
+        if (titleMatch || phrases.length > 0) {
+          results.push({ href: item.href, title, group: groupTitle, titleMatch, phrases: phrases.slice(0, 3) });
+        }
+      }
+    }
+    // Pages whose name matches come first.
+    return results.sort((a, b) => Number(b.titleMatch) - Number(a.titleMatch));
+  }, [words, visibleNavGroups, isStoreMode]);
 
   return (
     <>
@@ -84,29 +185,137 @@ export function AppSidebar() {
       <aside
         className={cn(
           "fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border transition-all duration-300 z-40 flex flex-col",
+          collapsed && "lg:w-20",
           !isOpen && "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Logo Section */}
-        <div className="flex-shrink-0 p-6 border-b border-sidebar-border">
-          <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
+        <div className={cn("flex-shrink-0 p-6 border-b border-sidebar-border", collapsed && "lg:px-5 lg:py-4")}>
+          <Link href="/dashboard" className="flex min-w-0 items-center gap-3" title={brandName}>
+            <div className="w-10 h-10 shrink-0 rounded-lg bg-sidebar-primary flex items-center justify-center">
               <ChefHat size={24} className="text-sidebar-primary-foreground" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg text-sidebar-foreground">
-                Foodera
+            <div className={cn("flex min-w-0 flex-col", collapsed && "lg:hidden")}>
+              <span className="line-clamp-2 break-words font-bold text-lg leading-tight text-sidebar-foreground" title={brandName}>
+                {brandName}
               </span>
-              <span className="text-xs text-sidebar-foreground/60">ERP</span>
+              {isSuperAdmin && <span className="text-xs text-sidebar-foreground/60">ERP</span>}
             </div>
           </Link>
         </div>
 
+        {/* Folded panel: the search icon unfolds it */}
+        {collapsed && (
+          <button
+            type="button"
+            onClick={() => {
+              onCollapsedChange(false);
+              // The field can be focused only once it is visible again.
+              window.setTimeout(() => searchRef.current?.focus(), 50);
+            }}
+            className="mx-auto mt-4 hidden shrink-0 rounded-md p-3 text-sidebar-foreground/70 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground lg:block"
+            aria-label="Axtarış"
+            title="Axtarış"
+          >
+            <Search size={20} />
+          </button>
+        )}
+
+        {/* Search */}
+        <div className={cn("flex-shrink-0 px-4 pt-4", collapsed && "lg:hidden")}>
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-foreground/60" />
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setQuery("");
+                if (e.key === "Enter" && searchResults[0]) {
+                  window.location.assign(`${searchResults[0].href}?find=${encodeURIComponent(query.trim())}`);
+                }
+              }}
+              placeholder="Menyuda və səhifələrdə axtar…"
+              className="h-9 w-full rounded-md border border-sidebar-border bg-sidebar-accent/10 pl-9 pr-8 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:outline-none focus:ring-1 focus:ring-sidebar-primary [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                aria-label="Axtarışı təmizlə"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4">
-          {visibleNavGroups.map((group) => (
-            <div key={group.title} className="mb-8">
-              <h3 className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
+        <nav className={cn("flex-1 overflow-y-auto p-4", collapsed && "lg:px-2")}>
+          {words.length > 0 ? (
+            <div className="space-y-1">
+              {searchResults.length === 0 && dataResults.length === 0 && (
+                <p className="px-4 py-3 text-sm text-sidebar-foreground/60">Heç nə tapılmadı.</p>
+              )}
+              {searchResults.map((r) => (
+                <Link
+                  key={r.href}
+                  href={`${r.href}?find=${encodeURIComponent(query.trim())}`}
+                  onClick={() => {
+                    setIsOpen(false);
+                    setQuery("");
+                  }}
+                  className="block rounded-md px-4 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/20"
+                >
+                  <span className="block font-medium">{r.title}</span>
+                  <span className="block text-[11px] uppercase tracking-wide text-sidebar-foreground/50">{r.group}</span>
+                  {r.phrases.map((p) => (
+                    <span key={p} className="mt-0.5 block truncate text-xs text-sidebar-foreground/70" title={p}>
+                      {p}
+                    </span>
+                  ))}
+                </Link>
+              ))}
+
+              {dataResults.length > 0 && (
+                <>
+                  <h3 className="px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60">
+                    Məlumatlar
+                  </h3>
+                  {dataResults.map((r) => (
+                    <Link
+                      key={`${r.kind}-${r.title}-${r.subtitle ?? ""}`}
+                      href={`${r.href}?find=${encodeURIComponent(r.title)}`}
+                      onClick={() => {
+                        setIsOpen(false);
+                        setQuery("");
+                      }}
+                      className="block rounded-md px-4 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/20"
+                    >
+                      <span className="block truncate font-medium" title={r.title}>{r.title}</span>
+                      <span className="block truncate text-[11px] uppercase tracking-wide text-sidebar-foreground/50">
+                        {r.kind}
+                        {r.subtitle ? ` · ${r.subtitle}` : ""}
+                      </span>
+                    </Link>
+                  ))}
+                </>
+              )}
+            </div>
+          ) : (
+          menuGroups.map((group) => (
+            <div
+              key={group.title}
+              className={cn("mb-8", collapsed && "lg:mb-2 lg:border-b lg:border-sidebar-border lg:pb-2")}
+            >
+              <h3
+                className={cn(
+                  "px-4 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider",
+                  collapsed && "lg:hidden",
+                )}
+              >
                 {isStoreMode && group.storeModeTitle ? group.storeModeTitle : group.title}
               </h3>
               <ul className="space-y-2">
@@ -119,17 +328,19 @@ export function AppSidebar() {
                       <Link
                         href={item.href}
                         onClick={() => setIsOpen(false)}
+                        title={collapsed ? (isStoreMode && item.storeModeTitle ? item.storeModeTitle : item.title) : undefined}
                         className={cn(
                           "flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors",
+                          collapsed && "lg:justify-center lg:px-0",
                           isActive
                             ? "bg-sidebar-primary text-sidebar-primary-foreground"
                             : "text-sidebar-foreground hover:bg-sidebar-accent/20"
                         )}
                       >
-                        <Icon size={20} />
-                        <span>{isStoreMode && item.storeModeTitle ? item.storeModeTitle : item.title}</span>
+                        <Icon size={20} className="shrink-0" />
+                        <span className={cn(collapsed && "lg:sr-only")}>{isStoreMode && item.storeModeTitle ? item.storeModeTitle : item.title}</span>
                         {item.badge && (
-                          <span className="ml-auto bg-sidebar-primary text-sidebar-primary-foreground text-xs rounded-full px-2 py-0.5">
+                          <span className={cn("ml-auto bg-sidebar-primary text-sidebar-primary-foreground text-xs rounded-full px-2 py-0.5", collapsed && "lg:hidden")}>
                             {item.badge}
                           </span>
                         )}
@@ -139,13 +350,30 @@ export function AppSidebar() {
                 })}
               </ul>
             </div>
-          ))}
+          ))
+          )}
         </nav>
 
         {/* Footer Section */}
-        <div className="mt-auto p-4 border-t border-sidebar-border">
-          <LogoutButton />
-          <p className="mt-3 text-xs text-sidebar-foreground/60">© 2024 Foodera ERP</p>
+        <div className={cn("mt-auto p-4 border-t border-sidebar-border", collapsed && "lg:px-2")}>
+          <LogoutButton collapsed={collapsed} />
+          <div className={cn("mt-2 flex items-center justify-between gap-2", collapsed && "lg:justify-center")}>
+            <p className={cn("min-w-0 text-xs text-sidebar-foreground/60", collapsed && "lg:hidden")}>
+              © {new Date().getFullYear()} {isSuperAdmin ? "Foodera ERP" : brandName}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                onCollapsedChange(!collapsed);
+              }}
+              className="hidden shrink-0 rounded-md p-2 text-sidebar-foreground/70 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground lg:block"
+              aria-label={collapsed ? "Paneli aç" : "Paneli yığ"}
+              title={collapsed ? "Paneli aç" : "Paneli yığ"}
+            >
+              {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            </button>
+          </div>
         </div>
       </aside>
 

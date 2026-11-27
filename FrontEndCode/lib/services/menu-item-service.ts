@@ -61,6 +61,8 @@ export type MenuItem = {
   specialPrice3: number | null;
   specialPrice4: number | null;
   specialPrice5: number | null;
+  /** Banquet-menu price; a product that has one is on the banquet menu. */
+  banquetPrice: number | null;
 
   hideFromPosSearch: boolean;
   hideBarcode: boolean;
@@ -99,6 +101,9 @@ export type SetComponent = {
   componentMenuItemName: string;
   quantity: number;
   limit: number | null;
+  componentCategoryId: number | null;
+  /** The most the waiter may pick in total from this component's category in one set; null = no cap. */
+  categoryMaxPick: number | null;
 };
 
 export type SetComponentInput = {
@@ -106,6 +111,8 @@ export type SetComponentInput = {
   quantity: number;
   /** Most of this component one SET may hold (per set); null = no cap. */
   limit: number | null;
+  /** The most the waiter may pick from this component's category in one set (same value for the category's components); null = no cap. */
+  categoryMaxPick?: number | null;
 };
 
 export type MenuItemCreateInput = {
@@ -131,6 +138,7 @@ export type MenuItemCreateInput = {
   specialPrice3?: number | null;
   specialPrice4?: number | null;
   specialPrice5?: number | null;
+  banquetPrice?: number | null;
 
   hideFromPosSearch: boolean;
   hideBarcode: boolean;
@@ -240,6 +248,7 @@ function normalizeMenuItem(item: unknown): MenuItem | null {
     specialPrice3: nullableNumber(raw.specialPrice3 ?? raw.SpecialPrice3),
     specialPrice4: nullableNumber(raw.specialPrice4 ?? raw.SpecialPrice4),
     specialPrice5: nullableNumber(raw.specialPrice5 ?? raw.SpecialPrice5),
+    banquetPrice: nullableNumber(raw.banquetPrice ?? raw.BanquetPrice),
 
     hideFromPosSearch: Boolean(raw.hideFromPosSearch ?? raw.HideFromPosSearch ?? false),
     hideBarcode: Boolean(raw.hideBarcode ?? raw.HideBarcode ?? false),
@@ -277,6 +286,14 @@ function normalizeSetComponent(item: unknown): SetComponent | null {
       const v = raw.limit ?? raw.Limit;
       return v == null ? null : Number(v);
     })(),
+    componentCategoryId: (() => {
+      const v = raw.componentCategoryId ?? raw.ComponentCategoryId;
+      return v == null ? null : Number(v);
+    })(),
+    categoryMaxPick: (() => {
+      const v = raw.categoryMaxPick ?? raw.CategoryMaxPick;
+      return v == null ? null : Number(v);
+    })(),
   };
 }
 
@@ -289,6 +306,70 @@ export async function getMenuItems(): Promise<MenuItem[]> {
       .filter((row): row is MenuItem => row !== null);
   } catch (error) {
     throw toApiFormError(error, "Failed to fetch menu items");
+  }
+}
+
+/** One row of the POS product search (GET /MenuItems/search) — mirrors MenuItemSearchResponse. */
+export type MenuItemSearchResult = {
+  id: number;
+  name: string;
+  /** The price the POS charges for 1 unit (station / package / banquet rules already applied). */
+  price: number;
+  unitId: UnitOfMeasureValue;
+  isSet: boolean;
+  isTimeBased: boolean;
+  menuCategoryId: number;
+  /** Top-level category ("Kateqoriya"). */
+  categoryName: string;
+  /** Sub-category ("Alt kateqoriya"), null when the product sits directly in a top-level category. */
+  subCategoryName: string | null;
+  /** Null when the product's codes are hidden. */
+  barcode: string | null;
+  /** Scale code (PLU); null when hidden. */
+  weightCode: string | null;
+};
+
+function normalizeSearchResult(raw: unknown): MenuItemSearchResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = Number(r.id ?? r.Id);
+  if (!Number.isFinite(id)) return null;
+  const str = (v: unknown) => (v == null || v === "" ? null : String(v));
+  return {
+    id,
+    name: String(r.name ?? r.Name ?? ""),
+    price: Number(r.price ?? r.Price ?? 0),
+    unitId: Number(r.unitId ?? r.UnitId ?? UnitOfMeasure.Piece) as UnitOfMeasureValue,
+    isSet: Boolean(r.isSet ?? r.IsSet ?? false),
+    isTimeBased: Boolean(r.isTimeBased ?? r.IsTimeBased ?? false),
+    menuCategoryId: Number(r.menuCategoryId ?? r.MenuCategoryId ?? 0),
+    categoryName: String(r.categoryName ?? r.CategoryName ?? r.menuCategoryName ?? r.MenuCategoryName ?? ""),
+    subCategoryName: str(r.subCategoryName ?? r.SubCategoryName),
+    barcode: str(r.barcode ?? r.Barcode),
+    weightCode: str(r.weightCode ?? r.WeightCode),
+  };
+}
+
+/**
+ * POS product search: every typed word may appear anywhere in the name (Azerbaijani letters folded),
+ * or the term is an exact barcode / PLU. Results come A–Z with the price the order will charge.
+ * Pass `signal` to cancel a request that a newer keystroke has made stale.
+ */
+export async function searchMenuItems(
+  q: string,
+  options?: { isDelivery?: boolean; isBanquet?: boolean; signal?: AbortSignal },
+): Promise<MenuItemSearchResult[]> {
+  try {
+    const response = await api.get<unknown[]>("/MenuItems/search", {
+      params: { q, isDelivery: options?.isDelivery ?? false, isBanquet: options?.isBanquet ?? false },
+      signal: options?.signal,
+    });
+    const list = Array.isArray(response.data) ? response.data : [];
+    return list
+      .map((row) => normalizeSearchResult(row))
+      .filter((row): row is MenuItemSearchResult => row !== null);
+  } catch (error) {
+    throw toApiFormError(error, "Məhsul axtarışı alınmadı");
   }
 }
 
@@ -339,6 +420,7 @@ function buildBasePayload(data: MenuItemCreateInput) {
     specialPrice3: data.specialPrice3 ?? null,
     specialPrice4: data.specialPrice4 ?? null,
     specialPrice5: data.specialPrice5 ?? null,
+    banquetPrice: data.banquetPrice ?? null,
 
     hideFromPosSearch: data.hideFromPosSearch,
     hideBarcode: data.hideBarcode,

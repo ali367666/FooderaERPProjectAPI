@@ -63,8 +63,6 @@ public class UpdateCompanySettingsCommandHandler
         settings.AlertRingCount = dto.AlertRingCount;
         settings.AlertRingIntervalSeconds = dto.AlertRingIntervalSeconds;
         settings.TableTimeWarningMinutes = dto.TableTimeWarningMinutes;
-        settings.ReservationBlockMinutes = dto.ReservationBlockMinutes;
-        settings.ReservationAutoCancelMinutes = dto.ReservationAutoCancelMinutes;
 
         settings.LoginLogoUrl = dto.LoginLogoUrl?.Trim();
         settings.ReportLogoUrl = dto.ReportLogoUrl?.Trim();

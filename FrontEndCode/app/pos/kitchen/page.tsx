@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { PosEmpty, PosPage, PosPageError, PosPageLoading, PosTileGrid, posTileClass } from "@/components/pos/pos-page";
+import { formatElapsed, orderStatusBg } from "@/lib/pos-order-status";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
 import {
@@ -38,29 +39,12 @@ function statusLabel(status: KitchenLineStatus): string {
   }
 }
 
-function formatElapsed(createdAt: string, now: number): string {
-  const created = new Date(createdAt).getTime();
-  if (!Number.isFinite(created)) return "";
-  const minutes = Math.max(0, Math.floor((now - created) / 60000));
-  if (minutes < 60) return `${minutes} dəq`;
-  const hours = Math.floor(minutes / 60);
-  const remMinutes = minutes % 60;
-  return `${hours} saat ${remMinutes} dəq`;
-}
-
-function statusBadgeClass(status: KitchenLineStatus): string {
-  switch (status) {
-    case "Pending":
-      return "bg-slate-100 text-slate-700";
-    case "InPreparation":
-      return "bg-orange-100 text-orange-800";
-    case "Ready":
-      return "bg-emerald-100 text-emerald-800";
-    case "Served":
-      return "bg-pink-100 text-pink-700";
-    default:
-      return "bg-slate-100 text-slate-700";
-  }
+/** Tile colour like a busy table: any line cooking → orange, all ready → green, else waiting. */
+function groupBg(group: KitchenOrderGroupDto): string {
+  const statuses = group.lines.map((l) => l.kitchenStatus);
+  if (statuses.includes("InPreparation")) return orderStatusBg("in_preparation");
+  if (statuses.length > 0 && statuses.every((s) => s === "Ready" || s === "Served")) return orderStatusBg("ready");
+  return orderStatusBg("open");
 }
 
 export default function PosKitchenPage() {
@@ -155,85 +139,73 @@ export default function PosKitchenPage() {
     }
   };
 
-  if (loading || terminal === undefined) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Yüklənir...</div>;
-  }
+  if (loading || terminal === undefined) return <PosPageLoading />;
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Mətbəx</h1>
+    <PosPage
+      title="Mətbəx"
+      actions={
         <Button variant="outline" size="sm" onClick={() => void load()}>
           <RefreshCw className="h-4 w-4" />
         </Button>
-      </div>
+      }
+    >
+      {error && <PosPageError message={error} />}
 
-      {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      {groups.length === 0 && !error && <PosEmpty>Hazırlanacaq sifariş yoxdur.</PosEmpty>}
 
-      {groups.length === 0 && !error && (
-        <p className="text-sm text-muted-foreground">Hazırlanacaq sifariş yoxdur.</p>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <PosTileGrid wide>
         {groups.map((group) => (
-          <div key={group.orderId} className="rounded-xl border bg-card p-4 shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="font-bold">{group.tableName ?? group.orderNumber}</span>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                {formatElapsed(group.createdAt, now)}
-              </span>
-            </div>
-            <div className="space-y-2">
+          <div key={group.orderId} className={cn(posTileClass(groupBg(group)), "justify-start")}>
+            <span className="max-w-full truncate text-lg font-bold leading-none">{group.tableName ?? group.orderNumber}</span>
+            <span className="flex items-center gap-1 text-[11px] text-white/80">
+              <Clock className="h-3 w-3" />
+              {formatElapsed(group.createdAt, now)}
+            </span>
+            <div className="mt-1.5 w-full space-y-1.5">
               {group.lines.map((line) => (
-                <div key={line.orderLineId} className="rounded-lg border p-2">
+                <div key={line.orderLineId} className="rounded-lg bg-white/15 px-2 py-1.5 text-left">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-semibold">
                       {line.quantity} × {line.menuItemName}
                     </span>
-                    <Badge className={cn("shrink-0", statusBadgeClass(line.kitchenStatus))}>
-                      {statusLabel(line.kitchenStatus)}
-                    </Badge>
+                    <span className="shrink-0 text-[11px] font-medium text-white/90">{statusLabel(line.kitchenStatus)}</span>
                   </div>
-                  {line.note && <p className="mt-1 text-xs italic text-muted-foreground">{line.note}</p>}
+                  {line.note && <p className="text-[11px] italic text-white/75">{line.note}</p>}
                   {line.holdUntilUtc && new Date(line.holdUntilUtc).getTime() > now && (
-                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-600">
+                    <p className="flex items-center gap-1 text-[11px] font-medium text-white">
                       <Clock className="h-3 w-3" />
                       Gözlədə — {Math.ceil((new Date(line.holdUntilUtc).getTime() - now) / 60000)} dəq sonra
                     </p>
                   )}
-                  {canManage && (
-                    <div className="mt-2 flex gap-2">
-                      {line.kitchenStatus === "Pending" && canStart && (
-                        <Button
-                          size="sm"
-                          disabled={busyLineId === line.orderLineId}
-                          onClick={() => void handleStart(line.orderLineId)}
-                        >
-                          Başla
-                        </Button>
-                      )}
-                      {line.kitchenStatus === "InPreparation" && canMarkReady && (
-                        <Button
-                          size="sm"
-                          disabled={busyLineId === line.orderLineId}
-                          onClick={() => void handleReady(line.orderLineId)}
-                        >
-                          Hazırdır
-                        </Button>
-                      )}
-                    </div>
+                  {canManage && line.kitchenStatus === "Pending" && canStart && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="mt-1.5 w-full"
+                      disabled={busyLineId === line.orderLineId}
+                      onClick={() => void handleStart(line.orderLineId)}
+                    >
+                      Başla
+                    </Button>
+                  )}
+                  {canManage && line.kitchenStatus === "InPreparation" && canMarkReady && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="mt-1.5 w-full"
+                      disabled={busyLineId === line.orderLineId}
+                      onClick={() => void handleReady(line.orderLineId)}
+                    >
+                      Hazırdır
+                    </Button>
                   )}
                 </div>
               ))}
             </div>
           </div>
         ))}
-      </div>
-    </div>
+      </PosTileGrid>
+    </PosPage>
   );
 }

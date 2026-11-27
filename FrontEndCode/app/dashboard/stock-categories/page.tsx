@@ -27,6 +27,7 @@ import { defaultFormCompanyId } from "@/lib/resolve-company-id";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 type CategoryRow = {
   id: string;
@@ -359,6 +360,7 @@ export default function StockCategoriesPage() {
                 placeholder="Optional"
               />
             </div>
+            <SuperAdminOnly>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Company</label>
               <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className={selectClass}>
@@ -373,6 +375,7 @@ export default function StockCategoriesPage() {
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "companyid")}</p>
               )}
             </div>
+            </SuperAdminOnly>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Parent category (optional)</label>
               <select value={parentId} onChange={(e) => setParentId(e.target.value)} className={selectClass}>

@@ -26,6 +26,7 @@ import {
   Calculator,
   Tag,
   Settings,
+  QrCode,
   Printer as PrinterIcon,
   LayoutTemplate,
   Landmark,
@@ -34,6 +35,13 @@ import {
   Gamepad2,
   Truck,
   Wallet,
+  TrendingUp,
+  Store,
+  ToggleRight,
+  Undo2,
+  ClipboardCheck,
+  ArrowLeftRight,
+  Timer,
 } from "lucide-react";
 
 export interface NavItem {
@@ -43,11 +51,20 @@ export interface NavItem {
   badge?: string;
   permission?: string;
   /** Company-level module toggle key (from CompanySettingsBranding) required for this item to show. */
-  module?: "moduleFilial" | "moduleAnbar" | "moduleRezervasyon" | "moduleMasaBolge";
+  module?: "moduleFilial" | "moduleAnbar" | "moduleRezervasyon" | "moduleMasaBolge" | "moduleDepartment";
   /** Restaurant-only page (tables, kitchen) with no equivalent in a Mağaza (store) business — hidden when moduleDataSecimi is on. */
   hiddenForStoreMode?: boolean;
   /** Label to show instead of `title` when the company is in Mağaza (store) mode — e.g. "Menu" reads as "Products" for a store. */
   storeModeTitle?: string;
+  /** Shown only while the selected company works in Mağaza (store) mode. */
+  storeOnly?: boolean;
+  /** Platform pages for the SuperAdmin only. */
+  superAdminOnly?: boolean;
+  /**
+   * The page is gathered under another menu entry (its href): it is left out of the menu while that entry is there for the user, and is still
+   * found by the menu search and opened by its address. Without that entry (no permission, store mode) it is listed as usual.
+   */
+  foldedUnder?: string;
 }
 
 export interface NavGroup {
@@ -58,6 +75,45 @@ export interface NavGroup {
 }
 
 export const navGroups: NavGroup[] = [
+  {
+    title: "MAĞAZA",
+    items: [
+      { title: "Topdan satış", href: "/dashboard/store/wholesale", icon: ShoppingCart, permission: "StoreSale.Approve", storeOnly: true },
+      { title: "Satışlar", href: "/dashboard/store/sales", icon: FileText, permission: "StoreSale.View", storeOnly: true },
+      { title: "Məhsullar", href: "/dashboard/store/products", icon: Package, permission: "StoreProduct.View", storeOnly: true },
+      { title: "Stok", href: "/dashboard/store/stock", icon: Boxes, permission: "StoreStock.View", storeOnly: true },
+      { title: "Alışlar", href: "/dashboard/store/purchases", icon: Truck, permission: "StorePurchase.View", storeOnly: true },
+      { title: "Təchizatçılar", href: "/dashboard/store/suppliers", icon: Briefcase, permission: "StoreSupplier.View", storeOnly: true },
+      { title: "Kassa orderləri", href: "/dashboard/store/cash-orders", icon: Wallet, permission: "StoreReport.View", storeOnly: true },
+      { title: "Digər xərclər", href: "/dashboard/store/expenses", icon: Wallet, permission: "StoreReport.View", storeOnly: true },
+      { title: "İnventarizasiya", href: "/dashboard/store/inventory", icon: ClipboardCheck, permission: "StoreInventory.View", storeOnly: true },
+      { title: "Transfer", href: "/dashboard/store/transfers", icon: ArrowLeftRight, permission: "StoreTransfer.View", storeOnly: true },
+      { title: "Müştərilər", href: "/dashboard/store/customers", icon: Users, permission: "StoreCustomer.View", storeOnly: true },
+      { title: "Növbələr", href: "/dashboard/store/shifts", icon: Timer, permission: "StoreReport.View", storeOnly: true },
+      { title: "Növbə sənədləri", href: "/dashboard/store/shift-documents", icon: FileText, permission: "StoreReport.View", storeOnly: true },
+      { title: "Kassalar və qaydalar", href: "/dashboard/store/registers", icon: Settings, permission: "StoreRegister.Manage", storeOnly: true },
+    ],
+  },
+  {
+    title: "MAĞAZA HESABATLARI",
+    items: [
+      { title: "Satış hesabatı", href: "/dashboard/store/reports/satis-hesabati", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
+      { title: "Satış və mənfəət", href: "/dashboard/store/reports/satis-menfeet", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
+      { title: "Dövr nəticəsi (mənfəət-zərər)", href: "/dashboard/store/reports/netice", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
+      { title: "Ümumi stok", href: "/dashboard/store/reports/umumi-stok", icon: Boxes, permission: "StoreReport.View", storeOnly: true },
+      { title: "Mal axını", href: "/dashboard/store/reports/mal-axini", icon: Boxes, permission: "StoreReport.View", storeOnly: true },
+      { title: "Maya qatları (FIFO/LIFO)", href: "/dashboard/store/cost-layers", icon: Layers, permission: "StoreReport.View", storeOnly: true },
+      { title: "Stok hesabatı", href: "/dashboard/store/reports/stok-hesabati", icon: Boxes, permission: "StoreReport.View", storeOnly: true },
+      { title: "Reytinq", href: "/dashboard/store/reports/reytinq", icon: BarChart3, permission: "StoreReport.View", storeOnly: true },
+      { title: "Kassa hesabatı", href: "/dashboard/store/reports/kassa-hesabati", icon: BarChart3, permission: "StoreReport.View", storeOnly: true },
+      { title: "Kassa hərəkətləri", href: "/dashboard/store/reports/kassa-hereketleri", icon: BarChart3, permission: "StoreReport.View", storeOnly: true },
+      { title: "Bonus hesabatı", href: "/dashboard/store/reports/bonus-hesabati", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
+      { title: "Müştəri borcları", href: "/dashboard/store/reports/borclar", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
+      { title: "Alıcılarla hesablaşma", href: "/dashboard/store/reports/alicilar", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
+      { title: "Təchizatçılarla hesablaşma", href: "/dashboard/store/reports/techizatcilar", icon: BarChart3, permission: "StoreReport.Finance", storeOnly: true },
+      { title: "Çeklər, ləğvlər, qaytarmalar", href: "/dashboard/store/reports/senedler", icon: BarChart3, permission: "StoreReport.View", storeOnly: true },
+    ],
+  },
   {
     title: "MAIN MENU",
     items: [
@@ -75,6 +131,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Satış Sənədləri",
         href: "/dashboard/sales-documents",
+        hiddenForStoreMode: true,
         icon: FileText,
         permission: "Orders.View",
       },
@@ -91,8 +148,21 @@ export const navGroups: NavGroup[] = [
         permission: "CashRegister.View",
       },
       {
+        title: "Maliyyə",
+        href: "/dashboard/finance",
+        icon: TrendingUp,
+        permission: "Finance.View",
+      },
+      {
+        title: "Şirkət depoziti",
+        href: "/dashboard/company-deposit",
+        icon: Landmark,
+        permission: "CompanyDeposit.View",
+      },
+      {
         title: "Food Cost",
         href: "/dashboard/food-cost",
+        hiddenForStoreMode: true,
         icon: Calculator,
         permission: "Analytics.View",
       },
@@ -108,17 +178,21 @@ export const navGroups: NavGroup[] = [
         permission: "Company.View",
       },
       {
+        title: "Rejimlər",
+        href: "/dashboard/modes",
+        icon: ToggleRight,
+        permission: "Company.View",
+        superAdminOnly: true,
+      },
+      {
         title: "Departments",
         href: "/dashboard/departments",
         icon: Building2,
         permission: "Department.View",
+        // The SuperAdmin can switch departments off for a company; its employees and positions then need none.
+        module: "moduleDepartment",
       },
-      {
-        title: "Positions",
-        href: "/dashboard/positions",
-        icon: Briefcase,
-        permission: "Position.View",
-      },
+      // Positions are gone from the menu: an employee's job title is a role (Roles page); its position follows it.
       {
         title: "Employees",
         href: "/dashboard/employees",
@@ -131,8 +205,18 @@ export const navGroups: NavGroup[] = [
     title: "INVENTORY & OPERATIONS",
     items: [
       {
+        title: "Stok",
+        href: "/dashboard/stock",
+        hiddenForStoreMode: true,
+        icon: Boxes,
+        permission: "StockItem.View",
+        module: "moduleAnbar",
+      },
+      {
         title: "Stock Categories",
         href: "/dashboard/stock-categories",
+        foldedUnder: "/dashboard/stock",
+        hiddenForStoreMode: true,
         icon: Layers,
         permission: "StockCategory.View",
         module: "moduleAnbar",
@@ -140,12 +224,14 @@ export const navGroups: NavGroup[] = [
       {
         title: "Stock Items",
         href: "/dashboard/stock-items",
+        foldedUnder: "/dashboard/stock",
+        hiddenForStoreMode: true,
         icon: Boxes,
         permission: "StockItem.View",
         module: "moduleAnbar",
       },
       {
-        title: "Warehouses",
+        title: "Anbarlar",
         href: "/dashboard/warehouses",
         icon: Warehouse,
         permission: "Warehouse.View",
@@ -154,12 +240,16 @@ export const navGroups: NavGroup[] = [
       {
         title: "Stock entry documents",
         href: "/dashboard/warehouse-stock-documents",
+        foldedUnder: "/dashboard/stock",
+        hiddenForStoreMode: true,
         icon: FileText,
         module: "moduleAnbar",
       },
       {
         title: "Warehouse stock balances",
         href: "/dashboard/warehouse-stocks",
+        foldedUnder: "/dashboard/stock",
+        hiddenForStoreMode: true,
         icon: ClipboardList,
         permission: "WarehouseStock.View",
         module: "moduleAnbar",
@@ -167,26 +257,58 @@ export const navGroups: NavGroup[] = [
       {
         title: "Stock movements",
         href: "/dashboard/stock-movements",
+        foldedUnder: "/dashboard/stock",
+        hiddenForStoreMode: true,
         icon: History,
         module: "moduleAnbar",
       },
       {
-        title: "Stock Requests",
+        title: "Stok sorğuları",
         href: "/dashboard/stock-requests",
+        hiddenForStoreMode: true,
         icon: Package,
         permission: "StockRequest.View",
         module: "moduleAnbar",
       },
       {
-        title: "Stock Purchases",
+        title: "Alışlar",
         href: "/dashboard/stock-purchases",
+        hiddenForStoreMode: true,
         icon: ShoppingCart,
         permission: "StockPurchase.View",
         module: "moduleAnbar",
       },
       {
+        title: "Mal alışı xərcləri",
+        href: "/dashboard/stock-purchase-costs",
+        foldedUnder: "/dashboard/stock-purchases",
+        hiddenForStoreMode: true,
+        icon: Calculator,
+        permission: "StockPurchase.View",
+        module: "moduleAnbar",
+      },
+      {
+        title: "Stok tənzimləmə",
+        href: "/dashboard/stock-writeoffs",
+        foldedUnder: "/dashboard/stock",
+        hiddenForStoreMode: true,
+        icon: Package,
+        permission: "StockWriteOff.View",
+        module: "moduleAnbar",
+      },
+      {
+        title: "Ləvazimat və inventar",
+        href: "/dashboard/stock-assets",
+        foldedUnder: "/dashboard/stock",
+        hiddenForStoreMode: true,
+        icon: Boxes,
+        permission: "WarehouseStock.View",
+        module: "moduleAnbar",
+      },
+      {
         title: "Konturagentlər",
         href: "/dashboard/counterparties",
+        foldedUnder: "/dashboard/stock-purchases",
         icon: Building2,
         permission: "Counterparty.View",
         module: "moduleAnbar",
@@ -216,6 +338,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Endirimlər",
         href: "/dashboard/discounts",
+        hiddenForStoreMode: true,
         icon: Tag,
         permission: "Discount.View",
       },
@@ -230,6 +353,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Orders",
         href: "/dashboard/orders",
+        hiddenForStoreMode: true,
         icon: ShoppingCart,
         permission: "Orders.View",
       },
@@ -254,6 +378,13 @@ export const navGroups: NavGroup[] = [
         module: "moduleFilial",
       },
       {
+        title: "QR Menyu",
+        href: "/dashboard/qr-menu",
+        hiddenForStoreMode: true,
+        icon: QrCode,
+        permission: "Restaurant.View",
+      },
+      {
         title: "Branch Tables",
         href: "/dashboard/restaurant-tables",
         icon: UtensilsCrossed,
@@ -273,6 +404,7 @@ export const navGroups: NavGroup[] = [
         title: "Menu Categories",
         storeModeTitle: "Məhsul Kateqoriyaları",
         href: "/dashboard/menu-categories",
+        hiddenForStoreMode: true,
         icon: Wine,
         permission: "MenuCategory.View",
       },
@@ -280,12 +412,14 @@ export const navGroups: NavGroup[] = [
         title: "Menu Items",
         storeModeTitle: "Məhsullar",
         href: "/dashboard/menu-items",
+        hiddenForStoreMode: true,
         icon: ShoppingCart,
         permission: "MenuItem.View",
       },
       {
         title: "Menu Item Recipes",
         href: "/dashboard/menu-item-recipes",
+        hiddenForStoreMode: true,
         icon: FileText,
         permission: "Permissions.MenuItemRecipe.View",
       },
@@ -351,6 +485,7 @@ export const navGroups: NavGroup[] = [
       {
         title: "Çatdırılma İnteqrasiyaları",
         href: "/dashboard/delivery-integrations",
+        hiddenForStoreMode: true,
         icon: Truck,
         permission: "DeliveryIntegration.View",
       },

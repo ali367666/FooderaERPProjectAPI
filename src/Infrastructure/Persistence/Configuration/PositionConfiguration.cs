@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -26,5 +26,10 @@ public class PositionConfiguration : IEntityTypeConfiguration<Position>
 
         builder.HasIndex(x => new { x.CompanyId, x.DepartmentId, x.Name })
             .IsUnique();
+
+        // One position per role in a company.
+        builder.HasIndex(x => new { x.CompanyId, x.RoleId })
+            .IsUnique()
+            .HasFilter("[RoleId] IS NOT NULL");
     }
 }

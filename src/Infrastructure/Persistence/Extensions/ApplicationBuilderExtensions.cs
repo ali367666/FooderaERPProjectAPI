@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Application.Common.Interfaces;
 using Domain.Entities;
 using Infrastructure.Identity;
@@ -42,6 +43,17 @@ public static class ApplicationBuilderExtensions
         {
             await identityAdminService.CloneDefaultRolesForCompanyAsync(id);
             await defaultsSeeder.EnsureDefaultsAsync(id);
+
+            // A role is the employee's job title: every role gets its position and every old position its role.
+            // Never stops the start-up (the column may not exist yet when the migration is still pending).
+            try
+            {
+                await identityAdminService.BackfillRolePositionsAsync(id);
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogWarning(ex, "Role/position sync skipped for company {CompanyId}", id);
+            }
         }
 
         return app;

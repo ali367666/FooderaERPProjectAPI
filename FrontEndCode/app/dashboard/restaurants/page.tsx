@@ -33,6 +33,7 @@ import {
   type RestaurantModules,
 } from "@/lib/services/restaurant-settings-service";
 import { defaultFormCompanyId } from "@/lib/resolve-company-id";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 type RestaurantFormState = {
   id: number | null;
@@ -463,6 +464,7 @@ export default function RestaurantsPage() {
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "name")}</p>
               )}
             </div>
+            <SuperAdminOnly>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Company</label>
               <select
@@ -481,6 +483,7 @@ export default function RestaurantsPage() {
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "companyid")}</p>
               )}
             </div>
+            </SuperAdminOnly>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Phone</label>
               <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />

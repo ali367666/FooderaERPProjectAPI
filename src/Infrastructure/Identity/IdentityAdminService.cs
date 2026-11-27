@@ -16,6 +16,13 @@ public class IdentityAdminService : IIdentityAdminService
     private static readonly string StaffCodeLengthMessage =
         $"Code must be {StaffCodeRules.MinLength} to {StaffCodeRules.MaxLength} digits.";
 
+    private static readonly string StoreStaffCodeMessage =
+        $"Code must be {StaffCodeRules.MinLength} to {StaffCodeRules.StoreMaxLength} letters (A-Z) or digits.";
+
+    /// <summary>Store companies may use letters in the staff code; restaurants stay with digits.</summary>
+    private async Task<bool> CodeMayHaveLettersAsync(int companyId, CancellationToken cancellationToken)
+        => await _db.CompanySettings.AsNoTracking().AnyAsync(x => x.CompanyId == companyId && x.ModuleDataSecimi, cancellationToken);
+
     /// <summary>Permissions reserved for the platform SuperAdmin — never visible/assignable to a tenant.</summary>
     private static readonly string[] PlatformOnlyPermissions =
     [
@@ -228,15 +235,19 @@ public class IdentityAdminService : IIdentityAdminService
             return (false, null, "İstifadəçi ya POS-a, ya admin panelə giriş ala bilər — ikisi birlikdə yox.", null);
 
         var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
-        // The code is the staff member's only secret: as-is on the POS, Code + MMdd for the admin panel.
+        // The code is the staff member's only secret, used as it is on the POS and in the admin panel.
         if (code is null && (request.CanAccessAdminPanel || request.CanAccessFrontOffice))
             return (false, null, "Kod tələb olunur.",
                 new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { "Kod tələb olunur." } });
         if (code is not null)
         {
-            if (code.Length is < StaffCodeRules.MinLength or > StaffCodeRules.MaxLength || !code.All(char.IsDigit))
-                return (false, null, StaffCodeLengthMessage,
-                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { StaffCodeLengthMessage } });
+            var withLetters = await CodeMayHaveLettersAsync(request.CompanyId, cancellationToken);
+            if (!StaffCodeRules.IsValid(code, withLetters))
+            {
+                var message = withLetters ? StoreStaffCodeMessage : StaffCodeLengthMessage;
+                return (false, null, message,
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { message } });
+            }
 
             var codeTaken = await _db.Users.AsNoTracking()
                 .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code, cancellationToken);
@@ -321,6 +332,19 @@ public class IdentityAdminService : IIdentityAdminService
         if (defaultRole is not null)
             await AddUserToRoleAsync(user, defaultRole, cancellationToken);
 
+        // The linked employee's job title is a role: the account gets it, whatever else is ticked.
+        if (employee is not null)
+        {
+            var positionRoleId = await _db.Positions.AsNoTracking()
+                .Where(p => p.Id == employee.PositionId).Select(p => p.RoleId).FirstOrDefaultAsync(cancellationToken);
+            if (positionRoleId is { } roleOfPosition && !(request.RoleIds?.Contains(roleOfPosition) ?? false))
+            {
+                var positionRole = await _roleManager.Roles.FirstOrDefaultAsync(r => r.Id == roleOfPosition && r.CompanyId == user.CompanyId, cancellationToken);
+                if (positionRole is not null)
+                    await AddUserToRoleAsync(user, positionRole, cancellationToken);
+            }
+        }
+
         if (request.RoleIds is { Count: > 0 })
         {
             var roles = (await _roleManager.Roles
@@ -372,9 +396,13 @@ public class IdentityAdminService : IIdentityAdminService
         var code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
         if (code is not null)
         {
-            if (code.Length is < StaffCodeRules.MinLength or > StaffCodeRules.MaxLength || !code.All(char.IsDigit))
-                return (false, StaffCodeLengthMessage,
-                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { StaffCodeLengthMessage } });
+            var withLetters = await CodeMayHaveLettersAsync(request.CompanyId, cancellationToken);
+            if (!StaffCodeRules.IsValid(code, withLetters))
+            {
+                var message = withLetters ? StoreStaffCodeMessage : StaffCodeLengthMessage;
+                return (false, message,
+                    new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase) { ["Code"] = new[] { message } });
+            }
 
             var codeTaken = await _db.Users.AsNoTracking()
                 .AnyAsync(x => x.CompanyId == request.CompanyId && x.Code == code && x.Id != id, cancellationToken);
@@ -618,6 +646,21 @@ public class IdentityAdminService : IIdentityAdminService
         normalizedName == AppRoles.SuperAdmin.ToUpperInvariant()
         || normalizedName == AppRoles.CompanySuperAdmin.ToUpperInvariant();
 
+    public async Task<(int? PositionId, string? Error)> EnsurePositionForRoleAsync(int roleId, CancellationToken cancellationToken = default)
+    {
+        var role = await _db.Roles.AsNoTracking().FirstOrDefaultAsync(r => r.Id == roleId, cancellationToken);
+        if (role?.CompanyId is not { } companyId)
+            return (null, "Rol tapılmadı.");
+        if (!IsSuperAdmin && companyId != _currentUserService.CompanyId)
+            return (null, "Rol tapılmadı.");
+
+        var position = await RolePositionSync.EnsureForRoleAsync(_db, companyId, role, cancellationToken);
+        return (position.Id, null);
+    }
+
+    public Task BackfillRolePositionsAsync(int companyId, CancellationToken cancellationToken = default)
+        => RolePositionSync.BackfillAsync(_db, companyId, cancellationToken);
+
     public async Task<(bool Ok, int? RoleId, string? Error)> CreateRoleAsync(CreateRoleRequest request, CancellationToken cancellationToken = default)
     {
         var name = request.Name.Trim();
@@ -644,6 +687,7 @@ public class IdentityAdminService : IIdentityAdminService
             RequiresRotatingPin = request.RequiresRotatingPin
         };
         await CreateRoleDirectAsync(r, cancellationToken);
+        await RolePositionSync.EnsureForRoleAsync(_db, companyId, r, cancellationToken);
         return (true, r.Id, null);
     }
 
@@ -673,6 +717,7 @@ public class IdentityAdminService : IIdentityAdminService
         r.RequiresRotatingPin = request.RequiresRotatingPin;
         var res = await _roleManager.UpdateAsync(r);
         if (!res.Succeeded) return (false, string.Join(" ", res.Errors.Select(x => x.Description)));
+        await RolePositionSync.RenameForRoleAsync(_db, r.Id, r.Name!, cancellationToken);
         return (true, null);
     }
 
@@ -686,6 +731,7 @@ public class IdentityAdminService : IIdentityAdminService
             return (false, "The system administrator role cannot be deleted.");
         var res = await _roleManager.DeleteAsync(r);
         if (!res.Succeeded) return (false, string.Join(" ", res.Errors.Select(x => x.Description)));
+        await RolePositionSync.ReleaseForRoleAsync(_db, r.Id, cancellationToken);
         return (true, null);
     }
 
@@ -969,6 +1015,7 @@ public class IdentityAdminService : IIdentityAdminService
             await _db.SaveChangesAsync(cancellationToken);
 
             await SyncRolePermissionClaimsAsync(clone, cancellationToken);
+            await RolePositionSync.EnsureForRoleAsync(_db, companyId, clone, cancellationToken);
         }
     }
 
@@ -989,6 +1036,76 @@ public class IdentityAdminService : IIdentityAdminService
         }
 
         return null;
+    }
+
+    public async Task<List<int>> GetUserIdsWithPermissionAsync(int companyId, string permission, CancellationToken cancellationToken = default)
+    {
+        var roleIds = await _db.RoleClaims
+            .Where(c => c.ClaimType == "Permission" && c.ClaimValue == permission)
+            .Select(c => c.RoleId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var superRoleIds = await _db.Roles
+            .Where(r => r.Name == AppRoles.CompanySuperAdmin)
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        var all = roleIds.Concat(superRoleIds).Distinct().ToList();
+        return await (
+            from ur in _db.UserRoles
+            join u in _db.Users on ur.UserId equals u.Id
+            where all.Contains(ur.RoleId) && u.CompanyId == companyId && u.IsActive
+            select u.Id)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> UserHoldsPermissionAsync(int userId, int companyId, string permission, CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || user.CompanyId != companyId || !user.IsActive)
+            return false;
+
+        var roleNames = await _userManager.GetRolesAsync(user);
+        if (roleNames.Contains(AppRoles.CompanySuperAdmin) || roleNames.Contains(AppRoles.SuperAdmin))
+            return true;
+
+        var roleIds = await _db.Roles
+            .Where(r => r.Name != null && roleNames.Contains(r.Name) && (r.CompanyId == companyId || r.CompanyId == null))
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+        return await _db.RoleClaims.AnyAsync(
+            c => roleIds.Contains(c.RoleId) && c.ClaimType == "Permission" && c.ClaimValue == permission,
+            cancellationToken);
+    }
+
+    public async Task<(int? UserId, string? Error)> VerifyApproverAsync(
+        int companyId, string userName, string password, string requiredPermission, CancellationToken cancellationToken = default)
+    {
+        const string denied = "Təsdiq verən istifadəçi adı və ya şifrə yanlışdır.";
+        if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrEmpty(password))
+            return (null, "Menecerin istifadəçi adı və şifrəsi yazılmalıdır.");
+
+        var user = await _userManager.FindByNameAsync(userName.Trim());
+        if (user is null || user.CompanyId != companyId || !user.IsActive)
+            return (null, denied);
+        if (!await _userManager.CheckPasswordAsync(user, password))
+            return (null, denied);
+
+        var roleNames = await _userManager.GetRolesAsync(user);
+        if (roleNames.Contains(AppRoles.CompanySuperAdmin) || roleNames.Contains(AppRoles.SuperAdmin))
+            return (user.Id, null);
+
+        var roleIds = await _db.Roles
+            .Where(r => r.Name != null && roleNames.Contains(r.Name) && (r.CompanyId == companyId || r.CompanyId == null))
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+        var holds = await _db.RoleClaims.AnyAsync(
+            c => roleIds.Contains(c.RoleId) && c.ClaimType == "Permission" && c.ClaimValue == requiredPermission,
+            cancellationToken);
+
+        return holds ? (user.Id, null) : (null, "Bu istifadəçinin təsdiq vermək icazəsi yoxdur.");
     }
 
     public async Task<(bool Ok, string? Error)> CreateCompanySuperAdminAsync(

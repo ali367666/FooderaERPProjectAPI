@@ -3,7 +3,7 @@
 import { LicenseStatusBadge } from "@/components/license-status-badge";
 import { FiscalLamp } from "@/components/pos/fiscal-lamp";
 import { applyTheme } from "@/lib/theme";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -18,8 +18,17 @@ import {
   History,
   Boxes,
   Undo2,
+  Search,
+  UserRound,
+  X,
+  ArrowLeft,
+  ShoppingBag,
 } from "lucide-react";
+import { format } from "date-fns";
 import PosAuthGuard from "@/components/pos/pos-auth-guard";
+import { PosSearchContext } from "@/components/pos/pos-search-context";
+import { VirtualKeyboard } from "@/components/pos/virtual-keyboard";
+import { getCurrentEmployee, getCurrentUserNameFromToken } from "@/lib/pos-session";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,18 +51,20 @@ import {
   type CompanySettingsBranding,
 } from "@/lib/services/company-settings-service";
 import { getCurrentShift, openShift, closeShift, type Shift, type ZReport } from "@/lib/services/shift-service";
+import { POS_SHIFT_CLOSED_EVENT } from "@/lib/pos-shift-events";
 
 const TABS = [
   { href: "/pos", label: "Masalar", storeLabel: "Satış", icon: LayoutGrid, permission: null as string | null, module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
-  { href: "/pos/orders", label: "Sifarişlər", storeLabel: "Satışlar", icon: ClipboardList, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
+  { href: "/pos/orders", label: "Dolu masalar", storeLabel: "Satışlar", icon: ClipboardList, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/reservations", label: "Rezervasiyalar", storeLabel: "Rezervasiyalar", icon: CalendarCheck, permission: "Reservation.View", module: "moduleRezervasyon" as keyof CompanySettingsBranding | null, hideInStoreMode: true },
+  { href: "/pos/take-away", label: "Tez satışlar", storeLabel: "Tez satışlar", icon: ShoppingBag, permission: "Orders.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/kitchen", label: "Mətbəx", storeLabel: "Mətbəx", icon: KitchenIcon, permission: "Kitchen.View", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: true },
   { href: "/pos/returns", label: "Geri qaytarma", storeLabel: "Geri qaytarma", icon: Undo2, permission: "Pos.ReturnSale", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
-  { href: "/pos/orders/history", label: "Köhnə qəbzlər", storeLabel: "Köhnə çeklər", icon: History, permission: "Pos.PrintOldReceipt", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
+  { href: "/pos/orders/history", label: "Qəbzlər", storeLabel: "Köhnə çeklər", icon: History, permission: "Pos.PrintOldReceipt", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
   { href: "/pos/warehouse-adjust", label: "Anbar düzəlişi", storeLabel: "Anbar düzəlişi", icon: Boxes, permission: "Pos.WarehouseAmountChange", module: null as keyof CompanySettingsBranding | null, hideInStoreMode: false },
 ];
 
-export default function PosLayout({ children }: { children: React.ReactNode }) {
+export default function PosLayout({ children, modal }: { children: React.ReactNode; modal: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [terminal, setTerminal] = useState<PosTerminalContext | null>(null);
@@ -79,8 +90,33 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
     router.replace("/pos-login");
   };
 
-  const isStoreMode = branding?.moduleDataSecimi === true;
-  const showTabs = !pathname.startsWith("/pos/order");
+  const isStoreMode = terminal?.mode ? terminal.mode === "store" : branding?.moduleDataSecimi === true;
+  // Only the order screen (/pos/order/{id}) hides the tabs; "/pos/orders" pages keep them.
+  const showTabs = !pathname.startsWith("/pos/order/");
+  // The tables screen fills the viewport (its action bar sits at the bottom) and owns the search box.
+  // The report modal (/pos/reports) is drawn over the tables screen, so it keeps that layout.
+  const isTablesPage = pathname === "/pos" || pathname === "/pos/reports";
+  // The order screen is laid out the same way: fixed to the viewport, with its own scrolling panes.
+  const isOrderPage = pathname.startsWith("/pos/order/");
+  // The quick sale screen too: the products and the cart scroll on their own.
+  const isQuickSalePage = pathname === "/pos/quick-sale";
+
+  const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => {
+    if (!isTablesPage) setSearchQuery("");
+  }, [isTablesPage]);
+  const searchContext = useMemo(() => ({ query: searchQuery, setQuery: setSearchQuery }), [searchQuery]);
+
+  const [userName, setUserName] = useState<string | null>(null);
+  useEffect(() => {
+    setUserName(getCurrentUserNameFromToken());
+    getCurrentEmployee()
+      .then((e) => {
+        const name = e && (e.fullName?.trim() || `${e.firstName} ${e.lastName}`.trim());
+        if (name) setUserName(name);
+      })
+      .catch(() => undefined);
+  }, []);
   const hasOrdersView = useHasPermission("Orders.View");
   const hasReservationView = useHasPermission("Reservation.View");
   const hasKitchenView = useHasPermission("Kitchen.View");
@@ -102,6 +138,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
   const [closingCashInput, setClosingCashInput] = useState("0");
   const [zReportResult, setZReportResult] = useState<ZReport | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [shiftBusy, setShiftBusy] = useState(false);
   const [clockNow, setClockNow] = useState(() => new Date());
 
@@ -125,6 +162,17 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
       .then(setShift)
       .catch(() => setShift(null));
   }, [terminal]);
+
+  // The report modal's "Hesabatı bağla" closes the shift itself; reflect it here and show the Z report.
+  useEffect(() => {
+    const onShiftClosed = (e: Event) => {
+      setShift(null);
+      const report = (e as CustomEvent<ZReport | undefined>).detail;
+      if (report) setZReportResult(report);
+    };
+    window.addEventListener(POS_SHIFT_CLOSED_EVENT, onShiftClosed);
+    return () => window.removeEventListener(POS_SHIFT_CLOSED_EVENT, onShiftClosed);
+  }, []);
 
   const handleOpenShift = async () => {
     if (!terminal?.restaurantId) return;
@@ -172,102 +220,148 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
     <PosAuthGuard>
       {/* The dashboard mounts its own Toaster; without this one every POS message (errors included) was invisible. */}
       <Toaster richColors closeButton position="top-center" />
-      <div
-        className={cn(
-          "flex min-h-screen flex-col",
-          !branding?.wallpaperUrl && "bg-muted/30",
-          branding?.touchScreenMode === true && "touch-mode",
-        )}
-      >
-        {branding?.wallpaperUrl && (
-          <div
-            className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
-            style={{ backgroundImage: `url(${branding.wallpaperUrl})`, opacity: wallpaperOpacity }}
-            aria-hidden
-          />
-        )}
-        <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
-          <div className="flex items-center gap-2 font-semibold">
-            <ChefHat className="h-5 w-5 text-primary" />
-            <span>{terminal?.restaurantName ?? terminal?.companyName ?? "POS"}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <FiscalLamp />
-            <LicenseStatusBadge />
-            {branding?.posShowClock !== false && (
-              <span className="tabular-nums text-sm font-semibold text-muted-foreground">
-                {clockNow.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setShiftDialogOpen(true)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium",
-                shift ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600",
-              )}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              {shift ? "Növbə açıqdır" : "Növbə bağlıdır"}
-            </button>
-            {canAccessSettings && (
+      <PosSearchContext.Provider value={searchContext}>
+        <div
+          className={cn(
+            "flex flex-col",
+            isTablesPage || isOrderPage || isQuickSalePage ? "h-dvh" : "min-h-screen",
+            !branding?.wallpaperUrl && "bg-muted/30",
+            branding?.touchScreenMode === true && "touch-mode",
+          )}
+        >
+          {branding?.wallpaperUrl && (
+            <div
+              className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
+              style={{ backgroundImage: `url(${branding.wallpaperUrl})`, opacity: wallpaperOpacity }}
+              aria-hidden
+            />
+          )}
+          <header className="relative z-30 flex h-16 shrink-0 items-stretch border-b bg-background">
+            {/* Back to the tables from every tab page: a full-height block at the left edge, always in the same place. */}
+            {!isTablesPage && !isOrderPage && (
               <button
                 type="button"
-                onClick={() => setSettingsOpen(true)}
-                className="flex items-center gap-2 rounded-md p-1.5 text-muted-foreground hover:bg-muted"
+                onClick={() => router.push("/pos")}
+                className="flex shrink-0 items-center gap-2 bg-primary px-4 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary/90 active:bg-primary/80 sm:px-5"
               >
-                <Settings className="h-4 w-4" />
+                <ArrowLeft className="h-6 w-6" />
+                <span className="hidden sm:inline">Masalar</span>
               </button>
             )}
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="Hesabı kilidlə"
-              className="flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted"
-            >
-              <Lock className="h-6 w-6" />
-            </button>
-          </div>
-        </header>
-        {isBeforeOpening ? (
-          <main className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-            <Lock className="h-10 w-10 text-muted-foreground" />
-            <h2 className="text-xl font-semibold">Filial hələ bağlıdır</h2>
-            <p className="text-muted-foreground">
-              Açılış saatı: {branding?.openingTime?.slice(0, 5)}. Sistem həmin saatdan aktiv olacaq.
-            </p>
-          </main>
-        ) : (
-          <>
-            {showTabs && (
-              <nav className="flex shrink-0 gap-1 border-b bg-background px-3 py-2">
-                {TABS.filter((tab) => {
-                  if (isStoreMode && tab.hideInStoreMode) return false;
-                  if (tab.module && branding && branding[tab.module] === false) return false;
-                  return !tab.permission || permissionMap[tab.permission];
-                }).map((tab) => {
-                  const active = pathname === tab.href;
-                  const Icon = tab.icon;
-                  return (
-                    <Link
-                      key={tab.href}
-                      href={tab.href}
-                      className={cn(
-                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {isStoreMode ? tab.storeLabel : tab.label}
-                    </Link>
-                  );
-                })}
-              </nav>
+            {/* Search on the tables screen; elsewhere the branch name holds the slot. */}
+            <div className="flex min-w-0 flex-1 items-center px-3">
+              {isTablesPage && !isBeforeOpening ? (
+                <HeaderSearch value={searchQuery} onChange={setSearchQuery} />
+              ) : (
+                <div className="flex min-w-0 items-center gap-2 font-semibold">
+                  <ChefHat className="h-5 w-5 shrink-0 text-primary" />
+                  <span className="truncate">{terminal?.restaurantName ?? terminal?.companyName ?? "POS"}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="hidden items-center border-l px-3 sm:flex">
+              <LicenseStatusBadge className="py-1.5 text-sm" />
+            </div>
+
+            <div className="hidden min-w-0 items-center gap-2.5 border-l px-4 md:flex">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <UserRound className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 leading-tight">
+                <p className="max-w-48 truncate text-sm font-semibold">{userName ?? "—"}</p>
+                <p className="max-w-48 truncate text-xs text-muted-foreground">
+                  {terminal?.restaurantName ?? terminal?.companyName}
+                  {terminal?.workstationName ? ` · ${terminal.workstationName}` : ""}
+                </p>
+              </div>
+            </div>
+
+            {branding?.posShowClock !== false && (
+              <div className="flex flex-col items-end justify-center border-l px-4 leading-tight">
+                <span className="text-lg font-bold tabular-nums">{format(clockNow, "HH:mm:ss")}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">{format(clockNow, "dd.MM.yyyy")}</span>
+              </div>
             )}
-            <main className="flex-1 overflow-auto">{children}</main>
-          </>
-        )}
-      </div>
+
+            <div className="flex items-center gap-1.5 border-l px-3">
+              <FiscalLamp />
+              {/* Shown only while the backend reports an open shift (the report not closed yet); a closed shift shows
+                  nothing. A company that works by the day gets no shift from the backend, so nothing is shown there. */}
+              {shift?.isOpen && (
+                <button
+                  type="button"
+                  onClick={() => setShiftDialogOpen(true)}
+                  className="flex items-center gap-1.5 rounded-md bg-emerald-100 px-2.5 py-1.5 text-xs font-medium text-emerald-800"
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  <span className="hidden lg:inline">Növbə açıqdır</span>
+                </button>
+              )}
+              {canAccessSettings && (
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  title="Ayarlar"
+                  className="flex items-center gap-2 rounded-md p-2 text-muted-foreground hover:bg-muted"
+                >
+                  <Settings className="h-5 w-5" />
+                </button>
+              )}
+              {/* The tables screen has its own "Çıxış" in the action bar. */}
+              {!isTablesPage && (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  title="Hesabı kilidlə"
+                  className="flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted"
+                >
+                  <Lock className="h-6 w-6" />
+                </button>
+              )}
+            </div>
+          </header>
+          {isBeforeOpening ? (
+            <main className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+              <Lock className="h-10 w-10 text-muted-foreground" />
+              <h2 className="text-xl font-semibold">Filial hələ bağlıdır</h2>
+              <p className="text-muted-foreground">
+                Açılış saatı: {branding?.openingTime?.slice(0, 5)}. Sistem həmin saatdan aktiv olacaq.
+              </p>
+            </main>
+          ) : (
+            <>
+              {showTabs && (
+                <nav className="flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 py-2">
+                  {TABS.filter((tab) => {
+                    if (isStoreMode && tab.hideInStoreMode) return false;
+                    if (tab.module && branding && branding[tab.module] === false) return false;
+                    return !tab.permission || permissionMap[tab.permission];
+                  }).map((tab) => {
+                    const active = pathname === tab.href || (tab.href === "/pos" && pathname === "/pos/reports");
+                    const Icon = tab.icon;
+                    return (
+                      <Link
+                        key={tab.href}
+                        href={tab.href}
+                        className={cn(
+                          "flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                          active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {isStoreMode ? tab.storeLabel : tab.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              )}
+              <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+            </>
+          )}
+          {modal}
+        </div>
+      </PosSearchContext.Provider>
 
       {/* Shift open/close dialog */}
       <Dialog open={shiftDialogOpen} onOpenChange={setShiftDialogOpen}>
@@ -371,11 +465,93 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
               {terminal?.companyName} — {terminal?.restaurantName}
             </DialogDescription>
           </DialogHeader>
-          <Button variant="destructive" onClick={handleResetTerminal}>
+          <Button variant="destructive" onClick={() => setResetConfirmOpen(true)}>
             Terminalı sıfırla
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Reset confirmation — the reset signs this machine out of its company and branch */}
+      <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Terminal sıfırlansın?</DialogTitle>
+            <DialogDescription>
+              Bu kompüter {terminal?.companyName} — {terminal?.restaurantName} terminalından çıxarılacaq və
+              giriş səhifəsində yenidən qoşulmalı olacaq.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetConfirmOpen(false)}>Ləğv et</Button>
+            <Button variant="destructive" onClick={handleResetTerminal}>Bəli, sıfırla</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PosAuthGuard>
+  );
+}
+
+/** Search box of the tables screen; focusing it opens the on-screen keyboard below. */
+function HeaderSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!keyboardOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setKeyboardOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [keyboardOpen]);
+
+  const close = () => {
+    setKeyboardOpen(false);
+    inputRef.current?.blur();
+  };
+
+  return (
+    <div ref={containerRef} className="relative w-full max-w-xl">
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+      <input
+        ref={inputRef}
+        type="search"
+        // The on-screen keyboard replaces the OS one; a physical keyboard still types normally.
+        inputMode="none"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setKeyboardOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" || e.key === "Enter") close();
+        }}
+        placeholder="Masa, ofisiant və ya sifariş nömrəsi axtar…"
+        className={cn(
+          "h-11 w-full rounded-xl border-2 bg-muted/40 pl-11 pr-11 text-base outline-none transition-colors",
+          "placeholder:text-muted-foreground focus:border-primary focus:bg-background",
+          "[&::-webkit-search-cancel-button]:hidden",
+        )}
+      />
+      {value && (
+        <button
+          type="button"
+          aria-label="Axtarışı təmizlə"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onChange("")}
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+      {keyboardOpen && (
+        <VirtualKeyboard
+          value={value}
+          onChange={onChange}
+          onClose={close}
+          className="absolute left-0 top-full z-50 mt-2 w-[min(46rem,calc(100vw-1.5rem))]"
+        />
+      )}
+    </div>
   );
 }

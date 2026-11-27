@@ -24,6 +24,7 @@ import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
 import { defaultFormCompanyId } from "@/lib/resolve-company-id";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 type DepartmentRow = {
   id: string;
@@ -365,6 +366,7 @@ export default function DepartmentsPage() {
             </div>
 
             {!editingDepartment && (
+              <SuperAdminOnly>
               <div>
                 <label className="mb-2 block text-sm font-medium text-foreground">Company</label>
                 <select
@@ -380,6 +382,7 @@ export default function DepartmentsPage() {
                   ))}
                 </select>
               </div>
+              </SuperAdminOnly>
             )}
 
             <div className="flex justify-end gap-3">

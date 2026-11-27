@@ -22,6 +22,7 @@ import {
   type RestaurantTable,
 } from "@/lib/services/restaurant-table-service";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
+import { getRestaurantSections, type RestaurantSection } from "@/lib/services/restaurant-section-service";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
@@ -32,6 +33,7 @@ type RestaurantTableRow = {
   restaurantName: string;
   name: string;
   capacity: number;
+  sectionName: string;
   statusLabel: string;
   occupiedLabel: string;
   restaurantId: number;
@@ -44,18 +46,20 @@ type FormState = {
   restaurantId: string;
   name: string;
   capacity: string;
+  sectionId: string;
   note: string;
   isActive: boolean;
 };
 
 function emptyForm(): FormState {
-  return { id: null, restaurantId: "", name: "", capacity: "", note: "", isActive: true };
+  return { id: null, restaurantId: "", name: "", capacity: "", sectionId: "", note: "", isActive: true };
 }
 
 export default function RestaurantTablesPage() {
   const { companiesLoading, selectedCompanyId: scopeCompanyId } = useSelectedCompany();
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [sections, setSections] = useState<RestaurantSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -94,6 +98,11 @@ export default function RestaurantTablesPage() {
       const [tableData, restaurantData] = await Promise.all([getRestaurantTables(), getRestaurants()]);
       setTables(tableData);
       setRestaurants(restaurantData);
+      // Halls are listed per branch; a failure here only hides the hall names.
+      const sectionLists = await Promise.all(
+        restaurantData.map((r) => getRestaurantSections(r.id).catch(() => [] as RestaurantSection[])),
+      );
+      setSections(sectionLists.flat());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load branch tables.");
     } finally {
@@ -104,6 +113,14 @@ export default function RestaurantTablesPage() {
   useEffect(() => {
     void loadData();
   }, []);
+
+  const sectionNameById = useMemo(() => new Map(sections.map((s) => [s.id, s.name])), [sections]);
+
+  // Sections of the branch picked in the form (tables of Masa type live in "Masalar" halls).
+  const formSections = useMemo(() => {
+    const rid = Number(form.restaurantId);
+    return sections.filter((s) => s.restaurantId === rid && s.isActive);
+  }, [sections, form.restaurantId]);
 
   const allRows = useMemo<RestaurantTableRow[]>(() => {
     return tables
@@ -117,13 +134,14 @@ export default function RestaurantTablesPage() {
         `Branch #${table.restaurantId}`,
       name: table.name,
       capacity: table.capacity,
+      sectionName: (table.sectionId != null && sectionNameById.get(table.sectionId)) || "—",
       statusLabel: table.isActive ? "Active" : "Inactive",
       occupiedLabel: table.isOccupied ? "Occupied" : "Available",
       restaurantId: table.restaurantId,
       isActive: table.isActive,
       isOccupied: table.isOccupied,
     }));
-  }, [tables, restaurantNameById]);
+  }, [tables, restaurantNameById, sectionNameById]);
 
   const scopedRows = useMemo(
     () =>
@@ -211,6 +229,7 @@ export default function RestaurantTablesPage() {
   const columns = [
     { key: "tableId" as const, label: "ID" },
     { key: "restaurantName" as const, label: "Branch" },
+    { key: "sectionName" as const, label: "Bölmə" },
     { key: "name" as const, label: "Table No" },
     { key: "capacity" as const, label: "Capacity" },
     { key: "occupiedLabel" as const, label: "Occupancy" },
@@ -246,6 +265,7 @@ export default function RestaurantTablesPage() {
       restaurantId: String(target.restaurantId),
       name: target.name || "",
       capacity: String(target.capacity || ""),
+      sectionId: target.sectionId != null ? String(target.sectionId) : "",
       note: target.note ?? "",
       isActive: target.isActive,
     });
@@ -287,6 +307,7 @@ export default function RestaurantTablesPage() {
       restaurantId,
       name: form.name.trim(),
       capacity,
+      sectionId: form.sectionId ? Number(form.sectionId) : 0,
       note: form.note.trim() || null,
       isActive: form.isActive,
       type: RestaurantTableType.Masa,
@@ -355,6 +376,7 @@ export default function RestaurantTablesPage() {
               searchableFields={[
                 "id",
                 "restaurantName",
+                "sectionName",
                 "name",
                 "capacity",
                 "occupiedLabel",
@@ -379,7 +401,7 @@ export default function RestaurantTablesPage() {
               <label className="mb-2 block text-sm font-medium text-foreground">Branch</label>
               <select
                 value={form.restaurantId}
-                onChange={(e) => setForm((f) => ({ ...f, restaurantId: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, restaurantId: e.target.value, sectionId: "" }))}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
               >
                 <option value="">Select branch</option>
@@ -391,6 +413,29 @@ export default function RestaurantTablesPage() {
               </select>
               {getFieldErrorMessage(fieldErrors, "restaurantid") && (
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "restaurantid")}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">Bölmə</label>
+              <select
+                value={form.sectionId}
+                onChange={(e) => setForm((f) => ({ ...f, sectionId: e.target.value }))}
+                disabled={!form.restaurantId}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+              >
+                <option value="">Bölməsiz</option>
+                {formSections.map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.name}
+                    {section.isBanquet ? " (banket)" : ""}
+                  </option>
+                ))}
+              </select>
+              {formSections.length === 0 && form.restaurantId && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Bu filialda bölmə yoxdur. Əvvəlcə "Filial Bölmələri" səhifəsində bölmə yaradın.
+                </p>
               )}
             </div>
 

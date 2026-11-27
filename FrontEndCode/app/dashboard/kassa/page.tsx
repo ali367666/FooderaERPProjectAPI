@@ -90,7 +90,7 @@ export default function KassaPage() {
       const [movementsData, reportData, counterparties] = await Promise.all([
         getCashMovements(rid, from, to),
         getZReport(from, to),
-        getCounterparties(),
+        getCounterparties("all"),
       ]);
       setMovements(movementsData);
       setReport(reportData);
@@ -216,6 +216,18 @@ export default function KassaPage() {
             <SummaryCard label="Kassadan məxaric" value={`${cashOutTotal.toFixed(2)} ₼`} />
             <SummaryCard label="Bugünkü çek sayı" value={String(report?.orderCount ?? 0)} />
           </div>
+
+          {(report?.bankBreakdown?.length ?? 0) > 0 && (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+              {report!.bankBreakdown!.map((b) => (
+                <SummaryCard
+                  key={b.bankName}
+                  label={`Pos — ${b.bankName} (${b.paymentCount})`}
+                  value={`${b.totalAmount.toFixed(2)} ₼`}
+                />
+              ))}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-lg border bg-card">

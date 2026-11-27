@@ -10,6 +10,8 @@ public interface IOrderPaymentService
     /// that already has part payments). <paramref name="settleAmount"/> pays "by amount" instead — a
     /// sum of money with no items attached (cash + card on one bill); it is capped at what is left.
     /// The service charge recorded on the order is added to the payment that closes it. Saves the changes.
+    /// With <paramref name="remainderMethod"/> (Cash or Card, the other one) a cash / card amount smaller than what is due pays only
+    /// that part and the rest goes to the remainder method in a second payment ("10 in cash, 2 to the card").
     /// </summary>
     Task<PartPaymentResult> PayAsync(
         Domain.Entities.Order order,
@@ -18,5 +20,8 @@ public interface IOrderPaymentService
         PaymentMethod method,
         decimal receivedAmount,
         bool isFiscal,
-        CancellationToken cancellationToken);
+        int? bankId,
+        CancellationToken cancellationToken,
+        PaymentMethod? remainderMethod = null,
+        int? remainderBankId = null);
 }

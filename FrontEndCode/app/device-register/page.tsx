@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { registerDevice } from "@/lib/services/license-service";
+import { clearStoredAuth } from "@/lib/auth-client";
 import { getDeviceName, storeDevice } from "@/lib/device-key";
 
 function DeviceRegisterForm() {
@@ -91,6 +92,19 @@ function DeviceRegisterForm() {
             </p>
           </form>
         )}
+        <div className="mt-4 border-t pt-3 text-center">
+          <button
+            type="button"
+            className="text-sm text-muted-foreground underline hover:text-foreground"
+            onClick={() => {
+              // A leftover sign-in of a blocked company keeps sending every page here; this clears it so another account (e.g. the platform SuperAdmin) can sign in.
+              clearStoredAuth();
+              router.replace("/login");
+            }}
+          >
+            Başqa hesabla giriş (SuperAdmin / admin)
+          </button>
+        </div>
       </div>
     </div>
   );

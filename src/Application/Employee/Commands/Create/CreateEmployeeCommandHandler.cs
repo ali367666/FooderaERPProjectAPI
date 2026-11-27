@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Repositories;
+using Application.Abstractions.Repositories;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -21,6 +21,8 @@ public class CreateEmployeeCommandHandler
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<CreateEmployeeCommandHandler> _logger;
+    private readonly Application.Common.Helpers.DepartmentResolver _departmentResolver;
+    private readonly IIdentityAdminService _identityAdmin;
 
     public CreateEmployeeCommandHandler(
         IEmployeeRepository employeeRepository,
@@ -30,8 +32,12 @@ public class CreateEmployeeCommandHandler
         IUserRepository userRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
-        ILogger<CreateEmployeeCommandHandler> logger)
+        ILogger<CreateEmployeeCommandHandler> logger,
+        Application.Common.Helpers.DepartmentResolver departmentResolver,
+        IIdentityAdminService identityAdmin)
     {
+        _departmentResolver = departmentResolver;
+        _identityAdmin = identityAdmin;
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _positionRepository = positionRepository;
@@ -50,6 +56,19 @@ public class CreateEmployeeCommandHandler
         {
             var isSuperAdmin = _currentUserService.IsSuperAdmin;
             var callerCompanyId = _currentUserService.CompanyId;
+            // The job title is a role: its position is found (or created) here.
+            var positionId = request.Request.PositionId;
+            if (request.Request.RoleId is > 0)
+            {
+                var ensured = await _identityAdmin.EnsurePositionForRoleAsync(request.Request.RoleId.Value, cancellationToken);
+                if (ensured.PositionId is not { } rolePositionId)
+                    return new BaseResponse<int> { Success = false, Message = ensured.Error ?? "Rol tapılmadı." };
+                positionId = rolePositionId;
+            }
+
+            // Without the Departments module the employee goes to the department of its position.
+            var departmentId = await _departmentResolver.ForEmployeeAsync(
+                callerCompanyId, request.Request.DepartmentId, positionId, cancellationToken);
 
             _logger.LogInformation(
                 "CreateEmployeeCommand başladı. CallerCompanyId: {CallerCompanyId}, IsSuperAdmin: {IsSuperAdmin}, FirstName: {FirstName}, LastName: {LastName}",
@@ -66,20 +85,20 @@ public class CreateEmployeeCommandHandler
 
             if (isSuperAdmin)
             {
-                department = await _departmentRepository.GetByIdAsync(request.Request.DepartmentId, cancellationToken);
+                department = await _departmentRepository.GetByIdAsync(departmentId, cancellationToken);
                 companyId = department?.CompanyId ?? 0;
             }
             else
             {
                 companyId = callerCompanyId;
-                department = await _departmentRepository.GetByIdAsync(request.Request.DepartmentId, companyId, cancellationToken);
+                department = await _departmentRepository.GetByIdAsync(departmentId, companyId, cancellationToken);
             }
 
             if (department is null)
             {
                 _logger.LogWarning(
                     "Employee yaradılmadı. Department tapılmadı. DepartmentId: {DepartmentId}, CallerCompanyId: {CallerCompanyId}",
-                    request.Request.DepartmentId,
+                    departmentId,
                     callerCompanyId);
 
                 return new BaseResponse<int>
@@ -90,7 +109,7 @@ public class CreateEmployeeCommandHandler
             }
 
             var position = await _positionRepository.GetByIdAsync(
-                request.Request.PositionId,
+                positionId,
                 companyId,
                 cancellationToken);
 
@@ -98,7 +117,7 @@ public class CreateEmployeeCommandHandler
             {
                 _logger.LogWarning(
                     "Employee yaradılmadı. Position tapılmadı. PositionId: {PositionId}, CompanyId: {CompanyId}",
-                    request.Request.PositionId,
+                    positionId,
                     companyId);
 
                 return new BaseResponse<int>
@@ -108,12 +127,13 @@ public class CreateEmployeeCommandHandler
                 };
             }
 
-            if (position.DepartmentId != request.Request.DepartmentId)
+            // A role's position carries no department of its own: only an old, role-less position must match the department.
+            if (position.RoleId is null && position.DepartmentId != departmentId)
             {
                 _logger.LogWarning(
                     "Employee yaradılmadı. Position department-ə aid deyil. PositionId: {PositionId}, DepartmentId: {DepartmentId}",
-                    request.Request.PositionId,
-                    request.Request.DepartmentId);
+                    positionId,
+                    departmentId);
 
                 return new BaseResponse<int>
                 {
@@ -209,8 +229,8 @@ public class CreateEmployeeCommandHandler
 
                 HireDate = request.Request.HireDate,
 
-                DepartmentId = request.Request.DepartmentId,
-                PositionId = request.Request.PositionId,
+                DepartmentId = departmentId,
+                PositionId = positionId,
                 RestaurantId = restaurant.Id,
 
                 UserId = request.Request.UserId,
@@ -219,6 +239,9 @@ public class CreateEmployeeCommandHandler
 
             await _employeeRepository.AddAsync(employee, cancellationToken);
             await _employeeRepository.SaveChangesAsync(cancellationToken);
+
+            // A linked account holds the job title's role.
+            await Application.Employees.EmployeeRoleSync.ApplyAsync(_identityAdmin, _logger, employee.UserId, null, position.RoleId, cancellationToken);
 
             try
             {

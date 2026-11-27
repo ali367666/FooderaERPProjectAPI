@@ -59,6 +59,7 @@ public class GetAllMenuItemsQueryHandler
         SpecialPrice3 = entity.SpecialPrice3,
         SpecialPrice4 = entity.SpecialPrice4,
         SpecialPrice5 = entity.SpecialPrice5,
+        BanquetPrice = entity.BanquetPrice,
         HideFromPosSearch = entity.HideFromPosSearch,
         HideBarcode = entity.HideBarcode,
         ExcludeFromDiscount = entity.ExcludeFromDiscount,

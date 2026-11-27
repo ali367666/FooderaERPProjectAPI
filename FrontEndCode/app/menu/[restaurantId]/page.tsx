@@ -24,7 +24,9 @@ export default function PublicMenuPage() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await getPublicMenu(restaurantId);
+        // A table's own QR code carries ?t={token}; read it from the URL.
+        const tableToken = new URLSearchParams(window.location.search).get("t");
+        const data = await getPublicMenu(restaurantId, tableToken);
         if (cancelled) return;
         setMenu(data);
         setActiveCategoryId(data.categories[0]?.id ?? null);
@@ -80,6 +82,7 @@ export default function PublicMenuPage() {
           )}
           <h1 className="text-xl font-bold text-foreground">{menu.restaurantName}</h1>
           {menu.slogan && <p className="text-sm text-muted-foreground">{menu.slogan}</p>}
+          {menu.tableName && <Badge variant="secondary">{menu.tableName}</Badge>}
         </div>
 
         {menu.categories.length > 0 && (

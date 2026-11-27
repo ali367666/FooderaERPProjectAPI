@@ -1,3 +1,4 @@
+using Application.Common.Exceptions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Shift.Dtos;
@@ -8,11 +9,16 @@ namespace Application.Shift.Commands;
 public class OpenShiftCommandHandler : IRequestHandler<OpenShiftCommand, ShiftResponse>
 {
     private readonly IShiftRepository _repository;
+    private readonly ICompanySettingsRepository _settingsRepository;
     private readonly ICurrentUserService _currentUserService;
 
-    public OpenShiftCommandHandler(IShiftRepository repository, ICurrentUserService currentUserService)
+    public OpenShiftCommandHandler(
+        IShiftRepository repository,
+        ICompanySettingsRepository settingsRepository,
+        ICurrentUserService currentUserService)
     {
         _repository = repository;
+        _settingsRepository = settingsRepository;
         _currentUserService = currentUserService;
     }
 
@@ -20,6 +26,10 @@ public class OpenShiftCommandHandler : IRequestHandler<OpenShiftCommand, ShiftRe
     {
         var companyId = _currentUserService.CompanyId;
         var dto = request.Request;
+
+        var settings = await _settingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
+        if (settings?.OpeningTime is not null)
+            throw new BadRequestException("Açılış vaxtı təyin olunub — sistem növbə ilə işləmir.");
 
         var existingOpen = await _repository.GetOpenShiftAsync(companyId, dto.RestaurantId, cancellationToken);
         if (existingOpen is not null)

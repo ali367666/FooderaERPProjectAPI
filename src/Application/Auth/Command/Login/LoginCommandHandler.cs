@@ -71,9 +71,8 @@ public sealed class LoginCommandHandler
     }
 
     /// <summary>
-    /// Company staff sign in to the admin panel with their 4-digit POS code followed by today's
-    /// month and day (Code + MMdd, e.g. 1234 on 4 October → 12341004). The SuperAdmin accounts —
-    /// and older staff accounts that have no code yet — keep using their real password.
+    /// Company staff sign in to the admin panel with their staff code alone (the same code as on the POS, no date added).
+    /// The SuperAdmin accounts — and older staff accounts that have no code yet — keep using their real password.
     /// </summary>
     private async Task<bool> IsValidCredentialAsync(Domain.Entities.User user, string submitted)
     {
@@ -90,14 +89,13 @@ public sealed class LoginCommandHandler
             return false;
         }
 
-        var expected = user.Code + BusinessTime.Now.ToString("MMdd");
-        if (submitted.Trim() == expected)
+        if (submitted.Trim() == user.Code)
         {
             await _userManager.ResetAccessFailedCountAsync(user);
             return true;
         }
 
-        // A 4-digit code + a public date is a short secret — lockout after repeated misses.
+        // A short code is a short secret — lockout after repeated misses.
         await _userManager.AccessFailedAsync(user);
         return false;
     }

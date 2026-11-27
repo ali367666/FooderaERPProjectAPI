@@ -24,9 +24,9 @@ export type CompanySettings = {
   alertRingCount: number | null;
   alertRingIntervalSeconds: number | null;
   tableTimeWarningMinutes: number | null;
-  /** A reserved table takes no new order this many minutes before the reservation (0 = off). */
+  /** Retired setting: the server no longer sends it (always 0). Kept so the POS screen that still reads it compiles. */
   reservationBlockMinutes: number;
-  /** A guest who has not come this many minutes after the reservation time is cancelled (0 = off). */
+  /** Retired setting: the server no longer sends it (always 0). */
   reservationAutoCancelMinutes: number;
 
   loginLogoUrl: string | null;
@@ -291,6 +291,11 @@ export async function updateCompanySettings(
 
 export type CompanySettingsBranding = {
   openingTime: string | null;
+  /**
+   * True when the company works in shifts (no opening time): the business day starts at 06:00 and the report
+   * screen offers "Hesabatı bağla" (closing the shift). False when it works by the day - nothing to close.
+   */
+  worksWithShifts: boolean;
   loginLogoUrl: string | null;
   reportLogoUrl: string | null;
   wallpaperUrl: string | null;
@@ -320,9 +325,16 @@ export type CompanySettingsBranding = {
   modulePaket: boolean;
   moduleOtel: boolean;
   moduleFitnes: boolean;
+  salesEditLocked: boolean;
+  /** Restaurant: the kitchen must accept an order and mark it ready before it can be paid. */
+  kitchenApprovalRequired: boolean;
+  /** 0 = weighted average, 1 = FIFO, 2 = LIFO (set by the SuperAdmin). */
+  storeCostMethod: number;
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
   moduleKompleks: boolean;
+  /** False: the company does not use departments (SuperAdmin switch). */
+  moduleDepartment: boolean;
   printAutoOnPayment: boolean;
   printKitchenOnPayment: boolean;
   printShowPreview: boolean;
@@ -388,6 +400,7 @@ export type CompanySettingsBranding = {
   askGuestCountOnOpen: boolean;
   singleWaiterMode: boolean;
   defaultVatPercent: number | null;
+  licenseDaysLeft: number | null;
 };
 
 function normalizeBranding(item: unknown): CompanySettingsBranding {
@@ -404,8 +417,11 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
   const bool = (camel: string, pascal: string, def = false) =>
     Boolean(pick(raw, camel, pascal) ?? def);
 
+  const openingTime = strOrNull("openingTime", "OpeningTime");
   return {
-    openingTime: strOrNull("openingTime", "OpeningTime"),
+    openingTime,
+    // Older backends do not send the flag; no opening time means the company works in shifts.
+    worksWithShifts: bool("worksWithShifts", "WorksWithShifts", openingTime === null),
     loginLogoUrl: strOrNull("loginLogoUrl", "LoginLogoUrl"),
     reportLogoUrl: strOrNull("reportLogoUrl", "ReportLogoUrl"),
     wallpaperUrl: strOrNull("wallpaperUrl", "WallpaperUrl"),
@@ -435,9 +451,13 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     modulePaket: bool("modulePaket", "ModulePaket"),
     moduleOtel: bool("moduleOtel", "ModuleOtel"),
     moduleFitnes: bool("moduleFitnes", "ModuleFitnes"),
+    salesEditLocked: bool("salesEditLocked", "SalesEditLocked"),
+    kitchenApprovalRequired: bool("kitchenApprovalRequired", "KitchenApprovalRequired"),
+    storeCostMethod: numOrNull("storeCostMethod", "StoreCostMethod") ?? 0,
     moduleDataSecimi: bool("moduleDataSecimi", "ModuleDataSecimi"),
     moduleQiymetSor: bool("moduleQiymetSor", "ModuleQiymetSor"),
     moduleKompleks: bool("moduleKompleks", "ModuleKompleks"),
+    moduleDepartment: bool("moduleDepartment", "ModuleDepartment", true),
     printAutoOnPayment: bool("printAutoOnPayment", "PrintAutoOnPayment"),
     printKitchenOnPayment: bool("printKitchenOnPayment", "PrintKitchenOnPayment"),
     printShowPreview: bool("printShowPreview", "PrintShowPreview", true),
@@ -499,6 +519,7 @@ function normalizeBranding(item: unknown): CompanySettingsBranding {
     askGuestCountOnOpen: bool("askGuestCountOnOpen", "AskGuestCountOnOpen"),
     singleWaiterMode: bool("singleWaiterMode", "SingleWaiterMode"),
     defaultVatPercent: numOrNull("defaultVatPercent", "DefaultVatPercent"),
+    licenseDaysLeft: numOrNull("licenseDaysLeft", "LicenseDaysLeft"),
   };
 }
 

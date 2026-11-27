@@ -18,6 +18,12 @@ public class RestaurantTable : CompanyEntity<int>
     public int? SectionId { get; set; }
     public RestaurantSection? Section { get; set; }
 
+    /// <summary>
+    /// Unguessable id printed in this table's own QR code (<c>/menu/{restaurantId}?t={token}</c>), so a scan
+    /// - and any order placed from it later - is tied to this table. Created on first use.
+    /// </summary>
+    public string? QrToken { get; set; }
+
     public decimal? HourlyRate { get; set; }
     public string? Note { get; set; }
 

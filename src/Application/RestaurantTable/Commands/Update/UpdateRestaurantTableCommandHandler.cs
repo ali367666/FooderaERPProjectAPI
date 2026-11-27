@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -12,17 +12,20 @@ public class UpdateRestaurantTableCommandHandler
     : IRequestHandler<UpdateRestaurantTableCommand, RestaurantTableResponse>
 {
     private readonly IRestaurantTableRepository _restaurantTableRepository;
+    private readonly IRestaurantSectionRepository _sectionRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateRestaurantTableCommandHandler> _logger;
 
     public UpdateRestaurantTableCommandHandler(
         IRestaurantTableRepository restaurantTableRepository,
+        IRestaurantSectionRepository sectionRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<UpdateRestaurantTableCommandHandler> logger)
     {
         _restaurantTableRepository = restaurantTableRepository;
+        _sectionRepository = sectionRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
         _logger = logger;
@@ -58,9 +61,12 @@ public class UpdateRestaurantTableCommandHandler
             throw new Exception("Masa tapılmadı.");
         }
 
+        // The name is unique within its hall (the hall the table will be in after this update).
+        var sectionId = dto.SectionId is null ? table.SectionId : (dto.SectionId > 0 ? dto.SectionId : null);
         var exists = await _restaurantTableRepository.ExistsByNameAsync(
             companyId,
             dto.RestaurantId,
+            sectionId,
             table.Id,
             trimmedName,
             cancellationToken);
@@ -89,7 +95,14 @@ public class UpdateRestaurantTableCommandHandler
                 dto.RestaurantId,
                 companyId);
 
-            throw new Exception("Bu restoranda bu adda başqa masa artıq mövcuddur.");
+            throw new Exception("Bu zalda bu adda başqa masa artıq mövcuddur.");
+        }
+
+        if (dto.SectionId is > 0)
+        {
+            var section = await _sectionRepository.GetByIdAsync(dto.SectionId.Value, companyId, cancellationToken);
+            if (section is null || section.RestaurantId != dto.RestaurantId)
+                throw new Exception("Zal tapılmadı və ya bu filiala aid deyil.");
         }
 
         // 🔥 OLD VALUES (audit üçün)
@@ -106,6 +119,8 @@ public class UpdateRestaurantTableCommandHandler
         table.HourlyRate = dto.HourlyRate;
         table.Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
         table.Type = dto.Type;
+        if (dto.SectionId is not null)
+            table.SectionId = dto.SectionId > 0 ? dto.SectionId : null;
 
         _restaurantTableRepository.Update(table);
         await _restaurantTableRepository.SaveChangesAsync(cancellationToken);
@@ -162,7 +177,8 @@ public class UpdateRestaurantTableCommandHandler
             Rotation = table.Rotation,
             HourlyRate = table.HourlyRate,
             Note = table.Note,
-            Type = table.Type
+            Type = table.Type,
+            SectionId = table.SectionId
         };
     }
 }

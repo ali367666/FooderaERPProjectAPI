@@ -8,6 +8,9 @@ public class User : IdentityUser<int>
 {
     public string FullName { get; set; } = default!;
 
+    /// <summary>The photo the user uploaded on their own profile page.</summary>
+    public string? AvatarUrl { get; set; }
+
     public EmployeeWorkplaceType WorkplaceType { get; set; }
     public int CompanyId { get; set; }
     public Company Company { get; set; } = default!;

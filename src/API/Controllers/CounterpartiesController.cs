@@ -22,9 +22,19 @@ public class CounterpartiesController : ControllerBase
 
     [Authorize(Policy = AppPermissions.CounterpartyView)]
     [HttpGet]
-    public async Task<ActionResult<List<CounterpartyResponse>>> GetAll()
+    public async Task<ActionResult<List<CounterpartyResponse>>> GetAll([FromQuery] string? status)
     {
-        var result = await _mediator.Send(new GetAllCounterpartiesQuery());
+        // status: "active" (default — passive counterparties stay out of every picker), "passive" or "all".
+        var result = await _mediator.Send(new GetAllCounterpartiesQuery(status));
+        return Ok(result);
+    }
+
+    /// <summary>The fixed payment banks (Kapital, Paşa, ABB, QR kod) the POS offers on a card payment.</summary>
+    [Authorize(Policy = AppPermissions.OrdersPay)]
+    [HttpGet("banks")]
+    public async Task<ActionResult<List<PaymentBankResponse>>> GetPaymentBanks()
+    {
+        var result = await _mediator.Send(new GetPaymentBanksQuery());
         return Ok(result);
     }
 

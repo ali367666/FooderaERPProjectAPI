@@ -20,7 +20,9 @@ public class GetMenuItemSetComponentsQueryHandler : IRequestHandler<GetMenuItemS
             ComponentMenuItemId = c.ComponentMenuItemId,
             ComponentMenuItemName = c.ComponentMenuItem.Name,
             Quantity = c.Quantity,
-            Limit = c.Limit
+            Limit = c.Limit,
+            ComponentCategoryId = c.ComponentMenuItem.MenuCategoryId,
+            CategoryMaxPick = c.CategoryMaxPick
         }).ToList();
     }
 }

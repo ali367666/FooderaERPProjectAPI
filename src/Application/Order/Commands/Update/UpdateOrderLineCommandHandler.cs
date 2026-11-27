@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Application.Common.Exceptions;
 using Application.Common.Helpers;
 using Application.Common.Interfaces;
+using Application.Orders.Services;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
 using Application.Common.Models;
@@ -21,6 +23,9 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<UpdateOrderLineCommandHandler> _logger;
     private readonly IMenuItemSetComponentRepository _setComponentRepository;
+    private readonly IMenuItemRepository _menuItemRepository;
+    private readonly ICompanySettingsRepository _companySettingsRepository;
+    private readonly IDiscountRepository _discountRepository;
 
     public UpdateOrderLineCommandHandler(
         IOrderLineRepository orderLineRepository,
@@ -29,8 +34,12 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         ILogger<UpdateOrderLineCommandHandler> logger,
-        IMenuItemSetComponentRepository setComponentRepository)
+        IMenuItemSetComponentRepository setComponentRepository,
+        IMenuItemRepository menuItemRepository,
+        ICompanySettingsRepository companySettingsRepository,
+        IDiscountRepository discountRepository)
     {
+        _discountRepository = discountRepository;
         _orderLineRepository = orderLineRepository;
         _orderRepository = orderRepository;
         _recipeStockDeductionService = recipeStockDeductionService;
@@ -38,6 +47,21 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
         _auditLogService = auditLogService;
         _logger = logger;
         _setComponentRepository = setComponentRepository;
+        _menuItemRepository = menuItemRepository;
+        _companySettingsRepository = companySettingsRepository;
+    }
+
+    /// <summary>
+    /// The lowest price a line may be typed to without Pos.LowerPrice: the product's own price for this
+    /// order (the same one adding the product charges), or the line's current price if that is lower.
+    /// </summary>
+    private async Task<decimal> GetPriceFloorAsync(
+        OrderLine line, Domain.Entities.Order order, int companyId, CancellationToken cancellationToken)
+    {
+        var menuItem = await _menuItemRepository.GetByIdAsync(line.MenuItemId, companyId, cancellationToken) ?? line.MenuItem;
+        var settings = await _companySettingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
+        var standard = OrderLinePricing.ResolveUnitPrice(menuItem, order.IsDelivery, settings);
+        return Math.Min(standard, line.UnitPrice);
     }
 
     public async Task<OrderResponse> Handle(UpdateOrderLineCommand request, CancellationToken cancellationToken)
@@ -89,6 +113,9 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
 
         OrderGuards.EnsureNotBillLocked(order);
 
+        if (order.IsBanquet && (request.Request.UnitPrice.HasValue || request.Request.PriceType.HasValue))
+            throw new BadRequestException("Banket sifarişində qiyməti dəyişmək olmaz.");
+
         var oldOrderLineValues = JsonSerializer.Serialize(new
         {
             line.Id,
@@ -120,6 +147,11 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             var component = components.FirstOrDefault(x => x.ComponentMenuItemId == line.MenuItemId);
             if (component?.Limit is { } limit && newQuantity > limit * parentLine.Quantity)
                 throw new Exception($"{line.MenuItem.Name}: bu SET-də ən çox {limit * parentLine.Quantity} ola bilər.");
+
+            // Only raising a component can break the category cap (the set starts with every component in it, and the waiter lowers).
+            if (newQuantity > previousQuantity
+                && SetSelectionRules.FindCapViolation(parentLine, order.Lines, components, line.Id, newQuantity) is { } capViolation)
+                throw new Application.Common.Exceptions.BadRequestException(capViolation);
         }
         var quantityChanged = newQuantity != previousQuantity;
 
@@ -169,13 +201,30 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
                 throw new Exception("Bu məhsul üçün belə qiymət təyin edilməyib.");
         }
 
+        // A typed price needs Pos.ChangePrice. Raising it is open to everyone who holds that; going
+        // below the product's price (or the line's current price when that is already lower) also
+        // needs Pos.LowerPrice.
+        var typedPrice = parentLine is null && !chosenPrice.HasValue && request.Request.UnitPrice.HasValue
+            && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
+                ? request.Request.UnitPrice
+                : null;
+        if (typedPrice is { } requested)
+        {
+            if (requested < 0)
+                throw new BadRequestException("Qiymət mənfi ola bilməz.");
+
+            var floor = await GetPriceFloorAsync(line, order, companyId, cancellationToken);
+            if (requested < floor - 0.005m
+                && !_currentUserService.HasPermission(Domain.Constants.AppPermissions.PosLowerPrice))
+                throw new BadRequestException(
+                    $"Qiyməti {floor:0.00} ₼-dən aşağı salmaq üçün icazəniz yoxdur.");
+        }
+
         line.UnitPrice = parentLine is not null
             ? 0
             : chosenPrice.HasValue
                 ? chosenPrice.Value
-                : request.Request.UnitPrice.HasValue && _currentUserService.HasPermission(Domain.Constants.AppPermissions.PosChangePrice)
-                    ? request.Request.UnitPrice.Value
-                    : line.UnitPrice;
+                : typedPrice ?? line.UnitPrice;
 
         if (_currentUserService.HasPermission(Domain.Constants.AppPermissions.DiscountApply))
         {
@@ -187,7 +236,13 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
                 line.GiftedAtUtc = line.IsGift ? DateTime.UtcNow : null;
             }
             if (request.Request.DiscountAmount.HasValue)
-                line.DiscountAmount = Math.Max(0, request.Request.DiscountAmount.Value);
+            {
+                var wanted = Math.Max(0, request.Request.DiscountAmount.Value);
+                if (wanted > 0 && wanted != line.DiscountAmount
+                    && (await _discountRepository.GetDiscountExcludedMenuItemIdsAsync(companyId, new[] { line.MenuItemId }, cancellationToken)).Contains(line.MenuItemId))
+                    throw new BadRequestException($"{line.MenuItem.Name} endirimdə iştirak etmir.");
+                line.DiscountAmount = wanted;
+            }
         }
 
         line.LineTotal = OrderLinePricing.ComputeLineTotal(line);
@@ -353,6 +408,7 @@ public class UpdateOrderLineCommandHandler : IRequestHandler<UpdateOrderLineComm
             BillPrintedAt = updatedOrder.BillPrintedAt,
             IsBillLocked = updatedOrder.IsBillLocked,
             IsDelivery = updatedOrder.IsDelivery,
+            IsBanquet = updatedOrder.IsBanquet,
             DeliveryAddress = updatedOrder.DeliveryAddress,
             DeliveryPhone = updatedOrder.DeliveryPhone,
             DeliveryDriverEmployeeId = updatedOrder.DeliveryDriverEmployeeId,

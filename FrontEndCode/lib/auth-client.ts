@@ -28,6 +28,30 @@ export function clearStoredAuth(): void {
   // don't own.
   localStorage.removeItem("dashboardSelectedCompanyId");
   localStorage.removeItem("dashboardSelectedRestaurantId");
+  try {
+    sessionStorage.removeItem(POS_SESSION_KEY);
+  } catch {
+    // storage blocked: nothing to clear
+  }
+}
+
+/** Set when someone signs in at a POS terminal (PIN login): the store screens then show only the sale screen, without the management tabs. */
+export const POS_SESSION_KEY = "posTerminalSession";
+
+export function markPosSession(): void {
+  try {
+    sessionStorage.setItem(POS_SESSION_KEY, "1");
+  } catch {
+    // storage blocked: the full tabs stay visible
+  }
+}
+
+export function isPosSession(): boolean {
+  try {
+    return sessionStorage.getItem(POS_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function persistAuth(accessToken: string, refreshToken?: string): void {

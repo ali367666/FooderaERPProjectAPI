@@ -13,7 +13,9 @@ import {
   type PermissionDto,
 } from "@/lib/services/role-permission-service";
 import { toApiFormError } from "@/lib/api-error";
-import { translatePermissionLabel, translateModuleLabel } from "@/lib/permission-translations";
+import { translatePermissionLabel, translateModuleLabel, isPermissionForMode } from "@/lib/permission-translations";
+import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
+import { useCompanyStoreMode } from "@/hooks/use-company-store-mode";
 import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
 import { getStoredToken } from "@/lib/auth-client";
 import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
@@ -27,19 +29,10 @@ export default function RolePermissionsPage() {
   const [loading, setLoading] = useState(true);
   const [rolePermissionsLoading, setRolePermissionsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [storeMode, setStoreMode] = useState(false);
+  const storeMode = useCompanyStoreMode() === true;
+  const isSuperAdmin = useIsSuperAdmin();
+  const showAllModes = isSuperAdmin && selectedCompanyId == null;
 
-  // Mağaza (store) companies see "Məhsullar" instead of "Menyu", the same as in the sidebar.
-  useEffect(() => {
-    const companyId = selectedCompanyId ?? getCompanyIdFromToken(getStoredToken());
-    if (!companyId) {
-      setStoreMode(false);
-      return;
-    }
-    getCompanySettingsBranding(companyId)
-      .then((b) => setStoreMode(b.moduleDataSecimi === true))
-      .catch(() => setStoreMode(false));
-  }, [selectedCompanyId]);
 
   const loadData = useCallback(async () => {
     try {
@@ -92,6 +85,8 @@ export default function RolePermissionsPage() {
   const grouped = useMemo(() => {
     const map = new Map<string, PermissionDto[]>();
     for (const permission of permissions) {
+      // With no company picked, the platform SuperAdmin sees every permission; otherwise only the ones of the company's mode.
+      if (!(showAllModes || isPermissionForMode(permission.module, storeMode, permission.name))) continue;
       const key = permission.module || "General";
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(permission);
@@ -99,7 +94,7 @@ export default function RolePermissionsPage() {
     return Array.from(map.entries()).sort((a, b) =>
       translateModuleLabel(a[0], storeMode).localeCompare(translateModuleLabel(b[0], storeMode), "az"),
     );
-  }, [permissions, storeMode]);
+  }, [permissions, storeMode, showAllModes]);
 
   const togglePermission = (permissionId: number) => {
     setSelectedPermissionIds((prev) => {
@@ -109,6 +104,18 @@ export default function RolePermissionsPage() {
       return next;
     });
   };
+
+  // "Select all" works on what the screen lists for the company's mode (a hidden permission of the other mode is never touched).
+  const setMany = (ids: number[], on: boolean) =>
+    setSelectedPermissionIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  const allVisibleIds = useMemo(() => grouped.flatMap(([, list]) => list.map((p) => p.id)), [grouped]);
 
   const save = async () => {
     if (!selectedRoleId) {
@@ -175,13 +182,35 @@ export default function RolePermissionsPage() {
             : permissions.length === 0
               ? "Heç bir icazə tapılmadı."
               : "Modula görə icazələri seçin/silin, sonra saxlayın."}
+          {selectedRoleId && allVisibleIds.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => setMany(allVisibleIds, true)}>
+                Hamısını seç
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setMany(allVisibleIds, false)}>
+                Hamısını sil
+              </Button>
+              <span className="text-xs">
+                {allVisibleIds.filter((id) => selectedPermissionIds.has(id)).length} / {allVisibleIds.length} seçilib
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {selectedRoleId && grouped.map(([moduleName, modulePermissions]) => (
         <Card key={moduleName}>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>{translateModuleLabel(moduleName, storeMode)}</CardTitle>
+            {(() => {
+              const ids = modulePermissions.map((p) => p.id);
+              const allOn = ids.every((id) => selectedPermissionIds.has(id));
+              return (
+                <Button type="button" size="sm" variant="ghost" onClick={() => setMany(ids, !allOn)}>
+                  {allOn ? "Bölməni təmizlə" : "Bölməni seç"}
+                </Button>
+              );
+            })()}
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">

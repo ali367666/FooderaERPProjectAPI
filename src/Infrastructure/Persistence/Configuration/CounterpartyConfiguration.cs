@@ -23,6 +23,10 @@ public class CounterpartyConfiguration : IEntityTypeConfiguration<Counterparty>
             .IsRequired()
             .HasDefaultValue(true);
 
+        builder.Property(x => x.IsBank)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(x => x.CurrentDebtAmount)
             .HasColumnType("decimal(18,2)")
             .HasDefaultValue(0);

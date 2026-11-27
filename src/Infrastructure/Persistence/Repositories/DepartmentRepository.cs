@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Repositories;
+using Application.Abstractions.Repositories;
 using Domain.Entities;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
@@ -43,6 +43,19 @@ public class DepartmentRepository : IDepartmentRepository
     {
         return await _context.Departments
             .AnyAsync(x => x.CompanyId == companyId && x.Name == name, cancellationToken);
+    }
+
+    public async Task<Department> GetOrCreateByNameAsync(int companyId, string name, CancellationToken cancellationToken)
+    {
+        var existing = await _context.Departments
+            .FirstOrDefaultAsync(x => x.CompanyId == companyId && x.Name == name, cancellationToken);
+        if (existing is not null)
+            return existing;
+
+        var department = new Department { CompanyId = companyId, Name = name };
+        await _context.Departments.AddAsync(department, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        return department;
     }
 
     public void Update(Department department)

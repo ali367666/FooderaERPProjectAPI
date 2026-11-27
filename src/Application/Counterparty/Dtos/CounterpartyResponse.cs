@@ -8,5 +8,6 @@ public class CounterpartyResponse
     public int CategoryId { get; set; }
     public string CategoryName { get; set; } = default!;
     public bool IsActive { get; set; }
+    public bool IsBank { get; set; }
     public decimal CurrentDebtAmount { get; set; }
 }

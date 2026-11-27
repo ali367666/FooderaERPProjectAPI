@@ -32,10 +32,21 @@ public class MenuItemRepository : IMenuItemRepository
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
+    public async Task<List<MenuItem>> GetByIdsAsync(IReadOnlyCollection<int> ids, int companyId, CancellationToken cancellationToken)
+    {
+        return await _context.MenuItems
+            .Include(x => x.StockItem)
+            .Include(x => x.SetComponents)
+                .ThenInclude(x => x.ComponentMenuItem)
+            .Where(x => x.CompanyId == companyId && ids.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<List<MenuItem>> GetAllAsync(int companyId, CancellationToken cancellationToken)
     {
         return await _context.MenuItems
             .Include(x => x.MenuCategory)
+                .ThenInclude(c => c.ParentCategory)
             .Include(x => x.ItemType)
             .Include(x => x.StockItem)
             .Include(x => x.Printer)

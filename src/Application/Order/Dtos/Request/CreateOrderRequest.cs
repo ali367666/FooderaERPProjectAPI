@@ -17,6 +17,9 @@ public class CreateOrderRequest
     public bool IsTakeAway { get; set; }
 
     public bool IsDelivery { get; set; }
+
+    /// <summary>Open the order as a banquet order (see Order.IsBanquet).</summary>
+    public bool IsBanquet { get; set; }
     public string? DeliveryAddress { get; set; }
     public string? DeliveryPhone { get; set; }
 }

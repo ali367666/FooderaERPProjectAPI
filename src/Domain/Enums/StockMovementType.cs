@@ -12,4 +12,14 @@ public enum StockMovementType
     OrderConsumptionReversalIn = 5,
     /// <summary>Stock increase from a returned sale (Geri qaytarma) with restocking.</summary>
     SaleReturnIn = 6,
+    /// <summary>Stock increase from an approved supplier purchase (stok alışı).</summary>
+    PurchaseIn = 7,
+    /// <summary>Stock decrease from cancelling an already approved supplier purchase.</summary>
+    PurchaseReversalOut = 8,
+    /// <summary>Stock decrease from goods written off as waste, spoiled or broken.</summary>
+    WriteOffOut = 9,
+    /// <summary>Stock decrease from goods handed back to the supplier.</summary>
+    PurchaseReturnOut = 10,
+    /// <summary>Stock increase entered by hand (a gift, a found item, a correction) without a purchase document.</summary>
+    ManualIn = 11,
 }

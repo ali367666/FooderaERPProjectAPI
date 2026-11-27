@@ -9,9 +9,14 @@ import {
 } from "@/lib/services/reservation-service";
 import { getRestaurants } from "@/lib/services/restaurant-service";
 import { getRestaurantTables } from "@/lib/services/restaurant-table-service";
+import { BanquetReservationDialog } from "@/components/reservations/banquet-reservation-dialog";
 import { toApiFormError } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Calendar as DayCalendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TimePicker } from "@/components/ui/time-picker";
+import { az } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
   Plus, RefreshCw, ChevronLeft, ChevronRight,
@@ -68,6 +73,10 @@ const EMPTY_FORM: CreateReservationInput = {
 
 export function ReservationsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  // Optional HH:mm range inside the chosen day ("" = no limit on that side).
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
+  const [dateOpen, setDateOpen] = useState(false);
   const [items, setItems] = useState<ReservationDto[]>([]);
   const [restaurants, setRestaurants] = useState<{ id: number; name: string }[]>([]);
   const [tables, setTables] = useState<{ id: number; restaurantId: number; name: string; capacity: number }[]>([]);
@@ -76,6 +85,7 @@ export function ReservationsPage() {
   const [editItem, setEditItem] = useState<ReservationDto | null>(null);
   const [form, setForm] = useState<CreateReservationInput>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [banquetOpen, setBanquetOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -83,7 +93,7 @@ export function ReservationsPage() {
       const [r, t, res] = await Promise.all([
         getRestaurants(),
         getRestaurantTables(),
-        getReservations(isoDate(selectedDate)),
+        getReservations({ date: isoDate(selectedDate), fromTime, toTime }),
       ]);
       setRestaurants(r.map(x => ({ id: x.id, name: x.name })));
       setTables(t.map(x => ({ id: x.id, restaurantId: x.restaurantId, name: x.name, capacity: x.capacity })));
@@ -93,7 +103,7 @@ export function ReservationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, fromTime, toTime]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -182,6 +192,10 @@ export function ReservationsPage() {
           <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setBanquetOpen(true)} className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            Yeni banket
+          </Button>
           <Button size="sm" onClick={openCreate} className="gap-1.5">
             <Plus className="h-4 w-4" />
             Yeni rezervasiya
@@ -207,12 +221,39 @@ export function ReservationsPage() {
         <Button variant="ghost" size="sm" onClick={() => setSelectedDate(new Date())} className="text-xs">
           Bu gün
         </Button>
-        <input
-          type="date"
-          value={isoDate(selectedDate)}
-          onChange={e => setSelectedDate(new Date(e.target.value))}
-          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-        />
+        <Popover open={dateOpen} onOpenChange={setDateOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon" aria-label="Tarix seç">
+              <Calendar className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <DayCalendar
+              mode="single"
+              locale={az}
+              weekStartsOn={1}
+              selected={selectedDate}
+              defaultMonth={selectedDate}
+              onSelect={d => { if (d) { setSelectedDate(d); setDateOpen(false); } }}
+              className="p-3"
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Time range inside the day */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Saat aralığı</span>
+        <TimePicker value={fromTime} onChange={setFromTime} placeholder="Gün başı" aria-label="Başlanğıc saat" className="w-32" />
+        <span className="text-sm text-muted-foreground">—</span>
+        <TimePicker value={toTime} onChange={setToTime} placeholder="Gün sonu" aria-label="Son saat" className="w-32" />
+        {(fromTime || toTime) && (
+          <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-muted-foreground"
+            onClick={() => { setFromTime(""); setToTime(""); }}>
+            <X className="h-3.5 w-3.5" />
+            Saatı götür
+          </Button>
+        )}
       </div>
 
       {/* Summary strip */}
@@ -227,7 +268,9 @@ export function ReservationsPage() {
           );
         })}
         {items.length === 0 && !loading && (
-          <span className="text-muted-foreground text-sm">Bu gün üçün rezervasiya yoxdur.</span>
+          <span className="text-muted-foreground text-sm">
+            {fromTime || toTime ? "Seçilən saat aralığında rezervasiya yoxdur." : "Bu gün üçün rezervasiya yoxdur."}
+          </span>
         )}
       </div>
 
@@ -254,10 +297,21 @@ export function ReservationsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold">{item.guestName}</span>
                     <StatusBadge status={item.status} />
-                    {item.tableName && (
-                      <span className="text-xs bg-muted px-2 py-0.5 rounded">
-                        {item.tableName}
+                    {item.isBanquet && (
+                      <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                        Banket
                       </span>
+                    )}
+                    {item.isBanquet && (item.banquetTables?.length ?? 0) > 0 ? (
+                      <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                        {item.banquetTables!.map((t) => t.name).join(", ")}
+                      </span>
+                    ) : (
+                      item.tableName && (
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                          {item.tableName}
+                        </span>
+                      )
                     )}
                   </div>
                   <div className="flex gap-4 mt-1.5 flex-wrap text-xs text-muted-foreground">
@@ -277,7 +331,7 @@ export function ReservationsPage() {
                       <Check className="h-3 w-3" />Təsdiqlə
                     </Button>
                   )}
-                  {item.status === "Confirmed" && (
+                  {item.status === "Confirmed" && !item.isBanquet && (
                     <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-indigo-600 border-indigo-200"
                       onClick={() => handleAction(item.id, "seat")}>
                       <Users className="h-3 w-3" />Oturt
@@ -295,10 +349,12 @@ export function ReservationsPage() {
                         onClick={() => handleAction(item.id, "cancel")}>
                         <X className="h-3 w-3" />Ləğv et
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 text-xs"
-                        onClick={() => openEdit(item)}>
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
+                      {!item.isBanquet && (
+                        <Button size="sm" variant="ghost" className="h-7 text-xs"
+                          onClick={() => openEdit(item)}>
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      )}
                     </>
                   )}
                   {item.status === "Pending" && (
@@ -317,6 +373,14 @@ export function ReservationsPage() {
           ))}
         </div>
       )}
+
+      <BanquetReservationDialog
+        open={banquetOpen}
+        onClose={() => setBanquetOpen(false)}
+        onCreated={() => void load()}
+        restaurants={restaurants}
+        defaultDate={isoDate(selectedDate)}
+      />
 
       {/* Create/Edit form modal */}
       {showForm && (

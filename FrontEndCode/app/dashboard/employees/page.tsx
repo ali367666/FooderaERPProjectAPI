@@ -26,9 +26,11 @@ import {
   type Department,
 } from "@/lib/services/department-service";
 import { getPositionsForAllCompanies, type Position } from "@/lib/services/position-service";
+import { getRolesForAllCompanies, type AppRole } from "@/lib/services/role-service";
 import { getRestaurants, type Restaurant } from "@/lib/services/restaurant-service";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
+import { useCompanyModule } from "@/hooks/use-company-module";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
 import { resolveCompanyId } from "@/lib/resolve-company-id";
 import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
@@ -56,9 +58,7 @@ type EmployeeRow = {
 
 type EmployeeFormState = {
   id: number | null;
-  firstName: string;
-  lastName: string;
-  fatherName: string;
+  fullName: string;
   email: string;
   phoneNumber: string;
   address: string;
@@ -72,9 +72,7 @@ function emptyEmployeeForm(): EmployeeFormState {
   const today = new Date().toISOString().split("T")[0] ?? "";
   return {
     id: null,
-    firstName: "",
-    lastName: "",
-    fatherName: "",
+    fullName: "",
     email: "",
     phoneNumber: "",
     address: "",
@@ -101,9 +99,13 @@ function toFormDate(dateValue?: string | null): string {
 
 export default function EmployeesPage() {
   const { companies, companiesLoading, selectedCompanyId: scopeCompanyId } = useSelectedCompany();
+  // The SuperAdmin can switch departments off for a company: its forms then have no department to pick.
+  const departmentsOn = useCompanyModule("moduleDepartment") !== false;
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
+  // The job title of an employee is a company role (its position follows it on the server).
+  const [roles, setRoles] = useState<AppRole[]>([]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -246,8 +248,35 @@ export default function EmployeesPage() {
     return positions.filter((p) => deptIds.has(Number(p.departmentId ?? 0)));
   }, [positions, departmentsForFilters]);
 
+  useEffect(() => {
+    if (companiesLoading) return;
+    const ids = companies.map((c) => c.id);
+    if (ids.length === 0) {
+      setRoles([]);
+      return;
+    }
+    let cancelled = false;
+    getRolesForAllCompanies(ids)
+      .then((list) => !cancelled && setRoles(list))
+      .catch(() => !cancelled && setRoles([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [companies, companiesLoading]);
+
+  const rolesForForm = useMemo(() => {
+    const own = roles.filter((r) => r.companyId != null);
+    if (isSuperAdmin || ownCompanyId == null) {
+      // A SuperAdmin picks the company through the department; without one every company's roles are listed.
+      const cid = departmentsOn ? departmentCompanyMap.get(Number(form.departmentId)) : undefined;
+      return cid != null ? own.filter((r) => r.companyId === cid) : own;
+    }
+    return own.filter((r) => r.companyId === ownCompanyId);
+  }, [roles, isSuperAdmin, ownCompanyId, departmentsOn, departmentCompanyMap, form.departmentId]);
+
   const filteredPositions = useMemo(() => {
-    const selectedDepartmentId = Number(form.departmentId);
+    // Without the Departments module there is no department to narrow the positions by.
+    const selectedDepartmentId = departmentsOn ? Number(form.departmentId) : 0;
     if (!Number.isFinite(selectedDepartmentId) || selectedDepartmentId <= 0) {
       const pool =
         isSuperAdmin || ownCompanyId == null
@@ -263,7 +292,7 @@ export default function EmployeesPage() {
       const departmentId = Number(position.departmentId ?? 0);
       return departmentId === selectedDepartmentId;
     });
-  }, [form.departmentId, positions, isSuperAdmin, ownCompanyId, departmentCompanyMap]);
+  }, [form.departmentId, departmentsOn, positions, isSuperAdmin, ownCompanyId, departmentCompanyMap]);
 
   // Branch always belongs to the same company as the chosen Department — narrow to it once a
   // Department is picked, otherwise fall back to the same "own company vs. every company" pool.
@@ -468,15 +497,14 @@ export default function EmployeesPage() {
 
     setForm({
       id: employee.id,
-      firstName: employee.firstName || "",
-      lastName: employee.lastName || "",
-      fatherName: employee.fatherName || "",
+      fullName: employee.fullName?.trim() || `${employee.firstName} ${employee.lastName}`.trim(),
       email: employee.email || "",
       phoneNumber: employee.phoneNumber || "",
       address: employee.address || "",
       hireDate: toFormDate(employee.hireDate),
       departmentId: String(employee.departmentId || ""),
-      positionId: String(employee.positionId || ""),
+      // The form's "position" is the employee's role.
+      positionId: String(employee.roleId ?? ""),
       restaurantId: String(employee.restaurantId || ""),
     });
     setFieldErrors({});
@@ -500,20 +528,19 @@ export default function EmployeesPage() {
   };
 
   const handleSave = async () => {
-    const firstName = form.firstName.trim();
-    const lastName = form.lastName.trim();
+    const fullName = form.fullName.trim().replace(/\s+/g, " ");
     const departmentId = Number(form.departmentId);
     const positionId = Number(form.positionId);
     const restaurantId = Number(form.restaurantId);
 
-    if (!firstName || !lastName) {
-      const msg = "First name and last name are required.";
+    if (!fullName) {
+      const msg = "Full name is required.";
       setError(msg);
       window.alert(msg);
       return;
     }
 
-    if (!Number.isFinite(departmentId) || departmentId <= 0) {
+    if (departmentsOn && (!Number.isFinite(departmentId) || departmentId <= 0)) {
       const msg = "Department selection is required.";
       setError(msg);
       window.alert(msg);
@@ -542,15 +569,16 @@ export default function EmployeesPage() {
     }
 
     const payload = {
-      firstName,
-      lastName,
-      fatherName: form.fatherName.trim() || undefined,
+      fullName,
       phoneNumber: form.phoneNumber.trim() || undefined,
       email: form.email.trim() || undefined,
       address: form.address.trim() || undefined,
       hireDate: new Date(form.hireDate).toISOString(),
-      departmentId,
-      positionId,
+      // Without the Departments module the server takes the department of the chosen position.
+      departmentId: departmentsOn ? departmentId : 0,
+      // The job title is a role: the server finds or creates its position.
+      positionId: 0,
+      roleId: positionId,
       restaurantId,
       userId: null,
     };
@@ -651,45 +679,18 @@ export default function EmployeesPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
-                First Name
+                Full Name
               </label>
               <Input
-                value={form.firstName}
-                onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                placeholder="Enter first name"
+                value={form.fullName}
+                onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+                placeholder="Enter full name"
               />
-              {getFieldErrorMessage(fieldErrors, "firstname") && (
+              {(getFieldErrorMessage(fieldErrors, "fullname") || getFieldErrorMessage(fieldErrors, "firstname")) && (
                 <p className="mt-1 text-xs text-red-600">
-                  {getFieldErrorMessage(fieldErrors, "firstname")}
+                  {getFieldErrorMessage(fieldErrors, "fullname") || getFieldErrorMessage(fieldErrors, "firstname")}
                 </p>
               )}
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">
-                Last Name
-              </label>
-              <Input
-                value={form.lastName}
-                onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                placeholder="Enter last name"
-              />
-              {getFieldErrorMessage(fieldErrors, "lastname") && (
-                <p className="mt-1 text-xs text-red-600">
-                  {getFieldErrorMessage(fieldErrors, "lastname")}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">
-                Father Name
-              </label>
-              <Input
-                value={form.fatherName}
-                onChange={(e) => setForm((f) => ({ ...f, fatherName: e.target.value }))}
-                placeholder="Enter father name"
-              />
             </div>
 
             <div>
@@ -710,7 +711,7 @@ export default function EmployeesPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
-                Email
+                Email (optional)
               </label>
               <Input
                 type="email"
@@ -727,7 +728,7 @@ export default function EmployeesPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
-                Phone
+                Phone (optional)
               </label>
               <Input
                 value={form.phoneNumber}
@@ -738,7 +739,7 @@ export default function EmployeesPage() {
 
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">
-                Address
+                Address (optional)
               </label>
               <Input
                 value={form.address}
@@ -747,6 +748,7 @@ export default function EmployeesPage() {
               />
             </div>
 
+            {departmentsOn && (
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
                 Department
@@ -776,20 +778,21 @@ export default function EmployeesPage() {
                 </p>
               )}
             </div>
+            )}
 
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
-                Position
+                Vəzifə (rol)
               </label>
               <select
                 value={form.positionId}
                 onChange={(e) => setForm((f) => ({ ...f, positionId: e.target.value }))}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
               >
-                <option value="">Select position</option>
-                {filteredPositions.map((position) => (
-                  <option key={String(position.id)} value={Number(position.id)}>
-                    {position.name || position.positionName || "Unnamed Position"}
+                <option value="">Vəzifə (rol) seçin</option>
+                {rolesForForm.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
                   </option>
                 ))}
               </select>

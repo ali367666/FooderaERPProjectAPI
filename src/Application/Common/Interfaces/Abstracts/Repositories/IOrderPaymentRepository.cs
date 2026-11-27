@@ -9,9 +9,14 @@ public interface IOrderPaymentRepository
 
     Task<Domain.Entities.OrderPayment?> GetByIdAsync(int paymentId, int orderId, CancellationToken cancellationToken);
 
+   
+    Task<List<Application.Shift.Dtos.ZReportBankBreakdown>> GetCardBankTotalsAsync(
+        IReadOnlyCollection<int> orderIds,
+        CancellationToken cancellationToken);
+
     Task<bool> AnyForOrderAsync(int orderId, CancellationToken cancellationToken);
 
-    /// <summary>True when part of the bill was settled by amount (no items attached).</summary>
+    
     Task<bool> AnyByAmountAsync(int orderId, CancellationToken cancellationToken);
 
     /// <summary>How much of a line has already been paid for (the line's own quantity unit).</summary>

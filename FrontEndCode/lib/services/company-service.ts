@@ -127,6 +127,8 @@ export type CompanyOwnerInput = {
   ownerUserName: string;
   ownerEmail: string;
   ownerPassword: string;
+  /** Optional: the amount (AZN) the company starts working with; recorded as its opening deposit. */
+  openingDepositAmount?: number | null;
 };
 
 export async function createCompany(data: CompanyMutationInput & CompanyOwnerInput): Promise<number> {
@@ -172,6 +174,7 @@ export type CompanyModules = {
   moduleDataSecimi: boolean;
   moduleQiymetSor: boolean;
   moduleKompleks: boolean;
+  moduleDepartment: boolean;
 };
 
 export async function setCompanyModules(companyId: number, modules: CompanyModules): Promise<void> {
@@ -187,6 +190,71 @@ export async function setCompanyModules(companyId: number, modules: CompanyModul
     }
   } catch (error) {
     throw toApiFormError(error, "Failed to update company modules");
+  }
+}
+
+export type PaymentBankStatus = { name: string; enabled: boolean };
+
+/** SuperAdmin only: the catalog of payment banks and which of them a company has. */
+export async function getCompanyPaymentBanks(companyId: number): Promise<PaymentBankStatus[]> {
+  try {
+    const response = await api.get<unknown>("/company-settings/payment-banks", { params: { companyId } });
+    const list = Array.isArray(response.data) ? response.data : [];
+    return list.map((row) => {
+      const r = row as Record<string, unknown>;
+      return { name: String(r.name ?? r.Name ?? ""), enabled: Boolean(r.enabled ?? r.Enabled) };
+    });
+  } catch (error) {
+    throw toApiFormError(error, "Failed to load the payment banks");
+  }
+}
+
+/** SuperAdmin only: gives a company exactly these banks; the others are switched off. */
+export async function setCompanyPaymentBanks(companyId: number, names: string[]): Promise<void> {
+  try {
+    const response = await api.put<ApiResponse<unknown>>("/company-settings/payment-banks", names, { params: { companyId } });
+    if (response.data?.success === false) {
+      throw new ApiFormError(response.data.message || "Failed to update the payment banks");
+    }
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update the payment banks");
+  }
+}
+
+/** SuperAdmin only: whether a restaurant's orders wait for the kitchen to accept them / mark them ready before payment. */
+export async function setCompanyKitchenApproval(companyId: number, required: boolean): Promise<void> {
+  try {
+    const response = await api.put<ApiResponse<unknown>>("/company-settings/kitchen-approval", null, { params: { companyId, required } });
+    if (response.data?.success === false) {
+      throw new ApiFormError(response.data.message || "Failed to update the kitchen approval");
+    }
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update the kitchen approval");
+  }
+}
+
+/** SuperAdmin only: how a company's store warehouse goods are costed (0 = weighted average / off, 1 = FIFO, 2 = LIFO). */
+export async function setCompanyStoreCostMethod(companyId: number, method: number): Promise<string | null> {
+  try {
+    const response = await api.put<ApiResponse<unknown>>("/company-settings/store-cost-method", null, { params: { companyId, method } });
+    if (response.data?.success === false) {
+      throw new ApiFormError(response.data.message || "Failed to update the cost method");
+    }
+    return (response.data as { message?: string } | undefined)?.message ?? null;
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update the cost method");
+  }
+}
+
+/** SuperAdmin only: opens or closes changing a company's store sales (cancelling them). */
+export async function setCompanySalesLock(companyId: number, locked: boolean): Promise<void> {
+  try {
+    const response = await api.put<ApiResponse<unknown>>("/company-settings/sales-lock", null, { params: { companyId, locked } });
+    if (response.data?.success === false) {
+      throw new ApiFormError(response.data.message || "Failed to update the sales lock");
+    }
+  } catch (error) {
+    throw toApiFormError(error, "Failed to update the sales lock");
   }
 }
 

@@ -20,6 +20,14 @@ public class GetAllCounterpartiesQueryHandler : IRequestHandler<GetAllCounterpar
     public async Task<List<CounterpartyResponse>> Handle(GetAllCounterpartiesQuery request, CancellationToken cancellationToken)
     {
         var counterparties = await _repository.GetAllByCompanyAsync(_currentUserService.CompanyId, cancellationToken);
-        return counterparties.Select(CreateCounterpartyCommandHandler.Map).ToList();
+        var status = (request.Status ?? "active").Trim().ToLowerInvariant();
+        var filtered = status switch
+        {
+            "all" => counterparties,
+            "passive" or "inactive" => counterparties.Where(c => !c.IsActive).ToList(),
+            _ => counterparties.Where(c => c.IsActive).ToList()
+        };
+
+        return filtered.Select(CreateCounterpartyCommandHandler.Map).ToList();
     }
 }

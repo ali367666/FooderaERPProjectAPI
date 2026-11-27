@@ -22,7 +22,6 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
     private readonly IPrinterRepository _printerRepository;
     private readonly INetworkPrinterService _networkPrinterService;
     private readonly IEmployeeRepository _employeeRepository;
-    private readonly IReservationTableGuard _reservationTableGuard;
 
     public MoveOrderTableCommandHandler(
         IOrderRepository orderRepository,
@@ -32,8 +31,7 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         ICompanySettingsRepository companySettingsRepository,
         IPrinterRepository printerRepository,
         INetworkPrinterService networkPrinterService,
-        IEmployeeRepository employeeRepository,
-        IReservationTableGuard reservationTableGuard)
+        IEmployeeRepository employeeRepository)
     {
         _orderRepository = orderRepository;
         _tableRepository = tableRepository;
@@ -43,7 +41,6 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         _printerRepository = printerRepository;
         _networkPrinterService = networkPrinterService;
         _employeeRepository = employeeRepository;
-        _reservationTableGuard = reservationTableGuard;
     }
 
     public async Task<OrderResponse> Handle(MoveOrderTableCommand request, CancellationToken cancellationToken)
@@ -66,6 +63,9 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Cancelled)
             throw new Exception("This order can no longer be moved.");
 
+        if (order.IsBanquet)
+            throw new BadRequestException("Banket sifarişi başqa masaya köçürülə bilməz.");
+
         if (order.TableId == request.NewTableId)
             throw new Exception("This order is already on that table.");
 
@@ -76,10 +76,11 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
         if (newTable.Type is RestaurantTableType.Delivery or RestaurantTableType.TakeAway)
             throw new Exception("Table not found for this branch.");
 
+        if (newTable.Section?.IsBanquet == true)
+            throw new BadRequestException("Adi sifariş banket zalının masasına köçürülə bilməz.");
+
         if (newTable.IsOccupied)
             throw new Exception("The selected table is already occupied.");
-
-        await _reservationTableGuard.EnsureTableFreeAsync(companyId, newTable.Id, cancellationToken);
 
         var oldTable = await _tableRepository.GetByIdAsync(order.TableId, companyId, cancellationToken);
         var oldTableId = order.TableId;
@@ -149,6 +150,7 @@ public class MoveOrderTableCommandHandler : IRequestHandler<MoveOrderTableComman
             BillPrintedAt = updatedOrder.BillPrintedAt,
             IsBillLocked = updatedOrder.IsBillLocked,
             IsDelivery = updatedOrder.IsDelivery,
+            IsBanquet = updatedOrder.IsBanquet,
             DeliveryAddress = updatedOrder.DeliveryAddress,
             DeliveryPhone = updatedOrder.DeliveryPhone,
             DeliveryDriverEmployeeId = updatedOrder.DeliveryDriverEmployeeId,

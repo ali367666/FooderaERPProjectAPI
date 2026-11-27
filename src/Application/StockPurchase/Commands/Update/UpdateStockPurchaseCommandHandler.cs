@@ -42,8 +42,11 @@ public class UpdateStockPurchaseCommandHandler
 
         var dto = request.Request;
 
-        if (dto.ExchangeRate <= 0)
-            return new BaseResponse { Success = false, Message = "Məzənnə 0-dan böyük olmalıdır." };
+        var error = await StockPurchaseRules.ValidateAsync(
+            _purchaseRepository, purchase.CompanyId, dto.CounterpartyId, dto.WarehouseId,
+            dto.ExchangeRate, dto.PurchaseDate, dto.Lines, cancellationToken);
+        if (error is not null)
+            return new BaseResponse { Success = false, Message = error };
 
         purchase.CounterpartyId = dto.CounterpartyId;
         purchase.IsImport = dto.IsImport;
@@ -52,6 +55,9 @@ public class UpdateStockPurchaseCommandHandler
         purchase.PurchaseDate = dto.PurchaseDate;
         purchase.WarehouseId = dto.WarehouseId;
         purchase.Note = dto.Note;
+        purchase.SupplierInvoiceNo = StockPurchaseRules.CleanInvoiceNo(dto.SupplierInvoiceNo);
+        purchase.LastModifiedByUserId = _currentUserService.UserId;
+        purchase.LastModifiedAtUtc = DateTime.UtcNow;
 
         purchase.Lines.Clear();
         foreach (var l in dto.Lines)

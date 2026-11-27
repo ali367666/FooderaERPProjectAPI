@@ -4,13 +4,32 @@ import { TouchNumpad } from "@/components/pos/touch-numpad";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeftRight, Banknote, BarChart3, CalendarPlus, Lock, Receipt, RefreshCw, ShoppingBag, StickyNote, UserCog, Users } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Banknote,
+  BarChart3,
+  CalendarPlus,
+  Lock,
+  LogOut,
+  Receipt,
+  RefreshCw,
+  SearchX,
+  ShoppingBag,
+  StickyNote,
+  Truck,
+  UserCog,
+  Users,
+  X,
+} from "lucide-react";
+import { clearStoredAuth } from "@/lib/auth-client";
+import { usePosSearch } from "@/components/pos/pos-search-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -20,7 +39,6 @@ import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-termin
 import { getCurrentEmployeeId } from "@/lib/pos-session";
 import {
   getRestaurantTables,
-  ensureStoreSaleTable,
   RestaurantTableType,
   type RestaurantTable,
 } from "@/lib/services/restaurant-table-service";
@@ -31,7 +49,6 @@ import {
   moveOrderTable,
   payOrder,
   reassignOrderWaiter,
-  verifyRedirectCode,
   type OrderDto,
   type OrderWorkflowStatus,
 } from "@/lib/services/order-service";
@@ -52,6 +69,9 @@ import { printBillForOrder, printReceiptForOrder } from "@/lib/pos-bill-print";
 import { getFiscalMode, setFiscalMode } from "@/lib/pos-fiscal-mode";
 
 type TableWithOrder = RestaurantTable & { activeOrder: OrderDto | null };
+
+// The chosen hall survives opening an order and coming back, for this browser tab.
+const HALL_STORAGE_KEY = "posSelectedHall";
 
 function isActiveStatus(status: OrderWorkflowStatus): boolean {
   return status !== "paid" && status !== "cancelled";
@@ -129,19 +149,13 @@ export default function PosTablesPage() {
   const [mode, setMode] = useState<"pay" | "bill" | "move-pick" | "move-target" | "waiter-pick" | "reserve" | null>(null);
   const [modeBusy, setModeBusy] = useState(false);
   const [moveSource, setMoveSource] = useState<TableWithOrder | null>(null);
-  // "Ofisiant dəyiş" needs Pos.ChangeWaiter to show; whoever lacks Pos.RedirectUser must get a supervisor's
-  // code approved first. The verified code rides along with the final request.
-  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
-  const [codeInput, setCodeInput] = useState("");
-  const [codeError, setCodeError] = useState<string | null>(null);
-  const [supervisorCode, setSupervisorCode] = useState<string | null>(null);
+  // "Ofisiant dəyiş" is shown and works by the Pos.ChangeWaiter permission alone — no code.
   const [waiterTable, setWaiterTable] = useState<TableWithOrder | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   const resetMode = () => {
     setMode(null);
     setMoveSource(null);
-    setSupervisorCode(null);
     setWaiterTable(null);
   };
   const [now, setNow] = useState(() => new Date());
@@ -158,6 +172,29 @@ export default function PosTablesPage() {
   const [reserveTable, setReserveTable] = useState<TableWithOrder | null>(null);
   const [actionReservation, setActionReservation] = useState<ReservationDto | null>(null);
   const alertedReservationIds = useRef<Set<number>>(new Set());
+  const { query: searchQuery, setQuery: setSearchQuery } = usePosSearch();
+  const [hallKey, setHallKey] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem(HALL_STORAGE_KEY) ?? "all";
+    } catch {
+      return "all";
+    }
+  });
+
+  const selectHall = (key: string) => {
+    setHallKey(key);
+    setSearchQuery("");
+    try {
+      sessionStorage.setItem(HALL_STORAGE_KEY, key);
+    } catch {
+      // storage unavailable — the choice just isn't remembered
+    }
+  };
+
+  const handleLogout = () => {
+    clearStoredAuth();
+    router.replace("/pos-login");
+  };
 
   useEffect(() => {
     void getCurrentEmployeeId().then(setCurrentEmployeeId);
@@ -173,7 +210,6 @@ export default function PosTablesPage() {
   }, []);
 
   const [brandingLoaded, setBrandingLoaded] = useState(false);
-  const [storeModeBusy, setStoreModeBusy] = useState(false);
 
   useEffect(() => {
     if (!terminal?.companyId) return;
@@ -183,58 +219,15 @@ export default function PosTablesPage() {
       .finally(() => setBrandingLoaded(true));
   }, [terminal]);
 
-  const isStoreMode = branding?.moduleDataSecimi === true;
+  // The terminal's own choice wins; terminals set up before the choice existed follow the company's mode.
+  const isStoreMode = terminal?.mode ? terminal.mode === "store" : branding?.moduleDataSecimi === true;
 
   const warningMinutes = branding?.tableTimeWarningMinutes ?? 45;
 
+  // A store (mağaza) company sells from its own screens, apart from the restaurant POS.
   useEffect(() => {
-    const restaurantId = terminal?.restaurantId;
-    if (!restaurantId || !isStoreMode) return;
-    let cancelled = false;
-
-    const ensureStoreSale = async () => {
-      setStoreModeBusy(true);
-      try {
-        const waiterId = await getCurrentEmployeeId();
-        if (!waiterId) {
-          toast.error("Bu istifadəçi heç bir işçiyə bağlı deyil. Users səhifəsindən bağlayın.");
-          return;
-        }
-
-        const [storeTableId, allOrders] = await Promise.all([
-          ensureStoreSaleTable(restaurantId),
-          getOrders(),
-        ]);
-
-        if (cancelled) return;
-
-        const activeOrder = allOrders.find(
-          (o) => o.tableId === storeTableId && isActiveStatus(o.status),
-        );
-        if (activeOrder) {
-          router.replace(`/pos/order/${activeOrder.id}`);
-          return;
-        }
-
-        const order = await createOrder({
-          restaurantId,
-          tableId: storeTableId,
-          waiterId,
-          guestCount: null,
-        });
-        if (!cancelled) router.replace(`/pos/order/${order.id}`);
-      } catch (err) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : "Satış ekranı açıla bilmədi");
-      } finally {
-        if (!cancelled) setStoreModeBusy(false);
-      }
-    };
-
-    void ensureStoreSale();
-    return () => {
-      cancelled = true;
-    };
-  }, [terminal, isStoreMode, router]);
+    if (isStoreMode) router.replace("/store");
+  }, [isStoreMode, router]);
 
   useEffect(() => {
     const stillOverdueIds = new Set<number>();
@@ -378,35 +371,6 @@ export default function PosTablesPage() {
     }
   };
 
-  // "Tez satış" — a take-away sale: a new order on its own virtual table, straight to the
-  // order screen. Several can be open at once; they are listed above the tables.
-  const [takeAwayCreating, setTakeAwayCreating] = useState(false);
-
-  const handleCreateTakeAwayOrder = async () => {
-    if (!terminal?.restaurantId) {
-      toast.error("Terminal filiala bağlı deyil.");
-      return;
-    }
-    setTakeAwayCreating(true);
-    try {
-      const waiterId = await getCurrentEmployeeId();
-      if (!waiterId) {
-        toast.error("Bu istifadəçi heç bir işçiyə bağlı deyil. Users səhifəsindən bağlayın.");
-        return;
-      }
-      const order = await createOrder({
-        restaurantId: terminal.restaurantId,
-        waiterId,
-        isTakeAway: true,
-      });
-      router.push(`/pos/order/${order.id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Tez satış yaradıla bilmədi");
-    } finally {
-      setTakeAwayCreating(false);
-    }
-  };
-
   const handleCreateDeliveryOrder = async () => {
     if (!terminal?.restaurantId) return;
     setDeliveryCreating(true);
@@ -434,13 +398,10 @@ export default function PosTablesPage() {
     }
   };
 
+  // Every table is opened with its guest count; it is changed later from inside the order ("Adam sayı").
   const proceedToOpenTable = (table: TableWithOrder) => {
-    if (branding?.askGuestCountOnOpen) {
-      setGuestCountInput("");
-      setGuestCountTable(table);
-      return;
-    }
-    void createOrderForTable(table);
+    setGuestCountInput("");
+    setGuestCountTable(table);
   };
 
   const printBillForTable = async (table: TableWithOrder) => {
@@ -572,31 +533,7 @@ export default function PosTablesPage() {
       return;
     }
     resetMode();
-    if (canRedirectUser) {
-      setMode("waiter-pick");
-      return;
-    }
-    setCodeInput("");
-    setCodeError(null);
-    setCodeDialogOpen(true);
-  };
-
-  const submitSupervisorCode = async () => {
-    const code = codeInput.trim();
-    if (!code) return;
-    setModeBusy(true);
-    setCodeError(null);
-    try {
-      await verifyRedirectCode(code);
-      setSupervisorCode(code);
-      setCodeDialogOpen(false);
-      setCodeInput("");
-      setMode("waiter-pick");
-    } catch (err) {
-      setCodeError(err instanceof Error ? err.message : "Kod yanlışdır");
-    } finally {
-      setModeBusy(false);
-    }
+    setMode("waiter-pick");
   };
 
   const handleWaiterTap = async (table: TableWithOrder) => {
@@ -617,7 +554,7 @@ export default function PosTablesPage() {
     if (!order || modeBusy) return;
     setModeBusy(true);
     try {
-      await reassignOrderWaiter(order.id, employee.id, supervisorCode);
+      await reassignOrderWaiter(order.id, employee.id);
       toast.success("Ofisiant dəyişdirildi");
       resetMode();
       await load();
@@ -668,10 +605,12 @@ export default function PosTablesPage() {
     setReserveTable(table);
   };
 
+  const parsedGuestCount = Math.floor(Number(guestCountInput));
+  const guestCountValid = Number.isFinite(parsedGuestCount) && parsedGuestCount >= 1 && parsedGuestCount <= 999;
+
   const handleConfirmGuestCount = () => {
-    if (!guestCountTable) return;
-    const parsed = Number(guestCountInput);
-    const guestCount = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+    if (!guestCountTable || !guestCountValid) return;
+    const guestCount = parsedGuestCount;
     const table = guestCountTable;
     setGuestCountTable(null);
     void createOrderForTable(table, guestCount);
@@ -684,7 +623,7 @@ export default function PosTablesPage() {
   if (isStoreMode) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        {storeModeBusy ? "Satış ekranı açılır..." : "Satış ekranına yönləndirilir..."}
+        Satış ekranına yönləndirilir...
       </div>
     );
   }
@@ -710,8 +649,40 @@ export default function PosTablesPage() {
     const inSection = regularTables.filter((t) => t.sectionId === sec.id);
     if (inSection.length > 0) regularGroups.push({ key: `s${sec.id}`, title: sec.name, tables: inSection });
   }
+  const cabinetGroup = cabinetTables.length > 0 ? [{ key: "kabinet", title: "Kabinet", tables: cabinetTables }] : [];
 
-  const renderTableTile = (table: TableWithOrder, wide = false) => {
+  // Halls on the right edge: every zone, the cabinets together, and "Hamısı" (the old all-in-one view).
+  const halls = [...regularGroups, ...cabinetGroup].map((g) => ({
+    key: g.key,
+    name: g.title ?? "Ümumi zal",
+    tables: g.tables,
+  }));
+  if (halls.length > 1) halls.unshift({ key: "all", name: "Hamısı", tables: visibleTables });
+  const activeHall = halls.find((h) => h.key === hallKey) ?? halls[0] ?? null;
+
+  // A search looks through every hall the user may see; otherwise the chosen hall is shown.
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase("az");
+  const matchesSearch = (t: TableWithOrder) =>
+    [t.name, t.activeOrder?.orderNumber, t.activeOrder?.waiterName, t.activeOrder?.note]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase("az")
+      .includes(normalizedQuery);
+  const shownGroups: { key: string; title: string | null; tables: TableWithOrder[] }[] = normalizedQuery
+    ? [{ key: "search", title: null, tables: visibleTables.filter(matchesSearch) }]
+    : !activeHall
+      ? []
+      : activeHall.key === "all"
+        ? [...regularGroups, ...cabinetGroup]
+        : [{ key: activeHall.key, title: null, tables: activeHall.tables }];
+
+  const toggleMode = (next: "pay" | "bill" | "move-pick" | "reserve") => {
+    const active = next === "move-pick" ? mode === "move-pick" || mode === "move-target" : mode === next;
+    resetMode();
+    if (!active) setMode(next);
+  };
+
+  const renderTableTile = (table: TableWithOrder) => {
     const occupied = table.activeOrder !== null;
     const status = table.activeOrder?.status ?? null;
     const isCreating = creatingTableId === table.id;
@@ -732,8 +703,7 @@ export default function PosTablesPage() {
         onClick={() => void openTable(table)}
         disabled={!table.isActive || isCreating}
         className={cn(
-          "relative flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1.5 transition-all",
-          wide ? "min-h-24 w-full" : "h-32",
+          "relative flex h-32 flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1.5 transition-all",
           "select-none active:scale-95",
           occupied
             ? "border-transparent text-white shadow-md " + statusBg(status)
@@ -801,173 +771,198 @@ export default function PosTablesPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Masalar</h1>
-        <div className="flex items-center gap-2">
-          {canQuickSale && (
-            <Button size="sm" disabled={takeAwayCreating || modeBusy} onClick={() => void handleCreateTakeAwayOrder()}>
-              <ShoppingBag className="mr-2 h-4 w-4" />
-              {takeAwayCreating ? "Açılır..." : "Tez satış"}
-            </Button>
-          )}
-          {branding?.modulePaket === true && (
-            <Button size="sm" onClick={() => setDeliveryDialogOpen(true)}>
-              Çatdırılma sifarişi
-            </Button>
-          )}
-          {canReserve && (
-            <Button
-              size="sm"
-              variant={mode === "reserve" ? "default" : "outline"}
-              disabled={modeBusy}
-              onClick={() => {
-                const active = mode === "reserve";
-                resetMode();
-                if (!active) setMode("reserve");
-              }}
-            >
-              <CalendarPlus className="mr-2 h-4 w-4" />
-              Rezerv
-            </Button>
-          )}
-          {canMoveTable && (
-            <Button
-              size="sm"
-              variant={mode === "move-pick" || mode === "move-target" ? "default" : "outline"}
-              disabled={modeBusy}
-              onClick={() => {
-                const active = mode === "move-pick" || mode === "move-target";
-                resetMode();
-                if (!active) setMode("move-pick");
-              }}
-            >
-              <ArrowLeftRight className="mr-2 h-4 w-4" />
-              Masa dəyiş
-            </Button>
-          )}
-          {canChangeWaiter && (
-            <Button
-              size="sm"
-              variant={mode === "waiter-pick" ? "default" : "outline"}
-              disabled={modeBusy}
-              onClick={startWaiterChange}
-            >
-              <UserCog className="mr-2 h-4 w-4" />
-              Ofisiant dəyiş
-            </Button>
-          )}
-          {canPrintBill && (
-            <Button
-              size="sm"
-              variant={mode === "bill" ? "default" : "outline"}
-              disabled={modeBusy}
-              onClick={() => {
-                const active = mode === "bill";
-                resetMode();
-                if (!active) setMode("bill");
-              }}
-            >
-              <Receipt className="mr-2 h-4 w-4" />
-              Hesab
-            </Button>
-          )}
-          {canPay && (
-            <Button
-              size="sm"
-              variant={mode === "pay" ? "default" : "outline"}
-              disabled={modeBusy}
-              onClick={() => {
-                const active = mode === "pay";
-                resetMode();
-                if (!active) setMode("pay");
-              }}
-            >
-              <Banknote className="mr-2 h-4 w-4" />
-              Ödəniş
-            </Button>
-          )}
-          {canSeeReports && (
-            <Button variant="outline" size="sm" disabled={modeBusy} onClick={() => router.push("/pos/reports")}>
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Hesabat
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => void load()}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {mode && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
-          <span>
-            {modeBusy
-              ? "Gözləyin..."
-              : mode === "pay"
-                ? "Nağd ödəniləcək masaya toxunun — masa bağlanacaq və çek çıxacaq"
-                : mode === "bill"
-                ? "Hesabını (ön çek) çıxarmaq istədiyiniz masaya toxunun — masa bağlanmır"
-                : mode === "reserve"
-                  ? "Rezerv etmək istədiyiniz masaya toxunun"
-                  : mode === "move-pick"
-                  ? "Köçürmək istədiyiniz masaya toxunun"
-                  : mode === "move-target"
-                    ? `${moveSource?.name ?? "Masa"} hansı boş masaya köçürülsün?`
-                    : "Ofisiantı dəyişəcəyiniz masaya toxunun"}
-          </span>
-          <Button size="sm" variant="ghost" disabled={modeBusy} onClick={resetMode}>
-            Ləğv et
-          </Button>
-        </div>
-      )}
-
-      {/* "Ofisiant dəyiş" — supervisor code */}
-      <Dialog
-        open={codeDialogOpen}
-        onOpenChange={(o) => {
-          if (!o) {
-            setCodeDialogOpen(false);
-            setCodeInput("");
-            setCodeError(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Ofisiant dəyiş</DialogTitle>
-          </DialogHeader>
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submitSupervisorCode();
-            }}
-          >
-            <p className="text-sm text-muted-foreground">
-              Bu əməliyyat üçün icazəsi olan şəxsin kodunu daxil edin.
-            </p>
-            {codeError && <p className="text-sm text-destructive">{codeError}</p>}
-            <Input
-              type="password"
-              inputMode="numeric"
-              autoComplete="off"
-              autoFocus
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, ""))}
-              placeholder="Kod"
-            />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCodeDialogOpen(false)} disabled={modeBusy}>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 gap-3 p-3 sm:gap-4 sm:p-4">
+        {/* Padding keeps the overdue ring of edge tiles from being clipped by the scroll box. */}
+        <div className="-m-1 min-w-0 flex-1 space-y-4 overflow-y-auto p-1">
+          {mode && (
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-xl border-2 border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-medium backdrop-blur">
+              <span>
+                {modeBusy
+                  ? "Gözləyin..."
+                  : mode === "pay"
+                    ? "Nağd ödəniləcək masaya toxunun — masa bağlanacaq və çek çıxacaq"
+                    : mode === "bill"
+                    ? "Hesabını (ön çek) çıxarmaq istədiyiniz masaya toxunun — masa bağlanmır"
+                    : mode === "reserve"
+                      ? "Rezerv etmək istədiyiniz masaya toxunun"
+                      : mode === "move-pick"
+                      ? "Köçürmək istədiyiniz masaya toxunun"
+                      : mode === "move-target"
+                        ? `${moveSource?.name ?? "Masa"} hansı boş masaya köçürülsün?`
+                        : "Ofisiantı dəyişəcəyiniz masaya toxunun"}
+              </span>
+              <Button size="sm" variant="outline" disabled={modeBusy} onClick={resetMode}>
+                <X className="h-4 w-4" />
                 Ləğv et
               </Button>
-              <Button type="submit" disabled={modeBusy || !codeInput.trim()}>
-                {modeBusy ? "Yoxlanılır…" : "Təsdiqlə"}
+            </div>
+          )}
+
+          {branding?.modulePaket === true &&
+            (() => {
+              const deliveryOrders = tables.filter((t) => t.activeOrder?.isDelivery);
+              if (deliveryOrders.length === 0) return null;
+              return (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-muted-foreground">Aktiv çatdırılmalar</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                    {deliveryOrders.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
+                        className="rounded-xl border bg-card p-3 text-left text-sm shadow-sm hover:bg-muted/50"
+                      >
+                        <p className="font-medium">{t.activeOrder!.orderNumber}</p>
+                        {t.activeOrder!.deliveryPhone && (
+                          <p className="text-xs text-muted-foreground">{t.activeOrder!.deliveryPhone}</p>
+                        )}
+                        {t.activeOrder!.deliveryAddress && (
+                          <p className="truncate text-xs text-muted-foreground">{t.activeOrder!.deliveryAddress}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {t.activeOrder!.deliveryDriverName
+                            ? `Kuryer: ${t.activeOrder!.deliveryDriverName}`
+                            : "Kuryer təyin edilməyib"}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+          {error && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          {tables.length === 0 && !error && (
+            <p className="text-sm text-muted-foreground">Bu filial üçün masa tapılmadı.</p>
+          )}
+
+          {normalizedQuery && (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-muted-foreground">
+                “{searchQuery.trim()}” üzrə {shownGroups[0]?.tables.length ?? 0} masa
+              </p>
+              <Button size="sm" variant="ghost" onClick={() => setSearchQuery("")}>
+                <X className="h-4 w-4" />
+                Axtarışı təmizlə
               </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </div>
+          )}
+          {normalizedQuery && shownGroups[0]?.tables.length === 0 && (
+            <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+              <SearchX className="h-10 w-10" />
+              <p className="text-sm">Axtarışa uyğun masa tapılmadı.</p>
+            </div>
+          )}
+
+          {shownGroups
+            .filter((group) => group.tables.length > 0)
+            .map((group) => (
+              <div key={group.key}>
+                {group.title && (
+                  <p lang="az" className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.title}
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+                  {group.tables.map((table) => renderTableTile(table))}
+                </div>
+              </div>
+            ))}
+        </div>
+
+        {/* Halls on the right edge */}
+        <aside className="flex w-28 shrink-0 flex-col gap-2 overflow-y-auto sm:w-40 lg:w-44">
+          {halls.map((hall) => {
+            const selected = !normalizedQuery && hall.key === activeHall?.key;
+            const busy = hall.tables.filter((t) => t.activeOrder !== null).length;
+            return (
+              <button
+                key={hall.key}
+                type="button"
+                onClick={() => selectHall(hall.key)}
+                className={cn(
+                  "flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl border-2 px-2 py-2 text-center shadow-sm transition-all active:scale-95",
+                  selected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-card-foreground hover:border-primary/40",
+                )}
+              >
+                {/* lang="az" so upper case keeps the dotted İ (KABİNET). */}
+                <span lang="az" className="line-clamp-2 text-sm font-bold uppercase leading-tight tracking-wide sm:text-base">
+                  {hall.name}
+                </span>
+                <span className={cn("text-xs", selected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                  {busy} / {hall.tables.length} dolu
+                </span>
+              </button>
+            );
+          })}
+          <Button variant="outline" className="mt-auto h-11 shrink-0" onClick={() => void load()}>
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Yenilə</span>
+          </Button>
+        </aside>
+      </div>
+
+      {/* Action bar */}
+      <footer className="flex shrink-0 flex-wrap gap-2 border-t bg-background/95 p-2 backdrop-blur sm:p-3">
+        {canSeeReports && (
+          <ActionButton icon={BarChart3} label="Hesabat" disabled={modeBusy} onClick={() => router.push("/pos/reports")} />
+        )}
+        {canPay && (
+          <ActionButton icon={Banknote} label="Ödəniş" active={mode === "pay"} disabled={modeBusy} onClick={() => toggleMode("pay")} />
+        )}
+        {canPrintBill && (
+          <ActionButton icon={Receipt} label="Hesab" active={mode === "bill"} disabled={modeBusy} onClick={() => toggleMode("bill")} />
+        )}
+        {canReserve && (
+          <ActionButton
+            icon={CalendarPlus}
+            label="Rezerv"
+            active={mode === "reserve"}
+            disabled={modeBusy}
+            onClick={() => toggleMode("reserve")}
+          />
+        )}
+        {canMoveTable && (
+          <ActionButton
+            icon={ArrowLeftRight}
+            label="Masa dəyiş"
+            active={mode === "move-pick" || mode === "move-target"}
+            disabled={modeBusy}
+            onClick={() => toggleMode("move-pick")}
+          />
+        )}
+        {canChangeWaiter && (
+          <ActionButton
+            icon={UserCog}
+            label="Ofisiant dəyiş"
+            active={mode === "waiter-pick"}
+            disabled={modeBusy}
+            onClick={startWaiterChange}
+          />
+        )}
+        {canQuickSale && (
+          <ActionButton
+            icon={ShoppingBag}
+            label="Tez satış"
+            disabled={modeBusy}
+            // "Tez satış" has its own screen: the cart is built there and sent with the payment in one request.
+            onClick={() => router.push("/pos/quick-sale")}
+          />
+        )}
+        {branding?.modulePaket === true && (
+          <ActionButton icon={Truck} label="Çatdırılma" onClick={() => setDeliveryDialogOpen(true)} />
+        )}
+        <ActionButton icon={LogOut} label="Çıxış" tone="danger" onClick={handleLogout} />
+      </footer>
 
       {/* "Ofisiant dəyiş" — pick the new waiter */}
       <Dialog open={waiterTable !== null} onOpenChange={(o) => !o && setWaiterTable(null)}>
@@ -994,127 +989,58 @@ export default function PosTablesPage() {
         </DialogContent>
       </Dialog>
 
-      {(() => {
-        const takeAwayOrders = tables.filter(
-          (t) => t.type === RestaurantTableType.TakeAway && t.activeOrder && isActiveStatus(t.activeOrder.status),
-        );
-        if (takeAwayOrders.length === 0) return null;
-        return (
-          <div className="mb-4 space-y-2">
-            <p className="text-sm font-semibold text-muted-foreground">Aktiv tez satışlar</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-              {takeAwayOrders.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  disabled={mode !== null}
-                  onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
-                  className="rounded-md border bg-card p-3 text-left text-sm hover:bg-muted/50 disabled:opacity-50"
-                >
-                  <p className="font-medium">{t.activeOrder!.orderNumber}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t.activeOrder!.lines.length} məhsul · {t.activeOrder!.totalAmount.toFixed(2)} ₼
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
-      {branding?.modulePaket === true &&
-        (() => {
-          const deliveryOrders = tables.filter((t) => t.activeOrder?.isDelivery);
-          if (deliveryOrders.length === 0) return null;
-          return (
-            <div className="mb-4 space-y-2">
-              <p className="text-sm font-semibold text-muted-foreground">Aktiv çatdırılmalar</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
-                {deliveryOrders.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => router.push(`/pos/order/${t.activeOrder!.id}`)}
-                    className="rounded-md border bg-card p-3 text-left text-sm hover:bg-muted/50"
-                  >
-                    <p className="font-medium">{t.activeOrder!.orderNumber}</p>
-                    {t.activeOrder!.deliveryPhone && (
-                      <p className="text-xs text-muted-foreground">{t.activeOrder!.deliveryPhone}</p>
-                    )}
-                    {t.activeOrder!.deliveryAddress && (
-                      <p className="truncate text-xs text-muted-foreground">{t.activeOrder!.deliveryAddress}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {t.activeOrder!.deliveryDriverName
-                        ? `Kuryer: ${t.activeOrder!.deliveryDriverName}`
-                        : "Kuryer təyin edilməyib"}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-
-      {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      {/* Regular tables on the left (grouped by zone); every cabinet / hall on the right edge, one under another. */}
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1 space-y-4">
-          {tables.length === 0 && !error && (
-            <p className="text-sm text-muted-foreground">Bu filial üçün masa tapılmadı.</p>
-          )}
-          {regularGroups.map((group) => (
-            <div key={group.key}>
-              {group.title && (
-                <p className="mb-2 text-sm font-semibold text-muted-foreground">{group.title}</p>
-              )}
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
-                {group.tables.map((table) => renderTableTile(table))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {cabinetTables.length > 0 && (
-          <aside className="sticky top-4 flex w-32 shrink-0 flex-col gap-2 sm:w-44">
-            <p className="text-sm font-semibold text-muted-foreground">Kabinet və zallar</p>
-            {cabinetTables.map((table) => renderTableTile(table, true))}
-          </aside>
-        )}
-      </div>
-
       <Dialog open={guestCountTable !== null} onOpenChange={(open) => !open && setGuestCountTable(null)}>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent
+          className="outline-none sm:max-w-sm"
+          // No input to focus (it would show a blinking caret): focus the dialog itself so a physical keyboard still works.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            (e.currentTarget as HTMLElement | null)?.focus();
+          }}
+          onKeyDown={(e) => {
+            if (/^\d$/.test(e.key)) {
+              e.preventDefault();
+              setGuestCountInput((v) => (v === "0" ? e.key : v + e.key).slice(0, 3));
+            } else if (e.key === "Backspace") {
+              e.preventDefault();
+              setGuestCountInput((v) => v.slice(0, -1));
+            } else if (e.key === "Enter" && !(e.target as HTMLElement).closest('[data-slot="dialog-footer"]')) {
+              // Enter confirms, also right after a numpad tap (instead of pressing that digit again).
+              e.preventDefault();
+              handleConfirmGuestCount();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Neçə nəfərsiniz?</DialogTitle>
+            <DialogDescription>{guestCountTable?.name} — masanı açmaq üçün adam sayını seçin.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="guest-count-input">Qonaq sayı</Label>
-            <Input
-              id="guest-count-input"
-              type="number"
-              min={1}
-              autoFocus
-              value={guestCountInput}
-              onChange={(e) => setGuestCountInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleConfirmGuestCount();
-              }}
-            />
-            {branding?.touchScreenMode === true && (
-              <TouchNumpad value={guestCountInput} onChange={setGuestCountInput} />
-            )}
+          <div className="space-y-3">
+            {/* POS screens have no keyboard: the count is entered through the on-screen numpad. */}
+            <div className="space-y-1.5">
+              <Label>Adam sayı</Label>
+              <div
+                aria-live="polite"
+                className={cn(
+                  "flex h-12 items-center justify-center rounded-md border bg-muted/40 text-2xl font-bold select-none",
+                  !guestCountInput && "text-muted-foreground",
+                )}
+              >
+                {guestCountInput || "0"}
+              </div>
+              <TouchNumpad
+                value={guestCountInput}
+                onChange={(v) => setGuestCountInput(v.replace(/\D/g, "").slice(0, 3))}
+              />
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setGuestCountTable(null)}>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" size="lg" className="h-12 flex-1" onClick={() => setGuestCountTable(null)}>
               Ləğv et
             </Button>
-            <Button onClick={handleConfirmGuestCount}>Təsdiqlə</Button>
+            <Button size="lg" className="h-12 flex-1 text-base" onClick={handleConfirmGuestCount} disabled={!guestCountValid}>
+              Masanı aç
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1179,5 +1105,42 @@ export default function PosTablesPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ActionButton({
+  icon: Icon,
+  label,
+  active = false,
+  tone = "default",
+  disabled,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  active?: boolean;
+  tone?: "default" | "danger";
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex h-16 min-w-[7.5rem] flex-1 select-none flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 text-sm font-semibold shadow-sm transition-all active:scale-95",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+        active
+          ? "border-primary bg-primary text-primary-foreground shadow-md"
+          : tone === "danger"
+            ? "border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10"
+            : "border-border bg-card text-card-foreground hover:border-primary/40 hover:bg-muted/50",
+      )}
+    >
+      <Icon className="h-5 w-5" />
+      <span className="leading-none">{label}</span>
+    </button>
   );
 }

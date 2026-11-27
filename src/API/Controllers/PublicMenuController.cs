@@ -18,9 +18,9 @@ public class PublicMenuController : ControllerBase
     }
 
     [HttpGet("{restaurantId}")]
-    public async Task<IActionResult> Get(int restaurantId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Get(int restaurantId, [FromQuery(Name = "t")] string? table, CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GetPublicMenuQuery(restaurantId), cancellationToken);
+        var result = await _mediator.Send(new GetPublicMenuQuery(restaurantId, table), cancellationToken);
         if (result is null)
             return NotFound();
 

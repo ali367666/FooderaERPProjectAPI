@@ -16,6 +16,12 @@ public class ReservationResponse
     public int DurationMinutes { get; set; }
     public string Status { get; set; } = default!;
     public string? Note { get; set; }
+    public bool IsBanquet { get; set; }
+
+    /// <summary>The banquet hall the booking holds (taken from its tables); null for ordinary reservations.</summary>
+    public int? BanquetHallId { get; set; }
+    public string? BanquetHallName { get; set; }
+    public List<Application.Banquets.Dtos.BanquetTableRef> BanquetTables { get; set; } = new();
     public DateTime? ConfirmedAt { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }

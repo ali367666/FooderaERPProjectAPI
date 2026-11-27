@@ -24,6 +24,32 @@ public class CompanySettings : CompanyEntity<int>
     /// </summary>
     public bool ModuleKompleks { get; set; }
 
+    /// <summary>
+    /// Set by the platform SuperAdmin. When false the company does not use departments: the Departments page is hidden, departments
+    /// cannot be created or changed, and positions / employees are created without choosing one (they get the company's default
+    /// department behind the scenes). Existing departments and employees are left untouched, so switching it back on loses nothing.
+    /// </summary>
+    public bool ModuleDepartment { get; set; } = true;
+
+    /// <summary>
+    /// Set by the platform SuperAdmin only. When true the company's store sales can no longer be changed after the fact
+    /// (a sale cannot be cancelled); returns still work.
+    /// </summary>
+    public bool SalesEditLocked { get; set; }
+
+    /// <summary>
+    /// Set by the platform SuperAdmin only. When true (default) an order sent to the kitchen waits for the kitchen to accept it
+    /// and mark it ready before it can be paid. When false the order only goes to the kitchen: no acceptance or "ready" status
+    /// is needed and the waiter may take the payment whenever they want.
+    /// </summary>
+    public bool KitchenApprovalRequired { get; set; } = true;
+
+    /// <summary>
+    /// Set by the platform SuperAdmin only. How the store's warehouse goods are costed: weighted average (default), FIFO or LIFO.
+    /// With FIFO / LIFO every delivery is kept as a cost layer and a sale takes its cost from the layers it uses up.
+    /// </summary>
+    public Domain.Enums.StoreCostMethod StoreCostMethod { get; set; } = Domain.Enums.StoreCostMethod.Average;
+
     public bool IntegrationWolt { get; set; }
     public bool IntegrationBolt { get; set; }
     public bool Integration189Delivery { get; set; }
@@ -159,18 +185,6 @@ public class CompanySettings : CompanyEntity<int>
 
     /// <summary>Masa paneli — rezerv olunmuş masanı açarkən xəbərdarlıq.</summary>
     public bool TableReservationWarning { get; set; } = true;
-
-    /// <summary>
-    /// A reserved table takes no new order from this many minutes before the reservation (0 = off). The
-    /// admin picks one of <see cref="Domain.Constants.ReservationRules.BlockMinuteOptions"/>.
-    /// </summary>
-    public int ReservationBlockMinutes { get; set; }
-
-    /// <summary>
-    /// A reservation whose guest has not come within this many minutes of its time is cancelled
-    /// automatically (0 = off). One of <see cref="Domain.Constants.ReservationRules.AutoCancelMinuteOptions"/>.
-    /// </summary>
-    public int ReservationAutoCancelMinutes { get; set; }
 
     /// <summary>Masa və paket qiymətləri dəzgah qiymətindən götürülsün.</summary>
     public bool TablePricesFromStation { get; set; } = true;

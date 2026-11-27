@@ -29,6 +29,7 @@ import {
   getOrderById,
   getOrderReceipt,
   getOrderStatusValue,
+  getPaymentBanks,
   isOrderPaid,
   payOrder,
   removeDiscountFromOrder,
@@ -39,10 +40,12 @@ import {
   type OrderDto,
   type OrderLineDto,
   type OrderReceiptDto,
+  type PaymentBank,
   type PaymentMethod,
 } from "@/lib/services/order-service";
 import { Tag, X as XIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/format-currency";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 type Variant = "create" | "edit";
 
@@ -62,6 +65,8 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Cash");
+  const [bankId, setBankId] = useState<number | null>(null);
+  const [banks, setBanks] = useState<PaymentBank[]>([]);
   const [paidAmount, setPaidAmount] = useState("0");
   const [receipt, setReceipt] = useState<OrderReceiptDto | null>(null);
 
@@ -335,9 +340,14 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
         toast.error("Please enter a valid paid amount.");
         return;
       }
+      if (paymentMethod === "Card" && bankId == null) {
+        toast.error("Bankı seçin.");
+        return;
+      }
       const updated = await payOrder(order.id, {
         paymentMethod,
         paidAmount: paid,
+        bankId: paymentMethod === "Card" ? bankId : null,
       });
       if (updated) setOrder(updated);
       setPaymentModalOpen(false);
@@ -347,7 +357,7 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
     } catch (e) {
       toast.error(toApiFormError(e, "Failed to process payment").message);
     }
-  }, [order, paidAmount, paymentMethod]);
+  }, [order, paidAmount, paymentMethod, bankId]);
 
   const markServed = useCallback(async () => {
     if (!order) return;
@@ -403,6 +413,8 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
                 if (isPaid) return;
                 setPaidAmount(String(order.totalAmount));
                 setPaymentMethod("Cash");
+                setBankId(null);
+                getPaymentBanks().then(setBanks).catch(() => setBanks([]));
                 setPaymentModalOpen(true);
               }}
             >
@@ -427,10 +439,12 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
           <CardTitle>Master</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
+          <SuperAdminOnly>
           <div>
             <label className="mb-1 block text-sm">Company</label>
             <Input value={order?.companyId ?? ""} readOnly />
           </div>
+          </SuperAdminOnly>
           <div>
             <label className="mb-1 block text-sm">Branch</label>
             <select
@@ -659,6 +673,23 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
                 <option value="Card">Card</option>
               </select>
             </div>
+            {paymentMethod === "Card" && (
+              <div>
+                <label className="mb-1 block text-sm">Bank</label>
+                <select
+                  className="h-10 w-full rounded-md border px-3"
+                  value={bankId ?? ""}
+                  onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Bankı seçin</option>
+                  {banks.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-sm">Total Amount</label>
               <Input value={formatCurrency(order?.totalAmount)} readOnly />

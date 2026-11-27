@@ -7,6 +7,52 @@ public static class AppPermissions
     public const string CompanyUpdate = "Company.Update";
     public const string CompanyDelete = "Company.Delete";
 
+    public const string StoreProductView = "StoreProduct.View";
+    public const string StoreProductManage = "StoreProduct.Manage";
+    public const string StoreStockView = "StoreStock.View";
+    public const string StoreStockAdjust = "StoreStock.Adjust";
+    public const string StoreSaleView = "StoreSale.View";
+    public const string StoreSaleCreate = "StoreSale.Create";
+    public const string StoreSaleCancel = "StoreSale.Cancel";
+    public const string StoreSaleDiscount = "StoreSale.Discount";
+    public const string StoreSaleChangePrice = "StoreSale.ChangePrice";
+    public const string StoreSaleReturn = "StoreSale.Return";
+    public const string StoreSaleApprove = "StoreSale.Approve";
+    public const string StoreCashOpen = "StoreCash.Open";
+    public const string StoreCashClose = "StoreCash.Close";
+    public const string StoreCashReopen = "StoreCash.Reopen";
+    public const string StoreCashMovement = "StoreCash.Movement";
+    public const string StoreCashMovementIn = "StoreCash.MovementIn";
+    public const string StoreCashMovementOut = "StoreCash.MovementOut";
+    public const string StoreRegisterManage = "StoreRegister.Manage";
+    public const string StoreReportView = "StoreReport.View";
+    public const string StoreReportFinance = "StoreReport.Finance";
+    public const string StoreSettingsManage = "StoreSettings.Manage";
+    public const string StoreSupplierView = "StoreSupplier.View";
+    public const string StoreSupplierManage = "StoreSupplier.Manage";
+    public const string StorePurchaseView = "StorePurchase.View";
+    public const string StorePurchaseManage = "StorePurchase.Manage";
+    public const string StorePurchaseConfirm = "StorePurchase.Confirm";
+    public const string StorePurchaseReturn = "StorePurchase.Return";
+    public const string StoreSupplierPay = "StoreSupplier.Pay";
+    public const string StoreInventoryView = "StoreInventory.View";
+    public const string StoreInventoryManage = "StoreInventory.Manage";
+    public const string StoreInventoryConfirm = "StoreInventory.Confirm";
+    public const string StoreTransferView = "StoreTransfer.View";
+    public const string StoreTransferManage = "StoreTransfer.Manage";
+    public const string StoreTransferShip = "StoreTransfer.Ship";
+    public const string StoreTransferReceive = "StoreTransfer.Receive";
+    public const string StoreCustomerView = "StoreCustomer.View";
+    public const string StoreCustomerManage = "StoreCustomer.Manage";
+    public const string StoreCustomerPay = "StoreCustomer.Pay";
+    public const string StoreBonusAdjust = "StoreBonus.Adjust";
+    public const string StoreSaleDebt = "StoreSale.Debt";
+    public const string StoreSaleNoReceipt = "StoreSale.NoReceipt";
+    public const string StoreSaleRemoveLine = "StoreSale.RemoveLine";
+
+    public const string CompanyDepositView = "CompanyDeposit.View";
+    public const string CompanyDepositCreate = "CompanyDeposit.Create";
+
     public const string CompanySettingsView = "CompanySettings.View";
     public const string CompanySettingsUpdate = "CompanySettings.Update";
 
@@ -109,6 +155,12 @@ public static class AppPermissions
     public const string StockPurchaseSubmit = "StockPurchase.Submit";
     public const string StockPurchaseApprove = "StockPurchase.Approve";
     public const string StockPurchaseReject = "StockPurchase.Reject";
+    public const string StockPurchaseCancel = "StockPurchase.Cancel";
+    public const string StockPurchasePay = "StockPurchase.Pay";
+    public const string StockPurchaseReturn = "StockPurchase.Return";
+
+    public const string StockWriteOffView = "StockWriteOff.View";
+    public const string StockWriteOffCreate = "StockWriteOff.Create";
 
     public const string ReservationView = "Reservation.View";
     public const string ReservationCreate = "Reservation.Create";
@@ -126,7 +178,10 @@ public static class AppPermissions
     public const string PosMoveTable = "Pos.MoveTable";
     public const string PosDeleteOrder = "Pos.DeleteOrder";
     public const string PosAccessSettings = "Pos.AccessSettings";
+    /// <summary>Type a sale price for a line in the POS. Alone it can only raise the price; lowering needs <see cref="PosLowerPrice"/>.</summary>
     public const string PosChangePrice = "Pos.ChangePrice";
+    /// <summary>Set a line's price below the product's price (raising needs only <see cref="PosChangePrice"/>).</summary>
+    public const string PosLowerPrice = "Pos.LowerPrice";
     public const string PosZReport = "Pos.ZReport";
     public const string PosPrintReceipt = "Pos.PrintReceipt";
     public const string PosOverridePrice = "Pos.OverridePrice";
@@ -139,6 +194,11 @@ public static class AppPermissions
     public const string PosDeleteReceipt = "Pos.DeleteReceipt";
     public const string PosWarehouseAmountChange = "Pos.WarehouseAmountChange";
     public const string PosPrintOldReceipt = "Pos.PrintOldReceipt";
+
+    // Old (paid) receipts: none of them = cannot look; View = can look; the edit ones also let the receipt be corrected.
+    public const string ReceiptView = "Receipt.View";
+    public const string ReceiptEditPayment = "Receipt.EditPayment";
+    public const string ReceiptEditItems = "Receipt.EditItems";
     public const string PosReturnSale = "Pos.ReturnSale";
     public const string PosUnlockBill = "Pos.UnlockBill";
 
@@ -180,4 +240,9 @@ public static class AppPermissions
 
     public const string CashRegisterView = "CashRegister.View";
     public const string CashRegisterManage = "CashRegister.Manage";
+
+    public const string ReportsView = "Reports.View";
+
+    public const string FinanceView = "Finance.View";
+    public const string FinanceManage = "Finance.Manage";
 }

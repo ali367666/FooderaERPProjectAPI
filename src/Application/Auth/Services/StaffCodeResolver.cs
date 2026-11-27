@@ -25,18 +25,8 @@ public sealed class StaffCodeResolver : IStaffCodeResolver
     public async Task<Domain.Entities.User?> ResolveAsync(
         int companyId, string submittedCode, CancellationToken cancellationToken)
     {
-        // Fixed code: the submitted value is the staff code itself. Rotating-PIN roles submit
-        // ddMM + code, so the code is whatever follows the 4-char date prefix.
+        // The submitted value is the staff code itself — no date prefix, the code never changes by itself.
         var user = await _userRepository.GetByCompanyAndCodeAsync(companyId, submittedCode, cancellationToken);
-        if (user is not null && await _userRepository.HasRotatingPinRoleAsync(user.Id, cancellationToken))
-            user = null;
-
-        if (user is null && submittedCode.Length > 4 && submittedCode[..4] == BusinessTime.Now.ToString("ddMM"))
-        {
-            var candidate = await _userRepository.GetByCompanyAndCodeAsync(companyId, submittedCode[4..], cancellationToken);
-            if (candidate is not null && await _userRepository.HasRotatingPinRoleAsync(candidate.Id, cancellationToken))
-                user = candidate;
-        }
 
         if (user is null)
         {

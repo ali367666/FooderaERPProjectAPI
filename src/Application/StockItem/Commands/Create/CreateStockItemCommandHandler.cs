@@ -19,6 +19,7 @@ public class CreateStockItemCommandHandler
     private readonly IAuditLogService _auditLogService;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateStockItemCommandHandler> _logger;
+    private readonly IBarcodeCatalog _barcodeCatalog;
 
     public CreateStockItemCommandHandler(
         IStockItemRepository stockItemRepository,
@@ -27,8 +28,10 @@ public class CreateStockItemCommandHandler
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
         IMapper mapper,
-        ILogger<CreateStockItemCommandHandler> logger)
+        ILogger<CreateStockItemCommandHandler> logger,
+        IBarcodeCatalog barcodeCatalog)
     {
+        _barcodeCatalog = barcodeCatalog;
         _stockItemRepository = stockItemRepository;
         _stockCategoryRepository = stockCategoryRepository;
         _restaurantRepository = restaurantRepository;
@@ -101,6 +104,19 @@ public class CreateStockItemCommandHandler
 
         await _stockItemRepository.AddAsync(stockItem, cancellationToken);
         await _stockItemRepository.SaveChangesAsync(cancellationToken);
+
+        // The first company to enter a barcode by hand teaches it to the others (name, type, unit only).
+        if (!string.IsNullOrWhiteSpace(stockItem.Barcode))
+        {
+            try
+            {
+                await _barcodeCatalog.RememberAsync(stockItem.Barcode, stockItem.Name, (int)stockItem.Type, (int)stockItem.Unit, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Barcode catalog entry skipped for {Barcode}", stockItem.Barcode);
+            }
+        }
 
         try
         {

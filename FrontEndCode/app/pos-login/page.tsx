@@ -14,22 +14,47 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ChefHat, CreditCard, Delete, Monitor, RotateCw, Store } from "lucide-react";
+import {
+  ArrowLeftRight,
+  CalendarDays,
+  ChefHat,
+  Clock3,
+  CreditCard,
+  Delete,
+  Keyboard,
+  Headset,
+  LogIn,
+  MapPin,
+  Maximize,
+  Minimize,
+  Monitor,
+  Power,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  Store,
+  Tag,
+  Zap,
+} from "lucide-react";
+import { format } from "date-fns";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { persistAuthUser } from "@/lib/auth-client";
+import { markPosSession, persistAuthUser } from "@/lib/auth-client";
 import {
   clearPosTerminalContext,
   getPosTerminalContext,
   savePosTerminalContext,
   type PosTerminalContext,
+  type PosTerminalMode,
 } from "@/lib/pos-terminal-client";
 import {
   lookupCompanyByCode,
@@ -44,6 +69,42 @@ import {
 } from "@/lib/services/company-settings-service";
 
 const MAX_CODE_LENGTH = 24;
+// Shown on the login screen's "Servis xidməti" tile.
+const SERVICE_PHONE = "+994 55 200 08 97";
+// The PIN field shows one dot per digit up to this many, then a "+n" counter.
+const MAX_VISIBLE_DOTS = 12;
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? null;
+
+function useNow(intervalMs = 1000) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+function useFullscreen() {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const sync = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const toggle = () => {
+    // Some browsers (iPad Safari) have no Fullscreen API at all — report it instead of throwing.
+    const action = document.fullscreenElement
+      ? document.exitFullscreen?.()
+      : document.documentElement.requestFullscreen?.();
+    if (!action) {
+      toast.error("Bu brauzer tam ekran rejimini dəstəkləmir");
+      return;
+    }
+    action.catch(() => toast.error("Tam ekran rejimi dəyişdirilə bilmədi"));
+  };
+  return { isFullscreen, toggle };
+}
 
 // Hard restart for a frozen terminal: drop service-worker/HTTP caches, then reload the page.
 // Terminal context and auth live in localStorage, so the terminal stays configured.
@@ -99,7 +160,7 @@ export default function PosLoginPage() {
     branding?.transparencyLevel != null ? Math.min(Math.max(branding.transparencyLevel, 0), 100) / 100 : 1;
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center gap-8 bg-muted/30 p-4 lg:gap-16 lg:px-12">
+    <div className="relative min-h-dvh overflow-hidden bg-[#0b3d2e] bg-[radial-gradient(ellipse_at_top_left,#16573f_0%,#0b3d2e_45%,#06261c_100%)]">
       <Toaster richColors closeButton position="top-center" />
       {branding?.wallpaperUrl && (
         <div
@@ -108,47 +169,31 @@ export default function PosLoginPage() {
           aria-hidden
         />
       )}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="absolute right-4 top-4 z-20 gap-2"
-        onClick={() => void restartTerminal()}
-      >
-        <RotateCw className="h-4 w-4" />
-        Yenidən başlat
-      </Button>
-      {terminal && branding?.loginLogoUrl && (
-        <div className="relative z-10 hidden flex-1 items-center justify-center lg:flex">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={branding.loginLogoUrl}
-            alt={terminal.companyName}
-            className="max-h-[70vh] w-full max-w-xl object-contain"
-          />
-        </div>
-      )}
-      <div className="relative z-10 w-full max-w-md lg:shrink-0">
-        {terminal ? (
-          <PosLoginView
-            terminal={terminal}
-            logoUrl={branding?.loginLogoUrl ?? null}
-            location={branding?.loginLocation ?? null}
-            onChangeTerminal={() => {
-              clearPosTerminalContext();
-              setTerminal(null);
-            }}
-            onSuccess={() => router.replace("/pos")}
-          />
-        ) : (
+      {terminal ? (
+        <PosLoginView
+          terminal={terminal}
+          logoUrl={branding?.loginLogoUrl ?? null}
+          location={branding?.loginLocation ?? null}
+          licenseDaysLeft={branding?.licenseDaysLeft ?? null}
+          onChangeTerminal={() => {
+            clearPosTerminalContext();
+            setTerminal(null);
+          }}
+          onSuccess={() => {
+            markPosSession();
+            router.replace("/pos");
+          }}
+        />
+      ) : (
+        <div className="relative z-10 flex min-h-dvh items-center justify-center p-4">
           <TerminalSetupView
             onDone={(ctx) => {
               savePosTerminalContext(ctx);
               setTerminal(ctx);
             }}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -170,6 +215,9 @@ function TerminalSetupView({
   // Set once a branch is chosen and the admin registered workstations for it: the operator still has
   // to pick which monitor this is.
   const [pendingRestaurant, setPendingRestaurant] = useState<RestaurantLookupItem | null | undefined>(undefined);
+  // The POS this terminal will open; asked right after the business is found.
+  const [mode, setMode] = useState<PosTerminalMode | null>(null);
+  const [companyIsStore, setCompanyIsStore] = useState(false);
 
   const handleLookup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -180,22 +228,11 @@ function TerminalSetupView({
     setIsLoading(true);
     try {
       const result = await lookupCompanyByCode(trimmed);
+      // The business's own mode is only a suggestion on the next step.
+      const branding = await getCompanySettingsBranding(result.companyId).catch(() => null);
+      setCompanyIsStore(branding?.moduleDataSecimi === true);
+      setMode(null);
       setLookup(result);
-      if (result.restaurants.length === 0) {
-        if (result.workstations.length === 0) {
-          onDone({
-            companyId: result.companyId,
-            companyCode: trimmed,
-            companyName: result.companyName,
-            restaurantId: null,
-            restaurantName: null,
-            workstationId: null,
-            workstationName: null,
-          });
-        } else {
-          setPendingRestaurant(null);
-        }
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Company was not found");
     } finally {
@@ -206,9 +243,32 @@ function TerminalSetupView({
   const workstationsFor = (restaurant: RestaurantLookupItem | null) =>
     (lookup?.workstations ?? []).filter((t) => t.restaurantId === null || t.restaurantId === restaurant?.id);
 
+  // After the mode is picked the rest of the setup goes on as before (branch, then monitor name).
+  const chooseMode = (picked: PosTerminalMode) => {
+    if (!lookup) return;
+    setMode(picked);
+    if (lookup.restaurants.length === 0) {
+      if (lookup.workstations.length === 0) {
+        onDone({
+          mode: picked,
+          companyId: lookup.companyId,
+          companyCode: companyCode.trim(),
+          companyName: lookup.companyName,
+          restaurantId: null,
+          restaurantName: null,
+          workstationId: null,
+          workstationName: null,
+        });
+      } else {
+        setPendingRestaurant(null);
+      }
+    }
+  };
+
   const finishSetup = (restaurant: RestaurantLookupItem | null, workstation: WorkstationLookupItem | null) => {
     if (!lookup) return;
     onDone({
+      mode: mode ?? undefined,
       companyId: lookup.companyId,
       companyCode: companyCode.trim(),
       companyName: lookup.companyName,
@@ -237,9 +297,11 @@ function TerminalSetupView({
         <CardDescription>
           {pendingRestaurant !== undefined
             ? "Bu monitorun adını seçin"
-            : lookup
-            ? "Bu terminalın işləyəcəyi filialı seçin"
-            : "Bu terminalın aid olduğu biznesin kodunu daxil edin"}
+            : lookup && mode === null
+              ? "Bu terminal hansı rejimdə işləyəcək?"
+              : lookup
+                ? "Bu terminalın işləyəcəyi filialı seçin"
+                : "Bu terminalın aid olduğu biznesin kodunu daxil edin"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -265,6 +327,43 @@ function TerminalSetupView({
               {isLoading ? "Axtarılır..." : "Davam et"}
             </Button>
           </form>
+        ) : mode === null ? (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-foreground">{lookup.companyName}</p>
+            <div className="grid gap-2">
+              {(
+                [
+                  { value: "restaurant", label: "Restoran POS", hint: "Masalar, sifarişlər, mətbəx" },
+                  { value: "store", label: "Mağaza POS", hint: "Barkodla satış, stok, müştəri və bonus" },
+                ] as { value: PosTerminalMode; label: string; hint: string }[]
+              ).map((opt) => (
+                <Button
+                  key={opt.value}
+                  type="button"
+                  variant={(companyIsStore ? "store" : "restaurant") === opt.value ? "default" : "outline"}
+                  className="h-auto justify-start py-3 text-left"
+                  onClick={() => chooseMode(opt.value)}
+                >
+                  <span>
+                    <span className="block text-base font-semibold">{opt.label}</span>
+                    <span className="block text-xs font-normal opacity-80">{opt.hint}</span>
+                  </span>
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">Biznesin rejimi: {companyIsStore ? "Mağaza" : "Restoran"} (təklif olunur).</p>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={() => {
+                setLookup(null);
+                setError(null);
+              }}
+            >
+              Geri
+            </Button>
+          </div>
         ) : pendingRestaurant !== undefined ? (
           <div className="space-y-3">
             <p className="text-sm font-medium text-foreground">
@@ -290,9 +389,7 @@ function TerminalSetupView({
               variant="ghost"
               className="w-full text-muted-foreground"
               onClick={() => {
-                if (lookup.restaurants.length === 0) {
-                  setLookup(null);
-                }
+                setMode(null);
                 setPendingRestaurant(undefined);
                 setError(null);
               }}
@@ -330,7 +427,7 @@ function TerminalSetupView({
               variant="ghost"
               className="w-full text-muted-foreground"
               onClick={() => {
-                setLookup(null);
+                setMode(null);
                 setError(null);
               }}
             >
@@ -347,12 +444,14 @@ function PosLoginView({
   terminal,
   logoUrl,
   location,
+  licenseDaysLeft,
   onChangeTerminal,
   onSuccess,
 }: {
   terminal: PosTerminalContext;
   logoUrl: string | null;
   location: string | null;
+  licenseDaysLeft: number | null;
   onChangeTerminal: () => void;
   onSuccess: () => void;
 }) {
@@ -361,6 +460,12 @@ function PosLoginView({
   const [error, setError] = useState<string | null>(null);
   const rfidBufferRef = useRef("");
   const rfidInputRef = useRef<HTMLInputElement | null>(null);
+  const now = useNow();
+  const fullscreen = useFullscreen();
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
 
   // Once a workstation is chosen the terminal is locked to it: moving the terminal to another
   // monitor identity needs an admin (otherwise problems could never be traced to a screen).
@@ -370,8 +475,9 @@ function PosLoginView({
   const [unlockPassword, setUnlockPassword] = useState("");
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlockChecking, setUnlockChecking] = useState(false);
-  const unlockOpenRef = useRef(false);
-  unlockOpenRef.current = unlockOpen;
+  // While any dialog is open the RFID input must not steal focus from it.
+  const dialogOpenRef = useRef(false);
+  dialogOpenRef.current = unlockOpen || settingsOpen || exitOpen;
 
   const closeUnlock = () => {
     setUnlockOpen(false);
@@ -381,6 +487,7 @@ function PosLoginView({
   };
 
   const handleChangeTerminal = () => {
+    setSettingsOpen(false);
     if (!isLocked) {
       onChangeTerminal();
       return;
@@ -405,13 +512,14 @@ function PosLoginView({
 
   useEffect(() => {
     const focusRfid = () => {
-      if (unlockOpenRef.current) return;
+      if (dialogOpenRef.current || terminal.mode === "store") return;
       rfidInputRef.current?.focus();
     };
     focusRfid();
     const interval = window.setInterval(focusRfid, 1000);
     return () => window.clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terminal.mode]);
 
   const finishLogin = (result: { accessToken: string; refreshToken?: string; permissions: string[]; roles: string[] }) => {
     localStorage.setItem("token", result.accessToken);
@@ -461,6 +569,51 @@ function PosLoginView({
     }
   };
 
+  // Store terminals sign in with a code that may hold letters: no digit pad, a keyboard button opens the on-screen keys,
+  // and a real keyboard can be typed on directly.
+  const alphaMode = terminal.mode === "store";
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const typedAt = useRef<number[]>([]);
+  const submitRef = useRef<(v: string) => void>(() => undefined);
+  const rfidRef = useRef<(v: string) => void>(() => undefined);
+  const codeRef = useRef("");
+  codeRef.current = code;
+
+  useEffect(() => {
+    if (!alphaMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (dialogOpenRef.current || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const value = codeRef.current;
+        if (!value) return;
+        // A card reader types the whole id in a burst and presses Enter: that is a card, not a typed code.
+        const t = typedAt.current;
+        const burst = t.length >= 6 && (t[t.length - 1] - t[0]) / (t.length - 1) < 40;
+        typedAt.current = [];
+        // A store staff card is recognised like a code (its barcode is the user's store card); the burst only matters for the length.
+        void burst;
+        submitRef.current(value);
+        return;
+      }
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        setCode((prev) => prev.slice(0, -1));
+        return;
+      }
+      if (/^[A-Za-z0-9]$/.test(e.key)) {
+        e.preventDefault();
+        typedAt.current.push(Date.now());
+        if (typedAt.current.length > 40) typedAt.current.shift();
+        setError(null);
+        // A scanned card is a long run of digits: a store terminal has no cap on the code's length.
+        setCode((prev) => prev + e.key);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [alphaMode]);
+
   const pressDigit = (digit: string) => {
     if (isLoading) return;
     setError(null);
@@ -476,183 +629,452 @@ function PosLoginView({
     setCode((prev) => prev.slice(0, -1));
   };
 
+  const pressClear = () => {
+    if (isLoading) return;
+    setError(null);
+    setCode("");
+  };
+
+  submitRef.current = (v) => void submitCode(v);
+  rfidRef.current = (v) => void submitRfid(v);
+
+  const speedUp = () => {
+    setIsRestarting(true);
+    void restartTerminal();
+  };
+
+  const exitProgram = async () => {
+    setExitOpen(false);
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => undefined);
+    }
+    window.close();
+    // Browsers only let scripts close windows they opened themselves; a kiosk/desktop shell can.
+    window.setTimeout(() => {
+      if (!window.closed) {
+        toast.info("Brauzer bu pəncərəni bağlamağa icazə vermir. Pəncərəni əl ilə bağlayın.");
+      }
+    }, 300);
+  };
+
+  const restaurantLabel = terminal.companyName;
+  const visibleDots = Math.min(code.length, MAX_VISIBLE_DOTS);
+  const hiddenDots = code.length - visibleDots;
+
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="text-center">
-        {logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={logoUrl}
-            alt={terminal.companyName}
-            className="mx-auto mb-2 h-12 w-12 rounded-2xl object-contain lg:hidden"
-          />
-        ) : (
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <ChefHat className="h-6 w-6" />
-          </div>
-        )}
-        <CardTitle>{terminal.companyName}</CardTitle>
-        {terminal.restaurantName && (
-          <CardDescription>{terminal.restaurantName}</CardDescription>
-        )}
-        {terminal.workstationName && (
-          <p className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-foreground">
-            <Monitor className="h-4 w-4 text-muted-foreground" />
-            {terminal.workstationName}
-          </p>
-        )}
-        {location && <p className="text-xs text-muted-foreground">{location}</p>}
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="flex items-center justify-center gap-2">
-          {Array.from({ length: Math.max(code.length, 4) }).map((_, i) => (
-            <span
-              key={i}
-              className={cn(
-                "h-3 w-3 rounded-full border border-primary/40",
-                i < code.length ? "bg-primary" : "bg-transparent",
+    <div className="relative z-10 flex min-h-dvh flex-col lg:h-dvh">
+      <main className="grid flex-1 gap-4 p-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)] lg:gap-6 lg:p-6">
+        {/* Left: logo display + licence / service */}
+        <section className="order-2 flex min-h-0 flex-col gap-4 rounded-3xl bg-card/95 p-4 shadow-2xl ring-1 ring-black/5 backdrop-blur lg:order-1 lg:p-6">
+          <div className="relative flex min-h-48 flex-1 flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-dashed border-border bg-muted/40 p-6">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt={terminal.companyName}
+                className="max-h-full w-full max-w-xl flex-1 object-contain lg:max-h-[52vh]"
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg lg:h-32 lg:w-32">
+                  <ChefHat className="h-12 w-12 lg:h-16 lg:w-16" />
+                </div>
+                <p className="text-2xl font-bold tracking-tight text-foreground lg:text-3xl">Foodera</p>
+              </div>
+            )}
+            <div className="text-center">
+              <p className="text-base font-semibold text-foreground lg:text-lg">{terminal.companyName}</p>
+              {location && (
+                <p className="mt-0.5 inline-flex items-center gap-1 text-sm text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {location}
+                </p>
               )}
-            />
-          ))}
-        </div>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
-            <Button
-              key={digit}
-              type="button"
-              variant="outline"
-              disabled={isLoading}
-              className="h-14 text-xl font-semibold"
-              onClick={() => pressDigit(digit)}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-between">
+            <LicenseTile daysLeft={licenseDaysLeft} />
+            <div className="inline-flex items-center gap-3 rounded-xl border bg-background px-4 py-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Headset className="h-5 w-5" />
+              </span>
+              <span className="text-sm leading-tight">
+                <span className="block font-semibold text-foreground">Servis xidməti</span>
+                <span className="block select-all font-bold tabular-nums tracking-wide text-primary">{SERVICE_PHONE}</span>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* Right: PIN login */}
+        <section className="order-1 flex min-h-0 flex-col rounded-3xl lg:justify-center bg-card/95 p-5 shadow-2xl ring-1 ring-black/5 backdrop-blur lg:order-2 lg:p-6">
+          <header className="mb-4 text-center">
+            <h1 className="text-3xl font-black tracking-tight text-foreground lg:text-4xl">
+              POS<span className="mx-1 font-light text-primary/50">/</span>
+              <span className="text-primary">PRO</span>
+            </h1>
+            <p className="mt-0.5 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              {terminal.mode === "store" ? "System" : "Restoran System"}
+            </p>
+          </header>
+
+          {error && (
+            <Alert variant="destructive" className="mb-3 py-2">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="mb-4 flex gap-2">
+            <div
+              className={cn(
+                "flex h-14 min-w-0 flex-1 items-center gap-2 rounded-xl border-2 bg-background px-4 transition-colors",
+                error ? "border-destructive/60" : code ? "border-primary/60" : "border-border",
+              )}
+              aria-label={`Daxil edilmiş rəqəm sayı: ${code.length}`}
+              role="status"
             >
-              {digit}
-            </Button>
-          ))}
+              {code.length === 0 ? (
+                <span className="truncate text-sm text-muted-foreground">{alphaMode ? "Giriş kodunu yazın" : "PIN kodu daxil edin"}</span>
+              ) : (
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {Array.from({ length: visibleDots }).map((_, i) => (
+                    <span key={i} className="h-3 w-3 shrink-0 rounded-full bg-foreground" />
+                  ))}
+                  {hiddenDots > 0 && (
+                    <span className="text-xs font-medium text-muted-foreground">+{hiddenDots}</span>
+                  )}
+                </div>
+              )}
+              {code.length > 0 && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={pressBackspace}
+                  disabled={isLoading}
+                  className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  aria-label="Sil"
+                  title="Son rəqəmi sil"
+                >
+                  <Delete className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+            <KeyButton
+              onClick={pressClear}
+              disabled={isLoading || code.length === 0}
+              className="h-14 w-14 shrink-0 border-amber-300 bg-amber-50 text-xl font-bold text-amber-700 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-400"
+              aria-label="Təmizlə"
+              title="Hamısını təmizlə"
+            >
+              C
+            </KeyButton>
+          </div>
+
+          {alphaMode && keyboardOpen && (
+            <div className="mb-2.5 space-y-1.5">
+              {["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"].map((row) => (
+                <div key={row} className="flex justify-center gap-1.5">
+                  {row.split("").map((ch) => (
+                    <button
+                      key={ch}
+                      type="button"
+                      disabled={isLoading}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pressDigit(ch)}
+                      className="h-11 min-w-0 flex-1 rounded-lg border bg-background text-lg font-semibold shadow-sm transition active:scale-95 disabled:opacity-50"
+                    >
+                      {ch}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2.5 lg:gap-3">
+            {!alphaMode &&
+              ["7", "8", "9", "4", "5", "6", "1", "2", "3"].map((digit) => (
+                <KeyButton key={digit} disabled={isLoading} onClick={() => pressDigit(digit)}>
+                  {digit}
+                </KeyButton>
+              ))}
+            <KeyButton
+              onClick={() => setSettingsOpen(true)}
+              className="flex-col gap-0.5 bg-muted/60 text-muted-foreground hover:text-foreground"
+              aria-label="Ayarlar"
+            >
+              <Settings className="h-5 w-5" />
+              <span className="text-[11px] font-medium">Ayarlar</span>
+            </KeyButton>
+            {alphaMode ? (
+              <KeyButton
+                onClick={() => setKeyboardOpen((o) => !o)}
+                className={cn("flex-col gap-0.5", keyboardOpen ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground")}
+                aria-label="Ekran klaviaturası"
+                title="Ekran klaviaturası"
+              >
+                <Keyboard className="h-6 w-6" />
+              </KeyButton>
+            ) : (
+              <KeyButton disabled={isLoading} onClick={() => pressDigit("0")}>
+                0
+              </KeyButton>
+            )}
+            <KeyButton
+              onClick={() => setExitOpen(true)}
+              className="bg-muted/60 text-destructive hover:bg-destructive/10"
+              aria-label="Çıxış"
+              title="Proqramdan çıxış"
+            >
+              <Power className="h-6 w-6" />
+            </KeyButton>
+          </div>
+
           <Button
             type="button"
-            variant="ghost"
-            disabled={isLoading}
-            className="h-14"
-            onClick={pressBackspace}
-            aria-label="Sil"
-          >
-            <Delete className="h-5 w-5" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isLoading}
-            className="h-14 text-xl font-semibold"
-            onClick={() => pressDigit("0")}
-          >
-            0
-          </Button>
-          <Button
-            type="button"
+            onMouseDown={(e) => e.preventDefault()}
             disabled={isLoading || code.length < 1}
-            className="h-14 text-sm font-semibold"
+            className="mt-3 h-[clamp(3.5rem,8vh,4.75rem)] w-full rounded-2xl text-2xl font-bold tracking-widest shadow-md lg:mt-4"
             onClick={() => submitCode(code)}
           >
-            {isLoading ? "..." : "Daxil ol"}
+            {isLoading ? "..." : "OK"}
           </Button>
-        </div>
 
-        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-          <CreditCard className="h-4 w-4" />
-          RFID kart oxutmaqla da giriş edə bilərsiniz
-        </div>
+          <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <CreditCard className="h-4 w-4" />
+            RFID kart oxutmaqla da giriş edə bilərsiniz
+          </div>
 
-        <input
-          ref={rfidInputRef}
-          type="text"
-          className="sr-only"
-          aria-hidden
-          tabIndex={-1}
-          autoComplete="off"
-          onChange={(e) => {
-            rfidBufferRef.current = e.target.value;
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              const value = rfidBufferRef.current.trim();
-              rfidBufferRef.current = "";
-              if (rfidInputRef.current) rfidInputRef.current.value = "";
-              if (value) void submitRfid(value);
-            }
-          }}
+          <input
+            ref={rfidInputRef}
+            type="text"
+            className="sr-only"
+            aria-hidden
+            tabIndex={-1}
+            autoComplete="off"
+            onChange={(e) => {
+              rfidBufferRef.current = e.target.value;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const value = rfidBufferRef.current.trim();
+                rfidBufferRef.current = "";
+                if (rfidInputRef.current) rfidInputRef.current.value = "";
+                if (value) void submitRfid(value);
+              }
+            }}
+          />
+        </section>
+      </main>
+
+      {/* Bottom information bar */}
+      <footer className="flex flex-wrap items-stretch gap-px border-t border-white/10 bg-black/40 text-white backdrop-blur-md">
+        <InfoSegment icon={<Store className="h-4 w-4" />} label={terminal.mode === "store" ? "Filial" : "Restoran"} value={restaurantLabel} />
+        <InfoSegment
+          icon={<Monitor className="h-4 w-4" />}
+          label="Workstation"
+          value={terminal.workstationName ?? "Təyin olunmayıb"}
         />
-
-        <div className="flex items-center justify-between">
-          <Button
+        <InfoSegment icon={<Tag className="h-4 w-4" />} label="Versiya" value={APP_VERSION ?? "—"} />
+        <div className="flex items-center px-3 py-2">
+          <button
             type="button"
-            variant="link"
-            className="px-0 text-muted-foreground"
-            onClick={handleChangeTerminal}
+            onClick={speedUp}
+            disabled={isRestarting}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium transition-colors hover:bg-white/20 active:scale-[0.98] disabled:opacity-60"
+            title="Keşi təmizləyib proqramı yenidən yükləyir"
           >
-            Terminalı dəyiş
-          </Button>
-          <a
-            href="/login"
-            className="text-sm text-muted-foreground hover:text-foreground hover:underline"
-          >
-            Adi giriş
-          </a>
+            <Zap className="h-4 w-4 text-amber-300" />
+            {isRestarting ? "Yenilənir…" : "Proqramı sürətləndir"}
+          </button>
         </div>
+        <div className="ml-auto flex items-stretch">
+          <InfoSegment
+            icon={<CalendarDays className="h-4 w-4" />}
+            label="Tarix"
+            value={format(now, "dd.MM.yyyy")}
+          />
+          <InfoSegment
+            icon={<Clock3 className="h-4 w-4" />}
+            label="Saat"
+            value={format(now, "HH:mm")}
+            valueClassName="text-lg tabular-nums"
+          />
+        </div>
+      </footer>
 
-        <Dialog open={unlockOpen} onOpenChange={(o) => (o ? setUnlockOpen(true) : closeUnlock())}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Terminalı dəyiş</DialogTitle>
-              <DialogDescription>
-                Bu monitor "{terminal.workstationName}" adına bağlıdır. Dəyişmək üçün admin məlumatlarını
-                daxil edin.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={submitUnlock} className="space-y-3">
-              {unlockError && (
-                <Alert variant="destructive">
-                  <AlertDescription>{unlockError}</AlertDescription>
-                </Alert>
-              )}
-              <div className="space-y-1">
-                <Label htmlFor="unlock-user">İstifadəçi adı</Label>
-                <Input
-                  id="unlock-user"
-                  value={unlockUser}
-                  onChange={(e) => setUnlockUser(e.target.value)}
-                  autoComplete="off"
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="unlock-password">Şifrə / kod</Label>
-                <Input
-                  id="unlock-password"
-                  type="password"
-                  value={unlockPassword}
-                  onChange={(e) => setUnlockPassword(e.target.value)}
-                  autoComplete="off"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={closeUnlock} disabled={unlockChecking}>
-                  Ləğv et
-                </Button>
-                <Button type="submit" disabled={unlockChecking || !unlockUser.trim() || !unlockPassword}>
-                  {unlockChecking ? "Yoxlanılır…" : "Təsdiqlə"}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+      {/* Ayarlar */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ayarlar</DialogTitle>
+            <DialogDescription>Terminal ayarları</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 justify-start gap-3 text-base"
+              onClick={fullscreen.toggle}
+            >
+              {fullscreen.isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+              {fullscreen.isFullscreen ? "Tam ekrandan çıx" : "Tam ekran"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 justify-start gap-3 text-base"
+              onClick={handleChangeTerminal}
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Terminalı dəyiş
+            </Button>
+            <Button asChild variant="outline" className="h-12 justify-start gap-3 text-base">
+              <a href="/login">
+                <LogIn className="h-4 w-4" />
+                Adi giriş
+              </a>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Çıxış */}
+      <Dialog open={exitOpen} onOpenChange={setExitOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Proqramdan çıxış</DialogTitle>
+            <DialogDescription>Proqram bağlansın?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setExitOpen(false)}>
+              Ləğv et
+            </Button>
+            <Button type="button" variant="destructive" onClick={() => void exitProgram()}>
+              <Power className="h-4 w-4" />
+              Çıxış
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={unlockOpen} onOpenChange={(o) => (o ? setUnlockOpen(true) : closeUnlock())}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Terminalı dəyiş</DialogTitle>
+            <DialogDescription>
+              Bu monitor "{terminal.workstationName}" adına bağlıdır. Dəyişmək üçün admin məlumatlarını
+              daxil edin.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitUnlock} className="space-y-3">
+            {unlockError && (
+              <Alert variant="destructive">
+                <AlertDescription>{unlockError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-1">
+              <Label htmlFor="unlock-user">İstifadəçi adı</Label>
+              <Input
+                id="unlock-user"
+                value={unlockUser}
+                onChange={(e) => setUnlockUser(e.target.value)}
+                autoComplete="off"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="unlock-password">Şifrə / kod</Label>
+              <Input
+                id="unlock-password"
+                type="password"
+                value={unlockPassword}
+                onChange={(e) => setUnlockPassword(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={closeUnlock} disabled={unlockChecking}>
+                Ləğv et
+              </Button>
+              <Button type="submit" disabled={unlockChecking || !unlockUser.trim() || !unlockPassword}>
+                {unlockChecking ? "Yoxlanılır…" : "Təsdiqlə"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/** Keypad key. Mouse-down doesn't take focus so the hidden RFID input keeps listening. */
+function KeyButton({ className, ...props }: React.ComponentProps<"button">) {
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => e.preventDefault()}
+      className={cn(
+        "flex h-[clamp(3.25rem,8vh,4.5rem)] select-none items-center justify-center rounded-2xl border bg-background text-2xl font-semibold text-foreground shadow-sm transition-all",
+        "hover:bg-muted active:scale-[0.96] active:shadow-none",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "disabled:pointer-events-none disabled:opacity-50",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function LicenseTile({ daysLeft }: { daysLeft: number | null }) {
+  const expired = daysLeft != null && daysLeft <= 0;
+  const soon = daysLeft != null && !expired && daysLeft <= 7;
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-3 rounded-xl border px-4 py-3",
+        daysLeft == null && "bg-background",
+        expired && "border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300",
+        soon && "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
+        daysLeft != null && !expired && !soon &&
+        "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300",
+      )}
+      title={daysLeft == null ? "Lisenziya məlumatı əlçatan deyil" : undefined}
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-current/10">
+        {expired || soon ? <ShieldAlert className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+      </span>
+      <span className="text-sm leading-tight">
+        <span className="block font-semibold">Lisenziya</span>
+        <span className={cn(daysLeft == null && "text-muted-foreground")}>
+          {expired ? "Bitib" : `Son ${daysLeft ?? "—"} gün`}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function InfoSegment({
+  icon,
+  label,
+  value,
+  valueClassName,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5 border-r border-white/10 px-4 py-2 last:border-r-0">
+      <span className="text-white/60">{icon}</span>
+      <div className="min-w-0 leading-tight">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-white/50">{label}</p>
+        <p className={cn("max-w-[14rem] truncate text-sm font-semibold", valueClassName)} title={value}>
+          {value}
+        </p>
+      </div>
+    </div>
   );
 }

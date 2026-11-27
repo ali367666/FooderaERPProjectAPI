@@ -15,6 +15,10 @@ public class OrderPayment : CompanyEntity<int>
 
     public PaymentMethod Method { get; set; }
 
+    /// <summary>The bank a card payment went through (a counterparty with IsBank); null for other methods.</summary>
+    public int? BankCounterpartyId { get; set; }
+    public Counterparty? BankCounterparty { get; set; }
+
     /// <summary>The share of the bill this payment settles — lines after discount, without service charge.</summary>
     public decimal Amount { get; set; }
     public decimal? ServiceChargeAmount { get; set; }

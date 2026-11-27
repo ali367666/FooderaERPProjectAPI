@@ -76,16 +76,33 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
 
         var now = DateTime.UtcNow;
 
+        // Every line goes to the kitchen exactly once: it is claimed here, before printing, so pressing OK again (or from another
+        // terminal) at the same time sends nothing twice. Only what this call claimed is printed - a second OK after the first
+        // finds nothing new, and a kebab added after the colas were sent goes out alone.
+        var claimedIds = await _orderRepository.ClaimKitchenLinesAsync(linesToPrint.Select(x => x.Id).ToList(), now, cancellationToken);
+        linesToPrint = linesToPrint.Where(x => claimedIds.Contains(x.Id)).ToList();
+        if (linesToPrint.Count == 0)
+            return 0;
+
         // "Mətbəx sifariş qəbzində məhsulları ayrı qəbzlərdə çıxsın" — one ticket per item; a SET
         // stays on one ticket together with its component lines.
         var tickets = settings?.PrintKitchenSeparateTickets == true
             ? linesToPrint.GroupBy(x => x.ParentLineId ?? x.Id).Select(g => g.ToList()).ToList()
             : new List<List<Domain.Entities.OrderLine>> { linesToPrint };
 
-        foreach (var ticketLines in tickets)
+        try
         {
-            var content = BuildTicketContent(order, ticketLines, now, groupQuantities, showBusinessName, isOnHold, chiefCopyOf: null);
-            await _networkPrinterService.PrintAsync(printer.IpAddress, printer.Port, content, cancellationToken);
+            foreach (var ticketLines in tickets)
+            {
+                var content = BuildTicketContent(order, ticketLines, now, groupQuantities, showBusinessName, isOnHold, chiefCopyOf: null);
+                await _networkPrinterService.PrintAsync(printer.IpAddress, printer.Port, content, cancellationToken);
+            }
+        }
+        catch
+        {
+            // The printer did not take it: the lines are not sent, the next OK sends them.
+            await _orderRepository.ReleaseKitchenLinesAsync(claimedIds, CancellationToken.None);
+            throw;
         }
 
         // ChiefPrint — the head chef gets a copy of every station's ticket on the branch's chief printer.
@@ -107,7 +124,7 @@ public class PrintKitchenTicketCommandHandler : IRequestHandler<PrintKitchenTick
         }
 
         foreach (var line in linesToPrint)
-            line.KitchenPrintedAt = now;
+            line.KitchenPrintedAt = now; // already stored by the claim; keeps the tracked copy in step
 
         _orderRepository.Update(order);
         await _orderRepository.SaveChangesAsync(cancellationToken);

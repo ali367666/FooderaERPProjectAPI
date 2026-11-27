@@ -1,4 +1,4 @@
-﻿using Domain.Enums;
+using Domain.Enums;
 using FluentValidation;
 
 namespace Application.MenuItems.Commands.Create;
@@ -25,13 +25,7 @@ public class CreateMenuItemCommandValidator : AbstractValidator<CreateMenuItemCo
         RuleFor(x => x.Request.PreparationType)
             .IsInEnum().WithMessage("PreparationType düzgün seçilməlidir.");
 
-        // SET (bundle) items have no barcode of their own, and weight-sold items are identified
-        // by their auto-generated weight-code sticker instead — everything else must have one.
-        RuleFor(x => x.Request.Barcode)
-            .NotEmpty()
-            .WithMessage("Barkod məcburidir.")
-            .When(x => !x.Request.IsSet
-                && x.Request.UnitId != (int)UnitOfMeasure.Kg
-                && x.Request.UnitId != (int)UnitOfMeasure.Gram);
+        // The barcode is optional. A company that wants every product coded turns on "Məhsul kodu zorunlu" (RequireProductCode),
+        // which OrderPolicyBehavior enforces.
     }
 }

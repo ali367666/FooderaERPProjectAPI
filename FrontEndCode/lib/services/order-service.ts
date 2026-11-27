@@ -116,6 +116,8 @@ export type OrderDto = {
   billPrintedAt: string | null;
   isBillLocked: boolean;
   isDelivery: boolean;
+  /** Banquet order (opened in a banquet hall): banquet-menu products only, at banquet prices, prices locked. */
+  isBanquet: boolean;
   deliveryAddress: string | null;
   deliveryPhone: string | null;
   deliveryDriverEmployeeId: number | null;
@@ -336,6 +338,7 @@ function normalizeOrder(raw: unknown): OrderDto | null {
     billPrintedAt: (pick(o, "billPrintedAt", "BillPrintedAt") as string | null | undefined) ?? null,
     isBillLocked: Boolean(pick(o, "isBillLocked", "IsBillLocked") ?? false),
     isDelivery: Boolean(pick(o, "isDelivery", "IsDelivery") ?? false),
+    isBanquet: Boolean(pick(o, "isBanquet", "IsBanquet") ?? false),
     deliveryAddress: (pick(o, "deliveryAddress", "DeliveryAddress") as string | null | undefined) ?? null,
     deliveryPhone: (pick(o, "deliveryPhone", "DeliveryPhone") as string | null | undefined) ?? null,
     deliveryDriverEmployeeId: (() => {
@@ -412,13 +415,158 @@ function unwrapData<T>(body: unknown): T | null {
   return null;
 }
 
-export async function getOrders(): Promise<OrderDto[]> {
+/** Server-side filters for `GET /Orders`. */
+export type OrderListQuery = {
+  status?: "Draft" | "Open" | "InPreparation" | "Ready" | "Served" | "Paid" | "Cancelled";
+};
+
+export async function getOrders(query: OrderListQuery = {}): Promise<OrderDto[]> {
   try {
-    const response = await api.get<unknown>("/Orders");
+    const response = await api.get<unknown>("/Orders", { params: query });
     assertApiSuccess(response.data);
     return unwrapList<unknown>(response.data).map(normalizeOrder).filter((x): x is OrderDto => x !== null);
   } catch (error) {
     throw toApiFormError(error, "Failed to fetch orders");
+  }
+}
+
+/** One paid receipt of `GET /Orders/receipts` (no lines; the full receipt is read by id). */
+export type ReceiptListItemDto = {
+  id: number;
+  orderNumber: string;
+  receiptNumber: string | null;
+  restaurantId: number;
+  restaurantName: string | null;
+  tableName: string | null;
+  waiterName: string | null;
+  paidAt: string;
+  paymentMethod: string | null;
+  discountAmount: number;
+  totalAmount: number;
+};
+
+export type ReceiptListDto = {
+  /** The calendar days the list covers (business days, both inclusive). */
+  fromDate: string;
+  toDate: string;
+  count: number;
+  total: number;
+  items: ReceiptListItemDto[];
+};
+
+/**
+ * The POS old receipts (`GET /Orders/receipts`): paid orders of a period, filtered on the server.
+ * `today` asks for the current business day (06:00 → 06:00 in shifts, the calendar day otherwise);
+ * otherwise `from` / `to` (yyyy-MM-dd, inclusive) are sent as a custom period.
+ * `fromTime` / `toTime` (HH:mm) narrow it: from fromTime on the first day to the end of the toTime minute on the last day.
+ */
+export async function getReceipts(query: {
+  today?: boolean;
+  from?: string;
+  to?: string;
+  fromTime?: string;
+  toTime?: string;
+  restaurantId?: number | null;
+}): Promise<ReceiptListDto> {
+  try {
+    const params: Record<string, string | number> = query.today
+      ? { period: "Today" }
+      : { period: "Custom", ...(query.from ? { from: query.from } : {}), ...(query.to ? { to: query.to } : {}) };
+    if (query.restaurantId) params.restaurantId = query.restaurantId;
+    if (query.fromTime) params.fromTime = query.fromTime;
+    if (query.toTime) params.toTime = query.toTime;
+    const response = await api.get<unknown>("/Orders/receipts", { params });
+    assertApiSuccess(response.data);
+    const raw = (unwrapData<unknown>(response.data) ?? {}) as Record<string, unknown>;
+    const items = (pick<unknown[]>(raw, "items", "Items") ?? []).map((item): ReceiptListItemDto => {
+      const r = (item ?? {}) as Record<string, unknown>;
+      const str = (camel: string, pascal: string) => {
+        const v = pick<unknown>(r, camel, pascal);
+        return v === null || v === undefined || v === "" ? null : String(v);
+      };
+      return {
+        id: num(r, "id", "Id"),
+        orderNumber: str("orderNumber", "OrderNumber") ?? "",
+        receiptNumber: str("receiptNumber", "ReceiptNumber"),
+        restaurantId: num(r, "restaurantId", "RestaurantId"),
+        restaurantName: str("restaurantName", "RestaurantName"),
+        tableName: str("tableName", "TableName"),
+        waiterName: str("waiterName", "WaiterName"),
+        paidAt: str("paidAt", "PaidAt") ?? "",
+        paymentMethod: str("paymentMethod", "PaymentMethod"),
+        discountAmount: num(r, "discountAmount", "DiscountAmount"),
+        totalAmount: num(r, "totalAmount", "TotalAmount"),
+      };
+    });
+    return {
+      fromDate: String(pick(raw, "fromDate", "FromDate") ?? ""),
+      toDate: String(pick(raw, "toDate", "ToDate") ?? ""),
+      count: num(raw, "count", "Count", items.length),
+      total: num(raw, "total", "Total", items.reduce((s, i) => s + i.totalAmount, 0)),
+      items,
+    };
+  } catch (error) {
+    throw toApiFormError(error, "Failed to fetch receipts");
+  }
+}
+
+/** Unpaid, uncancelled "Tez satış" (take-away) orders — filtered on the server, optionally for one restaurant. */
+export async function getActiveTakeAwayOrders(restaurantId?: number | null): Promise<OrderDto[]> {
+  try {
+    const response = await api.get<unknown>("/Orders/take-away/active", {
+      params: restaurantId ? { restaurantId } : {},
+    });
+    assertApiSuccess(response.data);
+    return unwrapList<unknown>(response.data).map(normalizeOrder).filter((x): x is OrderDto => x !== null);
+  } catch (error) {
+    throw toApiFormError(error, "Tez satışlar yüklənə bilmədi");
+  }
+}
+
+export type QuickSalePayload = {
+  restaurantId: number;
+  waiterId: number;
+  items: { menuItemId: number; quantity: number }[];
+  paymentMethod: "Cash" | "Card";
+  /** Cash: the money handed over. Card: ignored, the server settles exactly what is due. */
+  paidAmount: number;
+  isFiscal?: boolean;
+  bankId?: number | null;
+};
+
+export type QuickSaleResultDto = {
+  orderId: number;
+  orderNumber: string;
+  totalAmount: number;
+  changeAmount: number;
+  receipt: OrderReceiptDto;
+};
+
+/** "Tez satış": the whole sale — products and payment — in one request, apart from table orders. */
+export async function createQuickSale(payload: QuickSalePayload): Promise<QuickSaleResultDto> {
+  try {
+    const response = await api.post<unknown>("/quick-sales", {
+      restaurantId: payload.restaurantId,
+      waiterId: payload.waiterId,
+      items: payload.items,
+      paymentMethod: payload.paymentMethod,
+      paidAmount: payload.paidAmount,
+      isFiscal: payload.isFiscal ?? false,
+      bankId: payload.bankId ?? null,
+    });
+    assertApiSuccess(response.data);
+    const raw = (unwrapData<unknown>(response.data) ?? response.data) as Record<string, unknown>;
+    const receipt = normalizeReceipt(pick<unknown>(raw, "receipt", "Receipt"));
+    if (!receipt) throw new Error("Invalid quick sale response");
+    return {
+      orderId: Number(pick(raw, "orderId", "OrderId") ?? 0),
+      orderNumber: String(pick(raw, "orderNumber", "OrderNumber") ?? ""),
+      totalAmount: Number(pick(raw, "totalAmount", "TotalAmount") ?? 0),
+      changeAmount: Number(pick(raw, "changeAmount", "ChangeAmount") ?? 0),
+      receipt,
+    };
+  } catch (error) {
+    throw toApiFormError(error, "Tez satış tamamlanmadı");
   }
 }
 
@@ -764,19 +912,13 @@ export async function moveOrderTable(id: number, newTableId: number): Promise<Or
   }
 }
 
-/**
- * `supervisorCode` is the POS code of someone holding Pos.RedirectUser — needed when the signed-in
- * user doesn't hold it themselves. Sent in the body, never in the URL.
- */
 export async function reassignOrderWaiter(
   id: number,
   newEmployeeId: number,
-  supervisorCode?: string | null,
 ): Promise<OrderDto> {
   try {
     const response = await api.put<unknown>(`/Orders/${id}/reassign-waiter`, {
       newEmployeeId,
-      supervisorCode: supervisorCode ?? null,
     });
     assertApiSuccess(response.data);
     const row = normalizeOrder(unwrapData<unknown>(response.data));
@@ -784,15 +926,6 @@ export async function reassignOrderWaiter(
     return row;
   } catch (error) {
     throw toApiFormError(error, "Failed to reassign waiter");
-  }
-}
-
-/** Rejects (with the server's message) unless the code belongs to someone allowed to redirect orders. */
-export async function verifyRedirectCode(code: string): Promise<void> {
-  try {
-    await api.post<unknown>("/Orders/verify-redirect-code", { code });
-  } catch (error) {
-    throw toApiFormError(error, "Kod yanlışdır");
   }
 }
 
@@ -812,7 +945,23 @@ export function serveOrder(id: number): Promise<void> {
   })();
 }
 
-export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number; isFiscal?: boolean }): Promise<OrderDto | null> {
+export type PaymentBank = { id: number; name: string };
+
+/** The fixed banks (Kapital, Paşa, ABB, QR kod) a card payment is recorded against. */
+export async function getPaymentBanks(): Promise<PaymentBank[]> {
+  try {
+    const response = await api.get<unknown>("/Counterparties/banks");
+    const rows = Array.isArray(response.data) ? (response.data as Record<string, unknown>[]) : [];
+    return rows.map((r) => ({
+      id: Number(pick<unknown>(r, "id", "Id")),
+      name: String(pick<unknown>(r, "name", "Name") ?? ""),
+    }));
+  } catch (error) {
+    throw toApiFormError(error, "Failed to load banks");
+  }
+}
+
+export async function payOrder(id: number, payload: { paymentMethod: PaymentMethod; paidAmount: number; isFiscal?: boolean; bankId?: number | null }): Promise<OrderDto | null> {
   try {
     const response = await api.put<unknown>(`/Orders/${id}/pay`, payload);
     assertApiSuccess(response.data);
@@ -912,6 +1061,8 @@ export type PayOrderPartPayload = {
   amount?: number | null;
   /** Rung through the fiscal (tax) register. */
   isFiscal?: boolean;
+  /** Card payments: the bank it went through (required by the server). */
+  bankId?: number | null;
   lines: { orderLineId: number; quantity: number }[];
 };
 
@@ -967,6 +1118,7 @@ export async function payOrderPart(id: number, payload: PayOrderPartPayload): Pr
       paidAmount: payload.paidAmount,
       amount: payload.amount ?? null,
       isFiscal: payload.isFiscal ?? false,
+      bankId: payload.paymentMethod === "Card" ? (payload.bankId ?? null) : null,
       lines: payload.lines,
     });
     assertApiSuccess(response.data);

@@ -1,4 +1,4 @@
-﻿using Application.Common.Exceptions;
+using Application.Common.Exceptions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.MenuCategories.Dtos;
@@ -40,6 +40,7 @@ public class GetMenuCategoryByIdQueryHandler
             ImageUrl = entity.ImageUrl,
             IsActive = entity.IsActive,
             IsSetCategory = entity.IsSetCategory,
+            ExcludeFromDiscount = entity.ExcludeFromDiscount,
             ParentCategoryId = entity.ParentCategoryId,
             ParentCategoryName = entity.ParentCategory?.Name
         };

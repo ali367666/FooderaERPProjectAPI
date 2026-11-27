@@ -1,5 +1,12 @@
+import { getRoleClaimsFromToken } from "@/lib/jwt-permissions";
+
 const SELECTED_COMPANY_KEY = "dashboardSelectedCompanyId";
 const TOKEN_KEY = "token";
+
+function isSuperAdminToken(): boolean {
+  if (typeof window === "undefined") return false;
+  return getRoleClaimsFromToken(localStorage.getItem(TOKEN_KEY)).some((r) => r.trim().toLowerCase() === "superadmin");
+}
 
 function readCompanyIdFromToken(): number | null {
   if (typeof window === "undefined") return null;
@@ -19,9 +26,9 @@ function readCompanyIdFromToken(): number | null {
   }
 }
 
-/** Resolves the current company: selected-company override, then the logged-in user's own JWT claim. */
+/** Resolves the current company: the SuperAdmin's selected company, else (and for everyone else always) the user's own JWT claim. */
 export function resolveCompanyId(): number {
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && isSuperAdminToken()) {
     const selected = Number(localStorage.getItem(SELECTED_COMPANY_KEY) || "");
     if (Number.isFinite(selected) && selected > 0) return selected;
   }

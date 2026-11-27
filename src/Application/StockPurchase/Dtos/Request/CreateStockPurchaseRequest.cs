@@ -11,5 +11,6 @@ public class CreateStockPurchaseRequest
     public DateTime PurchaseDate { get; set; } = DateTime.UtcNow;
     public int WarehouseId { get; set; }
     public string? Note { get; set; }
+    public string? SupplierInvoiceNo { get; set; }
     public List<StockPurchaseLineRequest> Lines { get; set; } = new();
 }

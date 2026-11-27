@@ -278,6 +278,11 @@ export default function LoginPage() {
       const roles = auth.roles ?? getRoleClaimsFromToken(auth.token);
       const user = { roles, permissions };
       persistAuthUser(user);
+      try {
+        sessionStorage.removeItem("posTerminalSession");
+      } catch {
+        // ignore
+      }
       console.log("AUTH USER:", user);
       console.log("AUTH PERMISSIONS:", user?.permissions);
       console.log("User permissions:", permissions);

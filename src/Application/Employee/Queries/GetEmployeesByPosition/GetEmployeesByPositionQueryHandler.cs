@@ -73,6 +73,7 @@ public class GetEmployeesByPositionQueryHandler
             DepartmentName = employee.Department?.Name ?? string.Empty,
             PositionId = employee.PositionId,
             PositionName = employee.Position?.Name ?? string.Empty,
+            RoleId = employee.Position?.RoleId,
             RestaurantId = employee.RestaurantId,
             RestaurantName = employee.Restaurant?.Name ?? string.Empty,
             UserId = employee.UserId

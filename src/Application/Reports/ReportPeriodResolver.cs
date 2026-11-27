@@ -1,0 +1,119 @@
+using Application.Common.Exceptions;
+using Application.Common.Helpers;
+using Application.Reports.Dtos;
+using Domain.Enums;
+
+namespace Application.Reports;
+
+/// <summary>
+/// Turns "today / this week / this month / custom" into concrete bounds. A business day runs from
+/// 06:00 to 06:00 the next morning (as on the printed Z report), so a sale rung up at 02:00 still
+/// belongs to the previous day. A company that works by the day (an opening time is set) has no such
+/// late-night shift: its day is the calendar day, 00:00 to 24:00, so "today" includes the small hours.
+/// </summary>
+public static class ReportPeriodResolver
+{
+    public static readonly TimeSpan DayStart = TimeSpan.FromHours(6);
+    private const int MaxCustomDays = 366;
+
+    /// <summary>Where the business day starts for the company: 06:00 when it works in shifts, midnight when it works by the day.</summary>
+    /// <summary>
+    /// Store reports and lists take whole days (the shop's day starts at <see cref="DayStart"/>). A <paramref name="from"/> / <paramref name="to"/> that
+    /// carries a time of day (2026-11-12T18:00) narrows the window: from that clock time on the first day to the end of that minute on the last day.
+    /// A time before the day start belongs to the night after the date, like the rest of that business day. Dates without a time keep whole days.
+    /// </summary>
+    public static DateTime StoreFromUtc(DateTime from)
+    {
+        var tod = from.TimeOfDay;
+        var local = tod == TimeSpan.Zero ? from.Date + DayStart : from.Date + (tod < DayStart ? tod + TimeSpan.FromDays(1) : tod);
+        return BusinessTime.ToUtc(local);
+    }
+
+    /// <summary>The (exclusive) end of the window; see <see cref="StoreFromUtc"/>.</summary>
+    public static DateTime StoreToUtc(DateTime to)
+    {
+        var tod = to.TimeOfDay;
+        var local = tod == TimeSpan.Zero
+            ? to.Date.AddDays(1) + DayStart
+            : to.Date + (tod < DayStart ? tod + TimeSpan.FromDays(1) : tod) + TimeSpan.FromMinutes(1);
+        return BusinessTime.ToUtc(local);
+    }
+
+    public static TimeSpan DayStartFor(Domain.Entities.CompanySettings? settings)
+        => settings?.OpeningTime is null ? DayStart : TimeSpan.Zero;
+
+    /// <summary>
+    /// Narrows a day window to a time of day: from <paramref name="fromTime"/> on the first day until the end of the minute
+    /// <paramref name="toTime"/> on the last day (clock time of the business location). A missing time keeps that side of the window.
+    /// A <paramref name="from"/> / <paramref name="to"/> that carries a time of day counts as that time.
+    /// </summary>
+    public static ReportWindow WithTimes(ReportWindow window, TimeSpan? fromTime, TimeSpan? toTime, DateTime? from = null, DateTime? to = null)
+    {
+        fromTime ??= from is { } f && f.TimeOfDay != TimeSpan.Zero ? f.TimeOfDay : null;
+        toTime ??= to is { } t && t.TimeOfDay != TimeSpan.Zero ? t.TimeOfDay : null;
+        if (fromTime is null && toTime is null)
+            return window;
+
+        foreach (var time in new[] { fromTime, toTime })
+            if (time is { } v && (v < TimeSpan.Zero || v >= TimeSpan.FromDays(1)))
+                throw new BadRequestException("Saat 00:00 ilə 23:59 arasında olmalıdır.");
+
+        var firstDay = window.FromLocal.Date;
+        var lastDay = window.ToLocal.AddTicks(-1).Date;
+        var fromLocal = fromTime is { } ft ? firstDay + ft : window.FromLocal;
+        var toLocal = toTime is { } tt ? lastDay + tt + TimeSpan.FromMinutes(1) : window.ToLocal;
+        if (toLocal <= fromLocal)
+            throw new BadRequestException("Bitmə vaxtı başlanğıc vaxtından sonra olmalıdır.");
+
+        return new ReportWindow(fromLocal, toLocal, BusinessTime.ToUtc(fromLocal), BusinessTime.ToUtc(toLocal));
+    }
+
+    public static ReportWindow Resolve(BusinessReportRequest request) => Resolve(request, BusinessTime.Now);
+
+    public static ReportWindow Resolve(BusinessReportRequest request, DateTime nowLocal) => Resolve(request, nowLocal, DayStart);
+
+    public static ReportWindow Resolve(BusinessReportRequest request, DateTime nowLocal, TimeSpan dayStart)
+    {
+        var businessDate = (nowLocal - dayStart).Date;
+
+        DateTime fromDate;
+        DateTime toDateExclusive;
+
+        switch (request.Period)
+        {
+            case ReportPeriod.Today:
+                fromDate = businessDate;
+                toDateExclusive = businessDate.AddDays(1);
+                break;
+
+            case ReportPeriod.ThisWeek:
+                fromDate = businessDate.AddDays(-(((int)businessDate.DayOfWeek + 6) % 7));
+                toDateExclusive = fromDate.AddDays(7);
+                break;
+
+            case ReportPeriod.ThisMonth:
+                fromDate = new DateTime(businessDate.Year, businessDate.Month, 1);
+                toDateExclusive = fromDate.AddMonths(1);
+                break;
+
+            case ReportPeriod.Custom:
+                if (request.From is null)
+                    throw new BadRequestException("Özel tarix üçün başlanğıc tarix seçilməlidir.");
+                fromDate = request.From.Value.Date;
+                var lastDate = (request.To ?? request.From).Value.Date;
+                if (lastDate < fromDate)
+                    throw new BadRequestException("Bitmə tarixi başlanğıc tarixindən əvvəl ola bilməz.");
+                toDateExclusive = lastDate.AddDays(1);
+                if ((toDateExclusive - fromDate).TotalDays > MaxCustomDays)
+                    throw new BadRequestException($"Tarix aralığı ən çox {MaxCustomDays} gün ola bilər.");
+                break;
+
+            default:
+                throw new BadRequestException("Hesabat dövrü yanlışdır.");
+        }
+
+        var fromLocal = fromDate + dayStart;
+        var toLocal = toDateExclusive + dayStart;
+        return new ReportWindow(fromLocal, toLocal, BusinessTime.ToUtc(fromLocal), BusinessTime.ToUtc(toLocal));
+    }
+}

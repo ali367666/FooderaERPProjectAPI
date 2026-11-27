@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Application.Abstractions.Repositories;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -16,13 +16,16 @@ public sealed class DeleteDepartmentCommandHandler
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<DeleteDepartmentCommandHandler> _logger;
+    private readonly Application.Common.Helpers.DepartmentResolver _departmentResolver;
 
     public DeleteDepartmentCommandHandler(
         IDepartmentRepository departmentRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
-        ILogger<DeleteDepartmentCommandHandler> logger)
+        ILogger<DeleteDepartmentCommandHandler> logger,
+        Application.Common.Helpers.DepartmentResolver departmentResolver)
     {
+        _departmentResolver = departmentResolver;
         _departmentRepository = departmentRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
@@ -56,6 +59,9 @@ public sealed class DeleteDepartmentCommandHandler
 
                 return BaseResponse.Fail("Department tapılmadı.");
             }
+
+            if (await _departmentResolver.IsModuleOffAsync(department.CompanyId, cancellationToken))
+                return BaseResponse.Fail(Application.Common.Helpers.DepartmentResolver.ModuleOffMessage);
 
             var hasPositions = await _departmentRepository.HasAnyPositionAsync(
                 request.Id,

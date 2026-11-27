@@ -1,6 +1,7 @@
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.CompanySettings.Dtos;
+using Application.License;
 using MediatR;
 
 namespace Application.CompanySettings.Queries;
@@ -10,13 +11,16 @@ public class GetCompanySettingsBrandingQueryHandler
 {
     private readonly ICompanySettingsRepository _repository;
     private readonly IRestaurantSettingsRepository _restaurantSettingsRepository;
+    private readonly ILicenseRepository _licenseRepository;
 
     public GetCompanySettingsBrandingQueryHandler(
         ICompanySettingsRepository repository,
-        IRestaurantSettingsRepository restaurantSettingsRepository)
+        IRestaurantSettingsRepository restaurantSettingsRepository,
+        ILicenseRepository licenseRepository)
     {
         _repository = repository;
         _restaurantSettingsRepository = restaurantSettingsRepository;
+        _licenseRepository = licenseRepository;
     }
 
     public async Task<BaseResponse<CompanySettingsBrandingResponse>> Handle(
@@ -38,6 +42,7 @@ public class GetCompanySettingsBrandingQueryHandler
             : new CompanySettingsBrandingResponse
             {
                 OpeningTime = settings.OpeningTime,
+                WorksWithShifts = settings.OpeningTime is null,
                 LoginLogoUrl = settings.LoginLogoUrl,
                 ReportLogoUrl = settings.ReportLogoUrl,
                 WallpaperUrl = settings.WallpaperUrl,
@@ -58,8 +63,6 @@ public class GetCompanySettingsBrandingQueryHandler
                 AlertRingCount = settings.AlertRingCount,
                 AlertRingIntervalSeconds = settings.AlertRingIntervalSeconds,
                 TableTimeWarningMinutes = settings.TableTimeWarningMinutes,
-                ReservationBlockMinutes = settings.ReservationBlockMinutes,
-                ReservationAutoCancelMinutes = settings.ReservationAutoCancelMinutes,
                 ModuleFilial = settings.ModuleFilial,
                 ModuleAnbar = settings.ModuleAnbar,
                 ModuleRezervasyon = settings.ModuleRezervasyon,
@@ -70,6 +73,10 @@ public class GetCompanySettingsBrandingQueryHandler
                 ModuleDataSecimi = settings.ModuleDataSecimi,
                 ModuleQiymetSor = settings.ModuleQiymetSor,
                 ModuleKompleks = settings.ModuleKompleks,
+                ModuleDepartment = settings.ModuleDepartment,
+                SalesEditLocked = settings.SalesEditLocked,
+                KitchenApprovalRequired = settings.KitchenApprovalRequired,
+                StoreCostMethod = (int)settings.StoreCostMethod,
                 PrintAutoOnPayment = settings.PrintAutoOnPayment,
                 PrintKitchenOnPayment = settings.PrintKitchenOnPayment,
                 PrintShowPreview = settings.PrintShowPreview,
@@ -152,6 +159,12 @@ public class GetCompanySettingsBrandingQueryHandler
                 response.ModuleQiymetSor = branchSettings.ModuleQiymetSor;
             }
         }
+
+        // The POS login screen has no signed-in user, so it reads the licence countdown from here.
+        var license = await _licenseRepository.GetByCompanyIdAsync(request.CompanyId, cancellationToken);
+        var licenseStatus = new LicenseStatusResponse();
+        LicenseMapping.Fill(licenseStatus, license, request.CompanyId, DateTime.UtcNow);
+        response.LicenseDaysLeft = licenseStatus.DaysLeft;
 
         return BaseResponse<CompanySettingsBrandingResponse>.Ok(response);
     }

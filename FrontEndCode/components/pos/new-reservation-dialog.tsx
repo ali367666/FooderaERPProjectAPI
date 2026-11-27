@@ -14,7 +14,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DURATION_SHORTCUTS, MAX_DURATION, MIN_DURATION, localIsoDate } from "@/lib/reservation-rules";
-import { createReservation } from "@/lib/services/reservation-service";
+import {
+  createBanquetReservation,
+  createReservation,
+  getBanquetHalls,
+  type BanquetHallOption,
+} from "@/lib/services/reservation-service";
 import {
   getRestaurantTables,
   RestaurantTableType,
@@ -41,10 +46,20 @@ type Props = {
   initialTableId?: number | null;
 };
 
-/** New table reservation from the POS: guest name, phone, number of guests, date and time are required. */
+/** A banquet holds the whole hall, usually for an evening. */
+const BANQUET_DEFAULT_DURATION = "240";
+
+/**
+ * New reservation from the POS: either a table (optional) or a whole banquet hall.
+ * Guest name, phone, number of guests, date and time are required.
+ */
 export function NewReservationDialog({ open, onOpenChange, restaurantId, onCreated, initialTableId }: Props) {
+  const [kind, setKind] = useState<"table" | "banquet">("table");
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [tableId, setTableId] = useState("");
+  const [halls, setHalls] = useState<BanquetHallOption[]>([]);
+  const [hallsLoading, setHallsLoading] = useState(false);
+  const [hallId, setHallId] = useState("");
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestCount, setGuestCount] = useState("2");
@@ -56,7 +71,10 @@ export function NewReservationDialog({ open, onOpenChange, restaurantId, onCreat
 
   useEffect(() => {
     if (!open) return;
+    setKind("table");
     setTableId(initialTableId ? String(initialTableId) : "");
+    setHallId("");
+    setHalls([]);
     setGuestName("");
     setGuestPhone("");
     setGuestCount("2");
@@ -79,6 +97,47 @@ export function NewReservationDialog({ open, onOpenChange, restaurantId, onCreat
       .catch(() => setTables([]));
   }, [open, restaurantId, initialTableId]);
 
+  // Banquet halls, marked free/busy for the chosen date, time and duration (a hall is booked as a whole).
+  useEffect(() => {
+    if (!open || kind !== "banquet") return;
+    const minutes = Number(duration);
+    const validSpan = date && time && Number.isInteger(minutes) && minutes >= MIN_DURATION && minutes <= MAX_DURATION;
+    let cancelled = false;
+    setHallsLoading(true);
+    const timer = setTimeout(() => {
+      getBanquetHalls({
+        restaurantId,
+        ...(validSpan ? { date, time, durationMinutes: minutes } : {}),
+      })
+        .then((list) => {
+          if (cancelled) return;
+          setHalls(list);
+          // A hall that became busy for the new time can't stay picked.
+          setHallId((prev) => (prev && list.some((h) => String(h.id) === prev && h.isAvailable) ? prev : ""));
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setHalls([]);
+          toast.error(err instanceof Error ? err.message : "Banket zalları yüklənmədi.");
+        })
+        .finally(() => !cancelled && setHallsLoading(false));
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, kind, restaurantId, date, time, duration]);
+
+  const switchKind = (next: "table" | "banquet") => {
+    if (next === kind) return;
+    setKind(next);
+    // Banquets are booked for longer; switch the default holding time along unless it was typed by hand.
+    if (next === "banquet" && duration === "90") setDuration(BANQUET_DEFAULT_DURATION);
+    if (next === "table" && duration === BANQUET_DEFAULT_DURATION) setDuration("90");
+  };
+
+  const selectedHall = halls.find((h) => String(h.id) === hallId) ?? null;
+
   const save = async () => {
     const count = Number(guestCount);
     if (!guestName.trim()) return toast.error("Müştərinin adı mütləqdir.");
@@ -90,12 +149,16 @@ export function NewReservationDialog({ open, onOpenChange, restaurantId, onCreat
     if (!Number.isInteger(minutes) || minutes < MIN_DURATION || minutes > MAX_DURATION)
       return toast.error(`Saxlama müddəti ${MIN_DURATION}–${MAX_DURATION} dəqiqə arasında olmalıdır.`);
     if (new Date(`${date}T${time}`).getTime() < Date.now()) return toast.error("Keçmiş vaxta rezerv yazmaq olmaz.");
+    if (kind === "banquet") {
+      if (!selectedHall) return toast.error("Banket zalını seçin.");
+      if (!selectedHall.isAvailable)
+        return toast.error(selectedHall.busyReason ?? "Bu zal seçilən vaxtda məşğuldur.");
+    }
 
     setBusy(true);
     try {
-      await createReservation({
+      const common = {
         restaurantId,
-        tableId: tableId ? Number(tableId) : null,
         guestName: guestName.trim(),
         guestPhone: guestPhone.trim(),
         guestCount: Math.floor(count),
@@ -103,8 +166,13 @@ export function NewReservationDialog({ open, onOpenChange, restaurantId, onCreat
         reservationTime: time,
         durationMinutes: minutes,
         note: note.trim() || null,
-      });
-      toast.success("Rezervasiya yaradıldı.");
+      };
+      if (kind === "banquet") {
+        await createBanquetReservation({ ...common, sectionId: selectedHall!.id });
+      } else {
+        await createReservation({ ...common, tableId: tableId ? Number(tableId) : null });
+      }
+      toast.success(kind === "banquet" ? "Banket zalı rezerv edildi." : "Rezervasiya yaradıldı.");
       onOpenChange(false);
       onCreated();
     } catch (err) {
@@ -123,17 +191,59 @@ export function NewReservationDialog({ open, onOpenChange, restaurantId, onCreat
         </DialogHeader>
 
         <div className="space-y-3">
-          <div>
-            <Label htmlFor="rv-table">Masa</Label>
-            <select id="rv-table" className={selectClass + " mt-1"} value={tableId} onChange={(e) => setTableId(e.target.value)}>
-              <option value="">Masa seçilməyib</option>
-              {tables.map((t) => (
-                <option key={t.id} value={String(t.id)}>
-                  {t.name} ({t.capacity} yer)
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="button" variant={kind === "table" ? "default" : "outline"} onClick={() => switchKind("table")}>
+              Masa
+            </Button>
+            <Button type="button" variant={kind === "banquet" ? "default" : "outline"} onClick={() => switchKind("banquet")}>
+              Banket zalı
+            </Button>
           </div>
+          {kind === "table" ? (
+            <div>
+              <Label htmlFor="rv-table">Masa</Label>
+              <select id="rv-table" className={selectClass + " mt-1"} value={tableId} onChange={(e) => setTableId(e.target.value)}>
+                <option value="">Masa seçilməyib</option>
+                {tables.map((t) => (
+                  <option key={t.id} value={String(t.id)}>
+                    {t.name} ({t.capacity} yer)
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="rv-hall">Banket zalı *</Label>
+              <select
+                id="rv-hall"
+                className={selectClass + " mt-1"}
+                value={hallId}
+                onChange={(e) => setHallId(e.target.value)}
+                disabled={hallsLoading && halls.length === 0}
+              >
+                <option value="">
+                  {hallsLoading && halls.length === 0
+                    ? "Yüklənir…"
+                    : halls.length === 0
+                      ? "Banket zalı yoxdur"
+                      : "Zal seçin"}
+                </option>
+                {halls.map((h) => (
+                  <option key={h.id} value={String(h.id)} disabled={!h.isAvailable}>
+                    {h.name} ({h.tableCount} masa, {h.capacity} yer){h.isAvailable ? "" : ` — ${h.busyReason ?? "məşğuldur"}`}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Zal bütövlükdə rezerv olunur — bütün masaları seçilən vaxt üçün saxlanılır.
+              </p>
+              {selectedHall && Number(guestCount) > selectedHall.capacity && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Adam sayı zalın tutumundan ({selectedHall.capacity} yer) çoxdur.
+                </p>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="rv-name">Müştərinin adı *</Label>
@@ -159,7 +269,7 @@ export function NewReservationDialog({ open, onOpenChange, restaurantId, onCreat
             </div>
           </div>
           <div>
-            <Label htmlFor="rv-duration">Masa nə qədər saxlanılsın (dəqiqə)</Label>
+            <Label htmlFor="rv-duration">{kind === "banquet" ? "Zal" : "Masa"} nə qədər saxlanılsın (dəqiqə)</Label>
             <Input
               id="rv-duration"
               className="mt-1"

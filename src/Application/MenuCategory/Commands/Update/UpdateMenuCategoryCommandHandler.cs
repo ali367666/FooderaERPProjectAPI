@@ -91,6 +91,7 @@ public class UpdateMenuCategoryCommandHandler
 
         entity.IsActive = request.Request.IsActive;
         entity.IsSetCategory = request.Request.IsSetCategory;
+        entity.ExcludeFromDiscount = request.Request.ExcludeFromDiscount;
         entity.ParentCategoryId = request.Request.ParentCategoryId;
 
         _menuCategoryRepository.Update(entity);

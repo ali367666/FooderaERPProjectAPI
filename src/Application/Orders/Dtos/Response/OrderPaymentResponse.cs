@@ -4,6 +4,7 @@ public class OrderPaymentResponse
 {
     public int Id { get; set; }
     public string Method { get; set; } = default!;
+    public string? BankName { get; set; }
     public decimal Amount { get; set; }
     public decimal ServiceChargeAmount { get; set; }
     public decimal ReceivedAmount { get; set; }

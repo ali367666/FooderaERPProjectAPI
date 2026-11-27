@@ -26,6 +26,12 @@ public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
         builder.Property(x => x.SalePrice)
                .HasColumnType("decimal(18,2)");
 
+        builder.Property(x => x.LastPurchasePriceAzn)
+               .HasColumnType("decimal(18,4)");
+
+        builder.Property(x => x.AverageCostAzn)
+               .HasColumnType("decimal(18,4)");
+
         // Category relation
         builder.HasOne(x => x.Category)
                .WithMany()

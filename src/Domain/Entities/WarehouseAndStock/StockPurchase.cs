@@ -26,5 +26,23 @@ public class StockPurchase : CompanyEntity<int>
 
     public string? Note { get; set; }
 
+    /// <summary>The supplier's own invoice (qaimə) number, for matching the paper document.</summary>
+    public string? SupplierInvoiceNo { get; set; }
+
+    /// <summary>When the purchase was sent for approval (put on hold); the wait lasts until it is approved or rejected.</summary>
+    public DateTime? SubmittedAtUtc { get; set; }
+
+    public int? ApprovedByUserId { get; set; }
+    public DateTime? ApprovedAtUtc { get; set; }
+
+    public int? CancelledByUserId { get; set; }
+    public DateTime? CancelledAtUtc { get; set; }
+
+    /// <summary>What has been paid to the supplier so far, in AZN. The rest of the total is still owed.</summary>
+    public decimal PaidAmountAzn { get; set; }
+
+    public ICollection<StockPurchasePayment> Payments { get; set; } = new List<StockPurchasePayment>();
+    public ICollection<StockPurchaseReturn> Returns { get; set; } = new List<StockPurchaseReturn>();
+
     public ICollection<StockPurchaseLine> Lines { get; set; } = new List<StockPurchaseLine>();
 }

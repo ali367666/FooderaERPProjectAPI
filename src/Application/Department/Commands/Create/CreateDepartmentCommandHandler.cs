@@ -1,4 +1,4 @@
-﻿using Application.Abstractions.Repositories;
+using Application.Abstractions.Repositories;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -18,13 +18,16 @@ public sealed class CreateDepartmentCommandHandler
     private readonly ICurrentUserService _currentUserService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<CreateDepartmentCommandHandler> _logger;
+    private readonly Application.Common.Helpers.DepartmentResolver _departmentResolver;
 
     public CreateDepartmentCommandHandler(
         IDepartmentRepository departmentRepository,
         ICurrentUserService currentUserService,
         IAuditLogService auditLogService,
-        ILogger<CreateDepartmentCommandHandler> logger)
+        ILogger<CreateDepartmentCommandHandler> logger,
+        Application.Common.Helpers.DepartmentResolver departmentResolver)
     {
+        _departmentResolver = departmentResolver;
         _departmentRepository = departmentRepository;
         _currentUserService = currentUserService;
         _auditLogService = auditLogService;
@@ -46,6 +49,9 @@ public sealed class CreateDepartmentCommandHandler
 
             if (companyId <= 0)
                 return BaseResponse<DepartmentResponse>.Fail("Valid companyId is required.");
+
+            if (await _departmentResolver.IsModuleOffAsync(companyId, cancellationToken))
+                return BaseResponse<DepartmentResponse>.Fail(Application.Common.Helpers.DepartmentResolver.ModuleOffMessage);
 
             if (string.IsNullOrWhiteSpace(dto.Name))
                 return BaseResponse<DepartmentResponse>.Fail("Department adı boş ola bilməz.");

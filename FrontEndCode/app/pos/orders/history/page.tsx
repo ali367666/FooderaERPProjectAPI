@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Printer, Search, Trash2 } from "lucide-react";
 import { BarcodeSvg } from "@/components/barcode-svg";
@@ -15,20 +15,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getOrders, getOrderReceipt, deleteOrder, type OrderDto, type OrderReceiptDto } from "@/lib/services/order-service";
+import {
+  getReceipts,
+  getOrderReceipt,
+  deleteOrder,
+  type ReceiptListItemDto,
+  type OrderReceiptDto,
+} from "@/lib/services/order-service";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
+import { PosEmpty, PosPage, PosPageLoading, PosTileGrid, posTileClass } from "@/components/pos/pos-page";
+import { PosDateRangeFilter, formatRange, todayRange, type PosDateRange } from "@/components/pos/pos-date-range-filter";
 
 export default function PosOrderHistoryPage() {
   const [terminal, setTerminal] = useState<PosTerminalContext | null | undefined>(undefined);
-  const [orders, setOrders] = useState<OrderDto[]>([]);
+  const [orders, setOrders] = useState<ReceiptListItemDto[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [range, setRange] = useState<PosDateRange>(todayRange);
   const [receipt, setReceipt] = useState<OrderReceiptDto | null>(null);
   const [receiptOrderId, setReceiptOrderId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const loadSeq = useRef(0);
 
   const canDeleteReceipt = useHasPermission("Pos.DeleteReceipt");
 
@@ -38,20 +47,32 @@ export default function PosOrderHistoryPage() {
 
   const load = useCallback(async () => {
     if (!terminal?.restaurantId) return;
+    const requestId = ++loadSeq.current;
     setLoading(true);
     try {
-      const all = await getOrders();
-      setOrders(
-        all
-          .filter((o) => o.restaurantId === terminal.restaurantId && o.status === "paid")
-          .sort((a, b) => (b.paidAt ?? "").localeCompare(a.paidAt ?? "")),
-      );
+      // The server filters by branch and paid time and follows the company's business day
+      // (06:00 → 06:00 in shifts, the calendar day otherwise). "Bu gün" goes as the current business day,
+      // so a sale rung up after midnight in a shift still shows under today.
+      const today = todayRange();
+      const isToday = range.from === today.from && range.to === today.to;
+      const result = await getReceipts({
+        today: isToday,
+        from: range.from,
+        to: range.to,
+        fromTime: range.fromTime,
+        toTime: range.toTime,
+        restaurantId: terminal.restaurantId,
+      });
+      // Dates changed quickly: an older answer must not replace the newer range's list.
+      if (requestId !== loadSeq.current) return;
+      setOrders(result.items);
+      setTotal(result.total);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sifarişlər yüklənə bilmədi");
+      if (requestId === loadSeq.current) toast.error(err instanceof Error ? err.message : "Sifarişlər yüklənə bilmədi");
     } finally {
-      setLoading(false);
+      if (requestId === loadSeq.current) setLoading(false);
     }
-  }, [terminal]);
+  }, [terminal, range]);
 
   useEffect(() => {
     if (terminal === undefined) return;
@@ -60,26 +81,17 @@ export default function PosOrderHistoryPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return orders.filter((o) => {
-      if (q) {
-        const matchesSearch =
-          o.orderNumber.toLowerCase().includes(q) ||
-          o.receiptNumber?.toLowerCase().includes(q) ||
-          o.tableName?.toLowerCase().includes(q);
-        if (!matchesSearch) return false;
-      }
-      if (o.paidAt) {
-        const paidDate = o.paidAt.slice(0, 10);
-        if (fromDate && paidDate < fromDate) return false;
-        if (toDate && paidDate > toDate) return false;
-      } else if (fromDate || toDate) {
-        return false;
-      }
-      return true;
-    });
-  }, [orders, search, fromDate, toDate]);
+    if (!q) return orders;
+    return orders.filter(
+      (o) =>
+        o.orderNumber.toLowerCase().includes(q) ||
+        o.receiptNumber?.toLowerCase().includes(q) ||
+        o.tableName?.toLowerCase().includes(q) ||
+        o.waiterName?.toLowerCase().includes(q),
+    );
+  }, [orders, search]);
 
-  const handleView = async (order: OrderDto) => {
+  const handleView = async (order: ReceiptListItemDto) => {
     try {
       const r = await getOrderReceipt(order.id);
       setReceiptOrderId(order.id);
@@ -89,7 +101,7 @@ export default function PosOrderHistoryPage() {
     }
   };
 
-  const handleDelete = async (order: OrderDto) => {
+  const handleDelete = async (order: ReceiptListItemDto) => {
     if (!window.confirm(`${order.orderNumber} nömrəli qəbzi silmək istəyirsiniz?`)) return;
     setBusyId(order.id);
     try {
@@ -103,52 +115,48 @@ export default function PosOrderHistoryPage() {
     }
   };
 
-  if (loading || terminal === undefined) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Yüklənir...</div>;
-  }
+  // Loading shows inside the page so the date inputs stay on screen while a new range loads.
+  if (terminal === undefined) return <PosPageLoading />;
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Köhnə qəbzlər</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            type="date"
-            className="w-40"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            aria-label="Tarixdən"
-          />
-          <span className="text-sm text-muted-foreground">—</span>
-          <Input
-            type="date"
-            className="w-40"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            aria-label="Tarixə qədər"
-          />
-          {(fromDate || toDate) && (
-            <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>
-              Təmizlə
-            </Button>
-          )}
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-8" placeholder="Sifariş/qəbz nömrəsi, masa…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
+    <PosPage
+      title="Qəbzlər"
+      actions={
+        <div className="relative w-64">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input className="pl-8" placeholder="Sifariş/qəbz nömrəsi, masa…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-      </div>
+      }
+    >
+      <PosDateRangeFilter value={range} onChange={setRange} withTime />
 
-      <div className="space-y-2">
+      {!loading && orders.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {orders.length} qəbz · Cəmi <span className="font-semibold tabular-nums text-foreground">{total.toFixed(2)} ₼</span>
+        </p>
+      )}
+
+      {loading && <PosPageLoading />}
+
+      {!loading && filtered.length === 0 && (
+        <PosEmpty>{search.trim() ? "Sifariş tapılmadı" : `${formatRange(range)} üçün qəbz yoxdur.`}</PosEmpty>
+      )}
+
+      {!loading && <PosTileGrid wide>
         {filtered.map((o) => (
-          <div key={o.id} className="flex items-center justify-between rounded-lg border bg-card p-3">
-            <div>
-              <p className="text-sm font-semibold">{o.orderNumber} — {o.tableName}</p>
-              <p className="text-xs text-muted-foreground">
-                {o.paidAt && new Date(o.paidAt).toLocaleString("az-AZ")} · {o.totalAmount.toFixed(2)} ₼
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
+          <div key={o.id} className={posTileClass()}>
+            <span className="max-w-full truncate text-lg font-bold leading-none">{o.orderNumber}</span>
+            {o.receiptNumber && <span className="text-xs text-muted-foreground">Qəbz: {o.receiptNumber}</span>}
+            {(o.tableName || o.waiterName) && (
+              <span className="max-w-full truncate text-xs text-muted-foreground">
+                {[o.tableName, o.waiterName].filter(Boolean).join(" · ")}
+              </span>
+            )}
+            {o.paidAt && (
+              <span className="text-[11px] tabular-nums text-muted-foreground">{new Date(o.paidAt).toLocaleString("az-AZ")}</span>
+            )}
+            <span className="text-sm font-semibold tabular-nums">{o.totalAmount.toFixed(2)} ₼</span>
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
               <Button size="sm" variant="outline" onClick={() => void handleView(o)}>
                 <Printer className="mr-1 h-3.5 w-3.5" />
                 Bax / Çap et
@@ -161,10 +169,7 @@ export default function PosOrderHistoryPage() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">Sifariş tapılmadı</p>
-        )}
-      </div>
+      </PosTileGrid>}
 
       <Dialog open={receipt !== null} onOpenChange={(o) => !o && setReceipt(null)}>
         <DialogContent className="sm:max-w-sm">
@@ -212,6 +217,6 @@ export default function PosOrderHistoryPage() {
           #history-receipt-print-area { position: fixed; top: 0; left: 0; width: 100%; padding: 16px; }
         }
       `}</style>
-    </div>
+    </PosPage>
   );
 }

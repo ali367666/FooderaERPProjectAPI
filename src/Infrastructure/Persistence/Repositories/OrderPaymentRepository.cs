@@ -22,6 +22,7 @@ public class OrderPaymentRepository : IOrderPaymentRepository
     public async Task<List<OrderPayment>> GetByOrderIdAsync(int orderId, CancellationToken cancellationToken)
     {
         return await _context.OrderPayments
+            .Include(x => x.BankCounterparty)
             .Include(x => x.Lines)
                 .ThenInclude(l => l.OrderLine)
                     .ThenInclude(l => l.MenuItem)
@@ -37,6 +38,13 @@ public class OrderPaymentRepository : IOrderPaymentRepository
                 .ThenInclude(l => l.OrderLine)
                     .ThenInclude(l => l.MenuItem)
             .FirstOrDefaultAsync(x => x.Id == paymentId && x.OrderId == orderId, cancellationToken);
+    }
+
+    public Task<List<Application.Shift.Dtos.ZReportBankBreakdown>> GetCardBankTotalsAsync(
+        IReadOnlyCollection<int> orderIds,
+        CancellationToken cancellationToken)
+    {
+        return CardBankTotals.ComputeAsync(_context, orderIds, cancellationToken);
     }
 
     public async Task<bool> AnyForOrderAsync(int orderId, CancellationToken cancellationToken)

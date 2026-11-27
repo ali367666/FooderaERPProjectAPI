@@ -1,11 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, Plus, RefreshCw, Users } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { Plus, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { PosEmpty, PosPage, PosPageError, PosPageLoading, PosTileGrid, posTileClass } from "@/components/pos/pos-page";
+import {
+  PosDateRangeFilter,
+  formatRange,
+  hasRangeTime,
+  todayIso,
+  todayRange,
+  type PosDateRange,
+} from "@/components/pos/pos-date-range-filter";
 import { getPosTerminalContext, type PosTerminalContext } from "@/lib/pos-terminal-client";
 import { useHasPermission } from "@/hooks/use-auth-permissions";
 import { NewReservationDialog } from "@/components/pos/new-reservation-dialog";
@@ -35,26 +44,33 @@ function statusLabel(status: ReservationStatus): string {
   }
 }
 
-function statusBadgeClass(status: ReservationStatus): string {
+/** Waiting reservations look like a reserved table (amber); a no-show/cancel is red. */
+function tileTone(status: ReservationStatus): string {
   switch (status) {
     case "Pending":
-      return "bg-amber-100 text-amber-800";
     case "Confirmed":
-      return "bg-blue-100 text-blue-800";
-    case "Seated":
-      return "bg-emerald-100 text-emerald-800";
-    case "Completed":
-      return "bg-slate-100 text-slate-700";
+      return "border-amber-400 bg-amber-50 dark:bg-amber-950/30";
     case "Cancelled":
     case "NoShow":
-      return "bg-red-100 text-red-700";
+      return "border-red-300 bg-red-50 dark:bg-red-950/30";
+    case "Completed":
+      return "opacity-60";
     default:
-      return "bg-slate-100 text-slate-700";
+      return "";
   }
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+function statusTextClass(status: ReservationStatus): string {
+  switch (status) {
+    case "Pending":
+    case "Confirmed":
+      return "text-amber-600";
+    case "Cancelled":
+    case "NoShow":
+      return "text-red-600";
+    default:
+      return "text-muted-foreground";
+  }
 }
 
 export default function PosReservationsPage() {
@@ -66,27 +82,39 @@ export default function PosReservationsPage() {
   const canCancel = useHasPermission("Reservation.Cancel");
   const canCreate = useHasPermission("Reservation.Create");
   const [newOpen, setNewOpen] = useState(false);
+  const [range, setRange] = useState<PosDateRange>(todayRange);
+  const loadSeq = useRef(0);
 
   useEffect(() => {
     setTerminal(getPosTerminalContext());
   }, []);
 
   const load = useCallback(async () => {
+    const requestId = ++loadSeq.current;
     setLoading(true);
     setError(null);
     try {
-      const all = await getReservations(todayIso());
-      const filtered = terminal?.restaurantId
-        ? all.filter((r) => r.restaurantId === terminal.restaurantId)
-        : all;
-      filtered.sort((a, b) => a.reservationTime.localeCompare(b.reservationTime));
+      const all = await getReservations({
+        dateFrom: range.from,
+        dateTo: range.to,
+        fromTime: range.fromTime,
+        toTime: range.toTime,
+      });
+      // Days paged through quickly: an older answer must not replace the newer day's list.
+      if (requestId !== loadSeq.current) return;
+      const filtered = all.filter((r) => !terminal?.restaurantId || r.restaurantId === terminal.restaurantId);
+      filtered.sort(
+        (a, b) =>
+          a.reservationDate.slice(0, 10).localeCompare(b.reservationDate.slice(0, 10)) ||
+          a.reservationTime.localeCompare(b.reservationTime),
+      );
       setReservations(filtered);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Rezervasiyalar yüklənə bilmədi");
+      if (requestId === loadSeq.current) setError(err instanceof Error ? err.message : "Rezervasiyalar yüklənə bilmədi");
     } finally {
-      setLoading(false);
+      if (requestId === loadSeq.current) setLoading(false);
     }
-  }, [terminal]);
+  }, [terminal, range]);
 
   useEffect(() => {
     if (terminal === undefined) return;
@@ -105,15 +133,17 @@ export default function PosReservationsPage() {
     }
   };
 
-  if (loading || terminal === undefined) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Yüklənir...</div>;
-  }
+  if (terminal === undefined) return <PosPageLoading />;
+
+  const isToday = range.from === todayIso() && range.to === todayIso() && !hasRangeTime(range);
+  /** Tiles show their date only when the list spans more than one day. */
+  const singleDay = range.from === range.to;
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Bugünkü rezervasiyalar</h1>
-        <div className="flex items-center gap-2">
+    <PosPage
+      title={isToday ? "Bugünkü rezervasiyalar" : `Rezervasiyalar: ${formatRange(range)}`}
+      actions={
+        <>
           {canCreate && terminal?.restaurantId && (
             <Button size="sm" onClick={() => setNewOpen(true)}>
               <Plus className="mr-1 h-4 w-4" />
@@ -123,9 +153,9 @@ export default function PosReservationsPage() {
           <Button variant="outline" size="sm" onClick={() => void load()}>
             <RefreshCw className="h-4 w-4" />
           </Button>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {terminal?.restaurantId && (
         <NewReservationDialog
           open={newOpen}
@@ -135,55 +165,58 @@ export default function PosReservationsPage() {
         />
       )}
 
-      {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
+      <PosDateRangeFilter value={range} onChange={setRange} withTime />
+
+      {error && <PosPageError message={error} />}
+
+      {loading && <PosPageLoading />}
+
+      {!loading && reservations.length === 0 && !error && (
+        <PosEmpty>
+          {isToday ? "Bu gün üçün rezervasiya yoxdur." : `${formatRange(range)} üçün rezervasiya yoxdur.`}
+        </PosEmpty>
       )}
 
-      {reservations.length === 0 && !error && (
-        <p className="text-sm text-muted-foreground">Bu gün üçün rezervasiya yoxdur.</p>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {!loading && <PosTileGrid wide>
         {reservations.map((r) => {
           const busy = busyId === r.id;
+          const seated = r.status === "Seated";
           return (
-            <div key={r.id} className="rounded-xl border bg-card p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-lg font-bold">{r.reservationTime}</p>
-                  <p className="font-medium">{r.guestName}</p>
-                </div>
-                <Badge className={cn("shrink-0", statusBadgeClass(r.status))}>
-                  {statusLabel(r.status)}
-                </Badge>
-              </div>
-              <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5" />
-                  {r.guestCount} nəfər {r.tableName ? `— ${r.tableName}` : ""}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5" />
-                  {r.guestPhone}
-                </div>
-                {r.note && <p className="italic">{r.note}</p>}
-              </div>
+            <div key={r.id} className={cn(posTileClass(seated ? "bg-[#34d399]" : null), tileTone(r.status))}>
+              {!singleDay && (
+                <span className={cn("text-xs font-medium tabular-nums", seated ? "text-white/80" : "text-muted-foreground")}>
+                  {format(parseISO(r.reservationDate), "dd.MM.yyyy")}
+                </span>
+              )}
+              <span className="text-lg font-bold leading-none tabular-nums">{r.reservationTime}</span>
+              <span className="max-w-full truncate font-semibold">{r.guestName}</span>
+              <span className={cn("flex items-center gap-1 text-xs", seated ? "text-white/80" : "text-muted-foreground")}>
+                <Users className="h-3 w-3" />
+                {r.guestCount} nəfər
+                {r.isBanquet
+                  ? ` · Banket: ${r.banquetHallName ?? r.tableName ?? "zal"}`
+                  : r.tableName
+                    ? ` · ${r.tableName}`
+                    : ""}
+              </span>
+              <span className={cn("text-xs tabular-nums", seated ? "text-white/80" : "text-muted-foreground")}>{r.guestPhone}</span>
+              <span className={cn("text-xs font-semibold", seated ? "text-white" : statusTextClass(r.status))}>
+                {statusLabel(r.status)}
+              </span>
+              {r.note && (
+                <span className={cn("max-w-full truncate text-[11px] italic", seated ? "text-white/70" : "text-muted-foreground")}>
+                  {r.note}
+                </span>
+              )}
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap justify-center gap-2">
                 {r.status === "Pending" && (
                   <>
                     <Button size="sm" disabled={busy} onClick={() => void handleAction(r.id, "confirm")}>
                       Təsdiqlə
                     </Button>
                     {canCancel && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => void handleAction(r.id, "cancel")}
-                      >
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => void handleAction(r.id, "cancel")}>
                         Ləğv et
                       </Button>
                     )}
@@ -194,18 +227,13 @@ export default function PosReservationsPage() {
                     <Button size="sm" disabled={busy} onClick={() => void handleAction(r.id, "seat")}>
                       Oturt
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => void handleAction(r.id, "noshow")}
-                    >
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => void handleAction(r.id, "noshow")}>
                       Gəlmədi
                     </Button>
                   </>
                 )}
-                {r.status === "Seated" && (
-                  <Button size="sm" disabled={busy} onClick={() => void handleAction(r.id, "complete")}>
+                {seated && (
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => void handleAction(r.id, "complete")}>
                     Tamamla
                   </Button>
                 )}
@@ -213,7 +241,7 @@ export default function PosReservationsPage() {
             </div>
           );
         })}
-      </div>
-    </div>
+      </PosTileGrid>}
+    </PosPage>
   );
 }

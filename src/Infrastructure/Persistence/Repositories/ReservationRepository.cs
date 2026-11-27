@@ -12,15 +12,48 @@ public class ReservationRepository : IReservationRepository
 
     public ReservationRepository(AppDbContext context) => _context = context;
 
-    public async Task<List<Reservation>> GetAllAsync(int companyId, DateTime? date, CancellationToken ct)
+    public async Task<List<Reservation>> GetAllAsync(
+        int companyId, DateTime? date, DateTime? dateFrom, DateTime? dateTo, TimeSpan? fromTime, TimeSpan? toTime, CancellationToken ct)
     {
         var q = _context.Reservations
             .Include(r => r.Restaurant)
             .Include(r => r.Table)
+            .Include(r => r.BanquetTables).ThenInclude(b => b.Table).ThenInclude(t => t!.Section)
             .Where(r => r.CompanyId == companyId);
 
         if (date.HasValue)
             q = q.Where(r => r.ReservationDate.Date == date.Value.Date);
+
+        // Inclusive range over whole days; either end may be omitted.
+        if (dateFrom.HasValue)
+            q = q.Where(r => r.ReservationDate.Date >= dateFrom.Value.Date);
+
+        if (dateTo.HasValue)
+            q = q.Where(r => r.ReservationDate.Date <= dateTo.Value.Date);
+
+        // Time range: from fromTime on the first day to the end of the toTime minute on the last day. The first / last day is the
+        // range's own end, or the single day; with no day at all the time of day applies to every day.
+        var firstDay = (dateFrom ?? date)?.Date;
+        var lastDay = (dateTo ?? date)?.Date;
+        if (fromTime is { } from)
+        {
+            if (firstDay is { } first)
+                q = q.Where(r => r.ReservationDate.Date > first || r.ReservationTime >= from);
+            else
+                q = q.Where(r => r.ReservationTime >= from);
+        }
+        if (toTime is { } to)
+        {
+            // End of that minute; "23:59" runs to the end of the day.
+            var untilExclusive = to + TimeSpan.FromMinutes(1);
+            if (untilExclusive < TimeSpan.FromDays(1))
+            {
+                if (lastDay is { } last)
+                    q = q.Where(r => r.ReservationDate.Date < last || r.ReservationTime < untilExclusive);
+                else
+                    q = q.Where(r => r.ReservationTime < untilExclusive);
+            }
+        }
 
         return await q.OrderBy(r => r.ReservationDate)
                       .ThenBy(r => r.ReservationTime)
@@ -31,30 +64,8 @@ public class ReservationRepository : IReservationRepository
         => _context.Reservations
             .Include(r => r.Restaurant)
             .Include(r => r.Table)
+            .Include(r => r.BanquetTables).ThenInclude(b => b.Table).ThenInclude(t => t!.Section)
             .FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId, ct);
-
-    public async Task<Reservation?> FindBlockingForTableAsync(
-        int companyId, int tableId, DateTime nowLocal, int blockMinutes, CancellationToken ct)
-    {
-        var from = nowLocal.Date.AddDays(-1);
-        var to = nowLocal.Date.AddDays(1);
-
-        var candidates = await _context.Reservations
-            .AsNoTracking()
-            .Where(r => r.CompanyId == companyId
-                && r.TableId == tableId
-                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
-                && r.ReservationDate >= from
-                && r.ReservationDate <= to)
-            .ToListAsync(ct);
-
-        return candidates
-            .Select(r => new { Reservation = r, Start = r.ReservationDate.Date + r.ReservationTime })
-            .Where(x => nowLocal >= x.Start.AddMinutes(-blockMinutes) && nowLocal <= x.Start.AddMinutes(x.Reservation.DurationMinutes))
-            .OrderBy(x => x.Start)
-            .Select(x => x.Reservation)
-            .FirstOrDefault();
-    }
 
     public async Task<Reservation?> FindOverlappingAsync(
         int companyId, int tableId, DateTime start, int durationMinutes, int? excludeReservationId, CancellationToken ct)
@@ -66,7 +77,7 @@ public class ReservationRepository : IReservationRepository
         var candidates = await _context.Reservations
             .AsNoTracking()
             .Where(r => r.CompanyId == companyId
-                && r.TableId == tableId
+                && (r.TableId == tableId || r.BanquetTables.Any(b => b.TableId == tableId))
                 && r.Id != excludeReservationId
                 && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Confirmed)
                 && r.ReservationDate >= from

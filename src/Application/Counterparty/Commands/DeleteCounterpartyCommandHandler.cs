@@ -23,6 +23,9 @@ public class DeleteCounterpartyCommandHandler : IRequestHandler<DeleteCounterpar
         if (counterparty is null)
             throw new Exception("Konturagent tapılmadı.");
 
+        if (counterparty.IsBank)
+            throw new Exception("Sabit bank silinə bilməz.");
+
         _repository.Delete(counterparty);
         await _repository.SaveChangesAsync(cancellationToken);
     }

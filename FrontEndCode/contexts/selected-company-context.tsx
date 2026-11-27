@@ -9,11 +9,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getCompanies, type Company } from "@/lib/services/company-service";
+import { getCompanies, getCompanyById, type Company } from "@/lib/services/company-service";
 import type { SelectedCompanyScope } from "@/lib/company-scope-utils";
-import { useHasPermission } from "@/hooks/use-auth-permissions";
+import { useHasPermission, useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 import { getStoredToken } from "@/lib/auth-client";
 import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
+import { uniqueById } from "@/lib/utils";
 
 const STORAGE_KEY = "dashboardSelectedCompanyId";
 
@@ -29,10 +30,12 @@ type SelectedCompanyContextValue = {
 const SelectedCompanyContext = createContext<SelectedCompanyContextValue | null>(null);
 
 export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
-  // Tied to the Company.View permission (not hardcoded to any role) so whoever manages role
-  // permissions decides which roles get cross-company filtering — SuperAdmin by default, but
-  // grantable to any tenant role the same way as every other permission in the app.
-  const canViewCompanies = useHasPermission("Company.View");
+  // Only the platform SuperAdmin looks across companies. Everyone else works in the company of their own account (the server does the
+  // same), so for them the company is fixed here: every page loads and saves that company's data without asking.
+  const isSuperAdmin = useIsSuperAdmin();
+  const ownCompanyId = isSuperAdmin ? null : getCompanyIdFromToken(getStoredToken());
+  const canViewOwnCompany = useHasPermission("Company.View");
+  const canViewCompanies = isSuperAdmin;
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(true);
   const [companiesError, setCompaniesError] = useState<string | null>(null);
@@ -46,7 +49,7 @@ export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
     try {
       setCompaniesError(null);
       const data = await getCompanies();
-      setCompanies(data);
+      setCompanies(uniqueById(data));
     } catch (e) {
       setCompaniesError(e instanceof Error ? e.message : "Failed to load companies.");
     }
@@ -54,13 +57,17 @@ export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!canViewCompanies) {
-      // A tenant user can't list companies — their "company list" is just their own company from
-      // the token. Pages that load per company (departments, positions, stock, …) then work for
-      // them too instead of seeing an empty list or a spinner that never stops.
-      const ownId = getCompanyIdFromToken(getStoredToken());
-      setCompanies(ownId ? [{ id: ownId, name: "Şirkətim", companyCode: "" } as Company] : []);
+      const own: Company | null = ownCompanyId ? ({ id: ownCompanyId, name: "Şirkətim", companyCode: "" } as Company) : null;
+      setCompanies(own ? [own] : []);
       setCompaniesLoading(false);
-      return;
+      if (!ownCompanyId || !canViewOwnCompany) return;
+      let gone = false;
+      void getCompanyById(ownCompanyId)
+        .then((c) => !gone && setCompanies([c]))
+        .catch(() => undefined);
+      return () => {
+        gone = true;
+      };
     }
     let cancelled = false;
     (async () => {
@@ -68,7 +75,7 @@ export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
       try {
         setCompaniesError(null);
         const data = await getCompanies();
-        if (!cancelled) setCompanies(data);
+        if (!cancelled) setCompanies(uniqueById(data));
       } catch (e) {
         if (!cancelled) {
           setCompaniesError(e instanceof Error ? e.message : "Failed to load companies.");
@@ -80,7 +87,7 @@ export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [canViewCompanies]);
+  }, [canViewCompanies, ownCompanyId, canViewOwnCompany]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -109,17 +116,28 @@ export function SelectedCompanyProvider({ children }: { children: ReactNode }) {
     else localStorage.setItem(STORAGE_KEY, String(id));
   }, []);
 
+  // A company left over in this browser (for example from a SuperAdmin session) must not leak into a tenant's pages: the stored choice,
+  // which some requests read directly, is their own company.
+  if (typeof window !== "undefined" && storageHydrated && ownCompanyId && localStorage.getItem(STORAGE_KEY) !== String(ownCompanyId)) {
+    localStorage.setItem(STORAGE_KEY, String(ownCompanyId));
+  }
+  const effectiveCompanyId = ownCompanyId ?? selectedCompanyId;
+
   const value = useMemo<SelectedCompanyContextValue>(
     () => ({
       companies,
       companiesLoading,
       companiesError,
-      selectedCompanyId,
+      selectedCompanyId: effectiveCompanyId,
       setSelectedCompanyId,
       reloadCompanies,
     }),
-    [companies, companiesLoading, companiesError, selectedCompanyId, setSelectedCompanyId, reloadCompanies],
+    [companies, companiesLoading, companiesError, effectiveCompanyId, setSelectedCompanyId, reloadCompanies],
   );
+
+  // The saved company is read in the first effect; until then the pages below would load the signed-in user's own company
+  // and switch a moment later (wrong data flashing, a second request). They are mounted only once the choice is known.
+  if (!storageHydrated) return null;
 
   return <SelectedCompanyContext.Provider value={value}>{children}</SelectedCompanyContext.Provider>;
 }

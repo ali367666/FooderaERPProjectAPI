@@ -30,6 +30,12 @@ public class UpdateCounterpartyCommandHandler : IRequestHandler<UpdateCounterpar
         if (counterparty is null)
             throw new Exception("Konturagent tapılmadı.");
 
+        // Banks are given and switched by the SuperAdmin only.
+        if (counterparty.IsBank)
+            throw new Exception("Bankı yalnız SuperAdmin idarə edir.");
+        if (Domain.Constants.PaymentBankCatalog.IsBankName(dto.Name))
+            throw new Exception("Konturagentə bank adı verilə bilməz — banklar şirkətə SuperAdmin tərəfindən verilir.");
+
         var name = dto.Name.Trim();
         if (await _repository.ExistsByNameAsync(companyId, name, counterparty.Id, cancellationToken))
             throw new Exception("Bu adda konturagent artıq mövcuddur.");

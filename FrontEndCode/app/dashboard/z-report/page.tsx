@@ -8,16 +8,18 @@ import { toast } from "sonner";
 import { getZReport, type ZReport } from "@/lib/services/analytics-service";
 import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
-import { PERIODS, computeRange, toDateInputValue, type PeriodKey } from "@/lib/report-period";
+import { PERIODS, computeRangeWithTimes, toDateInputValue, type PeriodKey } from "@/lib/report-period";
 
 export default function ZReportPage() {
   const [period, setPeriod] = useState<PeriodKey>("today");
   const [customFrom, setCustomFrom] = useState(toDateInputValue(new Date()));
   const [customTo, setCustomTo] = useState(toDateInputValue(new Date()));
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
   const [report, setReport] = useState<ZReport | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const range = useMemo(() => computeRange(period, customFrom, customTo), [period, customFrom, customTo]);
+  const range = useMemo(() => computeRangeWithTimes(period, customFrom, customTo, fromTime, toTime), [period, customFrom, customTo, fromTime, toTime]);
 
   const load = useCallback(async () => {
     if (!range) return;
@@ -57,6 +59,24 @@ export default function ZReportPage() {
         ))}
       </div>
 
+      {true && (
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <Label htmlFor="zr-from-time">Saat: başlanğıc</Label>
+            <Input id="zr-from-time" type="time" className="mt-1 w-32" value={fromTime} onChange={(e) => setFromTime(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="zr-to-time">Saat: son</Label>
+            <Input id="zr-to-time" type="time" className="mt-1 w-32" value={toTime} onChange={(e) => setToTime(e.target.value)} />
+          </div>
+          {(fromTime || toTime) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFromTime(""); setToTime(""); }}>
+              Saatı təmizlə
+            </Button>
+          )}
+        </div>
+      )}
+
       {period === "custom" && (
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -95,6 +115,18 @@ export default function ZReportPage() {
             <SummaryCard label="Pos (kart)" value={formatCurrency(report.cardTotal)} />
             <SummaryCard label="Çek sayı" value={String(report.orderCount)} />
           </div>
+
+          {(report.bankBreakdown?.length ?? 0) > 0 && (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+              {report.bankBreakdown!.map((b) => (
+                <SummaryCard
+                  key={b.bankName}
+                  label={`Kart — ${b.bankName} (${b.paymentCount})`}
+                  value={formatCurrency(b.totalAmount)}
+                />
+              ))}
+            </div>
+          )}
 
           {(report.returnCount ?? 0) > 0 && (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">

@@ -13,7 +13,12 @@ public class StockPurchaseConfiguration : IEntityTypeConfiguration<StockPurchase
         builder.Property(p => p.DocumentNo).IsRequired().HasMaxLength(50);
         builder.Property(p => p.ExchangeRate).HasColumnType("decimal(18,6)");
         builder.Property(p => p.Currency).HasConversion<int>();
-        builder.Property(p => p.Status).HasConversion<int>();
+        // The status is the concurrency token: two people approving (or cancelling) the same purchase
+        // at once — the second save fails instead of adding the stock twice.
+        builder.Property(p => p.Status).HasConversion<int>().IsConcurrencyToken();
+        builder.Property(p => p.SupplierInvoiceNo).HasMaxLength(100);
+        // Also a concurrency token, so two payments at once cannot overwrite each other.
+        builder.Property(p => p.PaidAmountAzn).HasColumnType("decimal(18,2)").HasDefaultValue(0m).IsConcurrencyToken();
 
         builder.HasOne(p => p.Company)
             .WithMany()

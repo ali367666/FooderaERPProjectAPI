@@ -16,6 +16,7 @@ using Application.Orders.Commands.Delete;
 using Application.Orders.Commands.DiscardEmpty;
 using Application.Orders.Commands.SetCounterparty;
 using Application.Orders.Commands.SetOrderHold;
+using Application.Orders.Commands.SetBanquet;
 using Application.Orders.Commands.SetDeliveryDriver;
 using Application.Orders.Commands.PrintKitchenTicket;
 using Application.Orders.Commands.Bill;
@@ -28,7 +29,6 @@ using Application.Orders.Commands.PayPart;
 using Application.Orders.Commands.SetServiceCharge;
 using Application.Orders.Commands.ReassignWaiter;
 using Application.Orders.Queries.GetPayments;
-using Application.Orders.Queries.VerifyRedirectCode;
 using Application.Orders.Commands.TableRental;
 using Application.Orders.Dtos;
 using Application.Orders.Queries.GetAll;
@@ -91,6 +91,18 @@ public class OrdersController : ControllerBase
     public async Task<ActionResult<int>> PrintKitchenTicket(int id, [FromQuery] int printerId, [FromQuery] string? pin)
     {
         var result = await _mediator.Send(new PrintKitchenTicketCommand(id, printerId, pin));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Switches the order to the banquet menu (<c>banquet=true</c>) or back. Allowed only while the
+    /// order has no products; a banquet order sells banquet-menu products at banquet prices only.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.OrdersAdd)]
+    [HttpPut("{id:int}/banquet")]
+    public async Task<ActionResult<OrderResponse>> SetBanquet(int id, [FromQuery] bool banquet = true)
+    {
+        var result = await _mediator.Send(new SetOrderBanquetCommand(id, banquet));
         return Ok(result);
     }
 
@@ -206,9 +218,75 @@ public class OrdersController : ControllerBase
     }
     [Authorize(Policy = AppPermissions.OrdersView)]
     [HttpGet]
-    public async Task<ActionResult<List<OrderResponse>>> GetAll()
+    public async Task<ActionResult<List<OrderResponse>>> GetAll(
+        [FromQuery] Domain.Enums.OrderStatus[]? status,
+        [FromQuery] Domain.Enums.ReportPeriod? period,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] TimeSpan? fromTime,
+        [FromQuery] TimeSpan? toTime)
     {
-        var result = await _mediator.Send(new GetAllOrdersQuery());
+        // period = Today / ThisWeek / ThisMonth / Custom; from / to are calendar days (one date alone = that day);
+        // fromTime / toTime (HH:mm) narrow them to a time range.
+        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(Statuses: status, Period: period, From: from, To: to, FromTime: fromTime, ToTime: toTime)));
+        return Ok(result);
+    }
+
+    // Orders that occupy a table (draft/open) - lets the POS table map skip loading the whole order history.
+    /// <summary>
+    /// The POS old receipts: paid orders of a period - today (a business day), this week, this month, a date range or one date.
+    /// period = Today / ThisWeek / ThisMonth / Custom; from / to are calendar days (one date alone = that day); none = today.
+    /// fromTime / toTime (HH:mm, or a time inside from / to) narrow the days to a time range, e.g. from=2026-11-04&amp;fromTime=14:00&amp;toTime=18:30.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.ReceiptView)]
+    [HttpGet("receipts")]
+    public async Task<ActionResult<Application.Orders.Queries.Receipts.ReceiptListResponse>> GetReceipts(
+        [FromQuery] Domain.Enums.ReportPeriod? period,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] int? restaurantId,
+        [FromQuery] TimeSpan? fromTime,
+        [FromQuery] TimeSpan? toTime)
+    {
+        var result = await _mediator.Send(new Application.Orders.Queries.Receipts.GetReceiptsQuery(period, from, to, restaurantId, fromTime, toTime));
+        return Ok(result);
+    }
+
+    /// <summary>Corrects the payment method (cash / card) of a paid receipt. Needs Receipt.EditPayment and the company's receipt-edit switch (SuperAdmin).</summary>
+    [Authorize(Policy = AppPermissions.ReceiptEditPayment)]
+    [HttpPut("{id:int}/receipt/payment")]
+    public async Task<ActionResult<Application.Orders.Commands.EditReceipt.ReceiptEditResponse>> ChangeReceiptPayment(
+        int id, [FromBody] Application.Orders.Commands.EditReceipt.ChangeReceiptPaymentRequest request)
+        => Ok(await _mediator.Send(new Application.Orders.Commands.EditReceipt.ChangeReceiptPaymentCommand(id, request)));
+
+    /// <summary>Corrects the quantity of one item of a paid receipt (0 removes it); the totals and the payment follow. Needs Receipt.EditItems and the company's receipt-edit switch (SuperAdmin).</summary>
+    [Authorize(Policy = AppPermissions.ReceiptEditItems)]
+    [HttpPut("{id:int}/receipt/lines/{lineId:int}")]
+    public async Task<ActionResult<Application.Orders.Commands.EditReceipt.ReceiptEditResponse>> EditReceiptLine(
+        int id, int lineId, [FromBody] Application.Orders.Commands.EditReceipt.EditReceiptLineRequest request)
+        => Ok(await _mediator.Send(new Application.Orders.Commands.EditReceipt.EditReceiptLineCommand(id, lineId, request)));
+
+    [Authorize(Policy = AppPermissions.OrdersView)]
+    [HttpGet("active")]
+    public async Task<ActionResult<List<OrderResponse>>> GetActive()
+    {
+        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(Statuses: new[]
+        {
+            Domain.Enums.OrderStatus.Draft,
+            Domain.Enums.OrderStatus.Open
+        })));
+        return Ok(result);
+    }
+
+    // Unpaid "Tez satış" (take-away) orders, optionally for one restaurant - the POS take-away screen needs nothing else.
+    [Authorize(Policy = AppPermissions.OrdersView)]
+    [HttpGet("take-away/active")]
+    public async Task<ActionResult<List<OrderResponse>>> GetActiveTakeAway([FromQuery] int? restaurantId)
+    {
+        var result = await _mediator.Send(new GetAllOrdersQuery(new OrderListFilter(
+            TableType: Domain.Enums.RestaurantTableType.TakeAway,
+            RestaurantId: restaurantId,
+            ExcludeFinished: true)));
         return Ok(result);
     }
 
@@ -330,21 +408,12 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 
-    // Needs Pos.ChangeWaiter; the approval is checked inside — Pos.RedirectUser, or a supervisor's code.
+    // Pos.ChangeWaiter alone decides who may reassign the waiter — no supervisor code.
     [Authorize(Policy = AppPermissions.PosChangeWaiter)]
     [HttpPut("{id:int}/reassign-waiter")]
     public async Task<ActionResult<OrderResponse>> ReassignWaiter(int id, [FromBody] ReassignWaiterRequest request)
     {
-        var result = await _mediator.Send(new ReassignOrderWaiterCommand(id, request.NewEmployeeId, request.SupervisorCode));
+        var result = await _mediator.Send(new ReassignOrderWaiterCommand(id, request.NewEmployeeId));
         return Ok(result);
-    }
-
-    /// <summary>Early check of a supervisor's code so the POS can fail before the waiter picks an order.</summary>
-    [Authorize(Policy = AppPermissions.PosChangeWaiter)]
-    [HttpPost("verify-redirect-code")]
-    public async Task<ActionResult<string>> VerifyRedirectCode([FromBody] VerifyRedirectCodeRequest request)
-    {
-        var approver = await _mediator.Send(new VerifyRedirectCodeQuery(request.Code));
-        return Ok(approver);
     }
 }

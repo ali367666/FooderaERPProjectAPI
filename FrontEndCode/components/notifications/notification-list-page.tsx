@@ -9,7 +9,7 @@ import {
   Mail,
   ExternalLink,
 } from "lucide-react";
-import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
+import { AdvancedTableFilters, matchesDateTimeRange, type TableFilterDef } from "@/components/advanced-table-filters";
 import { DocumentActionToolbar } from "@/components/documents/document-action-toolbar";
 import { ListSelectionSync } from "@/components/documents/list-selection-sync";
 import { ConfirmDialog } from "@/components/documents/confirm-dialog";
@@ -229,17 +229,7 @@ export function NotificationListPage() {
         label: "Created",
         ui: "dateRange",
         gridClassName: "min-w-[260px] max-w-full flex-[2_1_360px]",
-        match: (row, get) => {
-          const from = get("ncreated:from");
-          const to = get("ncreated:to");
-          if (!from && !to) return true;
-          if (!row.createdMs) return false;
-          const day = new Date(row.createdMs);
-          const iso = day.toISOString().slice(0, 10);
-          if (from && iso < from) return false;
-          if (to && iso > to) return false;
-          return true;
-        },
+        match: (row, get) => matchesDateTimeRange(row.createdMs, get, "ncreated"),
       },
     ],
     [],

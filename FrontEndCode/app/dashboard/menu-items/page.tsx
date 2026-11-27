@@ -57,7 +57,8 @@ import { BarcodeSvg } from "@/components/barcode-svg";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { usePermissionSet, useHasPermission } from "@/hooks/use-auth-permissions";
 import { AppPermissions } from "@/lib/app-permissions";
-import { getCompanySettings } from "@/lib/services/company-settings-service";
+import { useRouter } from "next/navigation";
+import { useCompanyStoreMode } from "@/hooks/use-company-store-mode";
 
 type MenuItemRow = {
   id: string;
@@ -106,13 +107,12 @@ export default function MenuItemsPage() {
   const [printerOptions, setPrinterOptions] = useState<(Printer & { restaurantName: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isStoreMode, setIsStoreMode] = useState(false);
-
+  const isStoreMode = useCompanyStoreMode() === true;
+  // A store keeps its products and categories in its own catalog (Mağaza → Məhsullar); this restaurant menu is not used there.
+  const storeRouter = useRouter();
   useEffect(() => {
-    getCompanySettings()
-      .then((s) => setIsStoreMode(s.moduleDataSecimi))
-      .catch(() => setIsStoreMode(false));
-  }, []);
+    if (isStoreMode) storeRouter.replace("/store/products");
+  }, [isStoreMode, storeRouter]);
 
   const [stockItemId, setStockItemId] = useState("");
   const [stockInfo, setStockInfo] = useState<MenuItemStockInfo | null>(null);
@@ -158,6 +158,7 @@ export default function MenuItemsPage() {
   const [specialPrice3, setSpecialPrice3] = useState("");
   const [specialPrice4, setSpecialPrice4] = useState("");
   const [specialPrice5, setSpecialPrice5] = useState("");
+  const [banquetPrice, setBanquetPrice] = useState("");
 
   // Davranış
   const [hideFromPosSearch, setHideFromPosSearch] = useState(false);
@@ -461,13 +462,20 @@ export default function MenuItemsPage() {
     },
   ];
 
+  // A new product starts with the item type "Məhsul"; the user can still pick another from the list.
+  const defaultItemTypeId = (types: MenuItemTypeOption[]): string => {
+    const norm = (v: string) => v.trim().toLocaleLowerCase("az");
+    const found = types.find((t) => t.isActive && norm(t.name) === "məhsul");
+    return found ? String(found.id) : "";
+  };
+
   const resetForm = () => {
     setName("");
     setDescription("");
     setImageUrl(null);
     setMenuCategoryId("");
     setPreparationType(String(PreparationType.Kitchen));
-    setItemTypeId("");
+    setItemTypeId(defaultItemTypeId(itemTypes));
     setUnitId(String(UnitOfMeasure.Piece));
     setVatPercent("");
     setBarcode("");
@@ -486,6 +494,7 @@ export default function MenuItemsPage() {
     setSpecialPrice3("");
     setSpecialPrice4("");
     setSpecialPrice5("");
+    setBanquetPrice("");
 
     setHideFromPosSearch(false);
     setHideBarcode(false);
@@ -506,6 +515,11 @@ export default function MenuItemsPage() {
     setFieldErrors({});
     setIsEditMode(false);
   };
+
+  useEffect(() => {
+    if (isDialogOpen && !isEditMode && itemTypeId === "") setItemTypeId(defaultItemTypeId(itemTypes));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemTypes, isDialogOpen]);
 
   const handleAdd = () => {
     if (!canCreate) return;
@@ -543,6 +557,7 @@ export default function MenuItemsPage() {
       setSpecialPrice3(item.specialPrice3 != null ? String(item.specialPrice3) : "");
       setSpecialPrice4(item.specialPrice4 != null ? String(item.specialPrice4) : "");
       setSpecialPrice5(item.specialPrice5 != null ? String(item.specialPrice5) : "");
+      setBanquetPrice(item.banquetPrice != null ? String(item.banquetPrice) : "");
 
       setHideFromPosSearch(item.hideFromPosSearch);
       setHideBarcode(item.hideBarcode);
@@ -557,7 +572,7 @@ export default function MenuItemsPage() {
       if (item.isSet) {
         const components = await getMenuItemSetComponents(item.id);
         setSetComponents(
-          components.map((c) => ({ componentMenuItemId: c.componentMenuItemId, quantity: c.quantity, limit: c.limit })),
+          components.map((c) => ({ componentMenuItemId: c.componentMenuItemId, quantity: c.quantity, limit: c.limit, categoryMaxPick: c.categoryMaxPick })),
         );
       } else {
         setSetComponents([]);
@@ -661,14 +676,6 @@ export default function MenuItemsPage() {
     }
 
     const unit = Number(unitId) as UnitOfMeasureValue;
-    const isWeightBasedUnit = unit === UnitOfMeasure.Kg || unit === UnitOfMeasure.Gram;
-
-    if (!isSet && !isWeightBasedUnit && !barcode.trim()) {
-      const msg = "Barkod məcburidir.";
-      setError(msg);
-      window.alert(msg);
-      return;
-    }
 
     const basePayload = {
       name: trimmedName,
@@ -693,6 +700,7 @@ export default function MenuItemsPage() {
       specialPrice3: toNumberOrNull(specialPrice3),
       specialPrice4: toNumberOrNull(specialPrice4),
       specialPrice5: toNumberOrNull(specialPrice5),
+      banquetPrice: toNumberOrNull(banquetPrice),
 
       hideFromPosSearch,
       hideBarcode,
@@ -1005,21 +1013,8 @@ export default function MenuItemsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-foreground">
-                    Barcode
-                    {!isSet && Number(unitId) !== UnitOfMeasure.Kg && Number(unitId) !== UnitOfMeasure.Gram && (
-                      <span className="text-destructive"> *</span>
-                    )}
-                  </label>
-                  <Input
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
-                    placeholder={
-                      isSet || Number(unitId) === UnitOfMeasure.Kg || Number(unitId) === UnitOfMeasure.Gram
-                        ? "Optional"
-                        : "Məcburidir"
-                    }
-                  />
+                  <label className="mb-2 block text-sm font-medium text-foreground">Barcode</label>
+                  <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Optional" />
                 </div>
 
                 <div>
@@ -1182,6 +1177,13 @@ export default function MenuItemsPage() {
                   <label className="mb-2 block text-sm font-medium text-foreground">Özəl qiymət 5</label>
                   <Input type="number" min={0} step="0.01" value={specialPrice5} onChange={(e) => setSpecialPrice5(e.target.value)} placeholder="Optional" disabled={isEditMode && !canOverridePrice} />
                 </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-foreground">Banket qiyməti</label>
+                  <Input type="number" min={0} step="0.01" value={banquetPrice} onChange={(e) => setBanquetPrice(e.target.value)} placeholder="Boş qalsa məhsul banket menyusunda olmur" disabled={isEditMode && !canOverridePrice} />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Banket qiyməti olan məhsullar banket menyusuna düşür. Banket sifarişində yalnız onlar, yalnız bu qiymətlə satılır.
+                  </p>
+                </div>
               </div>
             </TabsContent>
 
@@ -1195,8 +1197,8 @@ export default function MenuItemsPage() {
                 Barkodu gizlət
               </label>
               <label className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox checked={excludeFromDiscount} onCheckedChange={(v) => setExcludeFromDiscount(v === true)} />
-                Endirimdən istisna et
+                <Checkbox checked={!excludeFromDiscount} onCheckedChange={(v) => setExcludeFromDiscount(v !== true)} />
+                Endirimdə iştirak etsin
               </label>
               <label className="flex items-center gap-2 text-sm text-foreground">
                 <Checkbox checked={skipTaxCalculation} onCheckedChange={(v) => setSkipTaxCalculation(v === true)} />

@@ -1,4 +1,4 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Domain.Entities;
 using Infrastructure.Persistence.Context;
@@ -24,6 +24,7 @@ public class RestaurantTableRepository : IRestaurantTableRepository
     {
         return await _context.RestaurantTables
             .Include(x => x.Restaurant)
+            .Include(x => x.Section)
             .FirstOrDefaultAsync(x => x.Id == id && x.CompanyId == companyId, cancellationToken);
     }
 
@@ -46,28 +47,49 @@ public class RestaurantTableRepository : IRestaurantTableRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<RestaurantTable?> GetVirtualAsync(
+        int companyId, int restaurantId, Domain.Enums.RestaurantTableType type, string name, CancellationToken cancellationToken)
+    {
+        return await _context.RestaurantTables
+            .Include(x => x.Restaurant)
+            .Where(x => x.CompanyId == companyId && x.RestaurantId == restaurantId && x.Type == type && x.Name == name)
+            .OrderBy(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<List<RestaurantTable>> GetForSearchAsync(int companyId, int? restaurantId, CancellationToken cancellationToken)
+    {
+        return await _context.RestaurantTables
+            .AsNoTracking()
+            .Include(x => x.Section)
+            .Where(x => x.CompanyId == companyId && (restaurantId == null || x.RestaurantId == restaurantId))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> RestaurantExistsAsync(int companyId, int restaurantId, CancellationToken cancellationToken)
     {
         return await _context.Restaurants
             .AnyAsync(x => x.CompanyId == companyId && x.Id == restaurantId, cancellationToken);
     }
 
-    public async Task<bool> ExistsByNameAsync(int companyId, int restaurantId, string name, CancellationToken cancellationToken)
+    public async Task<bool> ExistsByNameAsync(int companyId, int restaurantId, int? sectionId, string name, CancellationToken cancellationToken)
     {
         return await _context.RestaurantTables
             .AnyAsync(x =>
                 x.CompanyId == companyId &&
                 x.RestaurantId == restaurantId &&
+                x.SectionId == sectionId &&
                 x.Name == name,
                 cancellationToken);
     }
 
-    public async Task<bool> ExistsByNameAsync(int companyId, int restaurantId, int excludeId, string name, CancellationToken cancellationToken)
+    public async Task<bool> ExistsByNameAsync(int companyId, int restaurantId, int? sectionId, int excludeId, string name, CancellationToken cancellationToken)
     {
         return await _context.RestaurantTables
             .AnyAsync(x =>
                 x.CompanyId == companyId &&
                 x.RestaurantId == restaurantId &&
+                x.SectionId == sectionId &&
                 x.Id != excludeId &&
                 x.Name == name,
                 cancellationToken);

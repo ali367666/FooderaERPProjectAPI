@@ -38,7 +38,7 @@ public class SearchMenuItemsQueryHandler : IRequestHandler<SearchMenuItemsQuery,
         var code = request.Term?.Trim();
 
         return items
-            .Where(i => i.IsActive && !i.HideFromPosSearch)
+            .Where(i => i.IsActive && !i.HideFromPosSearch && (!request.IsBanquet || i.BanquetPrice != null))
             .Select(i => new { Item = i, Key = SearchText.Fold(i.Name) })
             .Where(x => words.All(w => x.Key.Contains(w, StringComparison.Ordinal)) || MatchesCode(x.Item, code))
             .OrderBy(x => x.Key, StringComparer.Ordinal)
@@ -47,13 +47,19 @@ public class SearchMenuItemsQueryHandler : IRequestHandler<SearchMenuItemsQuery,
             {
                 Id = x.Item.Id,
                 Name = x.Item.Name,
-                Price = OrderLinePricing.ResolveUnitPrice(x.Item, request.IsDelivery, settings),
+                Price = request.IsBanquet
+                    ? x.Item.BanquetPrice!.Value
+                    : OrderLinePricing.ResolveUnitPrice(x.Item, request.IsDelivery, settings),
                 UnitId = x.Item.UnitId,
                 IsSet = x.Item.IsSet,
                 IsTimeBased = x.Item.IsTimeBased,
                 PreparationType = x.Item.PreparationType,
                 MenuCategoryId = x.Item.MenuCategoryId,
-                MenuCategoryName = x.Item.MenuCategory.Name
+                MenuCategoryName = x.Item.MenuCategory.Name,
+                CategoryName = x.Item.MenuCategory.ParentCategory?.Name ?? x.Item.MenuCategory.Name,
+                SubCategoryName = x.Item.MenuCategory.ParentCategoryId is null ? null : x.Item.MenuCategory.Name,
+                Barcode = x.Item.HideBarcode ? null : x.Item.Barcode,
+                WeightCode = x.Item.HideBarcode ? null : x.Item.WeightCode
             })
             .ToList();
     }

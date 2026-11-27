@@ -8,7 +8,7 @@ public class CreateUserAdminRequest
     public string? Email { get; set; }
     /// <summary>
     /// Only for accounts that sign in with a real password (the SuperAdmins). Company staff use
-    /// their 4-digit Code: as-is on the POS, Code + MMdd of the day for the admin panel.
+    /// their Code: the same code on the POS and in the admin panel (no date added).
     /// </summary>
     public string? Password { get; set; }
     public string? PhoneNumber { get; set; }

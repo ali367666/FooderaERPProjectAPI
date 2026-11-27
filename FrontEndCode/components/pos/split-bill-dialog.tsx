@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Minus, Plus, Printer } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Minus, Plus, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,9 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { TouchNumpad } from "@/components/pos/touch-numpad";
+import { AmountCalculator, cashStatus } from "@/components/pos/amount-keypad";
+import { BankPicker, usePaymentBanks } from "@/components/pos/bank-picker";
 import { cn } from "@/lib/utils";
 import {
   payOrderPart,
@@ -66,9 +65,16 @@ export function SplitBillDialog({
   const [selection, setSelection] = useState<Record<number, number>>({});
   const [method, setMethod] = useState<PaymentMethod>("Cash");
   const [receivedInput, setReceivedInput] = useState("");
+  // Filled in with what is due: the first key typed on the calculator replaces it.
+  const [receivedFresh, setReceivedFresh] = useState(true);
+  // Cash share: after picking the items, the money handed over is entered on its own calculator step.
+  const [cashStep, setCashStep] = useState(false);
   const fiscal = useFiscalMode();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { banks, error: banksError } = usePaymentBanks(open && cardEnabled);
+  const [bankId, setBankId] = useState<number | null>(null);
+  const needsBank = method === "Card" && bankId == null;
 
   const paidByLine = useMemo(() => {
     const map = new Map<number, number>();
@@ -88,6 +94,8 @@ export function SplitBillDialog({
     l.quantity <= 0 ? 0 : r2(((l.lineTotal * qty) / l.quantity) * factor);
 
   const selectedLines = lines.filter((l) => (selection[l.id] ?? 0) > 0);
+  // A line split part-way shows on both sides: what is left here, what was taken there.
+  const availableLines = lines.filter((l) => remainingOf(l) <= 0 || remainingOf(l) - (selection[l.id] ?? 0) > 0);
   // Gifts (0 ₼) never hold the table open.
   const isFinal =
     lines.length > 0 &&
@@ -98,19 +106,21 @@ export function SplitBillDialog({
   // The table's recorded service charge ("Servis haqqı qeyd etmək") is added to the last share.
   const service = isFinal ? r2(order.serviceChargeAmount ?? 0) : 0;
   const due = r2(amount + service);
-  const received = Number(receivedInput) || 0;
-  const change = method === "Cash" ? Math.max(0, r2(received - due)) : 0;
+  const received = r2(Number(receivedInput) || 0);
 
   // Reset whenever the dialog opens or a payment changes what is left.
   useEffect(() => {
     if (!open) return;
     setSelection({});
+    setCashStep(false);
     setError(null);
+    setBankId(null);
     setMethod(cashEnabled ? "Cash" : cardEnabled ? "Card" : "Credit");
   }, [open, payments?.paidAmount, cashEnabled, cardEnabled]);
 
   useEffect(() => {
     setReceivedInput(due > 0 ? due.toFixed(2) : "");
+    setReceivedFresh(true);
   }, [due, method]);
 
   const setQty = (l: OrderLineDto, qty: number) => {
@@ -137,6 +147,10 @@ export function SplitBillDialog({
       toast.error("Borca yazmaq üçün əvvəlcə müştəri seçin.");
       return;
     }
+    if (needsBank) {
+      toast.error("Kart ödənişi üçün bankı seçin.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -144,9 +158,11 @@ export function SplitBillDialog({
         paymentMethod: method,
         paidAmount: method === "Cash" ? received : due,
         isFiscal: fiscal,
+        bankId,
         lines: selectedLines.map((l) => ({ orderLineId: l.id, quantity: selection[l.id] ?? 0 })),
       });
       setSelection({});
+      setCashStep(false);
       await onPaid(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Ödəniş uğursuz oldu";
@@ -162,15 +178,60 @@ export function SplitBillDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className={cn(
+          "max-h-[95vh] overflow-y-auto",
+          cashStep ? "sm:max-w-md" : "sm:max-w-lg md:max-w-3xl",
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Hesab — hissə-hissə ödəniş</DialogTitle>
+          <DialogTitle>{cashStep ? "Nağd ödəniş" : "Hesab — hissə-hissə ödəniş"}</DialogTitle>
           <DialogDescription>
-            {order.tableName}: hər qonaq üçün öz məhsullarını seçin. Qalıq: {remainingAmount.toFixed(2)} ₼
+            {cashStep
+              ? `${order.tableName}: ${selectedLines.length} məhsul${isFinal ? " — son hesab, masa bağlanacaq" : ""}`
+              : `${order.tableName}: hər qonaq üçün öz məhsullarını seçin. Qalıq: ${remainingAmount.toFixed(2)} ₼`}
           </DialogDescription>
         </DialogHeader>
 
-        {payments === null ? (
+        {payments !== null && cashStep ? (
+          <div className="space-y-3">
+            <AmountCalculator
+              due={due}
+              value={receivedInput}
+              fresh={receivedFresh}
+              onChange={(v, fresh) => {
+                setReceivedInput(v);
+                setReceivedFresh(fresh);
+              }}
+              quickNotes
+              status={due > 0 ? cashStatus(received, due) : null}
+              onEnter={() => {
+                if (!busy && received >= due) void handlePay();
+              }}
+              disabled={busy}
+            />
+            {service > 0 && (
+              <p className="text-xs text-muted-foreground">Servis haqqı daxildir: {service.toFixed(2)} ₼</p>
+            )}
+            {error && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" className="h-12 flex-1" disabled={busy} onClick={() => setCashStep(false)}>
+                Geri
+              </Button>
+              <Button
+                className="h-12 flex-[2] text-base font-semibold"
+                disabled={busy || received < due}
+                onClick={() => void handlePay()}
+              >
+                {busy ? "Gözləyin…" : "Ödə"}
+              </Button>
+            </div>
+          </div>
+        ) : payments === null ? (
           loadError ? (
             <div className="space-y-3 py-4 text-center">
               <p className="text-sm text-destructive">{loadError}</p>
@@ -183,70 +244,110 @@ export function SplitBillDialog({
           )
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Məhsullar</p>
-              <Button type="button" size="sm" variant="ghost" onClick={selectAllRemaining} disabled={busy}>
-                Qalanların hamısı
-              </Button>
-            </div>
-
-            <div className="space-y-1.5">
-              {lines.map((l) => {
-                const remaining = remainingOf(l);
-                const qty = selection[l.id] ?? 0;
-                const fullyPaid = remaining <= 0;
-                return (
-                  <div
-                    key={l.id}
-                    className={cn(
-                      "flex items-center justify-between gap-2 rounded-lg border p-2 text-sm",
-                      qty > 0 && "border-primary bg-primary/5",
-                      fullyPaid && "opacity-50",
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{l.menuItemName}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {fullyPaid
-                          ? "Ödənilib"
-                          : `Qalan ${qtyLabel(l, remaining)} / ${qtyLabel(l, l.quantity)} · ${portion(l, remaining).toFixed(2)} ₼`}
-                      </p>
-                    </div>
-                    {!fullyPaid &&
-                      (isAtomic(l) ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={qty > 0 ? "default" : "outline"}
-                          disabled={busy}
-                          onClick={() => setQty(l, qty > 0 ? 0 : remaining)}
-                        >
-                          {qty > 0 ? "Seçildi" : "Seç"}
-                        </Button>
-                      ) : (
-                        <div className="flex shrink-0 items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={busy || qty <= 0}
-                            onClick={() => setQty(l, qty - 1)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md border disabled:opacity-40"
-                          >
-                            <Minus className="h-3.5 w-3.5" />
-                          </button>
-                          <span className="w-6 text-center font-semibold">{qty}</span>
-                          <button
-                            type="button"
-                            disabled={busy || qty >= remaining}
-                            onClick={() => setQty(l, qty + 1)}
-                            className="flex h-8 w-8 items-center justify-center rounded-md border disabled:opacity-40"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </button>
+            {/* Left: what is still on the bill; right: this guest's share. Both read the same `selection`. */}
+            <div className="grid rounded-lg border md:grid-cols-2 md:divide-x max-md:divide-y">
+              <div className="flex min-h-0 flex-col">
+                <div className="flex min-h-11 items-center justify-between gap-2 border-b px-3 py-1.5">
+                  <p className="text-sm font-medium">Məhsullar</p>
+                  <Button type="button" size="sm" variant="ghost" onClick={selectAllRemaining} disabled={busy}>
+                    Qalanların hamısı
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="max-h-[40vh] min-h-32 space-y-1.5 overflow-y-auto p-2">
+                  {availableLines.length === 0 && (
+                    <p className="py-8 text-center text-sm text-muted-foreground">Bütün məhsullar seçilib.</p>
+                  )}
+                  {availableLines.map((l) => {
+                    const remaining = remainingOf(l);
+                    const qty = selection[l.id] ?? 0;
+                    const left = remaining - qty;
+                    const fullyPaid = remaining <= 0;
+                    return (
+                      <button
+                        key={l.id}
+                        type="button"
+                        disabled={busy || fullyPaid}
+                        onClick={() => setQty(l, isAtomic(l) ? remaining : qty + 1)}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-2 rounded-lg border p-2 text-left text-sm transition-colors",
+                          fullyPaid ? "opacity-50" : "hover:border-primary hover:bg-primary/5",
+                        )}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{l.menuItemName}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {fullyPaid
+                              ? "Ödənilib"
+                              : `Qalan ${qtyLabel(l, left)} / ${qtyLabel(l, l.quantity)} · ${portion(l, left).toFixed(2)} ₼`}
+                          </p>
                         </div>
-                      ))}
-                  </div>
-                );
-              })}
+                        {!fullyPaid && <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-col">
+                <div className="flex min-h-11 items-center justify-between gap-2 border-b px-3 py-1.5">
+                  <p className="text-sm font-medium">Seçilənlər</p>
+                  {selectedLines.length > 0 && (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setSelection({})} disabled={busy}>
+                      <ChevronsLeft className="h-4 w-4" />
+                      Hamısını qaytar
+                    </Button>
+                  )}
+                </div>
+                <div className="max-h-[40vh] min-h-32 space-y-1.5 overflow-y-auto p-2">
+                  {selectedLines.length === 0 && (
+                    <p className="py-8 text-center text-sm text-muted-foreground">Soldan məhsul seçin.</p>
+                  )}
+                  {selectedLines.map((l) => {
+                    const remaining = remainingOf(l);
+                    const qty = selection[l.id] ?? 0;
+                    return (
+                      <div
+                        key={l.id}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-primary bg-primary/5 p-2 text-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{l.menuItemName}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {qtyLabel(l, qty)} · {portion(l, qty).toFixed(2)} ₼
+                          </p>
+                        </div>
+                        {isAtomic(l) ? (
+                          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setQty(l, 0)}>
+                            <ChevronsLeft className="h-4 w-4" />
+                            Qaytar
+                          </Button>
+                        ) : (
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={busy || qty <= 0}
+                              onClick={() => setQty(l, qty - 1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-md border bg-background disabled:opacity-40"
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </button>
+                            <span className="w-6 text-center font-semibold">{qty}</span>
+                            <button
+                              type="button"
+                              disabled={busy || qty >= remaining}
+                              onClick={() => setQty(l, qty + 1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-md border bg-background disabled:opacity-40"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-3 rounded-lg border p-3">
@@ -279,19 +380,8 @@ export function SplitBillDialog({
                 )}
               </div>
 
-              {method === "Cash" && (
-                <div className="space-y-2">
-                  <Label htmlFor="split-received">Alınan məbləğ</Label>
-                  <Input
-                    id="split-received"
-                    type="number"
-                    step="0.01"
-                    value={receivedInput}
-                    onChange={(e) => setReceivedInput(e.target.value)}
-                  />
-                  {touchScreen && <TouchNumpad value={receivedInput} onChange={setReceivedInput} allowDecimal />}
-                  <p className="text-sm text-muted-foreground">Qaytarılan: {change.toFixed(2)} ₼</p>
-                </div>
+              {method === "Card" && (
+                <BankPicker banks={banks} error={banksError} value={bankId} onChange={setBankId} disabled={busy} />
               )}
 
               {error && (
@@ -302,10 +392,19 @@ export function SplitBillDialog({
 
               <Button
                 className="h-12 w-full text-base font-semibold"
-                disabled={busy || (selectedLines.length === 0 && !isFinal) || due < 0}
-                onClick={() => void handlePay()}
+                disabled={busy || (selectedLines.length === 0 && !isFinal) || due < 0 || needsBank}
+                onClick={() => {
+                  // Cash goes to its own calculator step; card / credit are paid straight away.
+                  if (method === "Cash") {
+                    setReceivedInput(due > 0 ? due.toFixed(2) : "");
+                    setReceivedFresh(true);
+                    setCashStep(true);
+                  } else {
+                    void handlePay();
+                  }
+                }}
               >
-                {busy ? "Gözləyin…" : `Ödə — ${due.toFixed(2)} ₼`}
+                {busy ? "Gözləyin…" : method === "Cash" ? `Davam et — ${due.toFixed(2)} ₼` : `Ödə — ${due.toFixed(2)} ₼`}
               </Button>
             </div>
 

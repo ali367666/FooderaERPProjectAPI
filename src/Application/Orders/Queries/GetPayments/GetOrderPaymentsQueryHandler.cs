@@ -46,6 +46,7 @@ public class GetOrderPaymentsQueryHandler : IRequestHandler<GetOrderPaymentsQuer
             {
                 Id = p.Id,
                 Method = p.Method.ToString(),
+                BankName = p.BankCounterparty?.Name,
                 Amount = p.Amount,
                 ServiceChargeAmount = p.ServiceChargeAmount ?? 0,
                 ReceivedAmount = p.ReceivedAmount,

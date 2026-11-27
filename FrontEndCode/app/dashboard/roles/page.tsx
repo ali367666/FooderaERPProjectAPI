@@ -33,6 +33,11 @@ import {
 } from "@/lib/services/role-permission-service";
 import { toast } from "sonner";
 import { roleDisplayName } from "@/lib/role-labels";
+import { isPermissionForMode } from "@/lib/permission-translations";
+import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
+import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
+import { getStoredToken } from "@/lib/auth-client";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 type RoleRow = {
   id: string;
@@ -71,15 +76,29 @@ export default function RolesPage() {
       .catch(() => setPermissions([]));
   }, []);
 
+  // Restaurant companies are offered no Store permissions and store companies no restaurant-only ones.
+  const [storeMode, setStoreMode] = useState(false);
+  useEffect(() => {
+    const companyId = Number(formCompanyId) || selectedCompanyId || getCompanyIdFromToken(getStoredToken());
+    if (!companyId) {
+      setStoreMode(false);
+      return;
+    }
+    getCompanySettingsBranding(companyId)
+      .then((b) => setStoreMode(b.moduleDataSecimi === true))
+      .catch(() => setStoreMode(false));
+  }, [formCompanyId, selectedCompanyId]);
+
   const groupedPermissions = useMemo(() => {
     const map = new Map<string, PermissionDto[]>();
     for (const p of permissions) {
+      if (!isPermissionForMode(p.module, storeMode, p.name)) continue;
       const key = p.module || "Ümumi";
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(p);
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [permissions]);
+  }, [permissions, storeMode]);
 
   const togglePermission = (id: number) => {
     setSelectedPermissionIds((prev) => {
@@ -180,11 +199,6 @@ export default function RolesPage() {
     { key: "roleId" as const, label: "ID" },
     { key: "name" as const, label: "Role name" },
     { key: "companyName" as const, label: "Company" },
-    {
-      key: "requiresRotatingPin" as const,
-      label: "Gündəlik kod",
-      render: (value: boolean) => (value ? "Bəli" : "Xeyr"),
-    },
   ];
 
   const handleAdd = () => {
@@ -329,6 +343,7 @@ export default function RolesPage() {
           </div>
 
           {companies.length > 0 && !editingGlobalRole && (
+            <SuperAdminOnly>
             <div className="mt-4">
               <Label htmlFor="role-company">Company</Label>
               {editingId != null ? (
@@ -354,21 +369,8 @@ export default function RolesPage() {
                 <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "companyid")}</p>
               )}
             </div>
+            </SuperAdminOnly>
           )}
-
-          <div className="mt-4">
-            <label className="flex items-center gap-2 text-sm font-normal">
-              <Checkbox
-                checked={requiresRotatingPin}
-                onCheckedChange={(v) => setRequiresRotatingPin(Boolean(v))}
-              />
-              Gündəlik dəyişən kod tələb olunsun
-            </label>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Açılsa, bu rola aid işçilər POS-a daxil olarkən kodun qarşısına həmin günün tarixini (4 rəqəm, avtomatik dəyişir)
-              əlavə etməlidir. Bağlı qalarsa, sabit kod kifayətdir.
-            </p>
-          </div>
 
           <div className="mt-4">
             <Label>Səlahiyyətlər</Label>

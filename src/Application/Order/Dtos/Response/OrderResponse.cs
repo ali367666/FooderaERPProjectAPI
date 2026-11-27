@@ -43,6 +43,12 @@ public class OrderResponse
     public bool IsBillLocked { get; set; }
 
     public bool IsDelivery { get; set; }
+
+    /// <summary>Banquet order: banquet-menu products only, at banquet prices, prices locked.</summary>
+    public bool IsBanquet { get; set; }
+
+    /// <summary>The tables of a banquet order (empty for ordinary orders); <c>TableId</c> is the first of them.</summary>
+    public List<Application.Banquets.Dtos.BanquetTableRef> BanquetTables { get; set; } = new();
     public string? DeliveryAddress { get; set; }
     public string? DeliveryPhone { get; set; }
     public int? DeliveryDriverEmployeeId { get; set; }

@@ -39,17 +39,11 @@ public class CreateStockPurchaseCommandHandler
         if (companyId == 0)
             return new BaseResponse<int> { Success = false, Message = "CompanyId tapılmadı." };
 
-        if (dto.Lines is null || !dto.Lines.Any())
-            return new BaseResponse<int> { Success = false, Message = "Alış ən azı bir sətir içərməlidir." };
-
-        if (dto.Lines.Any(x => x.Quantity <= 0))
-            return new BaseResponse<int> { Success = false, Message = "Bütün miqdarlar 0-dan böyük olmalıdır." };
-
-        if (dto.Lines.Any(x => x.UnitPriceForeign < 0))
-            return new BaseResponse<int> { Success = false, Message = "Vahid qiymət mənfi ola bilməz." };
-
-        if (dto.ExchangeRate <= 0)
-            return new BaseResponse<int> { Success = false, Message = "Məzənnə 0-dan böyük olmalıdır." };
+        var error = await StockPurchaseRules.ValidateAsync(
+            _purchaseRepository, companyId, dto.CounterpartyId, dto.WarehouseId,
+            dto.ExchangeRate, dto.PurchaseDate, dto.Lines, cancellationToken);
+        if (error is not null)
+            return new BaseResponse<int> { Success = false, Message = error };
 
         var purchase = new Domain.Entities.WarehouseAndStock.StockPurchase
         {
@@ -62,6 +56,8 @@ public class CreateStockPurchaseCommandHandler
             PurchaseDate = dto.PurchaseDate,
             WarehouseId = dto.WarehouseId,
             Note = dto.Note,
+            SupplierInvoiceNo = StockPurchaseRules.CleanInvoiceNo(dto.SupplierInvoiceNo),
+            CreatedByUserId = _currentUserService.UserId,
             Status = StockPurchaseStatus.Draft,
             Lines = dto.Lines.Select(l => new Domain.Entities.WarehouseAndStock.StockPurchaseLine
             {

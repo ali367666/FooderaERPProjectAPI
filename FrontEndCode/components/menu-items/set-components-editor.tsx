@@ -28,12 +28,21 @@ export function SetComponentsEditor({ components, onChange, items, categories }:
 
   const countOf = (id: number) => components.find((c) => c.componentMenuItemId === id)?.quantity;
 
-  const toggle = (id: number, checked: boolean) =>
+  // The cap of a category is stored on each of its components (all carry the same value).
+  const capOf = (products: MenuItem[]) =>
+    products.map((p) => components.find((c) => c.componentMenuItemId === p.id)?.categoryMaxPick).find((v) => v != null) ?? null;
+
+  const toggle = (id: number, checked: boolean, categoryCap: number | null) =>
     onChange(
       checked
-        ? [...components, { componentMenuItemId: id, quantity: 1, limit: 1 }]
+        ? [...components, { componentMenuItemId: id, quantity: 1, limit: 1, categoryMaxPick: categoryCap }]
         : components.filter((c) => c.componentMenuItemId !== id),
     );
+
+  const setCap = (products: MenuItem[], cap: number | null) => {
+    const ids = new Set(products.map((p) => p.id));
+    onChange(components.map((c) => (ids.has(c.componentMenuItemId) ? { ...c, categoryMaxPick: cap } : c)));
+  };
 
   const setCount = (id: number, count: number) => {
     const value = Math.max(1, count || 1);
@@ -56,6 +65,7 @@ export function SetComponentsEditor({ components, onChange, items, categories }:
         {rows.map(({ category, products }) => {
           const isOpen = expanded === category.id;
           const selected = products.filter((p) => countOf(p.id) != null).length;
+          const cap = capOf(products);
           return (
             <div key={category.id} className={`rounded-md border ${selected > 0 ? "border-primary/60" : ""}`}>
               <button
@@ -68,16 +78,31 @@ export function SetComponentsEditor({ components, onChange, items, categories }:
                 <span className="text-xs text-muted-foreground">
                   {selected > 0 ? `${selected} / ${products.length} seçilib` : `${products.length} məhsul`}
                 </span>
+                {cap != null && <span className="ml-auto rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">ən çox {cap} seçim</span>}
               </button>
 
               {isOpen && (
                 <div className="space-y-1 border-t p-2">
+                  {selected > 0 && (
+                    <div className="mb-1 flex flex-wrap items-center gap-2 rounded bg-muted/50 px-2 py-1.5 text-sm">
+                      <span>Ofisiant bu kateqoriyadan ən çox</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        className="h-8 w-20"
+                        placeholder="—"
+                        value={cap ?? ""}
+                        onChange={(e) => setCap(products, e.target.value === "" ? null : Math.max(1, Number(e.target.value) || 1))}
+                      />
+                      <span className="text-xs text-muted-foreground">seçim edə bilər (boş = məhdudiyyət yoxdur; setdə sabit olanlar üçün boş saxlayın)</span>
+                    </div>
+                  )}
                   {products.map((p) => {
                     const count = countOf(p.id);
                     return (
                       <div key={p.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted">
                         <label className="flex flex-1 cursor-pointer items-center gap-2">
-                          <Checkbox checked={count != null} onCheckedChange={(v) => toggle(p.id, v === true)} />
+                          <Checkbox checked={count != null} onCheckedChange={(v) => toggle(p.id, v === true, cap)} />
                           {p.name}
                         </label>
                         {count != null && (

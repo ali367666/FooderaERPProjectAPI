@@ -44,6 +44,8 @@ export type MenuCategory = {
   isActive: boolean;
   /** Sets category: its products are SETs the waiter fills by picking products. */
   isSetCategory: boolean;
+  /** True: the products of this category (and its sub-categories) take no part in discounts. */
+  excludeFromDiscount: boolean;
   parentCategoryId: number | null;
   parentCategoryName: string | null;
 };
@@ -53,6 +55,7 @@ export type MenuCategoryCreateInput = {
   description?: string | null;
   imageUrl?: string | null;
   isSetCategory?: boolean;
+  excludeFromDiscount?: boolean;
   parentCategoryId?: number | null;
 };
 
@@ -62,6 +65,7 @@ export type MenuCategoryUpdateInput = {
   imageUrl?: string | null;
   isActive: boolean;
   isSetCategory?: boolean;
+  excludeFromDiscount?: boolean;
   parentCategoryId?: number | null;
 };
 
@@ -81,6 +85,7 @@ function normalizeMenuCategory(item: unknown): MenuCategory | null {
     imageUrl: (raw.imageUrl ?? raw.ImageUrl) != null ? String(raw.imageUrl ?? raw.ImageUrl) : null,
     isActive: Boolean(raw.isActive ?? raw.IsActive ?? true),
     isSetCategory: Boolean(raw.isSetCategory ?? raw.IsSetCategory ?? false),
+    excludeFromDiscount: Boolean(raw.excludeFromDiscount ?? raw.ExcludeFromDiscount ?? false),
     parentCategoryId: (() => {
       const v = raw.parentCategoryId ?? raw.ParentCategoryId;
       return v == null ? null : Number(v);
@@ -128,6 +133,7 @@ export async function createMenuCategory(data: MenuCategoryCreateInput): Promise
       description: data.description?.trim() || null,
       imageUrl: data.imageUrl?.trim() || null,
       isSetCategory: data.isSetCategory ?? false,
+      excludeFromDiscount: data.excludeFromDiscount ?? false,
       parentCategoryId: data.parentCategoryId ?? null,
     });
   } catch (error) {
@@ -151,6 +157,7 @@ export async function updateMenuCategory(
         imageUrl: data.imageUrl?.trim() || null,
         isActive: data.isActive,
         isSetCategory: data.isSetCategory ?? false,
+        excludeFromDiscount: data.excludeFromDiscount ?? false,
         parentCategoryId: data.parentCategoryId ?? null,
       },
       { params: { companyId: resolvedCompanyId } },

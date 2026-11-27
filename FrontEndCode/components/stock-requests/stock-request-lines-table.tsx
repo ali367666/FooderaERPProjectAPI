@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StockItemCombobox } from "@/components/documents/stock-item-combobox";
+import { NewStockItemButton } from "@/components/stock/new-stock-item-button";
 import type { StockItem } from "@/lib/services/stock-item-service";
 import { unitLabel } from "@/lib/services/stock-item-service";
 
@@ -30,6 +31,9 @@ type StockRequestLinesTableProps = {
   onChange: (lines: StockRequestLineDraft[]) => void;
   readOnly: boolean;
   rowErrors: Record<string, string | undefined>;
+  /** The company of the document: a product created from here belongs to it. */
+  companyId: number;
+  onItemCreated: (item: StockItem) => void;
 };
 
 export function StockRequestLinesTable({
@@ -38,6 +42,8 @@ export function StockRequestLinesTable({
   onChange,
   readOnly,
   rowErrors,
+  companyId,
+  onItemCreated,
 }: StockRequestLinesTableProps) {
   const addLine = () => {
     onChange([
@@ -48,6 +54,17 @@ export function StockRequestLinesTable({
         quantity: "",
       },
     ]);
+  };
+
+  /** A product created right here goes into the first line that has none yet, else into a new line. */
+  const addCreatedItem = (item: StockItem) => {
+    onItemCreated(item);
+    const empty = lines.find((l) => l.stockItemId == null);
+    if (empty) {
+      onChange(lines.map((l) => (l.key === empty.key ? { ...l, stockItemId: item.id, stockItemName: undefined } : l)));
+      return;
+    }
+    onChange([...lines, { key: `nl-${Date.now()}`, stockItemId: item.id, quantity: "" }]);
   };
 
   const removeLine = (key: string) => {
@@ -143,9 +160,12 @@ export function StockRequestLinesTable({
         </Table>
       </div>
       {!readOnly ? (
-        <Button type="button" variant="outline" size="sm" onClick={addLine}>
-          Add line
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={addLine}>
+            Add line
+          </Button>
+          <NewStockItemButton companyId={companyId} onCreated={addCreatedItem} />
+        </div>
       ) : null}
     </div>
   );

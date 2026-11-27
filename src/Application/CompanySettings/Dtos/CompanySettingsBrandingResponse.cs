@@ -3,6 +3,12 @@ namespace Application.CompanySettings.Dtos;
 public class CompanySettingsBrandingResponse
 {
     public TimeSpan? OpeningTime { get; set; }
+
+    /// <summary>
+    /// True when the company works in shifts (no opening time set): the POS report screen then offers closing the shift.
+    /// False when it works by the day (an opening time is set) - there is no shift to close.
+    /// </summary>
+    public bool WorksWithShifts { get; set; }
     public string? LoginLogoUrl { get; set; }
     public string? ReportLogoUrl { get; set; }
     public string? WallpaperUrl { get; set; }
@@ -25,8 +31,6 @@ public class CompanySettingsBrandingResponse
     public int? AlertRingIntervalSeconds { get; set; }
     public int? TableTimeWarningMinutes { get; set; }
 
-    public int ReservationBlockMinutes { get; set; }
-    public int ReservationAutoCancelMinutes { get; set; }
 
     public bool ModuleFilial { get; set; }
     public bool ModuleAnbar { get; set; }
@@ -38,6 +42,12 @@ public class CompanySettingsBrandingResponse
     public bool ModuleDataSecimi { get; set; }
     public bool ModuleQiymetSor { get; set; }
     public bool ModuleKompleks { get; set; }
+    public bool ModuleDepartment { get; set; } = true;
+    public bool SalesEditLocked { get; set; }
+    public bool KitchenApprovalRequired { get; set; } = true;
+
+    /// <summary>0 = weighted average, 1 = FIFO, 2 = LIFO (set by the SuperAdmin).</summary>
+    public int StoreCostMethod { get; set; }
 
     public bool PrintAutoOnPayment { get; set; }
     public bool PrintKitchenOnPayment { get; set; }
@@ -109,4 +119,7 @@ public class CompanySettingsBrandingResponse
     public bool SingleWaiterMode { get; set; }
 
     public decimal? DefaultVatPercent { get; set; }
+
+    /// <summary>Days left of the licence (same count as the POS header badge).</summary>
+    public int? LicenseDaysLeft { get; set; }
 }

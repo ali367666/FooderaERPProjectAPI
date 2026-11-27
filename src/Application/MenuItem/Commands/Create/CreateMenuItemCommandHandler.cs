@@ -1,4 +1,4 @@
-﻿using Application.Common.Exceptions;
+using Application.Common.Exceptions;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -130,6 +130,7 @@ public class CreateMenuItemCommandHandler
             SpecialPrice3 = request.Request.SpecialPrice3,
             SpecialPrice4 = request.Request.SpecialPrice4,
             SpecialPrice5 = request.Request.SpecialPrice5,
+            BanquetPrice = request.Request.BanquetPrice,
             HideFromPosSearch = request.Request.HideFromPosSearch,
             HideBarcode = request.Request.HideBarcode,
             ExcludeFromDiscount = request.Request.ExcludeFromDiscount,
@@ -152,7 +153,8 @@ public class CreateMenuItemCommandHandler
                     ComponentMenuItemId = c.ComponentMenuItemId,
                     Quantity = quantity,
                     // A limit below the default quantity would make the set invalid from the start.
-                    Limit = c.Limit is > 0 ? Math.Max(c.Limit.Value, quantity) : null
+                    Limit = c.Limit is > 0 ? Math.Max(c.Limit.Value, quantity) : null,
+                    CategoryMaxPick = c.CategoryMaxPick is > 0 ? c.CategoryMaxPick : null
                 });
             }
         }

@@ -49,6 +49,55 @@ public class CompanySettingsController(IMediator mediator) : BaseController(medi
     /// təyin edir. Yalnız platforma səviyyəsində şirkətləri idarə edən istifadəçi (Company.Update
     /// icazəsi) üçündür — müştərinin öz admin panelindən dəyişdirilə bilmir.
     /// </summary>
+    /// <summary>
+    /// SuperAdmin: whether a company's orders need the kitchen to accept them and mark them ready before payment (default yes).
+    /// Off: the order only goes to the kitchen and the waiter may take the payment whenever they want.
+    /// </summary>
+    /// <summary>SuperAdmin: the payment banks of the catalog and which of them the company has (the admin cannot create or switch banks).</summary>
+    [Authorize(Policy = AppPermissions.CompanyUpdate)]
+    [HttpGet("payment-banks")]
+    public async Task<IActionResult> GetPaymentBanks([FromQuery] int companyId, CancellationToken cancellationToken)
+        => Ok(await Mediator.Send(new Application.CompanySettings.Commands.SetPaymentBanks.GetCompanyPaymentBanksQuery(companyId), cancellationToken));
+
+    /// <summary>SuperAdmin: gives the company exactly these banks (names from the catalog); the others are switched off.</summary>
+    [Authorize(Policy = AppPermissions.CompanyUpdate)]
+    [HttpPut("payment-banks")]
+    public async Task<IActionResult> SetPaymentBanks([FromQuery] int companyId, [FromBody] List<string> names, CancellationToken cancellationToken)
+    {
+        var response = await Mediator.Send(new Application.CompanySettings.Commands.SetPaymentBanks.SetCompanyPaymentBanksCommand(companyId, names), cancellationToken);
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
+
+    /// <summary>SuperAdmin: how the company's store warehouse goods are costed. method: 0 = weighted average (off), 1 = FIFO, 2 = LIFO.</summary>
+    [Authorize(Policy = AppPermissions.CompanyUpdate)]
+    [HttpPut("store-cost-method")]
+    public async Task<IActionResult> SetStoreCostMethod([FromQuery] int companyId, [FromQuery] Domain.Enums.StoreCostMethod method, CancellationToken cancellationToken)
+    {
+        var response = await Mediator.Send(new Application.CompanySettings.Commands.SetStoreCostMethod.SetStoreCostMethodCommand(companyId, method), cancellationToken);
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
+
+    [Authorize(Policy = AppPermissions.CompanyUpdate)]
+    [HttpPut("kitchen-approval")]
+    public async Task<IActionResult> SetKitchenApproval([FromQuery] int companyId, [FromQuery] bool required, CancellationToken cancellationToken)
+    {
+        var response = await Mediator.Send(new Application.CompanySettings.Commands.SetKitchenApproval.SetKitchenApprovalCommand(companyId, required), cancellationToken);
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
+
+    [Authorize(Policy = AppPermissions.CompanyUpdate)]
+    [HttpPut("sales-lock")]
+    public async Task<IActionResult> SetSalesLock([FromQuery] int companyId, [FromQuery] bool locked, CancellationToken cancellationToken)
+    {
+        var response = await Mediator.Send(new Application.CompanySettings.Commands.SetSalesLock.SetSalesLockCommand(companyId, locked), cancellationToken);
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
+
+    /// <summary>
+    /// Bir müştəri şirkətinin aktiv modullarını (Filial, Anbar, Rezervasiya, Paket, Data Seçimi və s.)
+    /// təyin edir. Yalnız platforma səviyyəsində şirkətləri idarə edən istifadəçi (Company.Update
+    /// icazəsi) üçündür — müştərinin öz admin panelindən dəyişdirilə bilmir.
+    /// </summary>
     [Authorize(Policy = AppPermissions.CompanyUpdate)]
     [HttpPut("modules")]
     public async Task<IActionResult> SetModules(

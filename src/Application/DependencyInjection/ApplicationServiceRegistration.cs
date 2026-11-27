@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,6 +13,7 @@ public static class ApplicationServiceRegistration
             cfg.RegisterServicesFromAssembly(typeof(ApplicationServiceRegistration).Assembly);
             cfg.AddOpenBehavior(typeof(Application.Common.Behaviors.RestaurantOwnershipBehavior<,>));
             cfg.AddOpenBehavior(typeof(Application.Common.Behaviors.OrderPolicyBehavior<,>));
+            cfg.AddOpenBehavior(typeof(Application.StoreMode.StoreAuditBehavior<,>));
         });
 
         services.AddValidatorsFromAssembly(typeof(ApplicationServiceRegistration).Assembly);

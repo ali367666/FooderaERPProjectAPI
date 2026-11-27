@@ -1,4 +1,4 @@
-﻿namespace Application.Employees.Dtos;
+namespace Application.Employees.Dtos;
 
 public class EmployeeResponse
 {
@@ -22,6 +22,9 @@ public class EmployeeResponse
 
     public int PositionId { get; set; }
     public string PositionName { get; set; } = default!;
+
+    /// <summary>The role the position stands for (the job title); null for an old position that is not a role yet.</summary>
+    public int? RoleId { get; set; }
 
     public int RestaurantId { get; set; }
     public string RestaurantName { get; set; } = default!;

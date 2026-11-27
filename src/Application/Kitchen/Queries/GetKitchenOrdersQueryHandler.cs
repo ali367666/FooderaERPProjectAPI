@@ -8,12 +8,15 @@ namespace Application.Kitchen.Queries;
 public class GetKitchenOrdersQueryHandler : IRequestHandler<GetKitchenOrdersQuery, List<KitchenOrderLineResponse>>
 {
     private readonly IOrderLineRepository _orderLineRepository;
+    private readonly ICompanySettingsRepository _settingsRepository;
     private readonly ICurrentUserService _currentUserService;
 
     public GetKitchenOrdersQueryHandler(
         IOrderLineRepository orderLineRepository,
+        ICompanySettingsRepository settingsRepository,
         ICurrentUserService currentUserService)
     {
+        _settingsRepository = settingsRepository;
         _orderLineRepository = orderLineRepository;
         _currentUserService = currentUserService;
     }
@@ -25,6 +28,11 @@ public class GetKitchenOrdersQueryHandler : IRequestHandler<GetKitchenOrdersQuer
         var companyId = _currentUserService.IsSuperAdmin && request.CompanyId.GetValueOrDefault() > 0
             ? request.CompanyId!.Value
             : _currentUserService.CompanyId;
+
+        // Without kitchen approval an order only goes to the kitchen as a printed ticket - it never appears on the kitchen screen.
+        var settings = await _settingsRepository.GetByCompanyIdAsync(companyId, cancellationToken);
+        if (settings is { KitchenApprovalRequired: false })
+            return new List<KitchenOrderLineResponse>();
 
         var lines = await _orderLineRepository.GetKitchenLinesByCompanyAsync(
             companyId,

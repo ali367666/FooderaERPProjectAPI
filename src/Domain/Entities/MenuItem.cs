@@ -39,6 +39,12 @@ public class MenuItem : CompanyEntity<int>
     public decimal? SpecialPrice4 { get; set; }
     public decimal? SpecialPrice5 { get; set; }
 
+    /// <summary>
+    /// Banquet-menu price. A product with a banquet price is part of the banquet menu; a banquet
+    /// order sells only those products, always at this price.
+    /// </summary>
+    public decimal? BanquetPrice { get; set; }
+
     // Davranış
     public bool HideFromPosSearch { get; set; }
     public bool HideBarcode { get; set; }
