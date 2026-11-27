@@ -189,9 +189,10 @@ const PERMISSION_LABELS: Record<string, string> = {
   "Pos.DeleteReceipt": "Köhnə qəbzi sil",
   "Pos.WarehouseAmountChange": "Anbar məbləğini dəyiş",
   "Pos.PrintOldReceipt": "Köhnə qəbzi çap et",
-  "Receipt.View": "Köhnə qəbzlərə bax",
-  "Receipt.EditPayment": "Qəbzin ödəniş üsulunu düzəlt (nağd/kart)",
-  "Receipt.EditItems": "Qəbzin məhsul və sayını düzəlt",
+  "Receipt.View": "Qəbzlərə baxa bilsin",
+  "Receipt.Print": "Qəbzi çap edə bilsin",
+  "Receipt.EditPayment": "Ödəniş üsulunu dəyişə bilsin",
+  "Receipt.EditItems": "Qəbzə düzəliş edə bilsin",
   "Pos.ReturnSale": "Satışı geri qaytar (barkodla)",
   "Pos.UnlockBill": "Verilmiş hesabın kilidini aç",
 

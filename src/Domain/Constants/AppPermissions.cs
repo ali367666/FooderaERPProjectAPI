@@ -195,8 +195,10 @@ public static class AppPermissions
     public const string PosWarehouseAmountChange = "Pos.WarehouseAmountChange";
     public const string PosPrintOldReceipt = "Pos.PrintOldReceipt";
 
-    // Old (paid) receipts: none of them = cannot look; View = can look; the edit ones also let the receipt be corrected.
+    // The receipts screen of the restaurant POS: View = open it and look, Print = print a receipt, EditPayment = change cash / card,
+    // EditItems = correct the products and quantities. Pos.PrintOldReceipt above is no longer given by hand: see ReceiptPermissionRules.
     public const string ReceiptView = "Receipt.View";
+    public const string ReceiptPrint = "Receipt.Print";
     public const string ReceiptEditPayment = "Receipt.EditPayment";
     public const string ReceiptEditItems = "Receipt.EditItems";
     public const string PosReturnSale = "Pos.ReturnSale";

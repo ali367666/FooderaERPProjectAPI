@@ -35,7 +35,7 @@ public static class IdentitySeeder
                 dbContext.Permissions.Add(new Permission
                 {
                     Name = permissionName,
-                    DisplayName = BuildDisplayName(module, action),
+                    DisplayName = permissionName == AppPermissions.ReceiptPrint ? "Qəbzi çap et" : BuildDisplayName(module, action),
                     Module = module,
                     Action = action
                 });
@@ -93,6 +93,7 @@ public static class IdentitySeeder
         }
 
         await GrantLowerPriceToChangePriceRolesAsync(dbContext, newPermissionNames);
+        await GrantReceiptPrintToReceiptViewRolesAsync(roleManager, dbContext, newPermissionNames);
         await GrantReceiptPermissionsToCompanyAdminsOnceAsync(roleManager, dbContext);
         await EnsureSuperAdminHasAllPermissionsAsync(roleManager, dbContext);
         await EnsureAdminTemplateHasBroadPermissionsAsync(roleManager, dbContext);
@@ -108,7 +109,10 @@ public static class IdentitySeeder
     /// </summary>
     private static async Task GrantReceiptPermissionsToCompanyAdminsOnceAsync(RoleManager<AppRole> roleManager, AppDbContext dbContext)
     {
-        var names = new[] { AppPermissions.ReceiptView, AppPermissions.ReceiptEditPayment, AppPermissions.ReceiptEditItems };
+        var names = new[]
+        {
+            AppPermissions.ReceiptView, AppPermissions.ReceiptPrint, AppPermissions.ReceiptEditPayment, AppPermissions.ReceiptEditItems
+        };
         var superAdmin = AppRoles.SuperAdmin.ToUpperInvariant();
         var companyAdminNames = new[] { AppRoles.Admin.ToUpperInvariant(), AppRoles.CompanySuperAdmin.ToUpperInvariant() };
 
@@ -132,6 +136,25 @@ public static class IdentitySeeder
             foreach (var role in adminRoles)
                 await GrantRolePermissionsAsync(roleManager, dbContext, role, new List<Permission> { permission });
         }
+    }
+
+    /// <summary>
+    /// Printing a receipt used to come with seeing it. When Receipt.Print first appears, every role that already holds Receipt.View gets it,
+    /// so nobody loses printing; after that it is given and taken away on its own.
+    /// </summary>
+    private static async Task GrantReceiptPrintToReceiptViewRolesAsync(
+        RoleManager<AppRole> roleManager, AppDbContext dbContext, List<string> newPermissionNames)
+    {
+        if (!newPermissionNames.Contains(AppPermissions.ReceiptPrint))
+            return;
+
+        var print = await dbContext.Permissions.AsNoTracking().FirstAsync(x => x.Name == AppPermissions.ReceiptPrint);
+        var roles = await dbContext.Roles
+            .Where(r => dbContext.RolePermissions.Any(x => x.RoleId == r.Id && x.Permission.Name == AppPermissions.ReceiptView))
+            .ToListAsync();
+
+        foreach (var role in roles)
+            await GrantRolePermissionsAsync(roleManager, dbContext, role, new List<Permission> { print });
     }
 
     /// <summary>

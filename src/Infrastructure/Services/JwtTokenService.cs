@@ -104,6 +104,9 @@ public class JwtTokenService : IJwtTokenService
             }
         }
 
+        // After the ceiling, so the derived permission follows what the user really ends up with.
+        ReceiptPermissionRules.Apply(effectivePermissions);
+
         foreach (var permission in effectivePermissions.Distinct())
         {
             claims.Add(new Claim("Permission", permission));

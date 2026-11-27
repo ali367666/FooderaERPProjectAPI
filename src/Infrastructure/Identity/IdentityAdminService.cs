@@ -771,7 +771,7 @@ public class IdentityAdminService : IIdentityAdminService
     private async Task<Func<string, bool>> GetHiddenPermissionPredicateAsync(CancellationToken cancellationToken)
     {
         if (IsSuperAdmin)
-            return name => !KnownPermissions.Contains(name);
+            return name => !KnownPermissions.Contains(name) || name == AppPermissions.PosPrintOldReceipt;
 
         var s = await _db.CompanySettings.AsNoTracking()
             .FirstOrDefaultAsync(x => x.CompanyId == _currentUserService.CompanyId, cancellationToken);
@@ -787,6 +787,10 @@ public class IdentityAdminService : IIdentityAdminService
         return name =>
         {
             if (!KnownPermissions.Contains(name) || PlatformOnlyPermissions.Contains(name))
+                return true;
+
+            // Follows Receipt.View (ReceiptPermissionRules), so there is nothing to tick.
+            if (name == AppPermissions.PosPrintOldReceipt)
                 return true;
 
             // Nobody can hand out a permission they don't hold themselves. Their own permissions
