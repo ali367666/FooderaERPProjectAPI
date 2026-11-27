@@ -39,6 +39,7 @@ import { defaultFormCompanyId, resolveCompanyId } from "@/lib/resolve-company-id
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 type StockItemRow = {
   id: string;
@@ -522,6 +523,7 @@ export default function StockItemsPage() {
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "categoryid")}</p>
               )}
             </div>
+            <SuperAdminOnly>
             <div className="sm:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">Company</label>
               <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className={selectClass}>
@@ -536,6 +538,7 @@ export default function StockItemsPage() {
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "companyid")}</p>
               )}
             </div>
+            </SuperAdminOnly>
             <div className="sm:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">Branch (optional)</label>
               <select value={restaurantId} onChange={(e) => setRestaurantId(e.target.value)} className={selectClass}>

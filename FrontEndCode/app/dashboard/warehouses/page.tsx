@@ -32,6 +32,7 @@ import { defaultFormCompanyId } from "@/lib/resolve-company-id";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { filterBySelectedCompany } from "@/lib/company-scope-utils";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 type WarehouseRow = {
   id: string;
@@ -492,6 +493,7 @@ export default function WarehousesPage() {
                 ))}
               </select>
             </div>
+            <SuperAdminOnly>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">Company</label>
               <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className={selectClass}>
@@ -506,6 +508,7 @@ export default function WarehousesPage() {
                 <p className="mt-1 text-xs text-red-600">{getFieldErrorMessage(fieldErrors, "companyid")}</p>
               )}
             </div>
+            </SuperAdminOnly>
             {Number(type) === WarehouseType.Restaurant && (
             <div className="sm:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">Filial (məcburi)</label>

@@ -37,6 +37,7 @@ import { isPermissionForMode } from "@/lib/permission-translations";
 import { getCompanySettingsBranding } from "@/lib/services/company-settings-service";
 import { getCompanyIdFromToken } from "@/lib/jwt-permissions";
 import { getStoredToken } from "@/lib/auth-client";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 type RoleRow = {
   id: string;
@@ -342,6 +343,7 @@ export default function RolesPage() {
           </div>
 
           {companies.length > 0 && !editingGlobalRole && (
+            <SuperAdminOnly>
             <div className="mt-4">
               <Label htmlFor="role-company">Company</Label>
               {editingId != null ? (
@@ -367,6 +369,7 @@ export default function RolesPage() {
                 <p className="mt-1 text-xs text-destructive">{getFieldErrorMessage(fieldErrors, "companyid")}</p>
               )}
             </div>
+            </SuperAdminOnly>
           )}
 
           <div className="mt-4">

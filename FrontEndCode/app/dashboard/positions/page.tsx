@@ -29,6 +29,7 @@ import {
   type Position,
 } from "@/lib/services/position-service";
 import { ApiFormError, getFieldErrorMessage, type FieldErrors } from "@/lib/api-error";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 /** Single canonical row: one `id` (string for DataTable) = String(DB id). No separate positionId. */
 type NormalizedPosition = {
@@ -553,6 +554,7 @@ export default function PositionsPage() {
             </div>
             )}
 
+            <SuperAdminOnly>
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
                 Company
@@ -580,6 +582,7 @@ export default function PositionsPage() {
                 </p>
               )}
             </div>
+            </SuperAdminOnly>
 
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">

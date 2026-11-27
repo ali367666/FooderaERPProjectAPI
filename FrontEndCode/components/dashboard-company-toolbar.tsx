@@ -3,17 +3,17 @@
 import { usePathname } from "next/navigation";
 import { FILTER_SELECT_CLASS } from "@/components/advanced-table-filters";
 import { useSelectedCompany } from "@/contexts/selected-company-context";
-import { useHasPermission } from "@/hooks/use-auth-permissions";
+import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 import { cn } from "@/lib/utils";
 
-/** Global company scope control; requires Company.View (grantable to any role) and hidden on pages where it does not apply. */
+/** Global company scope control of the platform SuperAdmin (everyone else works in their own company); hidden on pages where it does not apply. */
 export function DashboardCompanyToolbar() {
   const pathname = usePathname() ?? "";
-  const canViewCompanies = useHasPermission("Company.View");
+  const isSuperAdmin = useIsSuperAdmin();
   const { companies, companiesLoading, companiesError, selectedCompanyId, setSelectedCompanyId } =
     useSelectedCompany();
 
-  if (!canViewCompanies) {
+  if (!isSuperAdmin) {
     return null;
   }
 

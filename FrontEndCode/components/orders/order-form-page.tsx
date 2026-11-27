@@ -45,6 +45,7 @@ import {
 } from "@/lib/services/order-service";
 import { Tag, X as XIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/format-currency";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 type Variant = "create" | "edit";
 
@@ -438,10 +439,12 @@ export function OrderFormPage({ variant }: { variant: Variant }) {
           <CardTitle>Master</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
+          <SuperAdminOnly>
           <div>
             <label className="mb-1 block text-sm">Company</label>
             <Input value={order?.companyId ?? ""} readOnly />
           </div>
+          </SuperAdminOnly>
           <div>
             <label className="mb-1 block text-sm">Branch</label>
             <select

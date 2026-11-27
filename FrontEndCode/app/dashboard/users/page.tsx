@@ -37,6 +37,7 @@ import { isProtectedAccount, roleDisplayName } from "@/lib/role-labels";
 import { useIsSuperAdmin } from "@/hooks/use-auth-permissions";
 import { useCompanyStoreMode } from "@/hooks/use-company-store-mode";
 import { toast } from "sonner";
+import { SuperAdminOnly } from "@/components/super-admin-only";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background";
@@ -630,6 +631,7 @@ export default function UsersPage() {
                 onChange={(e) => setPhoneNumber(e.target.value)}
               />
             </div>
+            <SuperAdminOnly>
             <div className="sm:col-span-2">
               <Label htmlFor="u-company">Company</Label>
               <select
@@ -652,6 +654,7 @@ export default function UsersPage() {
                 ))}
               </select>
             </div>
+            </SuperAdminOnly>
             <div>
               <Label htmlFor="u-workplace">Workplace</Label>
               <select
