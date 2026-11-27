@@ -17,6 +17,6 @@ public class UpdateRestaurantTableCommandValidator : AbstractValidator<UpdateRes
             .MaximumLength(100).WithMessage("Masa adı 100 simvoldan çox ola bilməz.");
 
         RuleFor(x => x.Request.Capacity)
-            .GreaterThan(0).WithMessage("Tutum 0-dan böyük olmalıdır.");
+            .GreaterThanOrEqualTo(0).WithMessage("Tutum mənfi ola bilməz.");
     }
 }

@@ -2,6 +2,7 @@ using Application.RestaurantTable.Commands.UpdateLayout;
 using Application.RestaurantTable.Commands.UpdateSection;
 using Application.RestaurantTable.Dtos.Request;
 using Application.RestaurantTables.Commands.Create;
+using Application.RestaurantTables.Commands.CreateBulk;
 using Application.RestaurantTables.Commands.Delete;
 using Application.RestaurantTables.Commands.EnsureStoreSaleTable;
 using Application.RestaurantTables.Commands.Update;
@@ -33,6 +34,17 @@ public class RestaurantTablesController : ControllerBase
         CancellationToken cancellationToken)
     {
         var response = await _mediator.Send(command, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>Creates many tables of one hall at once, named and placed on the floor plan automatically.</summary>
+    [Authorize(Policy = AppPermissions.RestaurantTableCreate)]
+    [HttpPost("bulk")]
+    public async Task<ActionResult<CreateRestaurantTablesBulkResponse>> CreateBulk(
+        [FromBody] CreateRestaurantTablesBulkRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await _mediator.Send(new CreateRestaurantTablesBulkCommand(request), cancellationToken);
         return Ok(response);
     }
 

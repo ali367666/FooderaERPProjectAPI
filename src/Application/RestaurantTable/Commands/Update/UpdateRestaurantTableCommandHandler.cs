@@ -114,7 +114,7 @@ public class UpdateRestaurantTableCommandHandler
         // UPDATE
         table.RestaurantId = dto.RestaurantId;
         table.Name = trimmedName;
-        table.Capacity = dto.Capacity;
+        table.Capacity = dto.Capacity ?? 0;
         table.IsActive = dto.IsActive;
         table.HourlyRate = dto.HourlyRate;
         table.Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();

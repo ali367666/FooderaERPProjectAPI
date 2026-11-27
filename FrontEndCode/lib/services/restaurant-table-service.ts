@@ -43,7 +43,8 @@ export type TableLayoutUpdate = {
 export type RestaurantTableMutationInput = {
   restaurantId: number;
   name: string;
-  capacity: number;
+  /** Optional; null = not specified (stored as 0). */
+  capacity: number | null;
   isActive?: boolean;
   hourlyRate?: number | null;
   note?: string | null;
@@ -122,6 +123,30 @@ export async function createRestaurantTable(
     }
   } catch (error) {
     throw toApiFormError(error, "Failed to create branch table");
+  }
+}
+
+export type BulkTablesInput = {
+  restaurantId: number;
+  /** 0 = no hall. */
+  sectionId: number;
+  count: number;
+  /** The word before the number; empty = numbers only. */
+  prefix: string;
+  /** null = continue after the highest number already used. */
+  startNumber: number | null;
+  capacity: number | null;
+};
+
+export async function createRestaurantTablesBulk(data: BulkTablesInput): Promise<string[]> {
+  try {
+    const response = await api.post<{ names?: string[] }>("/RestaurantTables/bulk", data);
+    if (!response.data?.names) {
+      throw new ApiFormError("Masalar yaradılmadı");
+    }
+    return response.data.names;
+  } catch (error) {
+    throw toApiFormError(error, "Masalar yaradılmadı");
   }
 }
 

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
+import { BulkTablesDialog } from "@/components/restaurant-tables/bulk-tables-dialog";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +64,7 @@ export default function RestaurantTablesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -231,7 +233,7 @@ export default function RestaurantTablesPage() {
     { key: "restaurantName" as const, label: "Branch" },
     { key: "sectionName" as const, label: "Bölmə" },
     { key: "name" as const, label: "Table No" },
-    { key: "capacity" as const, label: "Capacity" },
+    { key: "capacity" as const, label: "Capacity", render: (value: number) => value || "—" },
     { key: "occupiedLabel" as const, label: "Occupancy" },
     {
       key: "statusLabel" as const,
@@ -289,7 +291,7 @@ export default function RestaurantTablesPage() {
 
   const handleSave = async () => {
     const restaurantId = Number(form.restaurantId);
-    const capacity = Number(form.capacity);
+    const capacity = form.capacity.trim() === "" ? null : Number(form.capacity);
     if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
       setError("Branch selection is required.");
       return;
@@ -298,8 +300,8 @@ export default function RestaurantTablesPage() {
       setError("Table number is required.");
       return;
     }
-    if (!Number.isFinite(capacity) || capacity <= 0) {
-      setError("Capacity must be greater than 0.");
+    if (capacity != null && (!Number.isInteger(capacity) || capacity < 0)) {
+      setError("Capacity cannot be negative.");
       return;
     }
 
@@ -345,10 +347,24 @@ export default function RestaurantTablesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Branch Tables</h1>
-        <p className="text-muted-foreground mt-1">Manage tables with branch names and capacity.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Branch Tables</h1>
+          <p className="text-muted-foreground mt-1">Manage tables with branch names and capacity.</p>
+        </div>
+        <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
+          Toplu masa yarat
+        </Button>
       </div>
+
+      <BulkTablesDialog
+        open={isBulkOpen}
+        onOpenChange={setIsBulkOpen}
+        restaurants={restaurantsScoped}
+        sections={sections}
+        tables={tables}
+        onCreated={() => loadData(true)}
+      />
 
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -393,7 +409,7 @@ export default function RestaurantTablesPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{isEditMode ? "Edit Branch Table" : "Add Branch Table"}</DialogTitle>
-            <DialogDescription>Set branch, table number, and capacity.</DialogDescription>
+            <DialogDescription>Set branch and table number; capacity is optional.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -448,7 +464,7 @@ export default function RestaurantTablesPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">Capacity</label>
+              <label className="mb-2 block text-sm font-medium text-foreground">Capacity (optional)</label>
               <Input
                 type="number"
                 value={form.capacity}

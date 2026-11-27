@@ -93,7 +93,7 @@ public class CreateRestaurantTableCommandHandler
             CompanyId = companyId,
             RestaurantId = dto.RestaurantId,
             Name = trimmedName,
-            Capacity = dto.Capacity,
+            Capacity = dto.Capacity ?? 0,
             IsActive = true,
             IsOccupied = false,
             HourlyRate = dto.HourlyRate,

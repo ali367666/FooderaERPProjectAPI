@@ -1,5 +1,6 @@
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
+using Application.RestaurantTables;
 using Domain.Entities;
 using Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
@@ -30,21 +31,23 @@ public class RestaurantTableRepository : IRestaurantTableRepository
 
     public async Task<List<RestaurantTable>> GetAllAsync(int companyId, CancellationToken cancellationToken)
     {
-        return await _context.RestaurantTables
+        var tables = await _context.RestaurantTables
             .Include(x => x.Restaurant)
             .Where(x => x.CompanyId == companyId)
-            .OrderBy(x => x.RestaurantId)
-            .ThenBy(x => x.Name)
             .ToListAsync(cancellationToken);
+        return tables
+            .OrderBy(x => x.RestaurantId)
+            .ThenBy(x => x.Name, NaturalNameComparer.Instance)
+            .ToList();
     }
 
     public async Task<List<RestaurantTable>> GetAllByRestaurantAsync(int companyId, int restaurantId, CancellationToken cancellationToken)
     {
-        return await _context.RestaurantTables
+        var tables = await _context.RestaurantTables
             .Include(x => x.Restaurant)
             .Where(x => x.CompanyId == companyId && x.RestaurantId == restaurantId)
-            .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
+        return tables.OrderBy(x => x.Name, NaturalNameComparer.Instance).ToList();
     }
 
     public async Task<RestaurantTable?> GetVirtualAsync(
