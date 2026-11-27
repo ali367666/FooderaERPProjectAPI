@@ -31,6 +31,7 @@ public static class InfrastructureServiceRegistration
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IIdentityAdminService, IdentityAdminService>();
+        services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<ICompanyDefaultsSeeder, Infrastructure.Persistence.Seeds.CompanyDefaultsSeeder>();
         services.AddScoped<IPaymentBankProvisioner, Infrastructure.Services.PaymentBankProvisioner>();
         services.AddScoped<IBarcodeCatalog, Infrastructure.Services.BarcodeCatalog>();

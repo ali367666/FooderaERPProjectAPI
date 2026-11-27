@@ -5722,6 +5722,10 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<bool>("CanAccessAdminPanel")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")

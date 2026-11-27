@@ -12,6 +12,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                .IsRequired()
                .HasMaxLength(150);
 
+        builder.Property(x => x.AvatarUrl)
+               .HasMaxLength(500);
+
         builder.Property(x => x.WorkplaceType)
                .IsRequired();
 
