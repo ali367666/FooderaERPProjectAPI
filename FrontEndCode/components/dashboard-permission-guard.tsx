@@ -42,7 +42,11 @@ export function DashboardPermissionGuard({ children }: { children: React.ReactNo
       .catch(() => setBranding(null));
   }, []);
 
-  const navItem = useMemo(() => findMatchingNavItem(pathname), [pathname]);
+  // Everyone may open their own profile; without this the "/dashboard" entry's permission would cover it too.
+  const navItem = useMemo(
+    () => (pathname === "/dashboard/profile" ? undefined : findMatchingNavItem(pathname)),
+    [pathname],
+  );
 
   const allowed = useMemo(() => {
     if (!navItem) return true;
