@@ -20,6 +20,7 @@ import { getAllStockCategories, type StockCategory } from "@/lib/services/stock-
 import { getStockItemsForCompany, type StockItem } from "@/lib/services/stock-item-service";
 import { getWarehouses, type Warehouse } from "@/lib/services/warehouse-service";
 import { cn } from "@/lib/utils";
+import { DateTimeRangeBar, useDateTimeRange } from "@/components/date-time-range";
 
 const SELECT_CLASS = "h-9 rounded-md border border-input bg-background px-3 text-sm";
 const th = "px-3 py-2 font-medium";
@@ -60,6 +61,8 @@ export default function StockPage() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [history, setHistory] = useState<StockAssetOperation[] | null>(null);
   const [historyLimit, setHistoryLimit] = useState(HISTORY_STEP);
+  const period = useDateTimeRange();
+  const shownHistory = history?.filter((h) => period.matches(h.date)) ?? null;
 
   const [itemDialog, setItemDialog] = useState<{ itemId: number | null } | null>(null);
   const [operation, setOperation] = useState<OperationTarget | null>(null);
@@ -354,14 +357,17 @@ export default function StockPage() {
                                   </div>
                                   <div>
                                     <p className="mb-1 text-xs font-semibold">Tarixçə</p>
-                                    {history === null ? (
+                                    <DateTimeRangeBar value={period} className="mb-2" />
+                                    {shownHistory === null ? (
                                       <p className="text-xs text-muted-foreground">Yüklənir…</p>
-                                    ) : history.length === 0 ? (
-                                      <p className="text-xs text-muted-foreground">Hərəkət yoxdur.</p>
+                                    ) : shownHistory.length === 0 ? (
+                                      <p className="text-xs text-muted-foreground">
+                                        {period.active ? "Bu aralıqda hərəkət yoxdur." : "Hərəkət yoxdur."}
+                                      </p>
                                     ) : (
                                       <table className="w-full text-xs">
                                         <tbody>
-                                          {history.slice(0, historyLimit).map((h) => (
+                                          {shownHistory.slice(0, historyLimit).map((h) => (
                                             <tr key={h.id} className="border-t">
                                               <td className="py-1 pr-3 whitespace-nowrap">{dateTime(h.date)}</td>
                                               <td className="py-1 pr-3">
@@ -380,9 +386,9 @@ export default function StockPage() {
                                         </tbody>
                                       </table>
                                     )}
-                                    {history && history.length > historyLimit && (
+                                    {shownHistory && shownHistory.length > historyLimit && (
                                       <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setHistoryLimit((n) => n + 50)}>
-                                        Daha çox göstər ({history.length - historyLimit})
+                                        Daha çox göstər ({shownHistory.length - historyLimit})
                                       </Button>
                                     )}
                                   </div>

@@ -15,6 +15,7 @@ import {
   getCompanyDeposits,
   type CompanyDepositSummary,
 } from "@/lib/services/company-deposit-service";
+import { DateTimeRangeBar, useDateTimeRange } from "@/components/date-time-range";
 
 function formatDateTime(value: string): string {
   const d = new Date(value);
@@ -22,6 +23,7 @@ function formatDateTime(value: string): string {
 }
 
 export default function CompanyDepositPage() {
+  const period = useDateTimeRange();
   const [summary, setSummary] = useState<CompanyDepositSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -69,6 +71,8 @@ export default function CompanyDepositPage() {
     }
   };
 
+  const shownEntries = (summary?.entries ?? []).filter((d) => period.matches(d.createdAtUtc));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -114,8 +118,11 @@ export default function CompanyDepositPage() {
 
           <div className="rounded-lg border bg-card p-4">
             <h2 className="mb-3 font-semibold">Tarixçə</h2>
-            {summary.entries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Hələ depozit yazılmayıb.</p>
+            <DateTimeRangeBar value={period} className="mb-3" />
+            {shownEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {period.active ? "Bu aralıqda qeyd yoxdur." : "Hələ depozit yazılmayıb."}
+              </p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
@@ -128,7 +135,7 @@ export default function CompanyDepositPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {summary.entries.map((d) => (
+                  {shownEntries.map((d) => (
                     <tr key={d.id} className="border-t">
                       <td className="py-1.5">{formatDateTime(d.createdAtUtc)}</td>
                       <td className="py-1.5">{d.createdByUserName ?? "—"}</td>

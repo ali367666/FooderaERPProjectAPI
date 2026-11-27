@@ -20,6 +20,8 @@ import {
   type StockWriteOffReasonValue,
 } from "@/lib/services/stock-writeoff-service";
 import { getWarehouses, type Warehouse } from "@/lib/services/warehouse-service";
+import { TimeRangeInputs } from "@/components/store/time-range-inputs";
+import { withTime } from "@/lib/with-time";
 
 function formatDateTime(value: string): string {
   const d = new Date(value);
@@ -34,6 +36,8 @@ export default function StockWriteOffsPage() {
 
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
   const [warehouseFilter, setWarehouseFilter] = useState<number | "">("");
   const [list, setList] = useState<StockWriteOffList | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,14 +61,14 @@ export default function StockWriteOffsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setList(await getStockWriteOffs({ from, to, warehouseId: warehouseFilter === "" ? null : warehouseFilter }));
+      setList(await getStockWriteOffs({ from: withTime(from, fromTime), to: withTime(to, toTime), warehouseId: warehouseFilter === "" ? null : warehouseFilter }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Siyahı yüklənmədi.");
       setList(null);
     } finally {
       setLoading(false);
     }
-  }, [from, to, warehouseFilter]);
+  }, [from, to, fromTime, toTime, warehouseFilter]);
 
   useEffect(() => {
     void load();
@@ -133,6 +137,7 @@ export default function StockWriteOffsPage() {
           <Label htmlFor="wo-to">Son</Label>
           <Input id="wo-to" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
         </div>
+        <TimeRangeInputs idPrefix="wo" fromTime={fromTime} toTime={toTime} onFromTime={setFromTime} onToTime={setToTime} />
         <div className="space-y-1">
           <Label htmlFor="wo-wh">Anbar</Label>
           <select

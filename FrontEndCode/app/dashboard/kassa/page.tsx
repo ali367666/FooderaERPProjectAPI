@@ -28,6 +28,7 @@ import {
   type CashMovement,
   type CashMovementTypeValue,
 } from "@/lib/services/cash-movement-service";
+import { DateTimeRangeBar, useDateTimeRange } from "@/components/date-time-range";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background";
@@ -50,6 +51,9 @@ export default function KassaPage() {
   const [restaurantId, setRestaurantId] = useState<string>("");
 
   const [movements, setMovements] = useState<CashMovement[]>([]);
+  // The page shows one day, so only the hours are narrowed; the day's totals above stay those of the whole day.
+  const hours = useDateTimeRange();
+  const shownMovements = movements.filter((m) => hours.matches(m.createdAtUtc));
   const [report, setReport] = useState<ZReport | null>(null);
   const [debtors, setDebtors] = useState<Counterparty[]>([]);
   const [loading, setLoading] = useState(true);
@@ -234,6 +238,7 @@ export default function KassaPage() {
               <div className="border-b px-4 py-3">
                 <h2 className="text-sm font-semibold text-foreground">Bugünkü mədaxil/məxaric</h2>
               </div>
+              <DateTimeRangeBar value={hours} timeOnly className="border-b px-4 py-3" />
               <div className="max-h-80 overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -245,14 +250,14 @@ export default function KassaPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {movements.length === 0 ? (
+                    {shownMovements.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
-                          Bu gün mədaxil/məxaric yoxdur.
+                          {hours.active ? "Bu saatlarda mədaxil/məxaric yoxdur." : "Bu gün mədaxil/məxaric yoxdur."}
                         </td>
                       </tr>
                     ) : (
-                      movements.map((m) => (
+                      shownMovements.map((m) => (
                         <tr key={m.id} className="border-b last:border-0">
                           <td className="px-3 py-2">
                             <Badge

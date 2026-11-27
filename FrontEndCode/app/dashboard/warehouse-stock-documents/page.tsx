@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
+import { AdvancedTableFilters, matchesDateTimeRange, type TableFilterDef } from "@/components/advanced-table-filters";
 import { DataTable } from "@/components/data-table";
 import {
   searchWarehouseStockDocumentsForAllCompanies,
@@ -20,6 +20,7 @@ type Row = {
   warehouseName: string;
   warehouseId: number;
   warehouseCompanyId: number;
+  createdAtUtc: string | null | undefined;
   createdDisplay: string;
   statusLabel: string;
   lineCount: number;
@@ -89,6 +90,7 @@ export default function WarehouseStockDocumentsPage() {
         warehouseName: d.warehouseName || `Warehouse #${d.warehouseId}`,
         warehouseId: d.warehouseId,
         warehouseCompanyId: warehouseCompanyMap.get(d.warehouseId) ?? d.companyId,
+        createdAtUtc: d.createdAtUtc,
         createdDisplay: d.createdAtUtc ? new Date(d.createdAtUtc).toLocaleString() : "—",
         statusLabel: warehouseStockDocumentStatusLabel(d.status),
         lineCount: d.lineCount,
@@ -122,6 +124,16 @@ export default function WarehouseStockDocumentsPage() {
           const v = get("warehouse");
           if (!v) return true;
           return row.warehouseId === Number(v);
+        },
+      },
+      {
+        id: "date",
+        label: "Yaradılma tarixi və saatı",
+        ui: "dateRange",
+        gridClassName: "min-w-[260px] max-w-full flex-[2_1_360px]",
+        match: (row, get) => {
+          const iso = row.createdAtUtc;
+          return matchesDateTimeRange(iso ? Date.parse(iso) : 0, get, "date");
         },
       },
     ],

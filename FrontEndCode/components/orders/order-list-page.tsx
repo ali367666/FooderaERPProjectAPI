@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useCancelReason } from "@/components/cancel-reason-dialog";
 import { hasPermission, usePermissionSet } from "@/hooks/use-auth-permissions";
 import { formatCurrency } from "@/lib/format-currency";
+import { DateTimeRangeBar, useDateTimeRange } from "@/components/date-time-range";
 
 export function OrderListPage() {
   const router = useRouter();
@@ -101,6 +102,9 @@ export function OrderListPage() {
     [loadOrders, orders, askCancelReason],
   );
 
+  const period = useDateTimeRange();
+  const shownOrders = orders.filter((o) => period.matches(o.openedAt));
+
   const selectedOrder = useMemo(
     () => orders.find((x) => x.id === selectedOrderId) ?? null,
     [orders, selectedOrderId],
@@ -175,7 +179,8 @@ export function OrderListPage() {
       <Card>
         <CardHeader>
           <CardTitle>Order List</CardTitle>
-          <CardDescription>{orders.length} orders</CardDescription>
+          <CardDescription>{shownOrders.length} orders</CardDescription>
+          <DateTimeRangeBar value={period} />
         </CardHeader>
         <CardContent className="p-0">
           {selectedOrder ? (
@@ -227,14 +232,14 @@ export function OrderListPage() {
                       Loading orders...
                     </td>
                   </tr>
-                ) : orders.length === 0 ? (
+                ) : shownOrders.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                       No orders found.
                     </td>
                   </tr>
                 ) : (
-                  orders.map((order) => (
+                  shownOrders.map((order) => (
                     <tr key={order.id} className="border-b">
                       {(() => {
                         const paid = isOrderPaid(order);

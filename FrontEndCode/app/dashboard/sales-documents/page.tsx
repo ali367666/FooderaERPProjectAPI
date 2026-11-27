@@ -25,6 +25,7 @@ import {
   getOrders,
   type OrderDto,
 } from "@/lib/services/order-service";
+import { DateTimeRangeBar, useDateTimeRange } from "@/components/date-time-range";
 
 function isClosedSale(order: OrderDto): boolean {
   return order.isPaid || order.status === "cancelled";
@@ -65,6 +66,9 @@ export default function SalesDocumentsPage() {
       }),
     [orders],
   );
+
+  const period = useDateTimeRange();
+  const shownRows = rows.filter((o) => period.matches(o.paidAt ?? o.closedAt ?? o.openedAt));
 
   const discountPercent = (order: OrderDto): number => {
     const subtotal = order.totalAmount + order.discountAmount;
@@ -141,6 +145,8 @@ export default function SalesDocumentsPage() {
         </p>
       </div>
 
+      <DateTimeRangeBar value={period} className="rounded-lg border bg-card p-4" />
+
       <div className="rounded-lg border bg-card">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -166,14 +172,14 @@ export default function SalesDocumentsPage() {
                     Yüklənir…
                   </td>
                 </tr>
-              ) : rows.length === 0 ? (
+              ) : shownRows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">
                     Satış sənədi tapılmadı.
                   </td>
                 </tr>
               ) : (
-                rows.map((order) => {
+                shownRows.map((order) => {
                   const dt = new Date(order.paidAt ?? order.closedAt ?? order.openedAt);
                   const isCancelled = order.status === "cancelled";
                   return (

@@ -19,6 +19,7 @@ import {
   type Counterparty,
   type CounterpartyDebtEntry,
 } from "@/lib/services/counterparty-service";
+import { DateTimeRangeBar, useDateTimeRange } from "@/components/date-time-range";
 
 const TYPE_LABEL: Record<string, string> = {
   Added: "Borc əlavə edildi",
@@ -46,6 +47,7 @@ type Props = {
 /** A counterparty's debt: add more debt, and see every change with its date and time. */
 export function CounterpartyDebtDialog({ open, onOpenChange, counterparty, onChanged, onAdjust }: Props) {
   const [entries, setEntries] = useState<CounterpartyDebtEntry[]>([]);
+  const period = useDateTimeRange();
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -133,10 +135,11 @@ export function CounterpartyDebtDialog({ open, onOpenChange, counterparty, onCha
 
         <div>
           <p className="mb-2 text-sm font-medium">Tarixçə</p>
+          <DateTimeRangeBar value={period} className="mb-3" />
           {loading ? (
             <p className="text-sm text-muted-foreground">Yüklənir…</p>
-          ) : entries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Hələ qeyd yoxdur.</p>
+          ) : entries.filter((e) => period.matches(e.createdAtUtc)).length === 0 ? (
+            <p className="text-sm text-muted-foreground">{period.active ? "Bu aralıqda qeyd yoxdur." : "Hələ qeyd yoxdur."}</p>
           ) : (
             <div className="overflow-hidden rounded-lg border">
               <table className="w-full text-sm">
@@ -149,7 +152,7 @@ export function CounterpartyDebtDialog({ open, onOpenChange, counterparty, onCha
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((e) => (
+                  {entries.filter((e) => period.matches(e.createdAtUtc)).map((e) => (
                     <tr key={e.id} className="border-t">
                       <td className="whitespace-nowrap px-3 py-2">{formatWhen(e.createdAtUtc)}</td>
                       <td className="px-3 py-2">

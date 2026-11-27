@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, Pencil, Plus, Trash2, Send, Check, X, Ban, Wallet, Undo2 } from "lucide-react";
-import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
+import { AdvancedTableFilters, matchesDateTimeRange, type TableFilterDef } from "@/components/advanced-table-filters";
 import { DocumentActionToolbar } from "@/components/documents/document-action-toolbar";
 import { ListSelectionSync } from "@/components/documents/list-selection-sync";
 import { Button } from "@/components/ui/button";
@@ -168,6 +168,16 @@ export function StockPurchaseListPage() {
         match: (row, get) => {
           const v = get("import");
           return !v || String(row.isImport) === v;
+        },
+      },
+      {
+        id: "date",
+        label: "Yaradılma tarixi və saatı",
+        ui: "dateRange",
+        gridClassName: "min-w-[260px] max-w-full flex-[2_1_360px]",
+        match: (row, get) => {
+          const iso = row.raw.createdAtUtc;
+          return matchesDateTimeRange(iso ? Date.parse(iso) : 0, get, "date");
         },
       },
     ];

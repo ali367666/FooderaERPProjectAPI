@@ -1,4 +1,3 @@
-using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Reports;
@@ -23,9 +22,9 @@ public class GetStockWriteOffsQueryHandler : IRequestHandler<GetStockWriteOffsQu
 
     public async Task<StockWriteOffListResponse> Handle(GetStockWriteOffsQuery query, CancellationToken cancellationToken)
     {
-        // Days follow the same business-day cut-off as the other reports.
-        DateTime? fromUtc = query.From is { } f ? BusinessTime.ToUtc(f.Date + ReportPeriodResolver.DayStart) : null;
-        DateTime? toUtc = query.To is { } t ? BusinessTime.ToUtc(t.Date.AddDays(1) + ReportPeriodResolver.DayStart) : null;
+        // Days follow the same business-day cut-off as the other reports; a time of day inside From / To narrows the window.
+        DateTime? fromUtc = query.From is { } f ? ReportPeriodResolver.StoreFromUtc(f) : null;
+        DateTime? toUtc = query.To is { } t ? ReportPeriodResolver.StoreToUtc(t) : null;
 
         var rows = await _repository.SearchAsync(
             _currentUserService.CompanyId, fromUtc, toUtc, query.WarehouseId, cancellationToken);

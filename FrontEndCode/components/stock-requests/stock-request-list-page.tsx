@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, Pencil, Plus, Trash2, Send, Check, X } from "lucide-react";
-import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
+import { AdvancedTableFilters, matchesDateTimeRange, type TableFilterDef } from "@/components/advanced-table-filters";
 import { DocumentActionToolbar } from "@/components/documents/document-action-toolbar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -163,6 +163,16 @@ export function StockRequestListPage() {
           const h =
             `${row.raw.requestingWarehouseName} ${row.raw.supplyingWarehouseName}`.toLowerCase();
           return h.includes(q);
+        },
+      },
+      {
+        id: "date",
+        label: "Yaradılma tarixi və saatı",
+        ui: "dateRange",
+        gridClassName: "min-w-[260px] max-w-full flex-[2_1_360px]",
+        match: (row, get) => {
+          const iso = row.raw.createdAtUtc;
+          return matchesDateTimeRange(iso ? Date.parse(iso) : 0, get, "date");
         },
       },
     ];

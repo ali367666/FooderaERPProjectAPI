@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AdvancedTableFilters, type TableFilterDef } from "@/components/advanced-table-filters";
+import { AdvancedTableFilters, matchesDateTimeRange, type TableFilterDef } from "@/components/advanced-table-filters";
 import { DataTable } from "@/components/data-table";
 import {
   searchStockMovementsForAllCompanies,
@@ -83,7 +83,21 @@ export default function StockMovementsPage() {
     [rows, scopeCompanyId],
   );
 
-  const filterDefs = useMemo<TableFilterDef<Row>[]>(() => [], []);
+  const filterDefs = useMemo<TableFilterDef<Row>[]>(
+    () => [
+      {
+        id: "date",
+        label: "Tarix və saat",
+        ui: "dateRange",
+        gridClassName: "min-w-[260px] max-w-full flex-[2_1_360px]",
+        match: (row, get) => {
+          const iso = row.movementDate;
+          return matchesDateTimeRange(iso ? Date.parse(iso) : 0, get, "date");
+        },
+      },
+    ],
+    [],
+  );
 
   const columns = [
     { key: "documentDisplay" as const, label: "Document no." },

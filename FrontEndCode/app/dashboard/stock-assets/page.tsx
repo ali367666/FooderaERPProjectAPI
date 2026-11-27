@@ -24,6 +24,8 @@ import {
 import { StockWriteOffReason, createStockWriteOff, type StockWriteOffReasonValue } from "@/lib/services/stock-writeoff-service";
 import { getWarehouses, type Warehouse } from "@/lib/services/warehouse-service";
 import { cn } from "@/lib/utils";
+import { TimeRangeInputs } from "@/components/store/time-range-inputs";
+import { withTime } from "@/lib/with-time";
 
 const SELECT_CLASS = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 const th = "px-3 py-2 font-medium";
@@ -58,6 +60,8 @@ export default function StockAssetsPage() {
   // history
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
   const [itemFilter, setItemFilter] = useState<number | "">("");
   const [opFilter, setOpFilter] = useState("");
   const [history, setHistory] = useState<StockAssetOperation[]>([]);
@@ -85,13 +89,13 @@ export default function StockAssetsPage() {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      setHistory(await getStockAssetHistory({ from, to, stockItemId: itemFilter === "" ? null : itemFilter }));
+      setHistory(await getStockAssetHistory({ from: withTime(from, fromTime), to: withTime(to, toTime), stockItemId: itemFilter === "" ? null : itemFilter }));
     } catch (e) {
       toast.error(toApiFormError(e, "Əməliyyatlar yüklənmədi").message);
     } finally {
       setHistoryLoading(false);
     }
-  }, [from, to, itemFilter]);
+  }, [from, to, fromTime, toTime, itemFilter]);
 
   useEffect(() => {
     getWarehouses().then(setWarehouses).catch(() => setWarehouses([]));
@@ -323,6 +327,7 @@ export default function StockAssetsPage() {
               <Label htmlFor="sh-to">Son</Label>
               <Input id="sh-to" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
             </div>
+            <TimeRangeInputs idPrefix="sh" fromTime={fromTime} toTime={toTime} onFromTime={setFromTime} onToTime={setToTime} />
             <div className="space-y-1">
               <Label htmlFor="sh-item">Məhsul</Label>
               <select id="sh-item" className={cn(SELECT_CLASS, "w-56")} value={itemFilter} onChange={(e) => setItemFilter(e.target.value ? Number(e.target.value) : "")}>
