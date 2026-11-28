@@ -8,6 +8,9 @@ public class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
 {
     public void Configure(EntityTypeBuilder<Warehouse> builder)
     {
+        builder.Property(x => x.IsActive).HasDefaultValue(true).ValueGeneratedNever();
+        builder.Property(x => x.Address).HasMaxLength(300);
+
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Name)

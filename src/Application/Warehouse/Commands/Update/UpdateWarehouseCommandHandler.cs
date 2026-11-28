@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -147,6 +148,9 @@ public class UpdateWarehouseCommandHandler : IRequestHandler<UpdateWarehouseComm
         warehouse.RestaurantId = request.Request.RestaurantId;
         warehouse.ResponsibleEmployeeId = request.Request.ResponsibleEmployeeId;
         warehouse.DriverUserId = request.Request.DriverUserId;
+
+        warehouse.IsActive = request.Request.IsActive ?? warehouse.IsActive;
+        warehouse.Address = OptionalFields.Text(request.Request.Address, warehouse.Address, 300, "Ünvan");
 
         _warehouseRepository.Update(warehouse);
         await _warehouseRepository.SaveChangesAsync(cancellationToken);

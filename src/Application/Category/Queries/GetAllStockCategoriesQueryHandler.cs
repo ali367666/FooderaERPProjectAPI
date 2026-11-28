@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces;
+using Application.BackOffice;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockCategory.Commands;
@@ -17,12 +18,16 @@ public class GetAllStockCategoriesQueryHandler
     private readonly IMapper _mapper;
     private readonly ILogger<GetAllStockCategoriesQueryHandler> _logger;
 
+    private readonly IPageCardsRepository _cards;
+
     public GetAllStockCategoriesQueryHandler(
         IStockCategoryRepository repository,
         ICurrentUserService currentUserService,
         IMapper mapper,
-        ILogger<GetAllStockCategoriesQueryHandler> logger)
+        ILogger<GetAllStockCategoriesQueryHandler> logger,
+        IPageCardsRepository cards)
     {
+        _cards = cards;
         _repository = repository;
         _currentUserService = currentUserService;
         _mapper = mapper;
@@ -57,6 +62,9 @@ public class GetAllStockCategoriesQueryHandler
             data = data.Where(x => x.Name.ToLower().Contains(request.Request.SearchTerm.ToLower())).ToList();
 
         var response = _mapper.Map<List<StockCategoryResponse>>(data);
+        var counts = await _cards.ItemCountsByCategoryAsync(data.Select(x => x.Id).ToList(), cancellationToken);
+        foreach (var category in response)
+            category.ProductCount = counts.GetValueOrDefault(category.Id);
 
         return BaseResponse<List<StockCategoryResponse>>.Ok(response);
     }

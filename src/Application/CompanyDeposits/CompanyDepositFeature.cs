@@ -36,6 +36,8 @@ public class CompanyDepositSummaryResponse
     public decimal TotalAmount { get; set; }
 
     public List<CompanyDepositResponse> Entries { get; set; } = new();
+    /// <summary>Everything added after the opening amount.</summary>
+    public decimal AdditionalAmount { get; set; }
 }
 
 public record GetCompanyDepositsQuery : IRequest<CompanyDepositSummaryResponse>;
@@ -64,6 +66,7 @@ public class GetCompanyDepositsQueryHandler : IRequestHandler<GetCompanyDeposits
             OpeningAmount = opening?.Amount,
             OpeningAtUtc = opening?.CreatedAtUtc,
             TotalAmount = rows.Sum(r => r.Amount),
+            AdditionalAmount = rows.Where(r => !r.IsOpening).Sum(r => r.Amount),
             Entries = rows.Select(r => new CompanyDepositResponse
             {
                 Id = r.Id,

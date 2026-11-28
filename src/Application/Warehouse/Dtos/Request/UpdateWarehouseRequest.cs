@@ -11,4 +11,7 @@ public class UpdateWarehouseRequest
     public int? RestaurantId { get; set; }
     public int? ResponsibleEmployeeId { get; set; }
     public int? DriverUserId { get; set; }
+    /// <summary>Optional; empty keeps the saved value.</summary>
+    public bool? IsActive { get; set; }
+    public string? Address { get; set; }
 }

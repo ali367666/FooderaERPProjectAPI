@@ -21,4 +21,10 @@ public class StockItemResponse
     public decimal? LastPurchasePriceAzn { get; set; }
     /// <summary>Weighted-average unit cost (AZN) over the approved purchases.</summary>
     public decimal? AverageCostAzn { get; set; }
+    public bool IsActive { get; set; }
+    public string? Description { get; set; }
+    public decimal MinimumStock { get; set; }
+    /// <summary>Stock in all warehouses together (filled in the list).</summary>
+    public decimal TotalQuantity { get; set; }
+    public bool IsCritical { get; set; }
 }

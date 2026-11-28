@@ -29,6 +29,15 @@ public class FinanceController : ControllerBase
         return Ok(await _mediator.Send(new GetFinanceReportQuery(request), cancellationToken));
     }
 
+    /// <summary>The same report as a CSV file (Excel).</summary>
+    [Authorize(Policy = AppPermissions.FinanceView)]
+    [HttpGet("report/export")]
+    public async Task<IActionResult> ExportReport([FromQuery] FinanceReportRequest request, CancellationToken cancellationToken)
+    {
+        var report = await _mediator.Send(new GetFinanceReportQuery(request), cancellationToken);
+        return File(Application.Finance.FinanceReportCsv.Build(report), "text/csv; charset=utf-8", "maliyye-hesabati.csv");
+    }
+
     [Authorize(Policy = AppPermissions.FinanceView)]
     [HttpGet("entries")]
     public async Task<ActionResult<List<FinanceEntryResponse>>> GetEntries(

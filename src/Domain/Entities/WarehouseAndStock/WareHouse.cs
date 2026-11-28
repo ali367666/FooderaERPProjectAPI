@@ -8,6 +8,8 @@ public class Warehouse : CompanyEntity<int>
 {
     public string Name { get; set; } = default!;
     public WarehouseType Type { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? Address { get; set; }
 
     public int? RestaurantId { get; set; }
     public Restaurant? Restaurant { get; set; }

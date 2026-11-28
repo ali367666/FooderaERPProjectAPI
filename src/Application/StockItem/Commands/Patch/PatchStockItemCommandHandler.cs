@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -85,6 +86,10 @@ public class PatchStockItemCommandHandler
 
         if (request.Request.SalePrice.HasValue)
             stockItem.SalePrice = request.Request.SalePrice.Value;
+
+        stockItem.IsActive = request.Request.IsActive ?? stockItem.IsActive;
+        stockItem.Description = OptionalFields.Text(request.Request.Description, stockItem.Description, 500, "Təsvir");
+        stockItem.MinimumStock = OptionalFields.MinimumStock(request.Request.MinimumStock, stockItem.MinimumStock);
 
         _stockItemRepository.Update(stockItem);
         await _stockItemRepository.SaveChangesAsync(cancellationToken);

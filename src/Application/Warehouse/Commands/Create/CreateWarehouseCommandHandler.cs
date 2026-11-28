@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts;
 using Application.Common.Interfaces.Abstracts.Repositories;
@@ -140,6 +141,8 @@ public class CreateWarehouseCommandHandler
         {
             Name = trimmedName,
             Type = dto.Type,
+            IsActive = dto.IsActive ?? true,
+            Address = OptionalFields.Text(dto.Address, null, 300, "Ünvan"),
             CompanyId = dto.CompanyId,
             RestaurantId = dto.Type == WarehouseType.Restaurant ? dto.RestaurantId : null,
             ResponsibleEmployeeId = dto.ResponsibleEmployeeId,

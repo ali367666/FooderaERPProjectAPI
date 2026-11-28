@@ -12,4 +12,8 @@ public class StockItemRequest
     public int CompanyId { get; set; }
     public int? RestaurantId { get; set; }
     public decimal? SalePrice { get; set; }
+    /// <summary>Optional; empty keeps the saved value.</summary>
+    public bool? IsActive { get; set; }
+    public string? Description { get; set; }
+    public decimal? MinimumStock { get; set; }
 }

@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces;
+using Application.BackOffice;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
 using Application.StockItem.Dtos.Response;
@@ -15,12 +16,16 @@ public class GetAllStockItemsQueryHandler
     private readonly IMapper _mapper;
     private readonly ILogger<GetAllStockItemsQueryHandler> _logger;
 
+    private readonly IPageCardsRepository _cards;
+
     public GetAllStockItemsQueryHandler(
         IStockItemRepository stockItemRepository,
         ICurrentUserService currentUserService,
         IMapper mapper,
-        ILogger<GetAllStockItemsQueryHandler> logger)
+        ILogger<GetAllStockItemsQueryHandler> logger,
+        IPageCardsRepository cards)
     {
+        _cards = cards;
         _stockItemRepository = stockItemRepository;
         _currentUserService = currentUserService;
         _mapper = mapper;
@@ -43,6 +48,13 @@ public class GetAllStockItemsQueryHandler
 
         var stockItems = await _stockItemRepository.GetAllAsync(request.Request, cancellationToken);
         var response = _mapper.Map<List<StockItemResponse>>(stockItems);
+
+        var quantities = await _cards.StockQuantitiesAsync(response.Select(x => x.Id).ToList(), cancellationToken);
+        foreach (var item in response)
+        {
+            item.TotalQuantity = quantities.GetValueOrDefault(item.Id);
+            item.IsCritical = item.IsActive && item.MinimumStock > 0 && item.TotalQuantity < item.MinimumStock;
+        }
 
         _logger.LogInformation("Retrieved {Count} stock items.", response.Count);
 

@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Interfaces.Abstracts.Services;
@@ -109,6 +110,9 @@ public class PatchWarehouseCommandHandler
         }
 
         await _warehouseRepository.UpdateAsync(warehouse, cancellationToken);
+        warehouse.IsActive = request.Request.IsActive ?? warehouse.IsActive;
+        warehouse.Address = OptionalFields.Text(request.Request.Address, warehouse.Address, 300, "Ünvan");
+
         await _warehouseRepository.SaveChangesAsync(cancellationToken);
 
         try

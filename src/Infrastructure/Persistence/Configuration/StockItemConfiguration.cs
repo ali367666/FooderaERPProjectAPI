@@ -8,6 +8,10 @@ public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
 {
     public void Configure(EntityTypeBuilder<StockItem> builder)
     {
+        builder.Property(x => x.IsActive).HasDefaultValue(true).ValueGeneratedNever();
+        builder.Property(x => x.Description).HasMaxLength(500);
+        builder.Property(x => x.MinimumStock).HasColumnType("decimal(18,3)");
+
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Name)

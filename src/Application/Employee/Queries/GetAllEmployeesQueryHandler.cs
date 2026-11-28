@@ -1,3 +1,4 @@
+using Application.BackOffice;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
@@ -13,10 +14,14 @@ public class GetAllEmployeesQueryHandler
     private readonly IEmployeeRepository _employeeRepository;
     private readonly ICurrentUserService _currentUserService;
 
+    private readonly IPageCardsRepository _cards;
+
     public GetAllEmployeesQueryHandler(
         IEmployeeRepository employeeRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IPageCardsRepository cards)
     {
+        _cards = cards;
         _employeeRepository = employeeRepository;
         _currentUserService = currentUserService;
     }
@@ -83,6 +88,15 @@ public class GetAllEmployeesQueryHandler
             RestaurantName = employee.Restaurant?.Name ?? string.Empty,
             UserId = employee.UserId
         }).ToList();
+
+        var ids = response.Select(x => x.Id).ToList();
+        var photos = await _cards.EmployeePhotosAsync(ids, cancellationToken);
+        var onLeave = await _cards.EmployeesOnLeaveAsync(ids, Application.Common.Helpers.BusinessTime.Now.Date, cancellationToken);
+        foreach (var employee in response)
+        {
+            employee.PhotoUrl = photos.GetValueOrDefault(employee.Id);
+            employee.IsOnLeave = onLeave.Contains(employee.Id);
+        }
 
         return new BaseResponse<List<EmployeeResponse>>
         {

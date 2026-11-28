@@ -12,4 +12,6 @@ public class StockCategoryResponse
 
     public int? ParentId { get; set; }
     public string? ParentName { get; set; }
+    /// <summary>How many stock items are in the category (filled in the list).</summary>
+    public int ProductCount { get; set; }
 }

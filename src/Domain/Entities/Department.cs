@@ -9,4 +9,5 @@ public class Department : CompanyEntity<int>
 
     public ICollection<Position> Positions { get; set; } = new List<Position>();
     public ICollection<Employee> Employees { get; set; } = new List<Employee>();
+    public bool IsActive { get; set; } = true;
 }

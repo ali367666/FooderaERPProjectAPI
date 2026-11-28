@@ -30,4 +30,7 @@ public class EmployeeResponse
     public string RestaurantName { get; set; } = default!;
 
     public int? UserId { get; set; }
+    /// <summary>The photo of the employee's user account.</summary>
+    public string? PhotoUrl { get; set; }
+    public bool IsOnLeave { get; set; }
 }

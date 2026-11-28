@@ -82,6 +82,7 @@ public sealed class CreateDepartmentCommandHandler
             {
                 CompanyId = companyId,
                 Name = departmentName,
+                IsActive = dto.IsActive ?? true,
                 Description = string.IsNullOrWhiteSpace(dto.Description)
                     ? null
                     : dto.Description.Trim()
@@ -126,6 +127,7 @@ public sealed class CreateDepartmentCommandHandler
                 Id = department.Id,
                 CompanyId = department.CompanyId,
                 Name = department.Name,
+                IsActive = department.IsActive,
                 Description = department.Description
             };
 

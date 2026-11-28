@@ -9,6 +9,10 @@ public class StockItem : BaseEntity<int>
     public string Name { get; set; } = default!;
     public string? Barcode { get; set; }
     public StockItemType Type { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? Description { get; set; }
+    /// <summary>Total stock below this is critical; 0 = no minimum.</summary>
+    public decimal MinimumStock { get; set; }
     public UnitOfMeasure Unit { get; set; }
 
     /// <summary>

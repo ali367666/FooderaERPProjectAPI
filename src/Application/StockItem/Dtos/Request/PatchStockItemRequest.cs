@@ -10,4 +10,8 @@ public class PatchStockItemRequest
     public UnitOfMeasure? Unit { get; set; }
     public int? CategoryId { get; set; }
     public decimal? SalePrice { get; set; }
+    /// <summary>Optional; empty keeps the saved value.</summary>
+    public bool? IsActive { get; set; }
+    public string? Description { get; set; }
+    public decimal? MinimumStock { get; set; }
 }

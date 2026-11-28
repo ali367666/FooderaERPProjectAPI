@@ -40,6 +40,7 @@ public sealed class GetDepartmentByIdQueryHandler
             Id = department.Id,
             CompanyId = department.CompanyId,
             Name = department.Name,
+            IsActive = department.IsActive,
             Description = department.Description
         };
 

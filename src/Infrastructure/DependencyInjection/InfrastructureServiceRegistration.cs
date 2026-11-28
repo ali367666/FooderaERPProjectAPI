@@ -94,6 +94,9 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IStockPurchaseRepository, StockPurchaseRepository>();
         services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
         services.AddScoped<ISalesDocumentRepository, SalesDocumentRepository>();
+        services.AddScoped<Application.BackOffice.IPageCardsRepository, PageCardsRepository>();
+        services.AddScoped<Application.BackOffice.IEmployeeLeaveService, EmployeeLeaveService>();
+        services.AddScoped<Application.BackOffice.ICashDeskService, CashDeskService>();
         services.AddScoped<IReportsRepository, ReportsRepository>();
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<IDiscountRepository, DiscountRepository>();

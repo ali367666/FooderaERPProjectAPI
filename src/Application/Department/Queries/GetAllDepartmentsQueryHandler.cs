@@ -1,4 +1,5 @@
-﻿using Application.Abstractions.Repositories;
+using Application.BackOffice;
+using Application.Abstractions.Repositories;
 using Application.Common.Interfaces;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Application.Common.Responce;
@@ -13,10 +14,14 @@ public sealed class GetAllDepartmentsQueryHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrentUserService _currentUserService;
 
+    private readonly IPageCardsRepository _cards;
+
     public GetAllDepartmentsQueryHandler(
         IDepartmentRepository departmentRepository,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IPageCardsRepository cards)
     {
+        _cards = cards;
         _departmentRepository = departmentRepository;
         _currentUserService = currentUserService;
     }
@@ -38,8 +43,13 @@ public sealed class GetAllDepartmentsQueryHandler
             Id = x.Id,
             CompanyId = x.CompanyId,
             Name = x.Name,
+            IsActive = x.IsActive,
             Description = x.Description
         }).ToList();
+
+        var counts = await _cards.EmployeeCountsByDepartmentAsync(response.Select(x => x.Id).ToList(), cancellationToken);
+        foreach (var department in response)
+            department.EmployeeCount = counts.GetValueOrDefault(department.Id);
 
         return BaseResponse<List<DepartmentResponse>>.Ok(response);
     }

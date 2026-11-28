@@ -14,4 +14,9 @@ public class CashMovement : CompanyEntity<int>
 
     /// <summary>Navigation for the inherited BaseEntity.CreatedByUserId — lets the UI show who made the movement.</summary>
     public User? CreatedByUser { get; set; }
+
+    /// <summary>The name of the expense category chosen when the money was taken out.</summary>
+    public string? Category { get; set; }
+    /// <summary>A photo or PDF of the receipt / document behind the movement.</summary>
+    public string? AttachmentUrl { get; set; }
 }

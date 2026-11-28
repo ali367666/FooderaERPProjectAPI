@@ -76,6 +76,8 @@ public class FinanceReportResponse
     public List<FinanceDayDto> Days { get; set; } = new();
     public List<FinanceNameTotalDto> IncomeByName { get; set; } = new();
     public List<FinanceNameTotalDto> ExpenseByName { get; set; } = new();
+    /// <summary>Profit as a share of income; 0 without income.</summary>
+    public decimal ProfitMarginPercent => TotalIncome == 0 ? 0 : Math.Round(Profit / TotalIncome * 100, 2);
 }
 
 /// <summary>A money line read from sales / purchases / the till, before it is placed on a business day.</summary>

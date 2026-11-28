@@ -12,4 +12,6 @@ public class CashMovementResponse
     public int? CreatedByUserId { get; set; }
     public string? CreatedByUserName { get; set; }
     public DateTime CreatedAtUtc { get; set; }
+    public string? Category { get; set; }
+    public string? AttachmentUrl { get; set; }
 }

@@ -8,6 +8,8 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
 {
     public void Configure(EntityTypeBuilder<Department> builder)
     {
+        builder.Property(x => x.IsActive).HasDefaultValue(true).ValueGeneratedNever();
+
         builder.ToTable("Departments");
 
         builder.HasKey(x => x.Id);

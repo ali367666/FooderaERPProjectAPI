@@ -41,6 +41,8 @@ public class AppDbContext : IdentityDbContext<User, AppRole, int>
     public DbSet<Workstation> Workstations { get; set; } = null!;
     public DbSet<DeliveryIntegration> DeliveryIntegrations { get; set; } = null!;
     public DbSet<CashMovement> CashMovements { get; set; } = null!;
+    public DbSet<CashExpenseCategory> CashExpenseCategories { get; set; } = null!;
+    public DbSet<EmployeeLeave> EmployeeLeaves { get; set; } = null!;
     public DbSet<FinanceEntry> FinanceEntries { get; set; } = null!;
     public DbSet<SaleReturn> SaleReturns { get; set; } = null!;
     public DbSet<OrderCancellation> OrderCancellations { get; set; } = null!;

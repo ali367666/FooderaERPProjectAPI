@@ -18,4 +18,6 @@ public class WarehouseResponse
 
     public int? DriverUserId { get; set; }
     public string? DriverFullName { get; set; }
+    public bool IsActive { get; set; }
+    public string? Address { get; set; }
 }

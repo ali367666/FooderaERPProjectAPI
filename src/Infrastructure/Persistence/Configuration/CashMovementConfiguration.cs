@@ -8,6 +8,9 @@ public class CashMovementConfiguration : IEntityTypeConfiguration<CashMovement>
 {
     public void Configure(EntityTypeBuilder<CashMovement> builder)
     {
+        builder.Property(x => x.Category).HasMaxLength(100);
+        builder.Property(x => x.AttachmentUrl).HasMaxLength(500);
+
         builder.ToTable("CashMovements");
 
         builder.HasKey(x => x.Id);

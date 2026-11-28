@@ -106,6 +106,7 @@ public sealed class UpdateDepartmentCommandHandler
             });
 
             department.Name = trimmedName;
+            department.IsActive = request.Request.IsActive ?? department.IsActive;
             department.Description = request.Request.Description?.Trim();
             department.CompanyId = companyId;
 
@@ -152,6 +153,7 @@ public sealed class UpdateDepartmentCommandHandler
                 Id = department.Id,
                 CompanyId = department.CompanyId,
                 Name = department.Name,
+                IsActive = department.IsActive,
                 Description = department.Description
             };
 
