@@ -1,3 +1,4 @@
+using Application.Analytics;
 using Application.Analytics.Dtos;
 using Application.Common.Interfaces.Abstracts.Repositories;
 using Domain.Enums;
@@ -199,11 +200,12 @@ public class AnalyticsRepository : IAnalyticsRepository
 
         var categories = await _context.OrderLines
             .Where(l => l.CompanyId == companyId && orderIds.Contains(l.OrderId) && l.Status != OrderLineStatus.Cancelled)
-            .GroupBy(l => new { l.MenuItem.MenuCategoryId, l.MenuItem.MenuCategory.Name })
+            .GroupBy(l => new { l.MenuItem.MenuCategoryId, l.MenuItem.MenuCategory.Name, l.MenuItem.MenuCategory.ImageUrl })
             .Select(g => new SalesReportCategoryLineDto
             {
                 CategoryId = g.Key.MenuCategoryId,
                 CategoryName = g.Key.Name,
+                ImageUrl = g.Key.ImageUrl,
                 Quantity = g.Sum(l => l.Quantity),
                 Revenue = g.Sum(l => l.LineTotal),
             })
@@ -375,6 +377,152 @@ public class AnalyticsRepository : IAnalyticsRepository
             Gifts = gifts,
         };
     }
+
+    public async Task AddSalesInsightsAsync(
+        int companyId,
+        SalesReportResponse report,
+        TimeSpan dayStart,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+
+        // ---- payment split: a bill paid in parts counts each part under its own method
+        var money = await Infrastructure.Persistence.Repositories.OrderPaymentSplit.ComputeAsync(
+            _context,
+            report.Receipts.Select(r => (r.OrderId, ParseMethod(r.PaymentMethod), r.Amount)).ToList(),
+            cancellationToken);
+        foreach (var receipt in report.Receipts)
+        {
+            var split = money.GetValueOrDefault(receipt.OrderId, Infrastructure.Persistence.Repositories.MoneySplit.None);
+            receipt.CashAmount = split.Cash;
+            receipt.CardAmount = split.Card;
+            receipt.CreditAmount = split.Credit;
+        }
+        report.CashTotal = report.Receipts.Sum(r => r.CashAmount);
+        report.CardTotal = report.Receipts.Sum(r => r.CardAmount);
+        report.CreditTotal = report.Receipts.Sum(r => r.CreditAmount);
+
+        var paidTotal = report.CashTotal + report.CardTotal + report.CreditTotal;
+        report.PaymentMethods = new (PaymentMethod Method, decimal Amount)[]
+            {
+                (PaymentMethod.Cash, report.CashTotal),
+                (PaymentMethod.Card, report.CardTotal),
+                (PaymentMethod.Credit, report.CreditTotal),
+            }
+            .Where(p => p.Amount > 0)
+            .OrderByDescending(p => p.Amount)
+            .Select(p => new SalesReportPaymentShareDto
+            {
+                Method = p.Method.ToString(),
+                Amount = p.Amount,
+                Percent = SalesReportMath.Percent(p.Amount, paidTotal),
+            })
+            .ToList();
+
+        // ---- earlier period
+        var (previousFrom, previousTo) = SalesReportMath.PreviousWindow(report.From, report.To, now);
+        var previous = await _context.Orders.AsNoTracking()
+            .Where(o => o.CompanyId == companyId && o.IsPaid && o.PaidAt >= previousFrom && o.PaidAt < previousTo)
+            .Select(o => new { o.Id, o.PaymentMethod, o.TotalAmount, o.WaiterId })
+            .ToListAsync(cancellationToken);
+        var previousMoney = await Infrastructure.Persistence.Repositories.OrderPaymentSplit.ComputeAsync(
+            _context, previous.Select(o => (o.Id, o.PaymentMethod, o.TotalAmount)).ToList(), cancellationToken);
+
+        report.Previous = new SalesReportPreviousDto
+        {
+            From = previousFrom,
+            To = previousTo,
+            TotalRevenue = previous.Sum(o => o.TotalAmount),
+            CashTotal = previousMoney.Values.Sum(m => m.Cash),
+            CardTotal = previousMoney.Values.Sum(m => m.Card),
+            CreditTotal = previousMoney.Values.Sum(m => m.Credit),
+            OrderCount = previous.Count,
+        };
+        report.RevenueChangePercent = SalesReportMath.Change(report.TotalRevenue, report.Previous.TotalRevenue);
+        report.CashChangePercent = SalesReportMath.Change(report.CashTotal, report.Previous.CashTotal);
+        report.CardChangePercent = SalesReportMath.Change(report.CardTotal, report.Previous.CardTotal);
+
+        // ---- days
+        var byDay = report.Receipts
+            .Where(r => r.PaidAt != null)
+            .ToLookup(r => SalesReportMath.BusinessDay(r.PaidAt!.Value, dayStart));
+        report.Daily = SalesReportMath.Days(report.From, report.To, now, dayStart)
+            .Select(day => new SalesReportDayDto
+            {
+                Date = day,
+                Revenue = byDay[day].Sum(r => r.Amount),
+                CashTotal = byDay[day].Sum(r => r.CashAmount),
+                CardTotal = byDay[day].Sum(r => r.CardAmount),
+                CreditTotal = byDay[day].Sum(r => r.CreditAmount),
+                OrderCount = byDay[day].Count(),
+            })
+            .ToList();
+
+        // ---- waiters: place, average, comparison and photo
+        var waiterIds = report.Waiters.Select(w => w.WaiterId).ToList();
+        var photos = (await _context.Employees.AsNoTracking()
+                .Where(e => e.CompanyId == companyId && waiterIds.Contains(e.Id) && e.User != null)
+                .Select(e => new { e.Id, e.User!.AvatarUrl })
+                .ToListAsync(cancellationToken))
+            .ToDictionary(e => e.Id, e => e.AvatarUrl);
+        var before = previous.GroupBy(o => o.WaiterId).ToDictionary(g => g.Key, g => g.Sum(o => o.TotalAmount));
+        var best = report.Waiters.Count == 0 ? 0 : report.Waiters.Max(w => w.Revenue);
+        var rank = 0;
+        foreach (var waiter in report.Waiters.OrderByDescending(w => w.Revenue).ThenByDescending(w => w.OrderCount))
+        {
+            waiter.Rank = ++rank;
+            waiter.AverageCheck = waiter.OrderCount == 0 ? 0 : Math.Round(waiter.Revenue / waiter.OrderCount, 2, MidpointRounding.AwayFromZero);
+            waiter.PercentOfBest = SalesReportMath.Percent(waiter.Revenue, best);
+            waiter.PreviousRevenue = before.GetValueOrDefault(waiter.WaiterId);
+            waiter.ChangePercent = SalesReportMath.Change(waiter.Revenue, waiter.PreviousRevenue);
+            waiter.Status = SalesReportMath.WaiterStatus(waiter.Rank, waiter.Revenue, waiter.PreviousRevenue);
+            waiter.PhotoUrl = photos.GetValueOrDefault(waiter.WaiterId);
+        }
+
+        // ---- floor tables: every active table, whether it earned anything or not
+        var floor = await _context.RestaurantTables.AsNoTracking()
+            .Where(t => t.CompanyId == companyId && t.IsActive
+                && (t.Type == RestaurantTableType.Masa || t.Type == RestaurantTableType.Kabinet))
+            .Select(t => new SalesReportFloorTableDto
+            {
+                TableId = t.Id,
+                TableName = t.Name,
+                RestaurantId = t.RestaurantId,
+                RestaurantName = t.Restaurant.Name,
+                SectionId = t.SectionId,
+                SectionName = t.Section != null ? t.Section.Name : null,
+                Capacity = t.Capacity,
+                PosX = t.PosX,
+                PosY = t.PosY,
+                Width = t.Width,
+                Height = t.Height,
+                Shape = t.Shape,
+                Rotation = t.Rotation,
+            })
+            .ToListAsync(cancellationToken);
+        var sittings = report.Receipts.ToLookup(r => r.TableId);
+        foreach (var table in floor)
+        {
+            var own = sittings[table.TableId].ToList();
+            var counted = own.Where(r => r.GuestCount > 0).ToList();
+            table.OrderCount = own.Count;
+            table.Revenue = own.Sum(r => r.Amount);
+            table.GuestCount = counted.Sum(r => r.GuestCount!.Value);
+            table.OccupancyPercent = table.Capacity > 0 && counted.Count > 0
+                ? Math.Min(100, SalesReportMath.Percent((decimal)table.GuestCount / counted.Count, table.Capacity))
+                : null;
+        }
+        var bestTable = floor.Count == 0 ? 0 : floor.Max(t => t.Revenue);
+        foreach (var table in floor)
+            table.Heat = SalesReportMath.Heat(table.Revenue, bestTable);
+        report.FloorTables = floor
+            .OrderBy(t => t.RestaurantId)
+            .ThenBy(t => t.TableName, Application.RestaurantTables.NaturalNameComparer.Instance)
+            .ToList();
+    }
+
+    private static PaymentMethod? ParseMethod(string? method)
+        => Enum.TryParse<PaymentMethod>(method, out var parsed) ? parsed : null;
 
     public async Task<List<FoodCostResponse>> GetFoodCostAsync(int companyId, CancellationToken cancellationToken)
     {

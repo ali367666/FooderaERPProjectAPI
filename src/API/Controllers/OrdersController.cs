@@ -266,6 +266,36 @@ public class OrdersController : ControllerBase
         int id, int lineId, [FromBody] Application.Orders.Commands.EditReceipt.EditReceiptLineRequest request)
         => Ok(await _mediator.Send(new Application.Orders.Commands.EditReceipt.EditReceiptLineCommand(id, lineId, request)));
 
+    /// <summary>
+    /// Sales documents (paid and cancelled orders) with the summary cards, filtered and paged on the server.
+    /// from / to are business days (fromTime / toTime narrow them), status = Paid / Cancelled, search = receipt, order or table.
+    /// </summary>
+    [Authorize(Policy = AppPermissions.OrdersView)]
+    [HttpGet("sales-documents")]
+    public async Task<ActionResult<Application.Orders.Queries.SalesDocuments.SalesDocumentsResponse>> GetSalesDocuments(
+        [FromQuery] Application.Orders.Queries.SalesDocuments.SalesDocumentsRequest request, CancellationToken cancellationToken)
+        => Ok(await _mediator.Send(new Application.Orders.Queries.SalesDocuments.GetSalesDocumentsQuery(request), cancellationToken));
+
+    /// <summary>The same filtered list as a CSV file.</summary>
+    [Authorize(Policy = AppPermissions.OrdersView)]
+    [HttpGet("sales-documents/export")]
+    public async Task<IActionResult> ExportSalesDocuments(
+        [FromQuery] Application.Orders.Queries.SalesDocuments.SalesDocumentsRequest request, CancellationToken cancellationToken)
+    {
+        var file = await _mediator.Send(new Application.Orders.Queries.SalesDocuments.ExportSalesDocumentsQuery(request), cancellationToken);
+        return File(file, "text/csv; charset=utf-8", "satis-senedleri.csv");
+    }
+
+    /// <summary>Sends a paid receipt to the given e-mail address.</summary>
+    [Authorize(Policy = AppPermissions.ReceiptPrint)]
+    [HttpPost("{id:int}/receipt/email")]
+    public async Task<IActionResult> EmailReceipt(
+        int id, [FromBody] Application.Orders.Commands.EmailReceipt.SendReceiptEmailRequest request, CancellationToken cancellationToken)
+    {
+        await _mediator.Send(new Application.Orders.Commands.EmailReceipt.SendReceiptEmailCommand(id, request), cancellationToken);
+        return NoContent();
+    }
+
     [Authorize(Policy = AppPermissions.OrdersView)]
     [HttpGet("active")]
     public async Task<ActionResult<List<OrderResponse>>> GetActive()

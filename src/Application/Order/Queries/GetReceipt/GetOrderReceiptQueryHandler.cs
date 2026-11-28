@@ -85,6 +85,7 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
             PaidAmount = order.PaidAmount,
             ChangeAmount = order.ChangeAmount,
             VatAmount = lines.Sum(x => x.VatAmount),
+            VatPercent = isFiscal ? defaultVatPercent : null,
             IsFiscal = isFiscal,
             Lines = lines
         };
@@ -195,6 +196,7 @@ public class GetOrderReceiptQueryHandler : IRequestHandler<GetOrderReceiptQuery,
             PaidAmount = payment.ReceivedAmount,
             ChangeAmount = payment.ChangeAmount,
             VatAmount = lines.Sum(x => x.VatAmount),
+            VatPercent = isFiscal ? defaultVatPercent : null,
             IsFiscal = isFiscal,
             Lines = lines
         };

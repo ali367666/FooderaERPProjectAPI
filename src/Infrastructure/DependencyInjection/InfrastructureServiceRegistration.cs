@@ -93,6 +93,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IStockPurchaseRepository, StockPurchaseRepository>();
         services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
+        services.AddScoped<ISalesDocumentRepository, SalesDocumentRepository>();
         services.AddScoped<IReportsRepository, ReportsRepository>();
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<IDiscountRepository, DiscountRepository>();
@@ -163,6 +164,8 @@ public static class InfrastructureServiceRegistration
                 configuration.GetSection("EmailSettings"));
 
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<CompanyEmailService>();
+        services.AddScoped<Application.CompanyEmail.ICompanyEmailService>(sp => sp.GetRequiredService<CompanyEmailService>());
 
 
         return services;

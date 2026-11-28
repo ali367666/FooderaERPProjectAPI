@@ -34,4 +34,16 @@ public class SalesReportResponse
     /// <summary>TotalRevenue minus returns in the period.</summary>
     public decimal NetRevenue { get; set; }
     public List<SalesReportReturnLineDto> ReturnedProducts { get; set; } = new();
+
+    /// <summary>Sold on credit (borc).</summary>
+    public decimal CreditTotal { get; set; }
+    /// <summary>The earlier period; the change fields are null when it had nothing to compare with.</summary>
+    public SalesReportPreviousDto Previous { get; set; } = new();
+    public decimal? RevenueChangePercent { get; set; }
+    public decimal? CashChangePercent { get; set; }
+    public decimal? CardChangePercent { get; set; }
+    public List<SalesReportDayDto> Daily { get; set; } = new();
+    public List<SalesReportPaymentShareDto> PaymentMethods { get; set; } = new();
+    /// <summary>Every active table with its earnings, for the floor plan / heat map.</summary>
+    public List<SalesReportFloorTableDto> FloorTables { get; set; } = new();
 }

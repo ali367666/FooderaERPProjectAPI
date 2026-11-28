@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using API.Extensions;
 using API.Middlewares;
 using API.Authorization;
@@ -29,6 +30,12 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
+
+// Encrypts the companies' mail passwords. The keys must survive restarts and updates: a container gets a folder on a volume
+// (DataProtection:KeysPath); without it they are kept in the user profile of the computer.
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("FooderaERP");
+if (builder.Configuration["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddJwtSwagger();
 

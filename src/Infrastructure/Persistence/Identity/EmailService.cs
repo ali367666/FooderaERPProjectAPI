@@ -1,58 +1,33 @@
-﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces;
 using Infrastructure.Options;
-using MailKit.Net.Smtp;
-using MailKit.Security;
 using Microsoft.Extensions.Options;
-using MimeKit;
 
 namespace Infrastructure.Services;
 
 public class EmailService : IEmailService
 {
     private readonly EmailSettings _settings;
+    private readonly CompanyEmailService _companyEmail;
+    private readonly ICurrentUserService _currentUser;
 
-    public EmailService(IOptions<EmailSettings> settings)
+    public EmailService(IOptions<EmailSettings> settings, CompanyEmailService companyEmail, ICurrentUserService currentUser)
     {
         _settings = settings.Value;
+        _companyEmail = companyEmail;
+        _currentUser = currentUser;
     }
 
+    /// <summary>Sends from the current company's own Gmail when it has set one up, else from the server's mail account.</summary>
     public async Task SendAsync(
         string to,
         string subject,
         string htmlBody,
         CancellationToken cancellationToken = default)
     {
-        var email = new MimeMessage();
+        var settings = _currentUser.CompanyId > 0
+            ? await _companyEmail.SmtpSettingsAsync(_currentUser.CompanyId, cancellationToken)
+            : null;
 
-        email.From.Add(new MailboxAddress(_settings.FromName, _settings.FromEmail));
-        email.To.Add(MailboxAddress.Parse(to));
-        email.Subject = subject;
-
-        var builder = new BodyBuilder
-        {
-            HtmlBody = htmlBody
-        };
-
-        email.Body = builder.ToMessageBody();
-
-        using var smtp = new SmtpClient();
-
-        var secureOption = _settings.UseSsl
-            ? SecureSocketOptions.SslOnConnect
-            : SecureSocketOptions.StartTls;
-
-        await smtp.ConnectAsync(
-            _settings.Host,
-            _settings.Port,
-            secureOption,
-            cancellationToken);
-
-        await smtp.AuthenticateAsync(
-            _settings.UserName,
-            _settings.Password,
-            cancellationToken);
-
-        await smtp.SendAsync(email, cancellationToken);
-        await smtp.DisconnectAsync(true, cancellationToken);
+        await SmtpMailer.SendAsync(settings ?? _settings, to, subject, htmlBody, cancellationToken);
     }
 }

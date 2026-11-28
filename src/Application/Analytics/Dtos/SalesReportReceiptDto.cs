@@ -14,6 +14,10 @@ public class SalesReportReceiptDto
     public DateTime? PaidAt { get; set; }
     public string? PaymentMethod { get; set; }
     public decimal Amount { get; set; }
+    /// <summary>How the bill was settled; a bill paid in parts has more than one of these above zero.</summary>
+    public decimal CashAmount { get; set; }
+    public decimal CardAmount { get; set; }
+    public decimal CreditAmount { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal ServiceCharge { get; set; }
 }

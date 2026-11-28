@@ -25,6 +25,8 @@ public class OrderReceiptResponse
     public decimal PaidAmount { get; set; }
     public decimal ChangeAmount { get; set; }
     public decimal VatAmount { get; set; }
+    /// <summary>The company's VAT rate on a fiscal receipt (an item may carry its own); null on an ordinary one.</summary>
+    public decimal? VatPercent { get; set; }
 
     /// <summary>Rung through the fiscal register — only then does the receipt carry VAT.</summary>
     public bool IsFiscal { get; set; }

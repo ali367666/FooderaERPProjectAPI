@@ -2550,6 +2550,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Sifariş saatlarını göstər",
     "Status",
     "Tarix",
+    "Təmizlə",
     "Toplam",
     "Yüklənir…"
   ],
@@ -2618,7 +2619,6 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Borc",
     "Borclu müştəri yoxdur.",
     "Borclu müştərilər",
-    "Bu gün mədaxil/məxaric yoxdur.",
     "Bugünkü çek sayı",
     "Bugünkü kassa mədaxil/məxaric əməliyyatları və borclu müştərilər.",
     "Bugünkü mədaxil/məxaric",
@@ -2640,6 +2640,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Satışdan nağd",
     "Satışdan pos",
     "Səbəb",
+    "Təmizlə",
     "Yüklənir…"
   ],
   "/dashboard/finance": [
@@ -2673,7 +2674,6 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
   ],
   "/dashboard/company-deposit": [
     "Başlanğıc depozit",
-    "Hələ depozit yazılmayıb.",
     "Kim yazıb",
     "Ləğv et",
     "Məbləğ",
@@ -2686,6 +2686,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Şirkətin işə başladığı məbləğ və sonradan əlavə olunan depozitlər.",
     "Tarix",
     "Tarixçə",
+    "Təmizlə",
     "Ümumi depozit",
     "Yüklənir…"
   ],
@@ -2886,7 +2887,6 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Hamısı",
     "Heç bir anbarda stok yoxdur.",
     "Hələ kateqoriya yoxdur. “+” ilə yaradın.",
-    "Hərəkət yoxdur.",
     "historyLimit && (",
     "İstifadə olundu və ya xərcə yazıldı — stokdan azalır.",
     "Kateqoriya",
@@ -2908,6 +2908,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Sınma",
     "Stok",
     "Tarixçə",
+    "Təmizlə",
     "Üst kateqoriya",
     "Vahid",
     "Xarab oldu, istifadəyə yaramır — stokdan azalır.",
@@ -2998,7 +2999,8 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Status",
     "Stock entry documents",
     "Warehouse",
-    "Warehouse stock documents"
+    "Warehouse stock documents",
+    "Yaradılma tarixi və saatı"
   ],
   "/dashboard/warehouse-stocks": [
     "Current on-hand quantities per warehouse and item (updated when documents are approved or transfers are processed).",
@@ -3019,6 +3021,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Quantity",
     "Stock item",
     "Stock movements",
+    "Tarix və saat",
     "To warehouse",
     "Warehouse stock balances"
   ],
@@ -3058,7 +3061,8 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Type",
     "View",
     "Warehouse (name)",
-    "Warehouses"
+    "Warehouses",
+    "Yaradılma tarixi və saatı"
   ],
   "/dashboard/stock-purchases": [
     "1 row selected",
@@ -3115,7 +3119,8 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Total (AZN)",
     "Total (foreign)",
     "View",
-    "Warehouse"
+    "Warehouse",
+    "Yaradılma tarixi və saatı"
   ],
   "/dashboard/stock-purchase-costs": [
     "Alış sayı",
@@ -3172,6 +3177,8 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Miqdar",
     "Özəl tarix",
     "Qeyd (istəyə bağlı)",
+    "Saat: başlanğıc",
+    "Saat: son",
     "Seçin…",
     "Səbəb",
     "Siyahı yüklənmədi.",
@@ -3214,6 +3221,8 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Orta maya",
     "Özəl tarix",
     "Qeyd",
+    "Saat: başlanğıc",
+    "Saat: son",
     "Say",
     "Seçin",
     "Sındı, itdi, zədələndi — stokdan azalır.",
@@ -3237,7 +3246,6 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Davam et",
     "Əməliyyat",
     "Hamısı",
-    "Hələ qeyd yoxdur.",
     "İmtina et",
     "İstəyə görə",
     "Kateqoriya",
@@ -3259,6 +3267,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Tarixçə",
     "Telefon",
     "Təchizatçılar və digər tərəfdaşlar — borc izləməsi ilə.",
+    "Təmizlə",
     "Yeni cari borc",
     "Yüklənir…"
   ],
@@ -3376,6 +3385,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Serve",
     "Status",
     "Table",
+    "Təmizlə",
     "Total Amount",
     "View",
     "Waiter",
@@ -3623,12 +3633,15 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Ada görə (A–Z)",
     "Adisyonda (müştəri qəbzində) biznes adı",
     "Anbar satış qiymətindən (dəzgah qiyməti yoxdursa)",
+    "App Password",
     "Aşağı mətn",
     "Avtomatik çapdan əvvəl təsdiq soruş",
+    "Ayarı sil",
     "Barkodu olmayan məhsul satıla və yadda saxlanıla bilməz (çəki ilə satılan məhsullarda çəki kodu kifayətdir).",
     "Biznesin ümumi ayarları və qəbz dizaynı.",
     "Bolt",
     "Borca yaz",
+    "Boş olsa, şirkətin adı",
     "Bu bölmədəki hər sahə öz təsdiq/imtina düymələri ilə ayrıca saxlanılır — dəyişiklik edən kimi aşağıda \"Təsdiq et\" / \"İmtina et\" görünəcək.",
     "Bu sahələrdən hansını müştəri qəbzində göstərmək istəmirsinizsə, işarəni götürün.",
     "Çap paneli",
@@ -3640,13 +3653,17 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "ChiefPrint (mətbəx çeklərinin nüsxəsi şef printerinə)",
     "Divar kağızı",
     "Düymələr və seçilmiş elementlər bu rəngdə olur (panel və POS).",
+    "E-poçt (Gmail)",
     "ƏDV",
     "ƏDV sətri",
     "Əlaqə nömrəsi",
     "Ən aşağıda — son qeydin üstündə",
     "Əsas düymə",
     "Əsas rəng",
+    "Əvvəlcə dəyişiklikləri saxlayın.",
     "Filial adı şrift ölçüsü (qəbzdə)",
+    "Gmail ünvanı",
+    "Göndərən adı (istəyə görə)",
     "Gözlətmə düyməsi",
     "Gözlətmədə mətbəx çapı (sifariş gözləmədə olsa da mətbəxə göndərilsin)",
     "Hesab verildikdən sonra müdaxilə edilə bilməz",
@@ -3712,6 +3729,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Qəbzdə görünsün",
     "Qəbzdə sıralama",
     "Rapor loqo",
+    "restoran@gmail.com",
     "Rezervasiya xəbərdarlığı (rezerv olunmuş masanı açarkən)",
     "Rənglər və dizayn",
     "Sadə qəbz rejimi aktiv olsun",
@@ -3729,6 +3747,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Sosial şəbəkələrin yeri",
     "Standart",
     "Tartım pəncərəsi (çəkili məhsul seçiləndə çəki soruşulsun)",
+    "Test məktubu göndəriləcək ünvan",
     "Tək ofisiant rejimi",
     "Tənzimləmələr",
     "Toxunuşlu ekran (touch screen) rejimi",
@@ -3741,6 +3760,7 @@ export const PAGE_SEARCH_INDEX: Record<string, string[]> = {
     "Xəbərdarlıq zəng sayı",
     "Yadda saxlanmamış dəyişikliklər var",
     "Yüklənir...",
+    "Yüklənir…",
     "Yuvarlaq",
     "Yuxarı mətn",
     "Yuxarıda — ünvanın altında"

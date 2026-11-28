@@ -17,6 +17,7 @@ import { useSelectedCompany } from "@/contexts/selected-company-context";
 import { applyTheme } from "@/lib/theme";
 import { designFromBranding } from "@/lib/receipt-render";
 import { ReceiptPreview } from "@/components/receipt-preview";
+import { CompanyEmailSettings } from "@/components/settings/company-email-settings";
 import type { CompanySettingsBranding } from "@/lib/services/company-settings-service";
 import type { OrderReceiptDto } from "@/lib/services/order-service";
 
@@ -947,6 +948,9 @@ export default function SettingsPage() {
           <div className="mt-1 max-w-[160px]">{numberField("defaultVatPercent", form.defaultVatPercent)}</div>
         </div>
       </section>
+
+      {/* E-poçt (Gmail) — saved on its own, apart from the settings above */}
+      <CompanyEmailSettings key={selectedCompanyId ?? "own"} />
 
       {isDirty && (
         <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-3 shadow-lg">

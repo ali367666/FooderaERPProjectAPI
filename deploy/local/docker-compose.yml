@@ -45,6 +45,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=FooderaERP;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True"
       Database__MigrateOnStartup: "true"
+      # Keys that encrypt the companies' saved mail passwords — must survive updates.
+      DataProtection__KeysPath: /keys
       Deployment__Mode: Local
       Licensing__PublicKeyPem: ${LICENSE_PUBLIC_KEY}
       Jwt__Secret: ${JWT_SECRET}
@@ -60,6 +62,8 @@ services:
       Seed__SuperAdminFullName: ${ADMIN_FULLNAME}
     ports:
       - "5167:5167"
+    volumes:
+      - api_keys:/keys
 
   web:
     build:
@@ -74,3 +78,4 @@ services:
 volumes:
   sqlserver_data:
   minio_data:
+  api_keys:
