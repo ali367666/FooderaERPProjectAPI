@@ -28,8 +28,8 @@ public class ExceptionMiddleware
                 .Select(x => new
                 {
                     Property = x.PropertyName,
-                    Error = x.ErrorMessage,
-                    AttemptedValue = x.AttemptedValue
+                    // The rejected value is left out on purpose: it may be a password.
+                    Error = x.ErrorMessage
                 })
                 .ToList();
 

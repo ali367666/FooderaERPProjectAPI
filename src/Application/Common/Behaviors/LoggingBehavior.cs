@@ -16,7 +16,8 @@ public class LoggingBehavior<TRequest, TResponse>
         RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Handling {RequestName} {@Request}", typeof(TRequest).Name, request);
+        // Only the name: requests carry passwords, staff codes, licence keys and tokens, which must never reach a log.
+        _logger.LogInformation("Handling {RequestName}", typeof(TRequest).Name);
 
         var response = await next();
 
